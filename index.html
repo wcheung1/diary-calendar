@@ -1490,7 +1490,10 @@ async function callAI(messages, opt){
   } else {
     headers = {'content-type':'application/json'};
     if(c.apiKey) headers['Authorization'] = 'Bearer ' + c.apiKey;
-    body = {model:c.model, temperature: opt.temp==null?0.2:opt.temp, max_tokens:opt.max||4000, messages:messages};
+    /* GLM 5.2 / DeepSeek-R1 / o1 等推理模型會先消耗大量 token 做內部推理，需要更大 max_tokens */
+    const isReasoning = /glm-5|glm-4\.6|deepseek-r|o1|o3-|qwen3|reasoning|qwq/i.test(c.model||'');
+    const defMax = isReasoning ? 8000 : 4000;
+    body = {model:c.model, temperature: opt.temp==null?0.2:opt.temp, max_tokens:opt.max||defMax, messages:messages};
     if(opt.json && c.jsonMode) body.response_format = {type:'json_object'};
   }
   let res;
@@ -1523,8 +1526,17 @@ async function callAI(messages, opt){
     out = (data.content||[]).filter(b=>b && b.type==='text').map(b=>b.text).join('\n');
   } else {
     const ch = (data.choices||[])[0];
-    const mc = ch && ch.message && ch.message.content;
+    const msg = ch && ch.message;
+    const mc = msg && msg.content;
     out = Array.isArray(mc) ? mc.map(x=>x.text||'').join('') : (mc||'');
+    /* GLM 5.2 / DeepSeek-R1 等推理模型：content 為空時，fallback 去 reasoning_content */
+    if(!out && msg && msg.reasoning_content){
+      out = String(msg.reasoning_content);
+    }
+    /* token 用晒喺推理度，正式答案未出 */
+    if(!out && ch && ch.finish_reason==='length'){
+      throw new Error('AI 諗嘢就爆 token（finish_reason=length）。GLM 5.2 等推理模型會先消耗 token 做內部推理，max_tokens 太少就連正式答案都未出。');
+    }
   }
   out = String(out||'').trim();
   if(!out) throw new Error('AI 冇覆到內容。原始回覆：' + short(txt,200));
@@ -2152,7 +2164,7 @@ $('aiTest').onclick = async ()=>{
   if(!c.base || !c.model){ setStatus('aiSetStatus','Base URL 同 Model 都要填先測到。', true); return; }
   setStatus('aiSetStatus','試緊連線…', false, true);
   try{
-    const r = await callAI([{role:'user', content:'請淨係回覆四個字：連線成功'}], {temp:0, max:64});
+    const r = await callAI([{role:'user', content:'請淨係回覆四個字：連線成功'}], {temp:0, max:8000});
     setStatus('aiSetStatus','✅ 連線成功！AI 覆咗：'+short(r,60));
   }catch(err){
     setStatus('aiSetStatus','❌ 連唔到。\n'+err.message, true);
