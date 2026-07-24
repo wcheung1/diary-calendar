@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
 <title>日程日記 · Diary Calendar</title>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -292,8 +292,36 @@ mark{background:#ffe9a8;border-radius:2px}
 .micOn{background:var(--overdue)!important;color:#fff!important;border-color:var(--overdue)!important}
 
 @media (max-width:700px){
-  #leftPane{flex-basis:220px}
-  #rangeLabel{min-width:auto}
+  /* 解除所有 freeze，變成可自由 scroll 嘅單欄版面 */
+  html,body{height:auto!important;min-height:100%;overflow:auto!important}
+  body{display:block!important}
+  header{padding:6px 8px;gap:4px}
+  header .logo{font-size:13px}
+  .viewswitch button{padding:4px 10px;font-size:12px}
+  .navgrp button{padding:4px 8px;font-size:12px}
+  #rangeLabel{min-width:auto;font-size:12px}
+  .hbtn{padding:4px 8px;font-size:11px;gap:3px}
+  #btnBulk{display:none}
+  #main{flex:none;display:block;min-height:auto}
+  #leftPane{
+    flex:none!important;max-width:none!important;width:auto!important;flex-basis:auto!important;
+    max-height:35vh;border-right:0;border-bottom:2px solid var(--line);
+    overflow:hidden;transition:max-height .25s ease;
+  }
+  #leftPane.collapsed{max-height:38px}
+  #leftPane.collapsed #treeWrap{display:none}
+  #divider{display:none}
+  #rightPane{flex:none;overflow:visible}
+  #calArea{overflow:visible;padding:10px 6px}
+  .weekGrid{min-width:auto!important;overflow-x:auto}
+  .monthGrid{min-width:auto!important;overflow-x:auto;gap:3px}
+  .mcell{min-height:60px;padding:3px}
+  .yearGrid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+  .dayList{max-width:none}
+  .modal{width:min(96vw,100%)!important;padding:14px}
+  #aiInput{min-height:70px}
+  #aiRulesBox{min-height:150px}
+  #leftHead{cursor:pointer}
 }
 </style>
 </head>
@@ -961,6 +989,37 @@ document.querySelectorAll('#viewSwitch button').forEach(b=>b.onclick=()=>setView
 document.getElementById('navToday').onclick=()=>{ cursor=new Date(); renderCal(); };
 document.getElementById('navPrev').onclick=()=>nav(-1);
 document.getElementById('navNext').onclick=()=>nav(1);
+
+/* 鍵盤左右掣導航（日/週/月/年）+ 手機 swipe */
+document.addEventListener('keydown', e=>{
+  const tag = (e.target.tagName||'').toLowerCase();
+  if(tag==='input' || tag==='textarea') return;
+  if(e.target.isContentEditable) return;
+  if(document.querySelector('.overlay.show')) return; /* 有 modal 開緊就唔導航 */
+  if(e.key==='ArrowLeft'){ e.preventDefault(); nav(-1); }
+  if(e.key==='ArrowRight'){ e.preventDefault(); nav(1); }
+});
+
+/* 手機 swipe：左右掃去上/下一個 */
+let touchStartX=0, touchStartY=0;
+const rightPane = document.getElementById('rightPane');
+rightPane.addEventListener('touchstart', e=>{
+  touchStartX = e.changedTouches[0].screenX;
+  touchStartY = e.changedTouches[0].screenY;
+}, {passive:true});
+rightPane.addEventListener('touchend', e=>{
+  const dx = e.changedTouches[0].screenX - touchStartX;
+  const dy = e.changedTouches[0].screenY - touchStartY;
+  if(Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return; /* 太短或者係垂直 scroll */
+  if(dx > 0) nav(-1); else nav(1);
+}, {passive:true});
+
+/* 手機版：撳左面板標題收合/展開 */
+document.getElementById('leftHead').addEventListener('click', ()=>{
+  if(window.innerWidth <= 700){
+    document.getElementById('leftPane').classList.toggle('collapsed');
+  }
+});
 function nav(dir){
   if(view==='day') cursor.setDate(cursor.getDate()+dir);
   else if(view==='week') cursor.setDate(cursor.getDate()+7*dir);
