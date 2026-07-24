@@ -233,6 +233,64 @@ mark{background:#ffe9a8;border-radius:2px}
 #confirmModal .modal{width:min(420px,100%)}
 #confirmMsg{line-height:1.7;white-space:pre-line}
 
+
+/* ===== 🤖 AI 排程助手（新加）===== */
+#btnAI{border-color:var(--accent);color:var(--accent);font-weight:700}
+#btnAI:hover{background:var(--accent);color:#fff}
+#aiModal .modal{width:min(900px,100%)}
+#aiSetModal .modal{width:min(560px,100%)}
+.aiTabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:12px;flex-wrap:wrap}
+.aiTabs button{border:0;background:transparent;padding:8px 12px;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;border-radius:6px 6px 0 0}
+.aiTabs button.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:700;background:var(--accent-soft)}
+.aiPane{display:none}
+.aiPane.on{display:block}
+#aiInput{width:100%;min-height:104px;padding:10px 12px;border:1px solid var(--accent);border-radius:8px;line-height:1.75;resize:vertical;font-size:14px;background:#fff;color:var(--ink)}
+#aiInput:focus{outline:2px solid var(--accent-soft);outline-offset:1px}
+.aiBar{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.aiHint{font-size:12px;color:var(--muted);line-height:1.6}
+.aiEg{border:1px dashed var(--line);background:transparent;border-radius:20px;padding:3px 10px;font-size:12px;color:var(--muted)}
+.aiEg:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.aiStatus{font-size:13px;color:var(--accent);margin:10px 0;display:none;white-space:pre-wrap;line-height:1.7}
+.aiStatus.show{display:block}
+.aiStatus.bad{color:var(--overdue)}
+.aiReply{background:var(--accent-soft);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.8;margin:10px 0;display:none;white-space:pre-wrap}
+.aiReply.show{display:block}
+.aiItem{border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:10px;margin-bottom:8px;background:#fff}
+.aiItem.skip{opacity:.42}
+.aiItem.del{border-left-color:var(--overdue)}
+.aiItem.mv{border-left-color:var(--q-blue)}
+.aiItemTop{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.aiItemTop input[type=text]{flex:1;min-width:150px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;font-weight:600}
+.aiItemTop input[type=date],.aiItemTop input[type=time],.aiItemTop select{padding:5px 6px;border:1px solid var(--line);border-radius:6px;background:#fff}
+.aiWhy{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.65}
+.aiWhy b{color:var(--accent);font-weight:600}
+.aiClash{font-size:12px;color:var(--overdue);margin-top:4px}
+.aiTag{font-size:11px;padding:1px 8px;border-radius:20px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.aiTag.mv{background:#eef3fb;color:var(--q-blue)}
+.aiTag.rm{background:#fdecec;color:var(--overdue)}
+.aiDone{background:#fff;border:1px solid var(--accent);border-radius:8px;padding:12px 14px;margin:10px 0;font-size:13px;line-height:1.9}
+.aiDone ul{margin:6px 0 0 20px}
+.logItem{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:13px;line-height:1.65;background:#fff}
+.logItem .meta{font-size:11px;color:var(--muted);display:flex;gap:8px;align-items:center;margin-bottom:3px}
+.logItem .txt{white-space:pre-wrap;word-break:break-word}
+.logType{font-size:11px;padding:1px 7px;border-radius:20px;background:var(--accent-soft);color:var(--accent)}
+.logType.t-request{background:#eef3fb;color:var(--q-blue)}
+.logType.t-plan{background:var(--accent-soft);color:var(--accent)}
+.logType.t-correction{background:#fdecec;color:var(--overdue)}
+.logType.t-feedback{background:#f3eee3;color:#8a6d1d}
+.logType.t-rule{background:#efe9f7;color:#6b4ea8}
+#aiLogList{max-height:50vh;overflow:auto;padding-right:2px}
+#aiRulesBox{width:100%;min-height:230px;padding:10px;border:1px solid var(--line);border-radius:8px;font-family:ui-monospace,Consolas,"Courier New",monospace;font-size:13px;line-height:1.75;resize:vertical;background:#fff;color:var(--ink)}
+.aiRow{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px}
+.aiRow>div{flex:1;min-width:150px}
+.aiRow label{font-size:12px;color:var(--muted);display:block;margin-bottom:3px}
+#aiSetModal input[type=text],#aiSetModal input[type=password],#aiSetModal select{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)}
+.aiWarn{background:#fdf7ec;border:1px solid #eadfc4;border-radius:8px;padding:9px 11px;font-size:12px;line-height:1.75;color:#7a6224}
+.aiSpin{display:inline-block;width:12px;height:12px;border:2px solid var(--accent-soft);border-top-color:var(--accent);border-radius:50%;animation:aispin .8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes aispin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.aiSpin{animation-duration:2.4s}}
+.micOn{background:var(--overdue)!important;color:#fff!important;border-color:var(--overdue)!important}
+
 @media (max-width:700px){
   #leftPane{flex-basis:220px}
   #rangeLabel{min-width:auto}
@@ -255,6 +313,8 @@ mark{background:#ffe9a8;border-radius:2px}
   </div>
   <span id="rangeLabel"></span>
   <div class="spacer"></div>
+  <button class="hbtn" id="btnAI">🤖 AI 排程 (Ctrl+K)</button>
+  <button class="hbtn" id="btnAISet">⚙ AI 設定</button>
   <button class="hbtn" id="btnSearch">🔍 搜尋 (Ctrl+F)</button>
   <button class="hbtn" id="btnBulk">📅 批量計劃</button>
   <button class="hbtn" id="btnExport">⬇ 匯出 JSON</button>
@@ -285,6 +345,102 @@ mark{background:#ffe9a8;border-radius:2px}
 <div class="overlay" id="exportModal"><div class="modal"><h3>匯出 JSON</h3><p class="subnote">唔揀日期就預設匯出全部資料（包括模板樹）。揀咗日期就只匯出嗰段時間嘅日程（模板樹照樣包埋，方便第日還原）。</p><div class="frow"><div><label>由</label><input type="date" id="expFrom"></div><div><label>至</label><input type="date" id="expTo"></div></div><div class="modalActs"><button class="btn" id="expCancel">取消</button><button class="btn primary" id="expGo">匯出</button></div></div></div>
 <div class="overlay" id="searchModal"><div class="modal"><input type="text" id="searchInput" placeholder="搜尋任務模板同日程…（Esc 關閉）"><div class="searchOpts"><label><input type="radio" name="sscope" value="title" checked> 淨係搜尋標題</label><label><input type="radio" name="sscope" value="all"> 連埋內文（SOP）一齊搜尋</label></div><div id="searchResults"></div></div></div>
 <div class="overlay" id="confirmModal"><div class="modal"><h3 id="confirmTitle">請確認</h3><p id="confirmMsg"></p><div class="modalActs"><button class="btn" id="cfNo">取消</button><button class="btn primary" id="cfYes">確定</button></div></div></div>
+
+
+<!-- ===== 🤖 AI 排程助手（新加）===== -->
+<div class="overlay" id="aiModal"><div class="modal">
+  <h3 style="display:flex;align-items:center;gap:8px">
+    <span>🤖 AI 排程助手</span>
+    <span style="flex:1"></span>
+    <button class="mini" id="aiOpenSet">⚙ API 設定</button>
+    <button class="mini" id="aiClose">✕ 關閉</button>
+  </h3>
+
+  <div class="aiTabs" id="aiTabs">
+    <button data-p="ask" class="on">✍️ 講低你想做乜</button>
+    <button data-p="log">📚 Data Log（佢嘅記憶）</button>
+    <button data-p="rule">🧠 General Rules（規則）</button>
+  </div>
+
+  <!-- Tab 1：排程 -->
+  <div class="aiPane on" id="paneAsk">
+    <textarea id="aiInput" placeholder="直接用廣東話講，例如：&#10;・聽日下晝三點同陳生開會，開兩個鐘&#10;・幫我搵時間跑步（唔使講時間，佢會照你以前嘅習慣估）&#10;・下星期一至五每朝溫書&#10;&#10;打完撳 Enter 送出，想換行就 Shift + Enter。"></textarea>
+    <div class="aiBar">
+      <button class="btn primary" id="aiSend">↵ 送出</button>
+      <button class="btn" id="aiMic" title="用把口講（Chrome 先支援）">🎤 講嘢</button>
+      <span class="aiHint" id="aiHint"></span>
+    </div>
+    <div class="aiBar" id="aiEgs"></div>
+    <div class="aiStatus" id="aiStatus"></div>
+    <div class="aiReply" id="aiReply"></div>
+    <div id="aiItems"></div>
+    <div class="modalActs" id="aiActs" style="display:none">
+      <button class="btn" id="aiRedo">↺ 唔啱，我補多兩句叫佢再排</button>
+      <span style="flex:1"></span>
+      <button class="btn danger" id="aiDrop">✖ 全部唔要</button>
+      <button class="btn primary" id="aiApply">✓ 加入行事曆</button>
+    </div>
+  </div>
+
+  <!-- Tab 2：Data Log -->
+  <div class="aiPane" id="paneLog">
+    <p class="subnote">你講過嘅每一句、AI 排過嘅每個決定、同埋你之後每一次改動（喺行事曆度拖時間、改鐘數、刪走），全部自動記喺呢度。呢度就係佢學你 pattern 嘅材料。</p>
+    <div class="aiBar">
+      <select id="aiLogFilter" style="padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fff">
+        <option value="">全部</option>
+        <option value="request">我講嘅嘢</option>
+        <option value="plan">AI 嘅安排</option>
+        <option value="correction">我嘅糾正</option>
+        <option value="feedback">我直接教佢</option>
+        <option value="rule">規則更新</option>
+      </select>
+      <button class="btn" id="aiLogExport">⬇ 備份</button>
+      <button class="btn" id="aiLogImportBtn">⬆ 還原</button>
+      <input type="file" id="aiLogImport" accept=".json,application/json" style="display:none">
+      <button class="btn danger" id="aiLogClear">🗑 全部清走</button>
+      <span class="aiHint" id="aiLogCount"></span>
+    </div>
+    <div class="aiRow">
+      <div style="flex:3"><label>直接教佢一句（即刻入 Data Log）</label><input type="text" id="aiTeach" placeholder="例如：夜晚 10 點之後唔好幫我排任何嘢" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px"></div>
+      <div style="flex:0 0 auto;align-self:flex-end"><button class="btn" id="aiTeachGo">記低</button></div>
+    </div>
+    <div id="aiLogList"></div>
+  </div>
+
+  <!-- Tab 3：General Rules -->
+  <div class="aiPane" id="paneRule">
+    <p class="subnote">呢份規則係 AI 睇完成個 Data Log 之後，總結出嚟嘅「你嘅使用說明書」。每次幫你排程之前，佢都會先讀呢度。你可以自己執，執完撳儲存。</p>
+    <div class="aiBar">
+      <button class="btn primary" id="aiRuleGen">🧠 依家由 Data Log 重新提煉</button>
+      <button class="btn" id="aiRuleSave">💾 儲存我手改嘅</button>
+      <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px"><input type="checkbox" id="aiAutoRule"> 夠 3 次糾正就自動更新</label>
+      <span class="aiHint" id="aiRuleAt"></span>
+    </div>
+    <textarea id="aiRulesBox" placeholder="（未有規則。可以自己寫幾條，或者用完幾次之後撳上面粒掣叫 AI 幫你總結。）"></textarea>
+    <div class="aiStatus" id="aiRuleStatus"></div>
+  </div>
+</div></div>
+
+<div class="overlay" id="aiSetModal"><div class="modal">
+  <h3>⚙ AI API 設定</h3>
+  <div class="aiWarn">🔒 呢三格資料淨係存喺你部電腦嘅瀏覽器入面，唔會寫入個 HTML 檔，亦都唔會上去 Google 雲端。換咗電腦、或者清咗瀏覽器資料，就要再填一次。</div>
+  <div class="aiRow" style="margin-top:12px"><div><label>供應商（揀完會自動填好下面兩格）</label><select id="aiProv"></select></div></div>
+  <div class="aiRow"><div><label>Base URL（網址）</label><input type="text" id="aiBase" placeholder="https://api.openai.com/v1" spellcheck="false"></div></div>
+  <div class="aiRow"><div><label>Model（型號名，要同官網一模一樣）</label><input type="text" id="aiModel" placeholder="gpt-4o-mini" spellcheck="false"></div></div>
+  <div class="aiRow">
+    <div><label>API Key（金鑰）</label><input type="password" id="aiKey" placeholder="sk-xxxxxxxx" spellcheck="false"></div>
+    <div style="flex:0 0 auto;align-self:flex-end"><button class="btn" id="aiKeyShow">👁 睇下</button></div>
+  </div>
+  <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px"><input type="checkbox" id="aiJson"> 用嚴格 JSON 模式（OpenAI／DeepSeek 支援；如果送出時報錯，熄返佢）</label>
+  <div class="aiStatus" id="aiSetStatus"></div>
+  <div class="modalActs">
+    <button class="btn danger" id="aiSetClear">清除全部</button>
+    <span style="flex:1"></span>
+    <button class="btn" id="aiTest">🔌 測試連線</button>
+    <button class="btn" id="aiSetCancel">取消</button>
+    <button class="btn primary" id="aiSetSave">儲存</button>
+  </div>
+</div></div>
 
 <script>
 /* =========================================================
@@ -1263,6 +1419,737 @@ function revealInTree(id){
 })();
 
 setInterval(()=>{ if(!document.hidden) renderCal(); }, 60000);
+
+/* =========================================================
+   🤖 AI 排程助手（新加，唔會改到上面任何原有功能）
+   循環：你講嘢 → AI 排時間表 → 你確認／改 → 全部入 Data Log
+        → Data Log 提煉 General Rules → 下次排程照住 Rules 做
+========================================================= */
+(function(){
+'use strict';
+
+/* ---------- 0. 小工具 ---------- */
+const $ = id => document.getElementById(id);
+function nowISO(){ return new Date().toISOString(); }
+function m2t(m){ return pad(Math.floor(m/60))+':'+pad(m%60); }
+function wdOf(ds){ const d=new Date(ds+'T00:00'); return WD[(d.getDay()+6)%7]; }
+function short(s,n){ s=String(s==null?'':s); return s.length>n ? s.slice(0,n)+'…' : s; }
+function clean(o){ Object.keys(o).forEach(k=>{ if(o[k]===undefined) delete o[k]; }); return o; }
+
+/* ---------- 1. API 設定（只寫入本機 localStorage） ---------- */
+const CFG_KEY = 'diarycal_ai_cfg_v1';
+const PRESETS = {
+  openai    :{name:'OpenAI（GPT）',                kind:'openai',    base:'https://api.openai.com/v1',                               model:'gpt-4o-mini'},
+  deepseek  :{name:'DeepSeek（最平，中文好）',      kind:'openai',    base:'https://api.deepseek.com/v1',                             model:'deepseek-chat'},
+  anthropic :{name:'Anthropic（Claude）',          kind:'anthropic', base:'https://api.anthropic.com',                               model:'claude-sonnet-5'},
+  gemini    :{name:'Google Gemini',                kind:'openai',    base:'https://generativelanguage.googleapis.com/v1beta/openai', model:'gemini-2.5-flash'},
+  openrouter:{name:'OpenRouter（一個 key 用晒多家）',kind:'openai',   base:'https://openrouter.ai/api/v1',                            model:'openai/gpt-4o-mini'},
+  groq      :{name:'Groq（極快，有免費額）',         kind:'openai',    base:'https://api.groq.com/openai/v1',                          model:'llama-3.3-70b-versatile'},
+  ollama    :{name:'本機 Ollama（免費、離線、唔使 key）',kind:'openai',base:'http://localhost:11434/v1',                              model:'qwen2.5:7b'},
+  custom    :{name:'自訂（自己填晒）',               kind:'openai',    base:'',                                                        model:''}
+};
+function cfg(){ try{ return JSON.parse(localStorage.getItem(CFG_KEY)) || {}; }catch(e){ return {}; } }
+function cfgSave(o){ try{ localStorage.setItem(CFG_KEY, JSON.stringify(o)); }catch(e){ alert('存唔到設定：'+e.message); } }
+function isLocal(b){ return /localhost|127\.0\.0\.1/.test(b||''); }
+function cfgReady(){ const c=cfg(); return !!(c.base && c.model && (c.apiKey || isLocal(c.base))); }
+
+function endpoint(c){
+  let b = String(c.base||'').trim().replace(/\/+$/,'');
+  if(c.kind==='anthropic'){
+    if(/\/v1\/messages$/.test(b)) return b;
+    return b.replace(/\/v1$/,'') + '/v1/messages';
+  }
+  if(/\/chat\/completions$/.test(b)) return b;
+  return b + '/chat/completions';
+}
+
+async function callAI(messages, opt){
+  opt = opt || {};
+  const c = cfg();
+  if(!c.base || !c.model) throw new Error('仲未設定 API。撳一下右上角「⚙ API 設定」，填返 Base URL、Model 同 API Key。');
+  const url = endpoint(c);
+  let headers, body;
+  if(c.kind==='anthropic'){
+    headers = {
+      'content-type':'application/json',
+      'x-api-key': c.apiKey||'',
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    };
+    const sys = messages.filter(m=>m.role==='system').map(m=>m.content).join('\n\n');
+    body = {
+      model:c.model, max_tokens:opt.max||4000,
+      temperature: opt.temp==null ? 0.2 : opt.temp,
+      system: sys,
+      messages: messages.filter(m=>m.role!=='system').map(m=>({role:m.role, content:m.content}))
+    };
+  } else {
+    headers = {'content-type':'application/json'};
+    if(c.apiKey) headers['Authorization'] = 'Bearer ' + c.apiKey;
+    body = {model:c.model, temperature: opt.temp==null?0.2:opt.temp, max_tokens:opt.max||4000, messages:messages};
+    if(opt.json && c.jsonMode) body.response_format = {type:'json_object'};
+  }
+  let res;
+  try{
+    res = await fetch(url, {method:'POST', headers:headers, body:JSON.stringify(body)});
+  }catch(err){
+    throw new Error('連唔到個 API：' + url + '\n常見原因：\n① Base URL 打錯字；\n② 冇上網 / 公司防火牆擋咗；\n③ 瀏覽器 CORS 擋咗（試下用 Chrome，或者換第二家供應商）。\n技術訊息：' + err.message);
+  }
+  const txt = await res.text();
+  if(!res.ok){
+    let msg = txt;
+    try{ const j=JSON.parse(txt); msg=(j.error&&(j.error.message||j.error.type))||txt; }catch(e){}
+    const hint = (res.status===401||res.status===403) ? '（多數係 API Key 打錯、或者未儲值／未開通）'
+               : res.status===404 ? '（多數係 Base URL 或者 Model 個名錯咗）'
+               : res.status===429 ? '（叫得太密，或者額度用完）'
+               : res.status>=500 ? '（供應商伺服器出事，等陣再試）' : '';
+    throw new Error('API 回報錯誤 ' + res.status + ' ' + hint + '\n' + short(msg,400));
+  }
+  let data;
+  try{ data = JSON.parse(txt); }catch(e){ throw new Error('讀唔明 AI 嘅回覆：' + short(txt,200)); }
+  let out = '';
+  if(c.kind==='anthropic'){
+    out = (data.content||[]).filter(b=>b && b.type==='text').map(b=>b.text).join('\n');
+  } else {
+    const ch = (data.choices||[])[0];
+    const mc = ch && ch.message && ch.message.content;
+    out = Array.isArray(mc) ? mc.map(x=>x.text||'').join('') : (mc||'');
+  }
+  out = String(out||'').trim();
+  if(!out) throw new Error('AI 冇覆到內容。原始回覆：' + short(txt,200));
+  return out;
+}
+
+function grabJSON(txt){
+  let s = String(txt||'').trim();
+  s = s.replace(/^```[a-zA-Z]*\s*/,'').replace(/```\s*$/,'').trim();
+  const i = s.indexOf('{'), j = s.lastIndexOf('}');
+  if(i<0 || j<=i) throw new Error('AI 冇跟格式覆 JSON。佢覆咗：\n' + short(s,300));
+  try{ return JSON.parse(s.slice(i, j+1)); }
+  catch(e){ throw new Error('AI 覆嘅 JSON 有錯，讀唔到。佢覆咗：\n' + short(s,300)); }
+}
+
+/* ---------- 2. Data Log ---------- */
+const TYPE_NAME = {request:'我講嘅嘢', plan:'AI 嘅安排', correction:'我嘅糾正', feedback:'我教佢', rule:'規則更新'};
+
+function ensureAI(){
+  if(!state.ai || typeof state.ai !== 'object') state.ai = {};
+  if(!Array.isArray(state.ai.log)) state.ai.log = [];
+  if(typeof state.ai.rules !== 'string') state.ai.rules = '';
+  if(typeof state.ai.rulesAt !== 'string') state.ai.rulesAt = '';
+  if(typeof state.ai.sinceRule !== 'number') state.ai.sinceRule = 0;
+  return state.ai;
+}
+
+function logPush(type, text, extra){
+  ensureAI();
+  const e = clean(Object.assign({id:uid(), at:nowISO(), type:type, text:String(text||'')}, extra||{}));
+  state.ai.log.push(e);
+  if(type==='correction' || type==='feedback') state.ai.sinceRule = (state.ai.sinceRule||0) + 1;
+  if(state.ai.log.length > 600) state.ai.log = state.ai.log.slice(-600);
+  return e;
+}
+
+/* 自動偵測「你之後改咗 AI 排嘅嘢」→ 當成糾正記落 Data Log */
+let snap = null, mute = false;
+function takeSnap(){
+  snap = {};
+  (state.events||[]).forEach(e=>{ if(e && e.ai) snap[e.id] = {title:e.title, start:e.start, end:e.endOverride||''}; });
+}
+function diffSnap(){
+  if(snap===null){ takeSnap(); return; }
+  const cur = {};
+  (state.events||[]).forEach(e=>{ if(e && e.ai) cur[e.id]=e; });
+  const gone = [];
+  Object.keys(snap).forEach(id=>{
+    const b = snap[id], c = cur[id];
+    if(!c){ gone.push(b); return; }
+    if(c.start!==b.start || c.title!==b.title || (c.endOverride||'')!==b.end){
+      logPush('correction',
+        '我將 AI 排嘅「'+b.title+'」由 '+b.start.replace('T',' ')+' 改做「'+c.title+'」'+c.start.replace('T',' '),
+        {kind:'edit', title:c.title, from:b.start, to:c.start});
+    }
+  });
+  if(gone.length && gone.length<=3){
+    gone.forEach(b=>logPush('correction',
+      '我刪咗 AI 排嘅「'+b.title+'」（原本 '+b.start.replace('T',' ')+'）',
+      {kind:'delete', title:b.title, from:b.start}));
+  }
+  takeSnap();
+}
+
+/* 包住原本嘅 save()：每次儲存前，順手比對有冇改動 */
+const _save = save;
+save = function(){
+  try{
+    ensureAI();
+    if(mute || snap===null) takeSnap(); else diffSnap();
+  }catch(e){ console.warn('AI log diff 出錯', e); }
+  return _save.apply(this, arguments);
+};
+
+/* 載入雲端／登入登出之後，重新影一次底 */
+const _renderTree = renderTree;
+renderTree = function(){ try{ ensureAI(); if(snap===null) takeSnap(); }catch(e){} return _renderTree.apply(this, arguments); };
+try{ if(typeof auth!=='undefined' && auth.onAuthStateChanged) auth.onAuthStateChanged(()=>{ snap=null; }); }catch(e){}
+
+/* 匯入 JSON 時唔好整走 Data Log */
+try{
+  const impEl = $('importFile');
+  const _imp = impEl.onchange;
+  impEl.onchange = async function(){
+    const keep = JSON.parse(JSON.stringify(ensureAI()));
+    await _imp.apply(this, arguments);
+    ensureAI();
+    if(!state.ai.log.length && keep.log.length){ state.ai = keep; snap=null; save(); }
+  };
+}catch(e){}
+
+/* ---------- 3. 由歷史計「習慣統計」 ---------- */
+function habits(limit){
+  const map = new Map();
+  (state.events||[]).forEach(e=>{
+    const k = String(e.title||'').trim();
+    if(!k || !e.start) return;
+    let o = map.get(k);
+    if(!o){ o = {n:0, t:[], wd:[0,0,0,0,0,0,0], last:''}; map.set(k,o); }
+    o.n++;
+    o.t.push(minutes(e.start.slice(11)));
+    const d = new Date(e.start.slice(0,10)+'T00:00');
+    o.wd[(d.getDay()+6)%7]++;
+    if(e.start > o.last) o.last = e.start;
+  });
+  return [...map.entries()].map(function(pair){
+    const k = pair[0], o = pair[1];
+    o.t.sort((a,b)=>a-b);
+    const top = o.wd.map((c,i)=>({c:c,i:i})).filter(x=>x.c>0).sort((a,b)=>b.c-a.c).slice(0,3).map(x=>'星期'+WD[x.i]).join('、');
+    return {name:k, n:o.n, med:m2t(o.t[Math.floor(o.t.length/2)]), lo:m2t(o.t[0]), hi:m2t(o.t[o.t.length-1]), wd:top, last:o.last.slice(0,10)};
+  }).sort((a,b)=>b.n-a.n).slice(0, limit||25);
+}
+
+function ctxText(){
+  ensureAI();
+  const now = new Date();
+  const L = [];
+  L.push('【而家係】'+fmtDate(now)+' '+fmtTime(now)+'（星期'+WD[(now.getDay()+6)%7]+'）');
+
+  const r = (state.ai.rules||'').trim();
+  L.push('\n【General Rules ── 用戶偏好（最高優先，一定要跟）】\n' + (r || '（暫時未有，靠下面嘅歷史自己推斷）'));
+
+  const tpl = allTasks().map(x => (x.path ? x.path+' › ' : '') + x.node.name).slice(0,80);
+  L.push('\n【現有任務模板（如果用戶講嘅嘢對得上，標題就用返模板個名）】\n' + (tpl.length ? tpl.map(s=>'- '+s).join('\n') : '（冇）'));
+
+  const hb = habits(25);
+  L.push('\n【歷史習慣統計】\n' + (hb.length
+    ? hb.map(h=>'- '+h.name+'：做過 '+h.n+' 次，慣常時間 '+h.med+'（範圍 '+h.lo+'–'+h.hi+'），多數喺 '+(h.wd||'無固定')+'，最近一次 '+h.last).join('\n')
+    : '（未有歷史記錄）'));
+
+  const nw = nowStr();
+  const past = (state.events||[]).filter(e=>e.start<=nw).sort((a,b)=>b.start.localeCompare(a.start)).slice(0,30).reverse();
+  L.push('\n【最近 30 條已發生記錄】\n' + (past.length
+    ? past.map(e=>'- '+e.start.replace('T',' ')+'（星期'+wdOf(e.start.slice(0,10))+'）'+e.title).join('\n')
+    : '（冇）'));
+
+  const up = (state.events||[]).filter(e=>e.start>nw).sort((a,b)=>a.start.localeCompare(b.start)).slice(0,60);
+  L.push('\n【將來已經排好嘅嘢（要避開撞時間；move／delete 就抄返個 id）】\n' + (up.length
+    ? up.map(e=>'- [id:'+e.id+'] '+e.start.replace('T',' ')+' '+e.title+(e.endOverride? ' → '+e.endOverride : '')).join('\n')
+    : '（冇）'));
+
+  const lg = (state.ai.log||[]).slice(-14);
+  L.push('\n【最近嘅對話同糾正（要學返嚟）】\n' + (lg.length
+    ? lg.map(x=>'- ('+(TYPE_NAME[x.type]||x.type)+') '+short(x.text,220)).join('\n')
+    : '（冇）'));
+
+  return L.join('\n');
+}
+
+/* ---------- 4. Prompt ---------- */
+const SYS_PLAN = [
+'你係一個「日程排程助手」，服務一位講廣東話嘅香港用戶。',
+'工作：讀用戶一段自然語言，變成具體嘅行事曆項目，用 JSON 交返出嚟。',
+'',
+'鐵則：',
+'1) 只可以輸出一個 JSON object。唔准有任何開場白、解釋、markdown 圍欄。',
+'2) 用戶有講明日期／時間 → 一定要照跟，唔准擅自改。',
+'3) 用戶冇講時間 → 根據 General Rules 同歷史習慣統計推斷佢通常幾點做，並喺 reason 講明證據（例如：你過去 8 次跑步都係 07:00 左右）。',
+'4) 用戶冇講日期 → 揀最合理嗰日（通常係今日剩返嘅時間、或者聽日），同樣要喺 reason 解釋。',
+'5) 唔好排喺已經過去嘅時間。除非用戶明顯係「記錄返啱啱做完嘅嘢」，嗰陣 done 先設 true。',
+'6) 盡量避開「將來已經排好嘅嘢」。真係避唔到就照排，但要喺 reason 講明會撞邊件。',
+'7) 「每日／每朝／連續幾日／一至五」呢類重覆，逐日開一件 item。用戶冇講幾耐就預設 7 日，並喺 reply 講返你預設咗幾多日。',
+'8) title 要短、名詞化（例如「跑步」「同陳生開會」），唔好成句照抄用戶啲字。',
+'9) 用戶想改時間 → action="move"；想取消 → action="delete"，兩者都要填返上面清單嗰個 id。',
+'10) reply 一定要用廣東話口語，逐件講清楚你安排咗幾時做乜，例如：「幫你安排咗 7月25號（星期六）09:00 跑步」。',
+'11) 一次最多 30 件 item。真係要更多就喺 reply 講明剩返嗰啲要佢再講一次。',
+'',
+'必須跟足呢個 JSON 格式：',
+'{',
+'  "reply": "用廣東話講返你安排咗啲乜，一至三句",',
+'  "items": [{',
+'    "action": "add 或 move 或 delete",',
+'    "id": "淨係 move／delete 先填，抄返清單嘅 id；add 就填空字串",',
+'    "title": "項目名",',
+'    "date": "YYYY-MM-DD",',
+'    "time": "HH:MM（24 小時制）",',
+'    "end": "HH:MM，有明確時長先填，否則空字串",',
+'    "color": "red=緊要又重要／amber=重要唔緊要／blue=緊要唔重要／grey=兩樣都唔係／空字串=唔標色",',
+'    "sop": "用戶有講步驟或要點就放呢度（Markdown），冇就空字串",',
+'    "reason": "點解揀呢日呢個時間，一句廣東話",',
+'    "confidence": 0.85',
+'  }],',
+'  "learned": ["今次新學到、值得長期記低嘅用戶偏好；冇就空陣列"]',
+'}'
+].join('\n');
+
+const SYS_RULE = [
+'你係一個負責總結「用戶排程偏好」嘅助手。',
+'輸入：用戶現有嘅規則、佢嘅 Data Log（講過嘅嘢、AI 排過乜、佢點糾正）、同埋歷史習慣統計。',
+'輸出：一份更新版嘅 General Rules，純 Markdown 文字，唔好用 JSON，唔好加開場白。',
+'',
+'要求：',
+'- 用廣東話書面語，每條一行，具體、可以直接執行（要有時間、日子、時長）。',
+'- 全份最多 22 條。舊規則仲啱嘅就保留；同新糾正有衝突，一律以最新糾正為準。',
+'- 只准寫證據支持到嘅嘢，唔准作。淨係得一兩次證據嘅，喺句尾加「（證據較少）」。',
+'- 用返呢四個標題分段：',
+'  ## 時間習慣',
+'  ## 排程偏好',
+'  ## 用詞對照',
+'  ## 唔好做'
+].join('\n');
+
+/* ---------- 5. 介面 ---------- */
+let cur = {rows:[], plan:null, req:''};
+
+function setStatus(el, msg, bad, spin){
+  const e = $(el);
+  e.className = 'aiStatus' + (msg? ' show':'') + (bad? ' bad':'');
+  e.innerHTML = (spin? '<span class="aiSpin"></span>':'') + esc(msg||'');
+}
+function openAI(tab){
+  ensureAI();
+  show('aiModal');
+  switchTab(tab||'ask');
+  if(!cfgReady()) setStatus('aiStatus','仲未設定 API。撳右上角「⚙ API 設定」先。', true);
+  else $('aiHint').textContent = '而家用緊：' + (cfg().model||'');
+  setTimeout(()=>{ if((tab||'ask')==='ask') $('aiInput').focus(); }, 60);
+}
+function switchTab(p){
+  document.querySelectorAll('#aiTabs button').forEach(b=>b.classList.toggle('on', b.dataset.p===p));
+  document.querySelectorAll('#aiModal .aiPane').forEach(x=>x.classList.remove('on'));
+  $('pane'+p.charAt(0).toUpperCase()+p.slice(1)).classList.add('on');
+  if(p==='log') renderLog();
+  if(p==='rule') loadRules();
+}
+document.querySelectorAll('#aiTabs button').forEach(b=> b.onclick = ()=>switchTab(b.dataset.p));
+$('btnAI').onclick = ()=>openAI('ask');
+$('aiClose').onclick = ()=>hide('aiModal');
+document.addEventListener('keydown', e=>{
+  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); openAI('ask'); }
+});
+
+/* 例句 */
+['聽日下晝三點同陳生開會，開兩個鐘','幫我搵時間跑步','下星期一至五每朝溫書一個鐘','今個禮拜六大掃除','幫我將聽日 9 點嗰個會推遲一個鐘']
+.forEach(t=>{
+  const b=document.createElement('button'); b.className='aiEg'; b.textContent=t;
+  b.onclick=()=>{ $('aiInput').value=t; $('aiInput').focus(); };
+  $('aiEgs').appendChild(b);
+});
+
+/* Enter 送出（打中文時唔會誤送） */
+$('aiInput').addEventListener('keydown', e=>{
+  if(e.key==='Enter' && !e.shiftKey && !e.isComposing && !e.ctrlKey && !e.metaKey){
+    e.preventDefault(); doSend();
+  }
+});
+$('aiSend').onclick = ()=>doSend();
+
+async function doSend(extraNote){
+  const text = $('aiInput').value.trim();
+  if(!text && !extraNote){ setStatus('aiStatus','先打低你想做乜。', true); return; }
+  if(!cfgReady()){ setStatus('aiStatus','仲未設定 API。撳右上角「⚙ API 設定」。', true); show('aiSetModal'); return; }
+  $('aiSend').disabled = true;
+  $('aiActs').style.display='none';
+  $('aiItems').innerHTML=''; $('aiReply').className='aiReply';
+  setStatus('aiStatus','AI 諗緊點幫你排…', false, true);
+  try{
+    const raw = await callAI([
+      {role:'system', content:SYS_PLAN},
+      {role:'user', content: ctxText() + '\n\n【用戶今次講】\n' + text + (extraNote ? '\n\n【用戶對上一次建議嘅意見，要照住改】\n'+extraNote : '')}
+    ], {json:true, temp:0.2});
+    const j = grabJSON(raw);
+    cur.plan = j; cur.req = text + (extraNote? '（補充：'+extraNote+'）' : '');
+
+    logPush('request', cur.req);
+    logPush('plan', (j.reply||'') + '\n' + (j.items||[]).map(it=>'· '+(it.action||'add')+' '+(it.date||'')+' '+(it.time||'')+' '+(it.title||'')+(it.reason? '｜'+it.reason:'')).join('\n'),
+      {count:(j.items||[]).length});
+    (j.learned||[]).slice(0,5).forEach(x=>{ if(x) logPush('feedback','AI 觀察到：'+x, {kind:'ai-learned'}); });
+    save();
+
+    setStatus('aiStatus','');
+    $('aiReply').textContent = j.reply || '（AI 冇留低說明）';
+    $('aiReply').className = 'aiReply show';
+    renderItems(j);
+    if((j.items||[]).length){ $('aiActs').style.display='flex'; }
+    else setStatus('aiStatus','AI 覆咗你，但冇排到任何項目。試下講得具體啲。', true);
+  }catch(err){
+    setStatus('aiStatus', err.message || String(err), true);
+  }finally{
+    $('aiSend').disabled = false;
+  }
+}
+
+function clashText(date, time, skipId){
+  if(!date||!time) return '';
+  const t = minutes(time);
+  const hit = (state.events||[]).filter(e=>e.start.slice(0,10)===date && e.id!==skipId && Math.abs(minutes(e.start.slice(11))-t) < 30);
+  return hit.length ? '⚠ 同「'+hit.map(e=>e.title+' '+e.start.slice(11)).join('、')+'」時間好近' : '';
+}
+
+function renderItems(plan){
+  const box = $('aiItems'); box.innerHTML=''; cur.rows=[];
+  (plan.items||[]).slice(0,30).forEach(it=>{
+    const act = String(it.action||'add').toLowerCase();
+    const el = document.createElement('div');
+    el.className = 'aiItem' + (act==='delete'?' del' : act==='move'?' mv':'');
+    const top = document.createElement('div'); top.className='aiItemTop';
+
+    const cb = document.createElement('input'); cb.type='checkbox'; cb.checked=true; cb.title='唔要呢件就熄咗佢';
+    const tag = document.createElement('span');
+    tag.className = 'aiTag' + (act==='move'?' mv' : act==='delete'?' rm':'');
+    tag.textContent = act==='move' ? '改時間' : act==='delete' ? '刪走' : '新增';
+
+    const ttl = document.createElement('input'); ttl.type='text'; ttl.value = it.title||'';
+    const dt = document.createElement('input'); dt.type='date'; dt.value = it.date||fmtDate(new Date());
+    const tm = document.createElement('input'); tm.type='time'; tm.value = String(it.time||'09:00').slice(0,5);
+    const en = document.createElement('input'); en.type='time'; en.value = String(it.end||'').slice(0,5); en.title='完結時間（可以唔填）';
+    const col = document.createElement('select');
+    [['','⚪ 唔標色'],['red','🔴 緊要+重要'],['amber','🟠 重要唔緊要'],['blue','🔵 緊要唔重要'],['grey','⚫ 兩樣都唔係']]
+      .forEach(p=>{ const o=document.createElement('option'); o.value=p[0]; o.textContent=p[1]; col.appendChild(o); });
+    col.value = it.color||'';
+
+    top.appendChild(cb); top.appendChild(tag); top.appendChild(ttl);
+    if(act!=='delete'){ top.appendChild(dt); top.appendChild(tm); top.appendChild(en); top.appendChild(col); }
+    el.appendChild(top);
+
+    const why = document.createElement('div'); why.className='aiWhy';
+    why.innerHTML = '<b>點解咁排：</b>' + esc(it.reason||'（AI 冇解釋）') +
+      (it.confidence!=null ? '　<span style="opacity:.7">把握 '+Math.round(Number(it.confidence)*100)+'%</span>' : '');
+    el.appendChild(why);
+
+    const cl = document.createElement('div'); cl.className='aiClash';
+    el.appendChild(cl);
+    const upd = ()=>{ cl.textContent = act==='delete' ? '' : clashText(dt.value, tm.value, it.id||''); };
+    upd(); dt.onchange=upd; tm.onchange=upd;
+    cb.onchange = ()=> el.classList.toggle('skip', !cb.checked);
+
+    box.appendChild(el);
+    cur.rows.push({orig:it, act:act, cb:cb, ttl:ttl, dt:dt, tm:tm, en:en, col:col});
+  });
+}
+
+function findTplByName(n){
+  const t = String(n||'').trim();
+  const hit = allTasks().find(x=>String(x.node.name).trim()===t);
+  return hit ? hit.node : null;
+}
+
+$('aiDrop').onclick = ()=>{
+  if(cur.rows.length) logPush('correction','AI 今次排嘅嘢我全部唔要（原本要求：'+short(cur.req,80)+'）', {kind:'reject-all'});
+  save();
+  cur = {rows:[], plan:null, req:''};
+  $('aiItems').innerHTML=''; $('aiActs').style.display='none'; $('aiReply').className='aiReply';
+  setStatus('aiStatus','已經取消，冇加入任何嘢。今次嘅拒絕都記低咗，佢下次會避返。');
+};
+$('aiRedo').onclick = async ()=>{
+  const note = prompt('邊度唔啱？講一句俾佢知，佢會即刻再排一次。\n例如：太早喇，改夜晚 8 點之後');
+  if(note==null || !note.trim()) return;
+  logPush('correction','我叫佢改：'+note.trim(), {kind:'redo'});
+  save();
+  await doSend(note.trim());
+};
+
+$('aiApply').onclick = ()=>{
+  const added = [];
+  let firstDate = '';
+  mute = true;
+  try{
+    cur.rows.forEach(r=>{
+      const o = r.orig;
+      if(!r.cb.checked){
+        logPush('correction','AI 建議嘅「'+(o.title||'')+'」我唔要', {kind:'reject', title:String(o.title||'')});
+        return;
+      }
+      if(r.act==='delete'){
+        const ev = (state.events||[]).find(e=>e.id===o.id);
+        if(ev){
+          state.events = state.events.filter(e=>e.id!==o.id);
+          added.push('🗑 刪走：'+ev.title+'（'+ev.start.replace('T',' ')+'）');
+        }
+        return;
+      }
+      const title = r.ttl.value.trim() || o.title || '未命名';
+      const date = r.dt.value, time = r.tm.value;
+      if(!date || !time) return;
+      const start = date + 'T' + time;
+      const end = r.en.value || null;
+      const color = r.col.value || '';
+
+      if(title!==String(o.title||'') || date!==String(o.date||'') || time!==String(o.time||'')){
+        logPush('correction',
+          'AI 原本排「'+(o.title||'')+'」喺 '+(o.date||'?')+' '+(o.time||'?')+'，我改咗做「'+title+'」'+date+' '+time,
+          {kind:'preview-edit', title:title, from:String(o.date||'')+'T'+String(o.time||''), to:start});
+      }
+
+      if(r.act==='move'){
+        const ev = (state.events||[]).find(e=>e.id===o.id);
+        if(ev){
+          ev.title = title; ev.start = start; ev.endOverride = end;
+          if(color) ev.color = color;
+          ev.ai = true;
+          added.push('🕒 改時間：'+title+' → '+date+'（星期'+wdOf(date)+'）'+time);
+          if(!firstDate) firstDate = date;
+          return;
+        }
+      }
+      const tpl = findTplByName(title);
+      const future = start > nowStr();
+      state.events.push({
+        id: uid(), title: title, start: start, endOverride: end,
+        sop: String(o.sop||'') || (tpl ? (tpl.sop||'') : ''),
+        color: color || (tpl ? (tpl.color||'') : ''),
+        templateId: tpl ? tpl.id : null,
+        planned: future, done: !future,
+        ai: true, aiAt: nowISO()
+      });
+      added.push('✅ '+date+'（星期'+wdOf(date)+'）'+time+'　'+title);
+      if(!firstDate) firstDate = date;
+    });
+  } finally { mute = false; }
+
+  logPush('plan', '已落實：\n' + (added.join('\n')||'（冇加入任何嘢）'), {kind:'applied', count:added.length});
+  takeSnap();
+  save();
+
+  if(firstDate){ cursor = new Date(firstDate+'T00:00'); }
+  renderCal(); renderTree();
+
+  const box = $('aiItems');
+  box.innerHTML = '';
+  const d = document.createElement('div'); d.className='aiDone';
+  d.innerHTML = '<b>搞掂喇 👍</b><ul>' + added.map(x=>'<li>'+esc(x)+'</li>').join('') + '</ul>' +
+    '<div class="subnote" style="margin-top:8px">今次嘅決定同你嘅修改，已經全部記晒入 Data Log。</div>';
+  box.appendChild(d);
+  $('aiActs').style.display='none';
+  $('aiInput').value='';
+  setStatus('aiStatus','');
+
+  const c = cfg();
+  if(c.autoRule && (state.ai.sinceRule||0) >= 3){
+    setStatus('aiStatus','偵測到有 '+state.ai.sinceRule+' 次糾正，自動更新緊 General Rules…', false, true);
+    genRules(true).then(()=>setStatus('aiStatus','General Rules 已經自動更新好。'))
+                  .catch(err=>setStatus('aiStatus','自動更新規則失敗：'+err.message, true));
+  }
+};
+
+/* ---------- 6. Data Log 版面 ---------- */
+function renderLog(){
+  ensureAI();
+  const f = $('aiLogFilter').value;
+  const all = state.ai.log||[];
+  const list = all.slice().reverse().filter(x=>!f || x.type===f);
+  $('aiLogCount').textContent = '共 '+all.length+' 條' + ((state.ai.sinceRule||0) ? '　（上次提煉規則之後有 '+state.ai.sinceRule+' 次糾正）' : '');
+  const box = $('aiLogList'); box.innerHTML='';
+  if(!list.length){
+    box.innerHTML = '<div class="subnote">仲未有記錄。去第一個 tab 講句嘢俾佢聽啦。</div>';
+    return;
+  }
+  list.slice(0,300).forEach(x=>{
+    const d = document.createElement('div'); d.className='logItem';
+    const meta = document.createElement('div'); meta.className='meta';
+    const tp = document.createElement('span'); tp.className='logType t-'+x.type; tp.textContent = TYPE_NAME[x.type]||x.type;
+    const tm = document.createElement('span'); tm.textContent = String(x.at||'').slice(0,16).replace('T',' ');
+    const sp = document.createElement('span'); sp.style.flex='1';
+    const del = document.createElement('button'); del.className='mini'; del.textContent='刪';
+    del.onclick = ()=>{ state.ai.log = state.ai.log.filter(y=>y.id!==x.id); save(); renderLog(); };
+    meta.appendChild(tp); meta.appendChild(tm); meta.appendChild(sp); meta.appendChild(del);
+    const t = document.createElement('div'); t.className='txt'; t.textContent = x.text;
+    d.appendChild(meta); d.appendChild(t);
+    box.appendChild(d);
+  });
+}
+$('aiLogFilter').onchange = renderLog;
+$('aiTeachGo').onclick = ()=>{
+  const v = $('aiTeach').value.trim();
+  if(!v) return;
+  logPush('feedback', v, {kind:'manual'});
+  save(); $('aiTeach').value=''; renderLog();
+};
+$('aiTeach').addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.isComposing){ e.preventDefault(); $('aiTeachGo').click(); } });
+$('aiLogClear').onclick = async ()=>{
+  if(await confirmBox('確定要清走全部 '+((state.ai.log||[]).length)+' 條記憶？\n清咗之後 AI 會由零開始學過。')){
+    state.ai.log = []; state.ai.sinceRule = 0; save(); renderLog();
+  }
+};
+$('aiLogExport').onclick = ()=>{
+  ensureAI();
+  const blob = new Blob([JSON.stringify({type:'diarycal_ai', at:nowISO(), ai:state.ai}, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'diary_ai_memory_'+fmtDate(new Date()).replace(/-/g,'')+'.json';
+  a.click(); URL.revokeObjectURL(a.href);
+};
+$('aiLogImportBtn').onclick = ()=>$('aiLogImport').click();
+$('aiLogImport').onchange = async function(){
+  const f = this.files[0]; this.value=''; if(!f) return;
+  try{
+    const j = JSON.parse(await f.text());
+    const ai = j.ai || j;
+    if(!Array.isArray(ai.log)) throw new Error('唔似係備份檔');
+    if(await confirmBox('要用呢個備份覆蓋而家嘅 Data Log 同 Rules？')){
+      state.ai = {log:ai.log, rules:String(ai.rules||''), rulesAt:String(ai.rulesAt||''), sinceRule:Number(ai.sinceRule||0)};
+      save(); renderLog(); loadRules();
+    }
+  }catch(e){ alert('還原失敗：'+e.message); }
+};
+
+/* ---------- 7. General Rules ---------- */
+function loadRules(){
+  ensureAI();
+  $('aiRulesBox').value = state.ai.rules||'';
+  $('aiRuleAt').textContent = state.ai.rulesAt ? ('上次更新：'+state.ai.rulesAt.slice(0,16).replace('T',' ')) : '仲未提煉過';
+  $('aiAutoRule').checked = !!cfg().autoRule;
+}
+$('aiRuleSave').onclick = ()=>{
+  ensureAI();
+  state.ai.rules = $('aiRulesBox').value;
+  state.ai.rulesAt = nowISO();
+  logPush('rule','我手動改咗 General Rules', {kind:'manual'});
+  save(); loadRules();
+  setStatus('aiRuleStatus','已經儲存好，下次排程即刻用呢份。');
+};
+$('aiAutoRule').onchange = ()=>{ const c=cfg(); c.autoRule = $('aiAutoRule').checked; cfgSave(c); };
+$('aiRuleGen').onclick = ()=>{
+  genRules(false).catch(err=>setStatus('aiRuleStatus', err.message, true));
+};
+
+async function genRules(silent){
+  ensureAI();
+  if(!cfgReady()) throw new Error('仲未設定 API。');
+  if(!silent) setStatus('aiRuleStatus','AI 睇緊你成個 Data Log，提煉緊規則…', false, true);
+  const lg = (state.ai.log||[]).slice(-90).map(x=>'('+(TYPE_NAME[x.type]||x.type)+') '+String(x.at||'').slice(0,16).replace('T',' ')+' '+short(x.text,240)).join('\n');
+  const hb = habits(30).map(h=>'- '+h.name+'：'+h.n+' 次，慣常 '+h.med+'（'+h.lo+'–'+h.hi+'），多數 '+(h.wd||'無固定')).join('\n');
+  const out = await callAI([
+    {role:'system', content:SYS_RULE},
+    {role:'user', content:
+      '【現有 General Rules】\n' + ((state.ai.rules||'').trim() || '（未有）') +
+      '\n\n【歷史習慣統計】\n' + (hb || '（冇）') +
+      '\n\n【Data Log（由舊到新）】\n' + (lg || '（冇）') +
+      '\n\n請輸出更新版嘅 General Rules。'}
+  ], {json:false, temp:0.3, max:2000});
+  state.ai.rules = out.replace(/^```[a-zA-Z]*\s*/,'').replace(/```\s*$/,'').trim();
+  state.ai.rulesAt = nowISO();
+  state.ai.sinceRule = 0;
+  logPush('rule','AI 由 Data Log 重新提煉咗 General Rules', {kind:'auto'});
+  save(); loadRules();
+  if(!silent) setStatus('aiRuleStatus','提煉好喇 👍 下次排程就會照住呢份規則做。');
+  return out;
+}
+
+/* ---------- 8. 語音輸入 ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null;
+$('aiMic').onclick = ()=>{
+  if(!SR){ alert('你個瀏覽器唔支援語音輸入。用 Chrome 開就得，或者直接打字。'); return; }
+  if(rec){ rec.stop(); return; }
+  try{
+    rec = new SR();
+    rec.lang='zh-HK'; rec.interimResults=true; rec.continuous=true;
+    const base = $('aiInput').value;
+    rec.onresult = e=>{
+      let s='';
+      for(let i=0;i<e.results.length;i++) s += e.results[i][0].transcript;
+      $('aiInput').value = (base ? base+' ' : '') + s;
+    };
+    rec.onerror = e=>{ $('aiHint').textContent = '語音出錯：'+e.error+'（要用 https 或者 localhost 開先用得）'; };
+    rec.onend = ()=>{ rec=null; $('aiMic').classList.remove('micOn'); $('aiMic').textContent='🎤 講嘢'; };
+    rec.start();
+    $('aiMic').classList.add('micOn'); $('aiMic').textContent='⏹ 停止';
+  }catch(e){ alert('開唔到咪高峰：'+e.message); }
+};
+
+/* ---------- 9. 設定畫面 ---------- */
+(function initProv(){
+  const sel = $('aiProv');
+  Object.keys(PRESETS).forEach(k=>{
+    const o=document.createElement('option'); o.value=k; o.textContent=PRESETS[k].name; sel.appendChild(o);
+  });
+  sel.onchange = ()=>{
+    const p = PRESETS[sel.value];
+    if(!p) return;
+    if(sel.value!=='custom'){ $('aiBase').value = p.base; $('aiModel').value = p.model; }
+    const c = cfg(); c.kind = p.kind; cfgSave(c);
+  };
+})();
+function openSet(){
+  const c = cfg();
+  $('aiProv').value = c.prov || 'openai';
+  $('aiBase').value = c.base || '';
+  $('aiModel').value = c.model || '';
+  $('aiKey').value = c.apiKey || '';
+  $('aiJson').checked = !!c.jsonMode;
+  setStatus('aiSetStatus','');
+  show('aiSetModal');
+}
+$('btnAISet').onclick = openSet;
+$('aiOpenSet').onclick = openSet;
+$('aiSetCancel').onclick = ()=>hide('aiSetModal');
+$('aiKeyShow').onclick = ()=>{ const i=$('aiKey'); i.type = i.type==='password' ? 'text' : 'password'; };
+$('aiSetSave').onclick = ()=>{
+  const prov = $('aiProv').value;
+  const c = cfg();
+  c.prov = prov;
+  c.kind = (PRESETS[prov]||{}).kind || 'openai';
+  c.base = $('aiBase').value.trim();
+  c.model = $('aiModel').value.trim();
+  c.apiKey = $('aiKey').value.trim();
+  c.jsonMode = $('aiJson').checked;
+  if(!c.base || !c.model){ setStatus('aiSetStatus','Base URL 同 Model 兩格都要填。', true); return; }
+  cfgSave(c);
+  hide('aiSetModal');
+  $('aiHint').textContent = '而家用緊：' + c.model;
+  setStatus('aiStatus','設定儲好喇。可以開始講嘢。');
+};
+$('aiSetClear').onclick = async ()=>{
+  if(await confirmBox('清除 API Key 同設定？（唔會影響你嘅日程同 Data Log）')){
+    localStorage.removeItem(CFG_KEY);
+    $('aiBase').value=''; $('aiModel').value=''; $('aiKey').value='';
+    setStatus('aiSetStatus','清咗喇。');
+  }
+};
+$('aiTest').onclick = async ()=>{
+  const c = cfg();
+  c.prov = $('aiProv').value;
+  c.kind = (PRESETS[c.prov]||{}).kind || 'openai';
+  c.base = $('aiBase').value.trim();
+  c.model = $('aiModel').value.trim();
+  c.apiKey = $('aiKey').value.trim();
+  c.jsonMode = $('aiJson').checked;
+  cfgSave(c);
+  if(!c.base || !c.model){ setStatus('aiSetStatus','Base URL 同 Model 都要填先測到。', true); return; }
+  setStatus('aiSetStatus','試緊連線…', false, true);
+  try{
+    const r = await callAI([{role:'user', content:'請淨係回覆四個字：連線成功'}], {temp:0, max:64});
+    setStatus('aiSetStatus','✅ 連線成功！AI 覆咗：'+short(r,60));
+  }catch(err){
+    setStatus('aiSetStatus','❌ 連唔到。\n'+err.message, true);
+  }
+};
+
+/* ---------- 10. 啟動 ---------- */
+ensureAI();
+takeSnap();
+if(!cfg().base) { /* 第一次用：靜靜地等佢自己開設定 */ }
+})();
+
 renderTree(); setView('day');
 </script>
 </body>
