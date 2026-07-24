@@ -1621,15 +1621,64 @@ function diffSnap(){
   takeSnap();
 }
 
-/* 包住原本嘅 save()：每次儲存前，順手比對有冇改動 */
+/* ===== Undo/Redo 系統 ===== */
 const _save = save;
+let undoStack = [];
+let redoStack = [];
+let skipUndo = false;
+const MAX_UNDO = 50;
+let undoBtn = null, redoBtn = null;
+
+function updateUndoBtns(){
+  if(undoBtn) undoBtn.disabled = undoStack.length===0;
+  if(redoBtn) redoBtn.disabled = redoStack.length===0;
+}
+
+/* 包住原本嘅 save()：每次儲存前，順手比對有冇改動 + 記錄 Undo 歷史 */
 save = function(){
   try{
     ensureAI();
     if(mute || snap===null) takeSnap(); else diffSnap();
   }catch(e){ console.warn('AI log diff 出錯', e); }
+  /* 記錄 undo 歷史（loading 同 skipUndo 時唔記） */
+  if(!skipUndo && !loading){
+    try{
+      undoStack.push(JSON.stringify(state));
+      if(undoStack.length > MAX_UNDO) undoStack.shift();
+      redoStack = [];
+      updateUndoBtns();
+    }catch(e){}
+  }
   return _save.apply(this, arguments);
 };
+
+function doUndo(){
+  if(!undoStack.length) return;
+  try{
+    skipUndo = true;
+    redoStack.push(JSON.stringify(state));
+    state = JSON.parse(undoStack.pop());
+    takeSnap();
+    _save();
+    renderTree(); renderCal();
+    skipUndo = false;
+    updateUndoBtns();
+  }catch(e){ skipUndo=false; console.error('Undo 失敗', e); }
+}
+
+function doRedo(){
+  if(!redoStack.length) return;
+  try{
+    skipUndo = true;
+    undoStack.push(JSON.stringify(state));
+    state = JSON.parse(redoStack.pop());
+    takeSnap();
+    _save();
+    renderTree(); renderCal();
+    skipUndo = false;
+    updateUndoBtns();
+  }catch(e){ skipUndo=false; console.error('Redo 失敗', e); }
+}
 
 /* 載入雲端／登入登出之後，重新影一次底 */
 const _renderTree = renderTree;
@@ -1722,6 +1771,7 @@ const SYS_PLAN = [
 '8) title 要短、名詞化（例如「跑步」「同陳生開會」），唔好成句照抄用戶啲字。',
 '9) 用戶想改時間 → action="move"；想取消 → action="delete"，兩者都要填返上面清單嗰個 id。',
 '10) reply 一定要用廣東話口語，逐件講清楚你安排咗幾時做乜，例如：「幫你安排咗 7月25號（星期六）09:00 跑步」。',
+'10b) 如果用戶要求嘅唔係排程，而係管理操作（例如：copy 任務去工作模板、整理分類、按 structure 排好），喺 reply 入面講明你暫時做唔到呢類操作，建議佢用左邊嘅工作模板手動操作，或者分開多次講。',
 '11) 一次最多 30 件 item。真係要更多就喺 reply 講明剩返嗰啲要佢再講一次。',
 '',
 '必須跟足呢個 JSON 格式：',
@@ -1760,7 +1810,7 @@ const SYS_RULE = [
 ].join('\n');
 
 /* ---------- 5. 介面 ---------- */
-let cur = {rows:[], plan:null, req:''};
+let cur = {rows:[], plan:null, req:'', applied:false};
 
 function setStatus(el, msg, bad, spin){
   const e = $(el);
@@ -1806,6 +1856,10 @@ $('aiInput').addEventListener('keydown', e=>{
 $('aiSend').onclick = ()=>doSend();
 
 async function doSend(extraNote){
+  /* 重置 apply 掣，等今次可以再 apply */
+  cur.applied = false;
+  $('aiApply').disabled = false;
+  $('aiApply').textContent = '✓ 加入行事曆';
   const text = $('aiInput').value.trim();
   if(!text && !extraNote){ setStatus('aiStatus','先打低你想做乜。', true); return; }
   if(!cfgReady()){ setStatus('aiStatus','仲未設定 API。撳右上角「⚙ API 設定」。', true); show('aiSetModal'); return; }
@@ -1898,7 +1952,7 @@ function findTplByName(n){
 $('aiDrop').onclick = ()=>{
   if(cur.rows.length) logPush('correction','AI 今次排嘅嘢我全部唔要（原本要求：'+short(cur.req,80)+'）', {kind:'reject-all'});
   save();
-  cur = {rows:[], plan:null, req:''};
+  cur = {rows:[], plan:null, req:'', applied:false};
   $('aiItems').innerHTML=''; $('aiActs').style.display='none'; $('aiReply').className='aiReply';
   setStatus('aiStatus','已經取消，冇加入任何嘢。今次嘅拒絕都記低咗，佢下次會避返。');
 };
@@ -1911,6 +1965,10 @@ $('aiRedo').onclick = async ()=>{
 };
 
 $('aiApply').onclick = ()=>{
+  if(cur.applied) return; /* 防止重複 click double-add */
+  cur.applied = true;
+  $('aiApply').disabled = true;
+  $('aiApply').textContent = '✓ 已加入';
   const added = [];
   let firstDate = '';
   mute = true;
@@ -2191,7 +2249,35 @@ $('aiTest').onclick = async ()=>{
   }
 };
 
-/* ---------- 10. 啟動 ---------- */
+/* ---------- 10. Undo/Redo 快捷鍵 + 按鈕 ---------- */
+undoBtn = document.createElement('button');
+undoBtn.className = 'hbtn';
+undoBtn.innerHTML = '↩ 復原 <span style="font-size:10px;opacity:.6">Ctrl+Z</span>';
+undoBtn.style.fontSize = '12px';
+undoBtn.disabled = true;
+undoBtn.title = '復原上一步（Ctrl+Z）';
+undoBtn.onclick = doUndo;
+document.querySelector('header .spacer').before(undoBtn);
+
+redoBtn = document.createElement('button');
+redoBtn.className = 'hbtn';
+redoBtn.innerHTML = '↪ 重做 <span style="font-size:10px;opacity:.6">Ctrl+Y</span>';
+redoBtn.style.fontSize = '12px';
+redoBtn.disabled = true;
+redoBtn.title = '重做（Ctrl+Y 或 Ctrl+Shift+Z）';
+redoBtn.onclick = doRedo;
+document.querySelector('header .spacer').before(redoBtn);
+
+document.addEventListener('keydown', e=>{
+  if(!(e.ctrlKey||e.metaKey)) return;
+  const tag = (e.target.tagName||'').toLowerCase();
+  if(tag==='input' || tag==='textarea') return; /* 喺輸入框打字唔觸發 */
+  const k = e.key.toLowerCase();
+  if(k==='z' && !e.shiftKey){ e.preventDefault(); doUndo(); }
+  if(k==='y' || (k==='z' && e.shiftKey)){ e.preventDefault(); doRedo(); }
+});
+
+/* ---------- 11. 啟動 ---------- */
 ensureAI();
 takeSnap();
 if(!cfg().base) { /* 第一次用：靜靜地等佢自己開設定 */ }
