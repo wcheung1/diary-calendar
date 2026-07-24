@@ -520,41 +520,60 @@ const LocalStore = {
   }
 };
 
+let loading = false;
+let fbListener = null;
+
 function save(){
+  if(loading) return;
   if (currentUser && dbRef) {
-    // 已經登入，同步上 Firebase
     dbRef.set(state).catch(err => console.error("Firebase 儲存失敗", err));
   } else {
-    // 未登入，儲存落 LocalStorage
     LocalStore.save(state);
   }
 }
 
 function loadFromFirebase() {
-  dbRef.once('value').then(snap => {
+  if(fbListener && dbRef){ try{ dbRef.off('value', fbListener); }catch(e){} fbListener=null; }
+  let firstLoad = true;
+  fbListener = function(snap){
     const data = snap.val();
-    if (data) {
-      state = data;
-      if(!state.archive) state.archive = blankState().archive;
-    } else {
-      // 如果雲端冇資料，問你要唔要將 LocalStorage 嘅資料同步上去
-      const localData = LocalStore.load();
-      if (localData && (localData.events.length > 0 || localData.tree.children.length > 0)) {
-        if (confirm("偵測到你瀏覽器有未同步嘅本地資料。\n要唔要將呢啲資料上傳去你嘅 Google 帳號？")) {
-          state = localData;
-          save(); // Trigger Firebase save
+    if(firstLoad){
+      firstLoad = false;
+      if (data) {
+        loading = true;
+        state = data;
+        if(!state.archive) state.archive = blankState().archive;
+        if(!state.ai || typeof state.ai !== 'object') state.ai = {};
+        loading = false;
+      } else {
+        const localData = LocalStore.load();
+        if (localData && (localData.events.length > 0 || localData.tree.children.length > 0)) {
+          if (confirm("偵測到你瀏覽器有未同步嘅本地資料。\n要唔要將呢啲資料上傳去你嘅 Google 帳號？")) {
+            state = localData;
+            save();
+          } else {
+            state = blankState();
+          }
         } else {
           state = blankState();
         }
-      } else {
-        state = blankState();
       }
+      renderTree();
+      renderCal();
+    } else {
+      if(!data) return;
+      loading = true;
+      try {
+        state = data;
+        if(!state.archive) state.archive = blankState().archive;
+        if(!state.ai || typeof state.ai !== 'object') state.ai = {};
+      } catch(e) { console.error('同步失敗', e); }
+      finally { loading = false; }
+      renderTree();
+      renderCal();
     }
-    renderTree();
-    renderCal();
-  }).catch(err => {
-    console.error('讀取雲端資料失敗', err);
-  });
+  };
+  dbRef.on('value', fbListener);
 }
 
 function blankState(){
@@ -1321,7 +1340,8 @@ document.getElementById('expGo').onclick=()=>{
     evs=evs.filter(e=>{ const ds=e.start.slice(0,10); return (!from||ds>=from)&&(!to||ds<=to); });
     tag=(from||'start').replace(/-/g,'')+'-'+(to||'now').replace(/-/g,'');
   }
-  const data={version:1,exportedAt:new Date().toISOString(),range:{from:from||null,to:to||null},tree:state.tree,archive:state.archive,events:evs};
+  const aiBackup = state.ai ? JSON.parse(JSON.stringify(state.ai)) : {};
+  const data={version:1,exportedAt:new Date().toISOString(),range:{from:from||null,to:to||null},tree:state.tree,archive:state.archive,events:evs,leftW:state.leftW,ai:aiBackup};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='diary_'+tag+'.json';
   a.click(); URL.revokeObjectURL(a.href); hide('exportModal');
@@ -1333,7 +1353,7 @@ document.getElementById('importFile').onchange=async function(){
     const data=JSON.parse(await file.text());
     if(!data.tree||!Array.isArray(data.events)) throw new Error();
     if(await confirmBox('確定要匯入？會覆蓋所有資料。')){
-      state={version:1,tree:data.tree,archive:data.archive||blankState().archive,events:data.events,leftW:state.leftW};
+      state={version:1,tree:data.tree,archive:data.archive||blankState().archive,events:data.events,leftW:state.leftW,ai:data.ai||{}};
       save(); renderTree(); renderCal();
     }
   }catch(e){ alert('匯入失敗'); }
@@ -1613,7 +1633,7 @@ save = function(){
 
 /* 載入雲端／登入登出之後，重新影一次底 */
 const _renderTree = renderTree;
-renderTree = function(){ try{ ensureAI(); if(snap===null) takeSnap(); }catch(e){} return _renderTree.apply(this, arguments); };
+renderTree = function(){ try{ ensureAI(); if(snap===null || (typeof loading!=='undefined' && loading)) takeSnap(); }catch(e){} return _renderTree.apply(this, arguments); };
 try{ if(typeof auth!=='undefined' && auth.onAuthStateChanged) auth.onAuthStateChanged(()=>{ snap=null; }); }catch(e){}
 
 /* 匯入 JSON 時唔好整走 Data Log */
