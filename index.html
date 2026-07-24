@@ -428,8 +428,11 @@ mark{background:#ffe9a8;border-radius:2px}
   <div class="aiRow"><div><label>Base URL（網址）</label><input type="text" id="aiBase" placeholder="https://api.openai.com/v1" spellcheck="false"></div></div>
   <div class="aiRow"><div><label>Model（型號名，要同官網一模一樣）</label><input type="text" id="aiModel" placeholder="gpt-4o-mini" spellcheck="false"></div></div>
   <div class="aiRow">
-    <div><label>API Key（金鑰）</label><input type="password" id="aiKey" placeholder="sk-xxxxxxxx" spellcheck="false"></div>
+    <div><label>API Key（金鑰，唔一定要 <code>sk-</code> 字頭，照供應商俾嗰個原封不動貼落去）</label><input type="password" id="aiKey" placeholder="貼你供應商俾嘅 key（OpenAI 多數 sk- 開頭；GLM／DeepSeek 唔一定）" spellcheck="false"></div>
     <div style="flex:0 0 auto;align-self:flex-end"><button class="btn" id="aiKeyShow">👁 睇下</button></div>
+  </div>
+  <div class="aiRow" id="aiCorsWarn" style="display:none;margin-top:4px">
+    <div class="aiWarn">⚠ 偵測到你用 <code>file://</code> 直接開啟個 HTML。部分瀏覽器喺呢個情況下會拒絕連線。<br>請改用正規網址開啟（例如 GitHub Pages：<code>https://你的用戶名.github.io/倉庫名/index.html</code>），或者用本地伺服器 <code>python -m http.server 8000</code> 再用 <code>http://localhost:8000</code> 打開。GLM／z.ai 經實測支援任意 https 網址，GitHub Pages 完全用到。</div>
   </div>
   <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px"><input type="checkbox" id="aiJson"> 用嚴格 JSON 模式（OpenAI／DeepSeek 支援；如果送出時報錯，熄返佢）</label>
   <div class="aiStatus" id="aiSetStatus"></div>
@@ -1440,6 +1443,7 @@ function clean(o){ Object.keys(o).forEach(k=>{ if(o[k]===undefined) delete o[k];
 const CFG_KEY = 'diarycal_ai_cfg_v1';
 const PRESETS = {
   openai    :{name:'OpenAI（GPT）',                kind:'openai',    base:'https://api.openai.com/v1',                               model:'gpt-4o-mini'},
+  glm       :{name:'GLM（智譜 z.ai，支援廣東話）',  kind:'openai',    base:'https://api.z.ai/api/coding/paas/v4',                     model:'glm-5.2'},
   deepseek  :{name:'DeepSeek（最平，中文好）',      kind:'openai',    base:'https://api.deepseek.com/v1',                             model:'deepseek-chat'},
   anthropic :{name:'Anthropic（Claude）',          kind:'anthropic', base:'https://api.anthropic.com',                               model:'claude-sonnet-5'},
   gemini    :{name:'Google Gemini',                kind:'openai',    base:'https://generativelanguage.googleapis.com/v1beta/openai', model:'gemini-2.5-flash'},
@@ -1493,7 +1497,14 @@ async function callAI(messages, opt){
   try{
     res = await fetch(url, {method:'POST', headers:headers, body:JSON.stringify(body)});
   }catch(err){
-    throw new Error('連唔到個 API：' + url + '\n常見原因：\n① Base URL 打錯字；\n② 冇上網 / 公司防火牆擋咗；\n③ 瀏覽器 CORS 擋咗（試下用 Chrome，或者換第二家供應商）。\n技術訊息：' + err.message);
+    const viaFile = /^file:/i.test(location.protocol);
+    throw new Error('連唔到個 API：' + url +
+      '\n常見原因：' +
+      (viaFile ? '\n⓪ 你用 file:// 開網頁，部分瀏覽器會拒絕。改用 GitHub Pages 或 http://localhost 開就冇問題。' : '') +
+      '\n① Base URL 打錯字；' +
+      '\n② 冇上網 / 公司防火牆擋咗；' +
+      '\n③ API Key 打錯、未儲值、或者未開通。' +
+      '\n技術訊息：' + err.message);
   }
   const txt = await res.text();
   if(!res.ok){
@@ -2091,12 +2102,16 @@ $('aiMic').onclick = ()=>{
 })();
 function openSet(){
   const c = cfg();
-  $('aiProv').value = c.prov || 'openai';
+  $('aiProv').value = c.prov || 'glm';
   $('aiBase').value = c.base || '';
   $('aiModel').value = c.model || '';
   $('aiKey').value = c.apiKey || '';
   $('aiJson').checked = !!c.jsonMode;
-  setStatus('aiSetStatus','');
+  /* 偵測 file:// 開啟 → 顯示 CORS 警告 */
+  const viaFile = /^file:/i.test(location.protocol);
+  const warn = $('aiCorsWarn');
+  if(warn) warn.style.display = viaFile ? '' : 'none';
+  setStatus('aiSetStatus', viaFile ? '⚠ 偵測到 file:// 開啟。AI 功能需要用 http://localhost 開先用得到，睇下面黃色框。' : '');
   show('aiSetModal');
 }
 $('btnAISet').onclick = openSet;
