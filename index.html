@@ -2455,8 +2455,9 @@ function toast(msg){
 /* ---------- 訪客模式 UI 同步 ---------- */
 function applyGuestUI(){
   document.body.classList.toggle('readonly', guestMode);
-  // 只有「已登入 + 已設密碼 + 唔係訪客模式」先顯示「訪客模式」掣
-  const showGuestBtn = !guestMode && !!currentUser && !!unlockHash;
+  // 只要「已登入 + 唔係訪客模式」就顯示「訪客模式」掣
+  // （未設密碼嗰陣，撳落去會自動彈出「設定解鎖密碼」視窗）
+  const showGuestBtn = !guestMode && !!currentUser;
   $('btnGuest').style.display = showGuestBtn ? 'inline-block' : 'none';
 }
 function setGuestMode(on){
