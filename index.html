@@ -683,11 +683,13 @@ function blankState(){
     tree:    { id:'root', type:'folder', name:'全部分類', collapsed:false, children:[] },
     archive: { id:'archive', type:'folder', name:'封存區（隱藏區）', collapsed:true, children:[] },
     events:  [],
+    eventsArchive: [],
     leftW: 300
   };
 }
 let state = LocalStore.load() || blankState();
 if(!state.archive) state.archive = blankState().archive;
+if(!Array.isArray(state.eventsArchive)) state.eventsArchive = [];
 window.addEventListener('beforeunload', () => { if(!currentUser) save(); }); // 離線時確保離開前 save
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
@@ -1721,7 +1723,7 @@ function logPush(type, text, extra){
   const e = clean(Object.assign({id:uid(), at:nowISO(), type:type, text:String(text||'')}, extra||{}));
   state.ai.log.push(e);
   if(type==='correction' || type==='feedback') state.ai.sinceRule = (state.ai.sinceRule||0) + 1;
-  if(state.ai.log.length > 600) state.ai.log = state.ai.log.slice(-600);
+  if(state.ai.log.length > 300) state.ai.log = state.ai.log.slice(-300);
   return e;
 }
 
@@ -1903,6 +1905,7 @@ const SYS_PLAN = [
 '8) title 要短、名詞化（例如「跑步」「同陳生開會」），唔好成句照抄用戶啲字。',
 '9) 用戶想改時間 → action="move"；想取消 → action="delete"，兩者都要填返上面清單嗰個 id。',
 '10) reply 一定要用廣東話口語，逐件講清楚你安排咗幾時做乜，例如：「幫你安排咗 7月25號（星期六）09:00 跑步」。',
+'10c) 所有輸出一律使用繁體中文（Traditional Chinese），嚴禁使用簡體字。',
 '10b) 如果用戶要求嘅唔係排程，而係管理操作（例如：copy 任務去工作模板、整理分類、按 structure 排好），喺 reply 入面講明你暫時做唔到呢類操作，建議佢用左邊嘅工作模板手動操作，或者分開多次講。',
 '11) 一次最多 30 件 item。真係要更多就喺 reply 講明剩返嗰啲要佢再講一次。',
 '',
@@ -1931,6 +1934,7 @@ const SYS_RULE = [
 '輸出：一份更新版嘅 General Rules，純 Markdown 文字，唔好用 JSON，唔好加開場白。',
 '',
 '要求：',
+'- 所有輸出一律使用繁體中文（Traditional Chinese），嚴禁出現任何簡體字。呢個係鐵則，唔可以例外。',
 '- 用廣東話書面語，每條一行，具體、可以直接執行（要有時間、日子、時長）。',
 '- 全份最多 22 條。舊規則仲啱嘅就保留；同新糾正有衝突，一律以最新糾正為準。',
 '- 只准寫證據支持到嘅嘢，唔准作。淨係得一兩次證據嘅，喺句尾加「（證據較少）」。',
@@ -2003,7 +2007,7 @@ async function doSend(extraNote){
     const raw = await callAI([
       {role:'system', content:SYS_PLAN},
       {role:'user', content: ctxText() + '\n\n【用戶今次講】\n' + text + (extraNote ? '\n\n【用戶對上一次建議嘅意見，要照住改】\n'+extraNote : '')}
-    ], {json:true, temp:0.2});
+    ], {json:true, temp:0.2, max:12000});
     const j = grabJSON(raw);
     cur.plan = j; cur.req = text + (extraNote? '（補充：'+extraNote+'）' : '');
 
@@ -2277,10 +2281,13 @@ async function genRules(silent){
       '\n\n【歷史習慣統計】\n' + (hb || '（冇）') +
       '\n\n【Data Log（由舊到新）】\n' + (lg || '（冇）') +
       '\n\n請輸出更新版嘅 General Rules。'}
-  ], {json:false, temp:0.3, max:2000});
+  ], {json:false, temp:0.3, max:12000});
   state.ai.rules = out.replace(/^```[a-zA-Z]*\s*/,'').replace(/```\s*$/,'').trim();
   state.ai.rulesAt = nowISO();
   state.ai.sinceRule = 0;
+  /* 標記用嚟提煉嘅 log 做已消化，下次 AI query 唔再重複讀佢哋 */
+  const cutoff = Date.now() - (90*24*60*60*1000);
+  (state.ai.log||[]).forEach(x=>{ if(x && (!x.digested) && new Date(x.at||0).getTime() < cutoff) x.digested = true; });
   logPush('rule','AI 由 Data Log 重新提煉咗 General Rules', {kind:'auto'});
   save(); loadRules();
   if(!silent) setStatus('aiRuleStatus','提煉好喇 👍 下次排程就會照住呢份規則做。');
@@ -2599,7 +2606,11 @@ $('guestPwNew2').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.prevent
 })();
 })();
 
+/* 啟動時執行一次 events 自動歸檔（非同步，唔阻礙首屏渲染） */
 renderTree(); setView('day');
+setTimeout(()=>{ try{ archiveOldEvents(); }catch(e){ console.warn('歸檔失敗', e); } }, 2000);
+/* 每日檢查一次（閒置時先做） */
+setInterval(()=>{ if(document.hidden) return; try{ archiveOldEvents(); }catch(e){} }, 24*60*60*1000);
 </script>
 </body>
 </html>
