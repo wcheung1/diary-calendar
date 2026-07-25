@@ -291,6 +291,54 @@ mark{background:#ffe9a8;border-radius:2px}
 @media (prefers-reduced-motion:reduce){.aiSpin{animation-duration:2.4s}}
 .micOn{background:var(--overdue)!important;color:#fff!important;border-color:var(--overdue)!important}
 
+/* ===== 🔒 訪客模式 (Read Only) ===== */
+#btnGuest{display:none;border-color:var(--accent);color:var(--accent);font-weight:700}
+#btnGuest:hover{background:var(--accent);color:#fff}
+#btnUnlock{
+  display:none;border-color:var(--q-amber);background:var(--q-amber);color:#fff;font-weight:700;
+  animation:roPulse 2.2s infinite;
+}
+#btnUnlock:hover{filter:brightness(1.08)}
+@keyframes roPulse{0%,100%{box-shadow:0 0 0 0 rgba(214,138,46,.55)}50%{box-shadow:0 0 0 7px rgba(214,138,46,0)}}
+body.readonly #btnUnlock{display:inline-block}
+body.readonly #btnGuest,
+body.readonly #btnLogin,
+body.readonly #btnExport,
+body.readonly #btnImport,
+body.readonly #btnBulk,
+body.readonly #btnAI,
+body.readonly #btnAISet,
+body.readonly #btnUndo,
+body.readonly #btnRedo,
+body.readonly #btnNewFolder,
+body.readonly #btnNewTask,
+body.readonly #importFile,
+body.readonly .addRow,
+body.readonly .evActs,
+body.readonly .trow .ops{display:none!important}
+body.readonly .evMain{cursor:default}
+body.readonly .evTime{pointer-events:none}
+body.readonly .evTime:hover{background:transparent}
+body.readonly .chip{cursor:default}
+body.readonly .trow{cursor:default}
+body.readonly .trow.task .nm{cursor:default}
+.roNotice{
+  position:fixed;bottom:10px;left:50%;transform:translateX(-50%);
+  background:var(--q-amber);color:#fff;padding:4px 14px;border-radius:20px;
+  font-size:12px;z-index:40;display:none;box-shadow:var(--shadow);letter-spacing:1px;
+}
+body.readonly .roNotice{display:block}
+
+/* ===== 左面板收合（桌面） ===== */
+#btnToggleLeft{flex:0 0 auto;line-height:1}
+#leftPane.collapsed{flex:0 0 42px;min-width:0;overflow:hidden}
+#leftPane.collapsed #treeWrap{display:none}
+#leftPane.collapsed #leftHead{justify-content:center}
+#leftPane.collapsed #leftHead b,
+#leftPane.collapsed #btnNewFolder,
+#leftPane.collapsed #btnNewTask{display:none}
+#divider.collapsed{display:none}
+
 @media (max-width:700px){
   /* 解除所有 freeze，變成可自由 scroll 嘅單欄版面 */
   html,body{height:auto!important;min-height:100%;overflow:auto!important}
@@ -341,6 +389,8 @@ mark{background:#ffe9a8;border-radius:2px}
   </div>
   <span id="rangeLabel"></span>
   <div class="spacer"></div>
+  <button class="hbtn" id="btnUndo" disabled title="復原上一步（Ctrl+Z）" style="display:none">↩ 復原</button>
+  <button class="hbtn" id="btnRedo" disabled title="重做（Ctrl+Y）" style="display:none">↪ 重做</button>
   <button class="hbtn" id="btnAI">🤖 AI 排程 (Ctrl+K)</button>
   <button class="hbtn" id="btnAISet">⚙ AI 設定</button>
   <button class="hbtn" id="btnSearch">🔍 搜尋 (Ctrl+F)</button>
@@ -349,12 +399,16 @@ mark{background:#ffe9a8;border-radius:2px}
   <button class="hbtn" id="btnImport">⬆ 匯入 JSON</button>
   <input type="file" id="importFile" accept=".json,application/json" style="display:none">
   
+  <button class="hbtn" id="btnGuest">👁 訪客模式</button>
+  <button class="hbtn" id="btnUnlock">🔒 解鎖編輯</button>
   <button class="hbtn" id="btnLogin">👤 Google 登入</button>
 </header>
+<div class="roNotice">🔒 訪客模式（唯讀）　撳「解鎖編輯」並輸入密碼先可以修改</div>
 
 <div id="main">
   <div id="leftPane">
     <div id="leftHead">
+      <button class="mini" id="btnToggleLeft" title="收合／展開工作模板">◀</button>
       <b>工作模板</b>
       <button class="mini" id="btnNewFolder">＋分類</button>
       <button class="mini" id="btnNewTask">＋任務</button>
@@ -366,6 +420,25 @@ mark{background:#ffe9a8;border-radius:2px}
     <div id="calArea"></div>
   </div>
 </div>
+
+<!-- 訪客模式：設定／更改解鎖密碼 -->
+<div class="overlay" id="guestPwSetModal"><div class="modal">
+  <h3>🔒 設定訪客模式解鎖密碼</h3>
+  <p class="subnote">呢個密碼係用嚟喺「訪客模式」之下解鎖返編輯權限。<br>密碼會用 SHA-256 加密咗再同步去你嘅 Google 帳號，原文唔會儲存。<br>請揀一個你記得住、但屋企人唔會估到嘅密碼。</p>
+  <div class="frow"><div><label>解鎖密碼（最少 4 個字）</label><input type="password" id="guestPwNew" placeholder="設定解鎖密碼"></div></div>
+  <div class="frow"><div><label>確認密碼</label><input type="password" id="guestPwNew2" placeholder="再打多次"></div></div>
+  <div class="aiStatus" id="guestPwSetStatus"></div>
+  <div class="modalActs"><button class="btn" id="guestPwSetCancel">取消</button><button class="btn primary" id="guestPwSetGo">儲存密碼</button></div>
+</div></div>
+
+<!-- 訪客模式：解鎖 -->
+<div class="overlay" id="guestUnlockModal"><div class="modal">
+  <h3>🔒 解鎖編輯模式</h3>
+  <p class="subnote">而家係訪客模式（唯讀）。輸入解鎖密碼先可以改嘢。</p>
+  <div class="frow"><div><label>解鎖密碼</label><input type="password" id="guestPwIn" placeholder="打你嘅解鎖密碼"></div></div>
+  <div class="aiStatus" id="guestUnlockStatus"></div>
+  <div class="modalActs"><button class="btn" id="guestUnlockCancel">取消</button><button class="btn primary" id="guestUnlockGo">解鎖</button></div>
+</div></div>
 
 <div class="overlay" id="eventModal"><div class="modal"><h3 id="evModalTitle">編輯項目</h3><div class="frow"><div style="flex:2"><label>標題</label><input type="text" id="evTitle"></div></div><div class="frow"><div><label>日期</label><input type="date" id="evDate"></div><div><label>開始時間</label><input type="time" id="evTimeInp"></div><div><label>指定完結時間（背景／平行任務先需要）</label><div style="display:flex;gap:6px"><input type="time" id="evEnd"><button class="btn" id="evEndClear" title="清除" style="padding:4px 8px">✕</button></div></div></div><div class="frow"><div><label>顏色（艾森豪四象限，可以唔揀）</label><div class="colorPick" id="evColors"><button class="cpBtn cp-none" data-c="" title="無"></button><button class="cpBtn cp-red" data-c="red" title="緊要＋重要"></button><button class="cpBtn cp-amber" data-c="amber" title="重要但唔緊要"></button><button class="cpBtn cp-blue" data-c="blue" title="緊要但唔重要"></button><button class="cpBtn cp-grey" data-c="grey" title="唔重要唔緊要"></button></div></div></div><div class="frow"><div><label>SOP／內文（可以直接由 Word 貼上，會自動變 Markdown 純文字，圖片一律過濾）</label><textarea id="evSop" class="sop"></textarea><div class="sopPreview" id="evSopPrev"></div><button class="btn" id="evPrevToggle" style="margin-top:6px;padding:3px 10px;font-size:12px">預覽排版</button></div></div><div class="modalActs"><button class="btn danger" id="evDelete">刪除</button><span style="flex:1"></span><button class="btn" id="evCancel">取消</button><button class="btn primary" id="evSave">儲存</button></div></div></div>
 <div class="overlay" id="tplModal"><div class="modal"><h3 id="tplModalTitle">編輯任務模板</h3><div class="frow"><div><label>標題</label><input type="text" id="tplTitle"></div></div><div class="frow"><div><label>預設顏色</label><div class="colorPick" id="tplColors"><button class="cpBtn cp-none" data-c="" title="無"></button><button class="cpBtn cp-red" data-c="red" title="緊要＋重要"></button><button class="cpBtn cp-amber" data-c="amber" title="重要但唔緊要"></button><button class="cpBtn cp-blue" data-c="blue" title="緊要但唔重要"></button><button class="cpBtn cp-grey" data-c="grey" title="唔重要唔緊要"></button></div></div></div><div class="frow"><div><label>SOP（可由 Word 貼上，自動轉 Markdown；圖片一律過濾）</label><textarea id="tplSop" class="sop"></textarea><div class="sopPreview" id="tplSopPrev"></div><button class="btn" id="tplPrevToggle" style="margin-top:6px;padding:3px 10px;font-size:12px">預覽排版</button></div></div><p class="subnote">提示：儲存後，如果將來已排程嘅項目仍然同舊模板一模一樣（未被個別修改過），會問你要唔要一次過套用新內容。已過去嘅記錄一律不受影響。</p><div class="modalActs"><button class="btn" id="tplCancel">取消</button><button class="btn primary" id="tplSave">儲存</button></div></div></div>
@@ -2309,23 +2382,22 @@ $('aiTest').onclick = async ()=>{
 };
 
 /* ---------- 10. Undo/Redo 快捷鍵 + 按鈕 ---------- */
-undoBtn = document.createElement('button');
-undoBtn.className = 'hbtn';
+/* 用返 HTML 已經有嘅 #btnUndo / #btnRedo，唔好再動態整多粒 */
+undoBtn = $('btnUndo');
 undoBtn.innerHTML = '↩ 復原 <span style="font-size:10px;opacity:.6">Ctrl+Z</span>';
 undoBtn.style.fontSize = '12px';
 undoBtn.disabled = true;
 undoBtn.title = '復原上一步（Ctrl+Z）';
 undoBtn.onclick = doUndo;
-document.querySelector('header .spacer').before(undoBtn);
+undoBtn.style.display = '';
 
-redoBtn = document.createElement('button');
-redoBtn.className = 'hbtn';
+redoBtn = $('btnRedo');
 redoBtn.innerHTML = '↪ 重做 <span style="font-size:10px;opacity:.6">Ctrl+Y</span>';
 redoBtn.style.fontSize = '12px';
 redoBtn.disabled = true;
 redoBtn.title = '重做（Ctrl+Y 或 Ctrl+Shift+Z）';
 redoBtn.onclick = doRedo;
-document.querySelector('header .spacer').before(redoBtn);
+redoBtn.style.display = '';
 
 document.addEventListener('keydown', e=>{
   if(!(e.ctrlKey||e.metaKey)) return;
@@ -2340,6 +2412,190 @@ document.addEventListener('keydown', e=>{
 ensureAI();
 takeSnap();
 if(!cfg().base) { /* 第一次用：靜靜地等佢自己開設定 */ }
+})();
+
+/* =========================================================
+   🔒 訪客模式（Read Only）+ 📁 左面板收合
+========================================================= */
+(function(){
+'use strict';
+const $ = id => document.getElementById(id);
+const GUEST_KEY = 'diarycal_guest_mode';
+const LEFT_KEY  = 'diarycal_left_collapsed';
+const PEPPER    = 'diarycal_guest_unlock_v1::';
+
+let guestMode = false;   // 目前係咪訪客模式（本機狀態）
+let unlockHash = '';     // 由 Firebase 讀返嚟嘅解鎖密碼 hash
+
+/* ---------- SHA-256（加固定 pepper）---------- */
+async function hashPw(pw){
+  if(!window.crypto || !crypto.subtle){
+    throw new Error('瀏覽器唔支援 Web Crypto，請用 https:// 網址（例如 GitHub Pages）開啟。');
+  }
+  const buf = new TextEncoder().encode(PEPPER + pw);
+  const h = await crypto.subtle.digest('SHA-256', buf);
+  return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+/* ---------- 輕量提示 ---------- */
+function setRoStatus(elId, msg, bad){
+  const e = $(elId); if(!e) return;
+  e.className = 'aiStatus' + (msg ? ' show' : '') + (bad ? ' bad' : '');
+  e.textContent = msg || '';
+}
+function toast(msg){
+  const n = document.createElement('div');
+  n.textContent = msg;
+  n.style.cssText = 'position:fixed;top:62px;left:50%;transform:translateX(-50%);background:var(--q-amber);color:#fff;padding:7px 16px;border-radius:22px;font-size:13px;z-index:60;box-shadow:var(--shadow);white-space:nowrap;letter-spacing:1px';
+  document.body.appendChild(n);
+  setTimeout(()=>{ n.style.transition='opacity .4s'; n.style.opacity='0'; }, 1500);
+  setTimeout(()=>n.remove(), 2000);
+}
+
+/* ---------- 訪客模式 UI 同步 ---------- */
+function applyGuestUI(){
+  document.body.classList.toggle('readonly', guestMode);
+  // 只有「已登入 + 已設密碼 + 唔係訪客模式」先顯示「訪客模式」掣
+  const showGuestBtn = !guestMode && !!currentUser && !!unlockHash;
+  $('btnGuest').style.display = showGuestBtn ? 'inline-block' : 'none';
+}
+function setGuestMode(on){
+  guestMode = !!on;
+  applyGuestUI();
+  try{ localStorage.setItem(GUEST_KEY, guestMode ? '1' : '0'); }catch(e){}
+}
+
+/* ---------- 監聽 Firebase 嘅解鎖密碼 hash（跨裝置同步）---------- */
+function watchUnlockHash(){
+  if(!currentUser || !dbRef){ unlockHash=''; applyGuestUI(); return; }
+  try{
+    dbRef.child('guestUnlockHash').on('value', snap=>{
+      unlockHash = snap.val() || '';
+      applyGuestUI();
+    });
+  }catch(e){}
+}
+
+/* 登入／登出變化：再加一個 listener（唔影響原本嗰個） */
+auth.onAuthStateChanged(user=>{
+  if(user){
+    watchUnlockHash();
+  } else {
+    unlockHash = '';
+    if(guestMode) setGuestMode(false); /* 登出就自動解除訪客模式 */
+    applyGuestUI();
+  }
+});
+
+/* 啟動時讀取本機嘅訪客模式狀態 */
+try{ if(localStorage.getItem(GUEST_KEY)==='1') guestMode = true; }catch(e){}
+applyGuestUI();
+
+/* ---------- save() 封鎖：訪客模式之下全面禁止寫入 ---------- */
+const _saveBeforeGuest = save;
+save = function(){
+  if(guestMode){ toast('🔒 訪客模式：已經封鎖修改'); return; }
+  return _saveBeforeGuest.apply(this, arguments);
+};
+
+/* ---------- 全域攔截 dblclick 同 drag（防止快速點擊繞過）---------- */
+document.addEventListener('dblclick', e=>{
+  if(!guestMode) return;
+  if(e.target.closest('.overlay')) return; /* modal 內放行（例如關閉） */
+  e.preventDefault(); e.stopPropagation();
+  toast('🔒 訪客模式：撳「解鎖編輯」先可以改');
+}, true);
+document.addEventListener('dragstart', e=>{
+  if(!guestMode) return;
+  e.preventDefault(); e.stopPropagation();
+}, true);
+
+/* ---------- 「訪客模式」掣 ---------- */
+$('btnGuest').onclick = ()=>{
+  if(!currentUser){ toast('請先登入 Google'); return; }
+  if(!unlockHash){ openPwSet(); return; } /* 未設密碼 → 去設密碼 */
+  if(!guestMode){
+    setGuestMode(true);
+    toast('👁 已經切換去訪客模式（唯讀）');
+  }
+};
+
+/* ---------- 「解鎖編輯」掣 ---------- */
+$('btnUnlock').onclick = ()=> openUnlock();
+
+/* ---------- 設定／更改解鎖密碼 ---------- */
+function openPwSet(){
+  $('guestPwNew').value = ''; $('guestPwNew2').value = '';
+  setRoStatus('guestPwSetStatus','');
+  show('guestPwSetModal');
+  setTimeout(()=>$('guestPwNew').focus(), 60);
+}
+$('guestPwSetCancel').onclick = ()=> hide('guestPwSetModal');
+$('guestPwSetGo').onclick = async ()=>{
+  const p1 = $('guestPwNew').value, p2 = $('guestPwNew2').value;
+  if(p1.length < 4){ setRoStatus('guestPwSetStatus','密碼最少要 4 個字。',true); return; }
+  if(p1 !== p2){ setRoStatus('guestPwSetStatus','兩次打嘅密碼唔一樣。',true); return; }
+  if(!currentUser || !dbRef){ setRoStatus('guestPwSetStatus','要先登入 Google 先可以設定。',true); return; }
+  setRoStatus('guestPwSetStatus','加密緊，請等陣…');
+  try{
+    const h = await hashPw(p1);
+    await dbRef.child('guestUnlockHash').set(h);
+    unlockHash = h; applyGuestUI();
+    hide('guestPwSetModal');
+    toast('✅ 解鎖密碼已經設定好，撳「訪客模式」就可以切換');
+  }catch(e){ setRoStatus('guestPwSetStatus','儲存失敗：'+e.message,true); }
+};
+
+/* ---------- 解鎖 ---------- */
+function openUnlock(){
+  $('guestPwIn').value = '';
+  setRoStatus('guestUnlockStatus','');
+  show('guestUnlockModal');
+  setTimeout(()=>$('guestPwIn').focus(), 60);
+}
+$('guestUnlockCancel').onclick = ()=> hide('guestUnlockModal');
+$('guestUnlockGo').onclick = async ()=>{
+  const pw = $('guestPwIn').value;
+  if(!pw){ setRoStatus('guestUnlockStatus','請打解鎖密碼。',true); return; }
+  setRoStatus('guestUnlockStatus','核對緊…');
+  try{
+    const h = await hashPw(pw);
+    if(h === unlockHash){
+      setGuestMode(false);
+      hide('guestUnlockModal');
+      toast('🔓 已經解鎖，可以編輯喇');
+    } else {
+      setRoStatus('guestUnlockStatus','密碼唔啱，再試多次。',true);
+    }
+  }catch(e){ setRoStatus('guestUnlockStatus','出錯：'+e.message,true); }
+};
+/* Enter 掣直接送出 */
+$('guestPwIn').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); $('guestUnlockGo').click(); } });
+$('guestPwNew2').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); $('guestPwSetGo').click(); } });
+
+/* ---------- 左面板收合（桌面）---------- */
+(function(){
+  const btn = $('btnToggleLeft'), pane = $('leftPane'), div = $('divider');
+  function syncBtn(){ btn.textContent = pane.classList.contains('collapsed') ? '▶' : '◀'; }
+  function syncDivider(){ div.classList.toggle('collapsed', pane.classList.contains('collapsed')); }
+  /* 讀取記憶（淨係桌面會記） */
+  try{
+    if(localStorage.getItem(LEFT_KEY)==='1' && window.innerWidth > 700){
+      pane.classList.add('collapsed');
+    }
+  }catch(e){}
+  syncBtn(); syncDivider();
+
+  btn.onclick = (e)=>{
+    e.stopPropagation(); /* 唔好冒泡去 leftHead（避免手機 double-toggle） */
+    const c = pane.classList.toggle('collapsed');
+    pane.style.flexBasis = ''; /* 清除 divider 拖曳留下嘅 inline style，等 class 接管 */
+    syncBtn(); syncDivider();
+    try{ localStorage.setItem(LEFT_KEY, c ? '1' : '0'); }catch(e){}
+  };
+  /* 視窗縮放時重新同步 divider 顯示 */
+  window.addEventListener('resize', syncDivider);
+})();
 })();
 
 renderTree(); setView('day');
