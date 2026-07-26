@@ -1755,31 +1755,75 @@ function diffSnap(){
   takeSnap();
 }
 
-/* ===== Undo/Redo 系統 ===== */
+/* ===== Undo/Redo 系統（已修正） ===== */
 const _save = save;
-let undoStack = [];
-let redoStack = [];
-let skipUndo = false;
+let undoStack = [];       /* 存「改動前」嘅狀態快照 */
+let redoStack = [];       /* 存「被復原走」嘅狀態快照，等可以重做 */
+let skipUndo = false;     /* 復原／重做緊嗰陣唔好再記錄 */
+let lastSnapshot = null;  /* 對上一個已記錄嘅狀態，用嚟比對係咪真係有改動 */
 const MAX_UNDO = 50;
 let undoBtn = null, redoBtn = null;
+
+/* 輕量 toast 反饋，話返俾用戶聽復原／重做咗啲乜 */
+function undoToast(msg, kind){
+  const n = document.createElement('div');
+  n.textContent = msg;
+  const bg = kind==='redo' ? 'var(--q-blue)' : kind==='undo' ? 'var(--accent)' : 'var(--q-amber)';
+  n.style.cssText = 'position:fixed;top:62px;left:50%;transform:translateX(-50%);max-width:90vw;background:'+bg+';color:#fff;padding:7px 16px;border-radius:22px;font-size:13px;z-index:60;box-shadow:var(--shadow);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.5px';
+  document.body.appendChild(n);
+  setTimeout(()=>{ n.style.transition='opacity .4s'; n.style.opacity='0'; }, 1700);
+  setTimeout(()=>n.remove(), 2200);
+}
 
 function updateUndoBtns(){
   if(undoBtn) undoBtn.disabled = undoStack.length===0;
   if(redoBtn) redoBtn.disabled = redoStack.length===0;
 }
 
-/* 包住原本嘅 save()：每次儲存前，順手比對有冇改動 + 記錄 Undo 歷史 */
+/* 比較兩份 state 快照，用廣東話講出分別 */
+function describeDiff(fromStr, toStr){
+  try{
+    const from = JSON.parse(fromStr), to = JSON.parse(toStr);
+    const cntTasks = node => !node ? 0 : (node.type==='task'?1:0) + (node.children||[]).reduce((s,c)=>s+cntTasks(c),0);
+    const fe = new Map((from.events||[]).map(e=>[e.id,e]));
+    const te = new Map((to.events||[]).map(e=>[e.id,e]));
+    const added=[], removed=[], edited=[];
+    te.forEach((e,id)=>{ if(!fe.has(id)) added.push(e.title||'(未命名)'); });
+    fe.forEach((e,id)=>{ if(!te.has(id)) removed.push(e.title||'(未命名)'); else {
+      const o=fe.get(id);
+      if(o.title!==e.title || o.start!==e.start || (o.endOverride||'')!==(e.endOverride||'') || !!o.done!==!!e.done) edited.push(e.title||'(未命名)');
+    }});
+    const fmt = (arr,label)=>{ if(!arr.length) return ''; const t=arr.slice(0,3).map(s=>'「'+s+'」').join('、'); return label+' '+arr.length+(arr.length<=3?' '+t:' 項'); };
+    const parts=[fmt(added,'新增'),fmt(removed,'刪除'),fmt(edited,'修改')].filter(Boolean);
+    const pn = cntTasks(from.tree)+cntTasks(from.archive), tn = cntTasks(to.tree)+cntTasks(to.archive);
+    if(pn!==tn) parts.push('工作模板 '+pn+'→'+tn);
+    return parts.length ? parts.join('，') : '狀態已還原';
+  }catch(e){ return '狀態已還原'; }
+}
+
+/* 重置 undo 歷史；useCurrent=true 會用目前 state 做基準（啟動用），false 會清空等下次 save 先建立基準（登入切換用） */
+function resetUndoHistory(useCurrent){
+  undoStack = []; redoStack = [];
+  lastSnapshot = useCurrent ? (function(){ try{ return JSON.stringify(state); }catch(e){ return null; } })() : null;
+  updateUndoBtns();
+}
+
+/* 包住原本嘅 save()：淨係喺「真係有改動」嗰陣，先將「改動前」嘅狀態推入 undoStack */
 save = function(){
   try{
     ensureAI();
     if(mute || snap===null) takeSnap(); else diffSnap();
   }catch(e){ console.warn('AI log diff 出錯', e); }
-  /* 記錄 undo 歷史（loading 同 skipUndo 時唔記） */
   if(!skipUndo && !loading){
     try{
-      undoStack.push(JSON.stringify(state));
-      if(undoStack.length > MAX_UNDO) undoStack.shift();
-      redoStack = [];
+      const cur = JSON.stringify(state);
+      /* 淨係當現狀同對上一次記錄唔同，先算係一次改動 */
+      if(lastSnapshot!==null && cur!==lastSnapshot){
+        undoStack.push(lastSnapshot);          /* 記低嘅係「改動前」狀態 */
+        if(undoStack.length > MAX_UNDO) undoStack.shift();
+        redoStack = [];                         /* 新改動會令之前嘅重做歷史失效 */
+      }
+      lastSnapshot = cur;                       /* 更新基準 */
       updateUndoBtns();
     }catch(e){}
   }
@@ -1787,37 +1831,59 @@ save = function(){
 };
 
 function doUndo(){
-  if(!undoStack.length) return;
+  if(!undoStack.length){ undoToast('冇嘢可以復原喇', 'undo'); return; }
   try{
     skipUndo = true;
-    redoStack.push(JSON.stringify(state));
-    state = JSON.parse(undoStack.pop());
+    const curStr = JSON.stringify(state);       /* 目前狀態（要被還原走） */
+    const prevStr = undoStack.pop();            /* 改動前嘅狀態 */
+    redoStack.push(curStr);                     /* 依家嘅狀態入 redo stack，等可以重做翻轉頭 */
+    state = JSON.parse(prevStr);
+    lastSnapshot = prevStr;
     takeSnap();
     _save();
     renderTree(); renderCal();
     skipUndo = false;
     updateUndoBtns();
-  }catch(e){ skipUndo=false; console.error('Undo 失敗', e); }
+    undoToast('↩ 復原：' + describeDiff(curStr, prevStr), 'undo');
+  }catch(e){ skipUndo=false; console.error('Undo 失敗', e); undoToast('復原失敗', 'undo'); }
 }
 
 function doRedo(){
-  if(!redoStack.length) return;
+  if(!redoStack.length){ undoToast('冇嘢可以重做喇', 'redo'); return; }
   try{
     skipUndo = true;
-    undoStack.push(JSON.stringify(state));
-    state = JSON.parse(redoStack.pop());
+    const curStr = JSON.stringify(state);
+    const nextStr = redoStack.pop();            /* 之前被復原走嘅狀態 */
+    undoStack.push(curStr);                     /* 目前狀態返入 undo stack */
+    state = JSON.parse(nextStr);
+    lastSnapshot = nextStr;
     takeSnap();
     _save();
     renderTree(); renderCal();
     skipUndo = false;
     updateUndoBtns();
-  }catch(e){ skipUndo=false; console.error('Redo 失敗', e); }
+    undoToast('↪ 重做：' + describeDiff(curStr, nextStr), 'redo');
+  }catch(e){ skipUndo=false; console.error('Redo 失敗', e); undoToast('重做失敗', 'redo'); }
 }
+
+/* 啟動時用目前 state 做基準，令第一次改動都可以復原 */
+resetUndoHistory(true);
 
 /* 載入雲端／登入登出之後，重新影一次底 */
 const _renderTree = renderTree;
 renderTree = function(){ try{ ensureAI(); if(snap===null || (typeof loading!=='undefined' && loading)) takeSnap(); }catch(e){} return _renderTree.apply(this, arguments); };
-try{ if(typeof auth!=='undefined' && auth.onAuthStateChanged) auth.onAuthStateChanged(()=>{ snap=null; }); }catch(e){}
+try{ if(typeof auth!=='undefined' && auth.onAuthStateChanged) auth.onAuthStateChanged(()=>{ snap=null; resetUndoHistory(false); }); }catch(e){}
+/* Firebase 同步完成之後（loading=false）都要重置基準，避免將雲端版本誤當成改動 */
+const _loadFromFirebase = loadFromFirebase;
+if(typeof _loadFromFirebase === 'function'){
+  loadFromFirebase = function(){
+    const prev = loading;
+    const r = _loadFromFirebase.apply(this, arguments);
+    /* 喺下一個 tick 檢查：如果 loading 已經結束，就重置 undo 基準 */
+    setTimeout(()=>{ if(!loading && typeof resetUndoHistory==='function') resetUndoHistory(true); }, 0);
+    return r;
+  };
+}
 
 /* 匯入 JSON 時唔好整走 Data Log */
 try{
