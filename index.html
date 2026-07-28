@@ -304,6 +304,17 @@ mark{background:#ffe9a8;border-radius:2px}
 .chatMsg.ai td,.chatMsg.ai th{border:1px solid var(--line);padding:2px 6px}
 .chatMsg.ai code{background:#eef1ee;border-radius:3px;padding:0 4px;font-size:12px}
 .chatMsg.sys{align-self:center;background:var(--accent-soft);color:var(--muted);font-size:12px;border-radius:20px;max-width:95%;white-space:pre-wrap}
+/* ===== 📋 複製功能列 ===== */
+.chatRow{display:flex;flex-direction:column;gap:3px}
+.chatRow.user{align-self:flex-end;align-items:flex-end}
+.chatRow.ai{align-self:flex-start;align-items:flex-start}
+.chatRow.sys{align-self:center;align-items:center}
+.chatCopyBar{display:flex;gap:4px;opacity:0;transition:opacity .15s;flex-wrap:wrap}
+.chatRow:hover .chatCopyBar{opacity:1}
+@media(hover:none){.chatCopyBar{opacity:1}}
+.chatCopyBtn{border:1px solid var(--line);background:#fff;border-radius:5px;padding:2px 8px;font-size:11px;color:var(--muted);cursor:pointer;white-space:nowrap}
+.chatCopyBtn:hover{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+.chatCopyBtn.copied{background:var(--accent);color:#fff;border-color:var(--accent)}
 .chatTemplates{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
 .chatTpl{border:1px dashed var(--accent);background:var(--accent-soft);border-radius:20px;padding:3px 12px;font-size:12px;color:var(--accent);cursor:pointer}
 .chatTpl:hover{background:var(--accent);color:#fff}
@@ -2573,6 +2584,117 @@ const chatInput = $('chatInput');
 const chatHist = $('chatHist');
 let chatBusy = false;
 
+/* ===== 📋 複製輔助函式 ===== */
+/* 複製純文字到 clipboard（多重 fallback） */
+async function copyPlainText(text){
+  text = String(text||'');
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    try{ await navigator.clipboard.writeText(text); return true; }catch(e){}
+  }
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position='fixed'; ta.style.left='-9999px'; ta.style.top='0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  let ok=false; try{ ok=document.execCommand('copy'); }catch(e){}
+  ta.remove(); return ok;
+}
+
+/* 複製富格式 HTML 到 clipboard（俾 Word 貼上保留格式）
+   優先使用 async Clipboard API (ClipboardItem)，唔得就 fallback 去 Selection + execCommand */
+async function copyRichForWord(html, plainText){
+  if(navigator.clipboard && navigator.clipboard.write && typeof ClipboardItem!=='undefined'){
+    try{
+      const item = new ClipboardItem({
+        'text/html': new Blob([html], {type:'text/html'}),
+        'text/plain': new Blob([plainText||html], {type:'text/plain'})
+      });
+      await navigator.clipboard.write([item]);
+      return true;
+    }catch(e){ /* fallback below */ }
+  }
+  /* fallback：用隱藏 div + Selection + execCommand('copy') 可以保留 HTML 格式 */
+  const div = document.createElement('div');
+  div.style.position='fixed'; div.style.left='-9999px'; div.style.top='0';
+  div.innerHTML = html;
+  document.body.appendChild(div);
+  const sel = window.getSelection();
+  const range = document.createRange();
+  range.selectNodeContents(div);
+  sel.removeAllRanges(); sel.addRange(range);
+  let ok=false; try{ ok=document.execCommand('copy'); }catch(e){}
+  sel.removeAllRanges(); div.remove();
+  return ok;
+}
+
+/* 將 Markdown 轉做 Word 友善嘅 HTML（加 inline style 令表格、標題喺 Word 顯示靚啲） */
+function mdToWordHtml(md){
+  let html = mdToHtml(md);
+  /* 表格加 border inline style（Word 需要） */
+  html = html.replace(/<table>/g, '<table style="border-collapse:collapse;border:1px solid #333;">');
+  html = html.replace(/<th>/g, '<th style="border:1px solid #333;padding:4px 8px;background:#e3f0ea;">');
+  html = html.replace(/<td>/g, '<td style="border:1px solid #333;padding:4px 8px;">');
+  /* 標題加 size */
+  html = html.replace(/<h1>/g, '<h1 style="font-size:18pt;">');
+  html = html.replace(/<h2>/g, '<h2 style="font-size:15pt;">');
+  html = html.replace(/<h3>/g, '<h3 style="font-size:13pt;">');
+  /* 包一層 body style */
+  return '<div style="font-family:\'Noto Sans TC\',\'Microsoft JhengHei\',sans-serif;font-size:12pt;line-height:1.75;color:#20291f;">' + html + '</div>';
+}
+
+/* 將 Markdown 轉做 WhatsApp 訊息格式
+   WhatsApp 支援：*粗體*、_斜體_、~刪除線~、`等寬`、```區塊```
+   唔支援：標題（用 *粗體* 代替）、表格（轉做 ｜ 分隔純文字） */
+function mdToWhatsApp(md){
+  if(!md) return '';
+  const lines = md.split('\n');
+  const out = [];
+  for(let i=0; i<lines.length; i++){
+    let ln = lines[i];
+    /* 跳過表格分隔行（|---|---|） */
+    if(/^\s*\|[\s\-:|]+\|\s*$/.test(ln)) continue;
+    let m;
+    /* 標題 → *粗體* */
+    if((m = ln.match(/^(#{1,6})\s+(.*)$/))){
+      ln = '*' + m[2].trim() + '*';
+    }
+    /* 表格行 → 用 ｜ 分隔 */
+    else if(/^\s*\|.*\|\s*$/.test(ln)){
+      const cells = ln.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim()).filter(c=>c!=='');
+      ln = cells.join(' ｜ ');
+    }
+    /* 無序列表 - 或 * → • */
+    else if(/^\s*[-*]\s+/.test(ln)){
+      ln = ln.replace(/^\s*[-*]\s+/, '• ');
+    }
+    /* 行內格式轉換 */
+    /* 粗體 **text** → *text*（WhatsApp 粗體） */
+    ln = ln.replace(/\*\*(.+?)\*\*/g, function(m,p1){ return '*' + p1 + '*'; });
+    /* 斜體 *text*（單星號）→ _text_（WhatsApp 斜體）
+       要喺粗體轉換之後做，避開已轉嘅 *text* */
+    ln = ln.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1_$2_');
+    /* 刪除線 ~~text~~ → ~text~ */
+    ln = ln.replace(/~~(.+?)~~/g, '~$1~');
+    /* 連結 [text](url) → text (url) */
+    ln = ln.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)');
+    out.push(ln);
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/* 複製按鈕：撳完短暫顯示「✓ 已複製」 */
+function makeCopyBtn(label, title, doCopy){
+  const b = document.createElement('button');
+  b.className = 'chatCopyBtn'; b.textContent = label; b.title = title;
+  b.onclick = async (e)=>{
+    e.stopPropagation();
+    const orig = b.textContent;
+    b.classList.add('copied'); b.textContent = '✓ 已複製'; b.disabled = true;
+    try{ await doCopy(); }catch(err){ b.textContent = '❌ 失敗'; }
+    setTimeout(()=>{ b.classList.remove('copied'); b.textContent = orig; b.disabled = false; }, 1400);
+  };
+  return b;
+}
+
 function renderChat(){
   chatHist.innerHTML = '';
   if(!chatHistory.length){
@@ -2583,14 +2705,34 @@ function renderChat(){
     return;
   }
   chatHistory.forEach(m=>{
-    const el = document.createElement('div');
-    el.className = 'chatMsg ' + (m.role==='user'?'user':'ai');
+    /* 用 chatRow 包裝：bubble + copy bar */
+    const row = document.createElement('div');
+    row.className = 'chatRow ' + (m.role==='user'?'user':(m.role==='assistant'?'ai':'sys'));
+    const bubble = document.createElement('div');
+    bubble.className = 'chatMsg ' + (m.role==='user'?'user':(m.role==='assistant'?'ai':'sys'));
+    const isAI = (m.role==='assistant');
     if(m.role==='user'){
-      el.textContent = m.content;
+      bubble.textContent = m.content;
+    } else if(isAI){
+      bubble.innerHTML = mdToHtml(m.content);
     } else {
-      el.innerHTML = mdToHtml(m.content);
+      bubble.textContent = m.content;
     }
-    chatHist.appendChild(el);
+    row.appendChild(bubble);
+    /* 複製功能列 */
+    const bar = document.createElement('div');
+    bar.className = 'chatCopyBar';
+    if(m.role==='user'){
+      /* 用戶訊息：一個複製掣（純文字） */
+      bar.appendChild(makeCopyBtn('📋 複製', '複製純文字', ()=>copyPlainText(m.content)));
+    } else if(isAI){
+      /* AI 訊息：三個掣 —— 純文字、Word 格式、WhatsApp 格式 */
+      bar.appendChild(makeCopyBtn('📋 文字', '複製純文字（Markdown 原文）', ()=>copyPlainText(m.content)));
+      bar.appendChild(makeCopyBtn('📝 Word', '複製成富格式，貼上 Microsoft Word 保留表格、粗體等格式', ()=>copyRichForWord(mdToWordHtml(m.content), m.content)));
+      bar.appendChild(makeCopyBtn('💬 WhatsApp', '轉做 WhatsApp 格式（*粗體*、_斜體_ 等）再複製', ()=>copyPlainText(mdToWhatsApp(m.content))));
+    }
+    row.appendChild(bar);
+    chatHist.appendChild(row);
   });
   chatHist.scrollTop = chatHist.scrollHeight;
 }
