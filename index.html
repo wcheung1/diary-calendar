@@ -291,6 +291,27 @@ mark{background:#ffe9a8;border-radius:2px}
 @media (prefers-reduced-motion:reduce){.aiSpin{animation-duration:2.4s}}
 .micOn{background:var(--overdue)!important;color:#fff!important;border-color:var(--overdue)!important}
 
+/* ===== 💬 傾偈（Chat）模式 ===== */
+.chatWrap{display:flex;flex-direction:column;height:min(58vh,500px)}
+.chatHist{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:10px;border:1px solid var(--line);border-radius:8px;background:#fbfcfb;min-height:160px}
+.chatMsg{max-width:88%;padding:8px 12px;border-radius:12px;font-size:13px;line-height:1.75;word-break:break-word}
+.chatMsg.user{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px;white-space:pre-wrap}
+.chatMsg.ai{align-self:flex-start;background:#fff;border:1px solid var(--line);border-bottom-left-radius:4px}
+.chatMsg.ai p{margin:3px 0}
+.chatMsg.ai ul,.chatMsg.ai ol{margin:4px 0 4px 20px}
+.chatMsg.ai h1,.chatMsg.ai h2,.chatMsg.ai h3{margin:6px 0 3px}
+.chatMsg.ai table{border-collapse:collapse;margin:4px 0;font-size:12px}
+.chatMsg.ai td,.chatMsg.ai th{border:1px solid var(--line);padding:2px 6px}
+.chatMsg.ai code{background:#eef1ee;border-radius:3px;padding:0 4px;font-size:12px}
+.chatMsg.sys{align-self:center;background:var(--accent-soft);color:var(--muted);font-size:12px;border-radius:20px;max-width:95%;white-space:pre-wrap}
+.chatTemplates{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.chatTpl{border:1px dashed var(--accent);background:var(--accent-soft);border-radius:20px;padding:3px 12px;font-size:12px;color:var(--accent);cursor:pointer}
+.chatTpl:hover{background:var(--accent);color:#fff}
+.chatBar{display:flex;gap:8px;align-items:flex-end}
+.chatBar textarea{flex:1;min-height:42px;max-height:120px;padding:8px 10px;border:1px solid var(--accent);border-radius:8px;font-size:13px;line-height:1.6;resize:none;background:#fff;color:var(--ink)}
+.chatBar textarea:focus{outline:2px solid var(--accent-soft);outline-offset:1px}
+.chatActRow{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;align-items:center}
+
 /* ===== 🔒 訪客模式 (Read Only) ===== */
 #btnGuest{display:none;border-color:var(--accent);color:var(--accent);font-weight:700}
 #btnGuest:hover{background:var(--accent);color:#fff}
@@ -361,9 +382,14 @@ body.readonly .roNotice{display:block}
   #divider{display:none}
   #rightPane{flex:none;overflow:visible}
   #calArea{overflow:visible;padding:10px 6px}
-  .weekGrid{min-width:auto!important;overflow-x:auto}
-  .monthGrid{min-width:auto!important;overflow-x:auto;gap:3px}
-  .mcell{min-height:60px;padding:3px}
+  /* ===== 📱 手機月曆：強制 7 欄全部顯示，文字自動換行，唔再橫向 scroll ===== */
+  /* 用 minmax(0,1fr) 迫所有 7 欄縮到適應屏幕，chip 文字自動換行唔再逼爆格仔 */
+  .weekGrid{grid-template-columns:repeat(7,minmax(0,1fr))!important;overflow-x:visible!important;min-width:0!important}
+  .monthGrid{grid-template-columns:repeat(7,minmax(0,1fr))!important;overflow-x:visible!important;min-width:0!important;gap:2px!important}
+  .mcell{min-width:0!important;min-height:54px;padding:2px;overflow:hidden}
+  .mcell .dnum{font-size:11px;width:18px;height:18px}
+  .mcell .chip{white-space:normal;word-break:break-word;line-height:1.3;padding:1px 3px;font-size:10px}
+  .mwd{font-size:9px;padding:1px}
   .yearGrid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
   .dayList{max-width:none}
   .modal{width:min(96vw,100%)!important;padding:14px}
@@ -461,6 +487,7 @@ body.readonly .roNotice{display:block}
     <button data-p="ask" class="on">✍️ 講低你想做乜</button>
     <button data-p="log">📚 Data Log（佢嘅記憶）</button>
     <button data-p="rule">🧠 General Rules（規則）</button>
+    <button data-p="chat">💬 傾偈</button>
   </div>
 
   <!-- Tab 1：排程 -->
@@ -520,7 +547,28 @@ body.readonly .roNotice{display:block}
     <textarea id="aiRulesBox" placeholder="（未有規則。可以自己寫幾條，或者用完幾次之後撳上面粒掣叫 AI 幫你總結。）"></textarea>
     <div class="aiStatus" id="aiRuleStatus"></div>
   </div>
+
+  <!-- Tab 4：💬 傾偈（Chat） -->
+  <div class="aiPane" id="paneChat">
+    <p class="subnote">同 AI 自由傾偈：可以一齊規劃時間表、傾偏好，甚至闲話家常。<br>對話記錄只存喺記憶體，關瀏覽器即消失（唔會入 Data Log）。</p>
+    <div class="chatTemplates" id="chatTemplates"></div>
+    <div class="chatWrap">
+      <div class="chatHist" id="chatHist"></div>
+      <div class="chatBar">
+        <button class="btn" id="chatMic" title="用把口講（Chrome 先支援）">🎤</button>
+        <textarea id="chatInput" placeholder="喺度打你想傾嘅嘢…（Enter 送出，Shift+Enter 換行）"></textarea>
+        <button class="btn primary" id="chatSend">↵ 送出</button>
+      </div>
+      <div class="chatActRow">
+        <button class="btn" id="chatClear" title="清走目前嘅對話">🗑 清空對話</button>
+        <button class="btn" id="chatToRules" title="將呢輪對話嘅偏好加入 General Rules">🧠 傾到嘅偏好 ➜ 加落 Rules</button>
+        <button class="btn primary" id="chatToPlan" title="將 AI 對上一次嘅草擬送去排程 tab 正式加入行事曆">📅 正式排落行事曆</button>
+        <span class="aiHint" id="chatHint" style="margin-left:auto"></span>
+      </div>
+    </div>
+  </div>
 </div></div>
+
 
 <div class="overlay" id="aiSetModal"><div class="modal">
   <h3>⚙ AI API 設定</h3>
@@ -1075,17 +1123,33 @@ document.addEventListener('keydown', e=>{
   if(e.key==='ArrowRight'){ e.preventDefault(); nav(1); }
 });
 
-/* 手機 swipe：左右掃去上/下一個 */
-let touchStartX=0, touchStartY=0;
+/* 手機 swipe：左右掃去上/下一個
+   修正：只有當內容已經 scroll 到邊緣先觸發切換月份，
+   咁樣用戶想橫向 scroll 睇星期五、六、日嗰陣就唔會誤觸跳去下一個月。 */
+let touchStartX=0, touchStartY=0, touchStartEl=null;
 const rightPane = document.getElementById('rightPane');
 rightPane.addEventListener('touchstart', e=>{
   touchStartX = e.changedTouches[0].screenX;
   touchStartY = e.changedTouches[0].screenY;
+  touchStartEl = e.target;
 }, {passive:true});
 rightPane.addEventListener('touchend', e=>{
   const dx = e.changedTouches[0].screenX - touchStartX;
   const dy = e.changedTouches[0].screenY - touchStartY;
   if(Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return; /* 太短或者係垂直 scroll */
+  /* 向上搵最接近嘅可橫向 scroll 容器（例如 monthGrid / weekGrid） */
+  let el = touchStartEl, scrollContainer = null;
+  while(el && el !== document.body){
+    if(el.scrollWidth > el.clientWidth && el.clientWidth > 0){ scrollContainer = el; break; }
+    el = el.parentElement;
+  }
+  if(scrollContainer){
+    const atLeftEdge = scrollContainer.scrollLeft <= 2;
+    const atRightEdge = scrollContainer.scrollLeft + scrollContainer.clientWidth >= scrollContainer.scrollWidth - 2;
+    /* 如果仲可以喺 swipe 方向繼續 scroll，就唔好跳月，等用戶睇到星期五、六、日 */
+    if(dx > 0 && !atLeftEdge) return;
+    if(dx < 0 && !atRightEdge) return;
+  }
   if(dx > 0) nav(-1); else nav(1);
 }, {passive:true});
 
@@ -2480,6 +2544,193 @@ document.addEventListener('keydown', e=>{
   if(k==='z' && !e.shiftKey){ e.preventDefault(); doUndo(); }
   if(k==='y' || (k==='z' && e.shiftKey)){ e.preventDefault(); doRedo(); }
 });
+
+/* =========================================================
+   💬 Chat 模式（Section 12）
+   特色：
+   - 自由對話，多輪來回，唔強制 JSON
+   - 對話記錄只存喺記憶體（chatHistory），唔入 Data Log，關 browser 即消失
+   - 「請幫我計劃未來 24 小時嘅行事曆」快速掣
+   - 可以一鍵將偏好提煉去 General Rules
+   - 可以一鍵將 AI 草擬送去排程 tab 正式加入行事曆
+========================================================= */
+const SYS_CHAT = [
+'你係用戶嘅廣東話傾偈伙伴，同佢自由討論日程、時間規劃，甚至闲話家常。',
+'',
+'規則：',
+'1) 所有輸出一律用繁體中文（嚴禁簡體字），廣東話口語，親切自然。',
+'2) 用 Markdown 排版：可以用標題、列表、表格、粗體等等令內容清晰。',
+'3) 呢個係「討論模式」，唔需要輸出 JSON。直接用文字回覆就得。',
+'4) 如果用戶想你幫佢規劃／草擬時間表，你可以喺度用文字或者 Markdown 表格列出席草擬。討論到大家都滿意，佢會撳「正式排落行事曆」將你嘅草擬轉做正式項目。',
+'5) 如果傾到用戶嘅偏好／習慣／規則（例如「我夜晚 11 點後就瞓」），可以主動建議：「呢個偏好好重要，要唔要我幫你加落 General Rules？」',
+'6) 可以參考下面嘅用戶資料（行事曆、習慣統計、General Rules、最近對話）嚟俾意見，令建議更貼身。',
+'7) 冇需要勉強將每句嘢扯去排程；用戶想閒聊就陪佢傾。',
+'8) 唔好排已經過去嘅時間。建議嗰陣要考慮用戶現有嘅將來項目，避免撞時間。'
+].join('\n');
+
+let chatHistory = [];   // 只存記憶體：{role, content, at}
+const chatInput = $('chatInput');
+const chatHist = $('chatHist');
+let chatBusy = false;
+
+function renderChat(){
+  chatHist.innerHTML = '';
+  if(!chatHistory.length){
+    const e = document.createElement('div');
+    e.className = 'chatMsg sys';
+    e.textContent = '👋 喺度同我傾偈啦！可以用下面嘅快速掣，或者直接打字。\n（對話記錄唔會儲存，關 browser 即消失。）';
+    chatHist.appendChild(e);
+    return;
+  }
+  chatHistory.forEach(m=>{
+    const el = document.createElement('div');
+    el.className = 'chatMsg ' + (m.role==='user'?'user':'ai');
+    if(m.role==='user'){
+      el.textContent = m.content;
+    } else {
+      el.innerHTML = mdToHtml(m.content);
+    }
+    chatHist.appendChild(el);
+  });
+  chatHist.scrollTop = chatHist.scrollHeight;
+}
+
+async function chatSend(presetText){
+  if(chatBusy) return;
+  const text = (presetText!=null ? presetText : chatInput.value).trim();
+  if(!text) return;
+  if(!cfgReady()){
+    setStatus('aiStatus','仲未設定 API。撳右上角「⚙ API 設定」先。', true);
+    show('aiSetModal');
+    return;
+  }
+  /* 加 user message */
+  chatHistory.push({role:'user', content:text, at:nowISO()});
+  if(presetText==null) chatInput.value = '';
+  renderChat();
+  /* 加一個 loading 訊息 */
+  const loadingEl = document.createElement('div');
+  loadingEl.className = 'chatMsg ai';
+  loadingEl.innerHTML = '<span class="aiSpin"></span> 諗緊…';
+  chatHist.appendChild(loadingEl);
+  chatHist.scrollTop = chatHist.scrollHeight;
+  chatBusy = true;
+  $('chatSend').disabled = true;
+  $('chatHint').textContent = '';
+  try{
+    /* 組 messages：system + 用戶資料 + 對話歷史 */
+    const messages = [
+      {role:'system', content: SYS_CHAT + '\n\n' + ctxText()},
+      ...chatHistory.map(m=>({role:m.role, content:m.content}))
+    ];
+    const reply = await callAI(messages, {json:false, temp:0.5, max:6000});
+    chatHistory.push({role:'assistant', content:reply, at:nowISO()});
+    renderChat();
+  }catch(err){
+    loadingEl.classList.remove('ai'); loadingEl.classList.add('sys');
+    loadingEl.textContent = '❌ 出錯：' + (err.message || err);
+  }finally{
+    chatBusy = false;
+    $('chatSend').disabled = false;
+  }
+}
+
+/* Enter 送出 */
+chatInput.addEventListener('keydown', e=>{
+  if(e.key==='Enter' && !e.shiftKey && !e.isComposing && !e.ctrlKey && !e.metaKey){
+    e.preventDefault(); chatSend();
+  }
+});
+$('chatSend').onclick = ()=>chatSend();
+
+/* 快速 template（一掣即講） */
+[
+  '請幫我計劃未來 24 小時嘅行事曆',
+  '我想同你傾下我呢個禮拜嘅安排',
+  '幫我諗下點樣每日搵到時間做運動',
+  '我覺得最近太忙，可以點樣減壓？'
+].forEach(t=>{
+  const b = document.createElement('button');
+  b.className = 'chatTpl'; b.textContent = t;
+  b.onclick = ()=>chatSend(t);
+  $('chatTemplates').appendChild(b);
+});
+
+/* 清空對話 */
+$('chatClear').onclick = async ()=>{
+  if(!chatHistory.length) return;
+  if(await confirmBox('確定要清走目前嘅對話？\n（對話本來就唔會儲存，清咗即冇咗。）')){
+    chatHistory = [];
+    renderChat();
+    $('chatHint').textContent = '';
+  }
+};
+
+/* 將傾到嘅偏好送去 General Rules 提煉 */
+$('chatToRules').onclick = async ()=>{
+  if(!chatHistory.length){ $('chatHint').textContent = '未有對話內容。'; return; }
+  if(!cfgReady()){ setStatus('aiStatus','仲未設定 API。', true); show('aiSetModal'); return; }
+  /* 將成輪對話以 feedback 形式記入 Data Log，再觸發 genRules */
+  const convo = chatHistory.map(m=>'['+(m.role==='user'?'我':'AI')+'] '+m.content).join('\n');
+  logPush('feedback', '由傾偈提煉偏好。對話內容：\n'+convo, {kind:'chat-to-rule'});
+  save();
+  setStatus('aiRuleStatus','AI 睇緊啱啱傾偈嘅內容，提煉緊規則…', false, true);
+  switchTab('rule');
+  try{
+    await genRules(false);
+    $('chatHint').textContent = '✅ 已經將偏好加落 General Rules。';
+  }catch(err){
+    setStatus('aiRuleStatus','提煉失敗：'+err.message, true);
+  }
+};
+
+/* 將 AI 對上一次草擬送去排程 tab 做正式排程 */
+$('chatToPlan').onclick = ()=>{
+  if(!chatHistory.length){ $('chatHint').textContent = '未有對話內容。'; return; }
+  /* 搵 AI 對上一次嘅訊息 */
+  let lastAI = '';
+  for(let i=chatHistory.length-1;i>=0;i--){
+    if(chatHistory[i].role==='assistant'){ lastAI = chatHistory[i].content; break; }
+  }
+  if(!lastAI){ $('chatHint').textContent = 'AI 仲未覆過嘢。'; return; }
+  /* 將整段對話 context 同最後草擬，送過去排程 tab */
+  const convo = chatHistory.map(m=>'['+(m.role==='user'?'我':'AI')+'] '+m.content).join('\n');
+  $('aiInput').value = '根據我哋啱啱傾嘅內容，幫我正式排落行事曆：\n\n' + lastAI;
+  switchTab('ask');
+  setStatus('aiStatus','已經將對話內容帶過嚟排程 tab。檢查下撳「送出」，AI 會將草擬轉做正式項目。');
+  setTimeout(()=>{$('aiInput').focus();}, 60);
+};
+
+/* 語音輸入（共用） */
+$('chatMic').onclick = ()=>{
+  if(!SR){ alert('你個瀏覽器唔支援語音輸入。用 Chrome 開就得。'); return; }
+  if(rec){ rec.stop(); return; }
+  try{
+    rec = new SR();
+    rec.lang='zh-HK'; rec.interimResults=true; rec.continuous=false;
+    const base = chatInput.value;
+    rec.onresult = e=>{
+      let s='';
+      for(let i=0;i<e.results.length;i++) s += e.results[i][0].transcript;
+      chatInput.value = (base ? base+' ' : '') + s;
+    };
+    rec.onerror = e=>{ $('chatHint').textContent = '語音出錯：'+e.error; };
+    rec.onend = ()=>{ rec=null; $('chatMic').classList.remove('micOn'); $('chatMic').textContent='🎤'; };
+    rec.start();
+    $('chatMic').classList.add('micOn'); $('chatMic').textContent='⏹';
+  }catch(e){ alert('開唔到咪高峰：'+e.message); }
+};
+
+/* 切換到 chat tab 嗰陣 render 一次 */
+const _origSwitchTab = switchTab;
+switchTab = function(p){
+  _origSwitchTab.apply(this, arguments);
+  if(p==='chat'){ renderChat(); setTimeout(()=>chatInput.focus(), 60); }
+};
+/* 重新 bind tab 掣（因為 switchTab 被重新賦值） */
+document.querySelectorAll('#aiTabs button').forEach(b=> b.onclick = ()=>switchTab(b.dataset.p));
+
+renderChat();
 
 /* ---------- 11. 啟動 ---------- */
 ensureAI();
