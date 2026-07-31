@@ -279,6 +279,11 @@ mark{background:#ffe9a8;border-radius:2px}
 .logType.t-correction{background:#fdecec;color:var(--overdue)}
 .logType.t-feedback{background:#f3eee3;color:#8a6d1d}
 .logType.t-rule{background:#efe9f7;color:#6b4ea8}
+.logItem.reverted{opacity:.5}
+.logItem.reverted .logRevertBtn{display:none}
+.logRevertBtn{border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);border-radius:5px;padding:1px 8px;font-size:11px;cursor:pointer;font-weight:600}
+.logRevertBtn:hover{background:var(--accent);color:#fff}
+.logRevertedTag{font-size:11px;color:var(--accent);font-weight:600}
 #aiLogList{max-height:50vh;overflow:auto;padding-right:2px}
 #aiRulesBox{width:100%;min-height:230px;padding:10px;border:1px solid var(--line);border-radius:8px;font-family:ui-monospace,Consolas,"Courier New",monospace;font-size:13px;line-height:1.75;resize:vertical;background:#fff;color:var(--ink)}
 .aiRow{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;margin-bottom:10px}
@@ -338,15 +343,12 @@ body.readonly #btnLogin,
 body.readonly #btnExport,
 body.readonly #btnImport,
 body.readonly #btnBulk,
-body.readonly #btnAI,
-body.readonly #btnAISet,
 body.readonly #btnUndo,
 body.readonly #btnRedo,
 body.readonly #btnNewFolder,
 body.readonly #btnNewTask,
 body.readonly #importFile,
 body.readonly .addRow,
-body.readonly .evActs,
 body.readonly .trow .ops{display:none!important}
 body.readonly .evMain{cursor:default}
 body.readonly .evTime{pointer-events:none}
@@ -354,6 +356,12 @@ body.readonly .evTime:hover{background:transparent}
 body.readonly .chip{cursor:default}
 body.readonly .trow{cursor:default}
 body.readonly .trow.task .nm{cursor:default}
+/* 訪客模式：隱藏 Data Log 同 General Rules 兩個 tab */
+body.readonly .aiTabs button[data-p="log"],
+body.readonly .aiTabs button[data-p="rule"]{display:none!important}
+/* 訪客排程（待確認）事件樣式 */
+.evRow.guestPending{border-color:var(--q-amber);border-left-color:var(--q-amber);background:#fffbf2}
+.badge.guest{background:#fdf0dd;color:var(--q-amber);font-weight:700}
 .roNotice{
   position:fixed;bottom:10px;left:50%;transform:translateX(-50%);
   background:var(--q-amber);color:#fff;padding:4px 14px;border-radius:20px;
@@ -440,7 +448,7 @@ body.readonly .roNotice{display:block}
   <button class="hbtn" id="btnUnlock">🔒 解鎖編輯</button>
   <button class="hbtn" id="btnLogin">👤 Google 登入</button>
 </header>
-<div class="roNotice">🔒 訪客模式（唯讀）　撳「解鎖編輯」並輸入密碼先可以修改</div>
+<div class="roNotice">👤 訪客模式：可以用 AI 排程同傾偈，改動會標記為「待確認」　撳「解鎖編輯」輸入密碼先可以完全修改</div>
 
 <div id="main">
   <div id="leftPane">
@@ -561,7 +569,7 @@ body.readonly .roNotice{display:block}
 
   <!-- Tab 4：💬 傾偈（Chat） -->
   <div class="aiPane" id="paneChat">
-    <p class="subnote">同 AI 自由傾偈：可以一齊規劃時間表、傾偏好，甚至闲話家常。<br>對話記錄只存喺記憶體，關瀏覽器即消失（唔會入 Data Log）。</p>
+    <p class="subnote">同 AI 自由傾偈：可以一齊規劃時間表、傾偏好，甚至閒話家常。<br>對話記錄只存喺記憶體，關瀏覽器即消失。<br>例外：撳「傾到嘅偏好 ➜ 加落 Rules」，或者喺訪客模式之下傾偈，對話會記入 Data Log。</p>
     <div class="chatTemplates" id="chatTemplates"></div>
     <div class="chatWrap">
       <div class="chatHist" id="chatHist"></div>
@@ -660,7 +668,7 @@ auth.onAuthStateChanged(user => {
     dbRef = null;
     
     // 登出後讀取 LocalStorage (離線版)
-    state = LocalStore.load() || blankState();
+    state = sanitizeState(LocalStore.load());
     renderTree();
     renderCal();
   }
@@ -686,10 +694,47 @@ let fbListener = null;
 function save(){
   if(loading) return;
   if (currentUser && dbRef) {
-    dbRef.set(state).catch(err => console.error("Firebase 儲存失敗", err));
+    /* 用 update 唔用 set：set 會將成個 node 換晒，連隔籬嘅 guestUnlockHash 都會消失，
+       令訪客模式永遠解鎖唔到。update 只會逐個 top-level key 換，唔關事嘅 key 保持原狀。 */
+    const payload = Object.assign({}, state);
+    delete payload.guestUnlockHash;
+    dbRef.update(payload).catch(err => console.error("Firebase 儲存失敗", err));
   } else {
     LocalStore.save(state);
   }
+}
+
+/* 防禦性檢查：確保由 Firebase／LocalStorage 讀返嚟嘅 state 結構完整，
+   避免 state.events 或 state.tree 係 undefined 導致後續 .filter()／.forEach() 直接 crash。
+   任何缺失嘅欄位都會用 blankState() 補返。 */
+function normalizeTree(n){
+  if(!n || typeof n!=='object') return;
+  if(n.type==='folder' && !Array.isArray(n.children)) n.children = [];
+  if(Array.isArray(n.children)) n.children.forEach(normalizeTree);
+}
+function sanitizeState(s){
+  if(!s || typeof s!=='object') return blankState();
+  const b = blankState();
+  if(!s.tree || typeof s.tree!=='object') s.tree = b.tree;
+  if(!s.archive || typeof s.archive!=='object') s.archive = b.archive;
+  /* Firebase 唔會儲空 array／空 object：一個冇仔嘅資料夾存上雲，讀返嚟 children 就會係 undefined，
+     跟住撳「＋新增子分類」就會 n.children.push is not a function。所以要逐層補返。 */
+  normalizeTree(s.tree); normalizeTree(s.archive);
+  if(!Array.isArray(s.events)) s.events = [];
+  /* event 冇 start／唔係 object，會令 eventsOn()、renderYear() 直接 throw，成個行事曆白畫面 */
+  s.events = s.events.filter(e=>e && typeof e==='object').map(e=>{
+    if(typeof e.start!=='string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(e.start)) e.start = fmtDate(new Date())+'T00:00';
+    if(typeof e.title!=='string') e.title = String(e.title==null ? '（未命名）' : e.title);
+    if(!e.id) e.id = uid();
+    return e;
+  });
+  /* guestUnlockHash 存喺同一個 Firebase node 入面，但佢唔屬於 state：
+     一旦跟住 state 走，undo／匯入就會將舊 hash 寫返上去（甚至清空），令人永遠解鎖唔到。 */
+  if('guestUnlockHash' in s) delete s.guestUnlockHash;
+  if(!Array.isArray(s.eventsArchive)) s.eventsArchive = [];
+  if(typeof s.leftW !== 'number') s.leftW = 300;
+  if(!s.ai || typeof s.ai !== 'object') s.ai = {};
+  return s;
 }
 
 function loadFromFirebase() {
@@ -701,15 +746,13 @@ function loadFromFirebase() {
       firstLoad = false;
       if (data) {
         loading = true;
-        state = data;
-        if(!state.archive) state.archive = blankState().archive;
-        if(!state.ai || typeof state.ai !== 'object') state.ai = {};
+        state = sanitizeState(data);
         loading = false;
       } else {
         const localData = LocalStore.load();
-        if (localData && (localData.events.length > 0 || localData.tree.children.length > 0)) {
+        if (localData && Array.isArray(localData.events) && localData.tree && Array.isArray(localData.tree.children) && (localData.events.length > 0 || localData.tree.children.length > 0)) {
           if (confirm("偵測到你瀏覽器有未同步嘅本地資料。\n要唔要將呢啲資料上傳去你嘅 Google 帳號？")) {
-            state = localData;
+            state = sanitizeState(localData);
             save();
           } else {
             state = blankState();
@@ -720,17 +763,25 @@ function loadFromFirebase() {
       }
       renderTree();
       renderCal();
+      if(typeof window.__onStateLoaded==='function') window.__onStateLoaded();
     } else {
       if(!data) return;
       loading = true;
+      let same = false;
       try {
-        state = data;
-        if(!state.archive) state.archive = blankState().archive;
-        if(!state.ai || typeof state.ai !== 'object') state.ai = {};
+        const next = sanitizeState(data);
+        /* 自己啱啱 save 上去嘅資料會即刻回音返嚟。如果內容一模一樣就唔好重畫，
+           唔係每次 save 都會殺死用戶做緊嘅 inline 編輯（雙擊改時間／改名）。 */
+        same = JSON.stringify(next) === JSON.stringify(state);
+        state = next;
       } catch(e) { console.error('同步失敗', e); }
       finally { loading = false; }
+      if(same) return;
       renderTree();
       renderCal();
+      /* 重要：state 俾雲端換咗，undo 嘅基準一定要跟住更新，
+         否則按 Ctrl+Z 會用「載入之前」嗰份舊 state 覆蓋返上雲端。 */
+      if(typeof window.__onStateLoaded==='function') window.__onStateLoaded();
     }
   };
   dbRef.on('value', fbListener);
@@ -746,7 +797,36 @@ function blankState(){
     leftW: 300
   };
 }
-let state = LocalStore.load() || blankState();
+
+/* ============ 自動歸檔（避免 events 越積越多影響效能）============
+   將超過 ARCHIVE_DAYS 日嘅事件，由 state.events 移去 state.eventsArchive。
+   - 採用保守嘅 365 日，對絕大多數用戶日常瀏覽冇影響
+   - 歸檔唔等於刪除：eventsArchive 會喺匯出 JSON 時一齊儲存
+   - 為咗避免重複歸檔，會跳過已經喺 eventsArchive 入面嘅 id */
+const ARCHIVE_DAYS = 365;
+function archiveOldEvents(){
+  if(!Array.isArray(state.events) || !Array.isArray(state.eventsArchive)) return 0;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - ARCHIVE_DAYS);
+  const cutoffStr = fmtDate(cutoff);
+  const existingIds = new Set(state.eventsArchive.map(e=>e.id));
+  let moved = 0;
+  state.events = state.events.filter(e=>{
+    /* 淨係歸檔有有效 start 嘅事件，同埋日期早過 cutoff 嘅 */
+    if(!e || !e.start || e.start.slice(0,10) >= cutoffStr) return true;
+    if(existingIds.has(e.id)) return false; /* 已經歸檔過就唔重複加 */
+    state.eventsArchive.push(e);
+    moved++;
+    return false;
+  });
+  /* eventsArchive 都設上限，避免無限增長（保留最近嘅 2000 條） */
+  if(state.eventsArchive.length > 2000){
+    state.eventsArchive = state.eventsArchive.slice(-2000);
+  }
+  if(moved > 0) save();
+  return moved;
+}
+let state = sanitizeState(LocalStore.load());
 if(!state.archive) state.archive = blankState().archive;
 if(!Array.isArray(state.eventsArchive)) state.eventsArchive = [];
 window.addEventListener('beforeunload', () => { if(!currentUser) save(); }); // 離線時確保離開前 save
@@ -1089,7 +1169,8 @@ const calArea=document.getElementById('calArea');
 const WD=['一','二','三','四','五','六','日'];
 
 function eventsOn(dateStr){
-  return state.events.filter(e=>e.start.slice(0,10)===dateStr)
+  /* 加防禦：任何一條 event 冇 start，原本會令成個 render throw，畫面變白 */
+  return (state.events||[]).filter(e=>e && typeof e.start==='string' && e.start.slice(0,10)===dateStr)
     .sort((a,b)=>a.start.localeCompare(b.start));
 }
 function computeEnd(ev, dayEvs){
@@ -1105,6 +1186,7 @@ function computeEnd(ev, dayEvs){
 }
 function isOverdue(ev){ return ev.planned && !ev.done && ev.start <= nowStr(); }
 function evStatusBadge(ev){
+  if(ev.guestPending) return '<span class="badge guest">👤 訪客·待確認</span>';
   if(ev.endOverride) {
     if(ev.planned && !ev.done && isOverdue(ev)) return '<span class="badge late">逾期未確認</span> <span class="badge bg">背景任務 → '+esc(ev.endOverride)+'</span>';
     return '<span class="badge bg">背景任務 → '+esc(ev.endOverride)+'</span>' + (ev.planned? (ev.done?' <span class="badge done">已完成</span>':' <span class="badge plan">已計劃</span>') : '');
@@ -1173,8 +1255,22 @@ document.getElementById('leftHead').addEventListener('click', ()=>{
 function nav(dir){
   if(view==='day') cursor.setDate(cursor.getDate()+dir);
   else if(view==='week') cursor.setDate(cursor.getDate()+7*dir);
-  else if(view==='month') cursor.setMonth(cursor.getMonth()+dir);
-  else cursor.setFullYear(cursor.getFullYear()+dir);
+  else if(view==='month'){
+    /* 修正：直接 setMonth 會爆月（例如 7月31 → setMonth(8) = 9月31 → 溢出做 10月1，跳過咗 9 月）。
+       做法：先歸零做 1 號，換完月再夾返啱嗰個月最大日數。 */
+    const day=cursor.getDate();
+    cursor.setDate(1);
+    cursor.setMonth(cursor.getMonth()+dir);
+    cursor.setDate(Math.min(day, new Date(cursor.getFullYear(), cursor.getMonth()+1, 0).getDate()));
+  }
+  else {
+    /* 同樣道理：2024-02-29 setFullYear(2025) 會變 2025-03-01 */
+    const day=cursor.getDate(), mon=cursor.getMonth();
+    cursor.setDate(1);
+    cursor.setFullYear(cursor.getFullYear()+dir);
+    cursor.setMonth(mon);
+    cursor.setDate(Math.min(day, new Date(cursor.getFullYear(), mon+1, 0).getDate()));
+  }
   renderCal();
 }
 function weekStart(d){
@@ -1211,7 +1307,7 @@ function renderDay(){
 
   evs.forEach(ev=>{
     const row=document.createElement('div');
-    row.className='evRow'+(ev.color?' c-'+ev.color:'')+(isOverdue(ev)?' overdue':'');
+    row.className='evRow'+(ev.color?' c-'+ev.color:'')+(isOverdue(ev)?' overdue':'')+(ev.guestPending?' guestPending':'');
     const main=document.createElement('div'); main.className='evMain';
 
     const tEl=document.createElement('span');
@@ -1244,6 +1340,15 @@ function renderDay(){
       if(ev.planned && !ev.done){
         actBtn(acts,'✓ 確認做咗',()=>{ ev.done=true; save(); renderCal(); });
         actBtn(acts,'⏭ 延後一日',()=>{ const d=new Date(ev.start); d.setDate(d.getDate()+1); ev.start=fmtDate(d)+'T'+ev.start.slice(11); save(); renderCal(); });
+      }
+      if(ev.guestPending){
+        actBtn(acts,'✓ 確認接受',()=>{ ev.guestPending=false; save(); renderCal(); });
+        const gDel=actBtn(acts,'↩ 還原（刪除）',async()=>{
+          if(await confirmBox('確定要還原（刪除）呢個訪客排嘅「'+ev.title+'」？')){
+            state.events=state.events.filter(x=>x.id!==ev.id); save(); renderCal();
+          }
+        });
+        gDel.classList.add('danger');
       }
       actBtn(acts,'✎ 編輯',()=>openEvent(ev));
       const del=actBtn(acts,'🗑 刪除',async()=>{
@@ -1356,7 +1461,7 @@ function renderYear(){
   const grid=document.createElement('div'); grid.className='yearGrid';
   for(let m=0;m<12;m++){
     const card=document.createElement('div'); card.className='ycard';
-    const cnt=state.events.filter(e=>e.start.startsWith(y+'-'+pad(m+1))).length;
+    const cnt=(state.events||[]).filter(e=>e && typeof e.start==='string' && e.start.startsWith(y+'-'+pad(m+1))).length;
     card.innerHTML='<h4>'+(m+1)+'月</h4><div class="cnt">'+(cnt? cnt+' 個項目':'—')+'</div>';
     const dots=document.createElement('div'); dots.className='ydots';
     const days=new Date(y,m+1,0).getDate();
@@ -1388,12 +1493,30 @@ function bindColorPick(elId){
 const evColorPick=bindColorPick('evColors');
 const tplColorPick=bindColorPick('tplColors');
 
+/* 追蹤目前 pending 嘅 confirmBox resolver。
+   如果喺第一個 confirmBox 開緊嗰陣觸發第二個，
+   會先將第一個 resolve 做 false，避免 Promise 永遠掛住（memory leak）。 */
+let _pendingConfirmResolver = null;
 function confirmBox(msg){
   return new Promise(res=>{
+    /* 如果已經有 confirmBox 開緊，先解決佢（當成取消） */
+    if(_pendingConfirmResolver){
+      try{ _pendingConfirmResolver(false); }catch(e){}
+      _pendingConfirmResolver = null;
+    }
+    _pendingConfirmResolver = res;
     document.getElementById('confirmMsg').textContent=msg;
     show('confirmModal');
-    document.getElementById('cfYes').onclick=()=>{ hide('confirmModal'); res(true); };
-    document.getElementById('cfNo').onclick=()=>{ hide('confirmModal'); res(false); };
+    document.getElementById('cfYes').onclick=()=>{
+      hide('confirmModal');
+      _pendingConfirmResolver = null;
+      res(true);
+    };
+    document.getElementById('cfNo').onclick=()=>{
+      hide('confirmModal');
+      _pendingConfirmResolver = null;
+      res(false);
+    };
   });
 }
 function bindPreview(btnId,taId,prevId){
@@ -1437,7 +1560,12 @@ document.getElementById('evSave').onclick=()=>{
   const sop=document.getElementById('evSop').value;
   const color=evColorPick.get();
   if(editingEv){
+    /* 修正：本身係「過去＝已完成」嘅項目，改咗日期去將來之後仍然 done:true，
+       行事曆會顯示「已完成 ✓」但件事根本未做。要跟住新時間更新狀態。 */
+    const wasFuture = editingEv.start > nowStr();
+    const nowFuture = start > nowStr();
     Object.assign(editingEv,{title,start,endOverride,sop,color});
+    if(nowFuture && !wasFuture && editingEv.done){ editingEv.planned = true; editingEv.done = false; }
   } else {
     const future = start > nowStr();
     state.events.push({id:uid(),title,start,endOverride,sop,color,templateId:null,planned:future,done:!future});
@@ -1513,7 +1641,8 @@ document.getElementById('bulkGo').onclick=async()=>{
   const f=findNode(id); if(!f) return;
   const t=f.node;
   const from=document.getElementById('bulkFrom').value, to=document.getElementById('bulkTo').value, time=document.getElementById('bulkTime').value, mode=document.getElementById('bulkMode').value;
-  if(!from||!to||from>to) return;
+  if(!from||!to){ alert('由邊日至邊日都要揀。'); return; }
+  if(from>to){ alert('「由」嘅日期唔可以遲過「至」。'); return; }
   if(mode==='create'){
     if(!time) return;
     const days=[]; for(let d=new Date(from+'T00:00'); fmtDate(d)<=to; d.setDate(d.getDate()+1)) days.push(fmtDate(d));
@@ -1550,10 +1679,15 @@ document.getElementById('expGo').onclick=()=>{
     tag=(from||'start').replace(/-/g,'')+'-'+(to||'now').replace(/-/g,'');
   }
   const aiBackup = state.ai ? JSON.parse(JSON.stringify(state.ai)) : {};
-  const data={version:1,exportedAt:new Date().toISOString(),range:{from:from||null,to:to||null},tree:state.tree,archive:state.archive,events:evs,leftW:state.leftW,ai:aiBackup};
+  const data={version:1,exportedAt:new Date().toISOString(),range:{from:from||null,to:to||null},tree:state.tree,archive:state.archive,events:evs,eventsArchive:(Array.isArray(state.eventsArchive)?state.eventsArchive:[]),leftW:state.leftW,ai:aiBackup};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='diary_'+tag+'.json';
-  a.click(); URL.revokeObjectURL(a.href); hide('exportModal');
+  /* 修正：即刻 revokeObjectURL 會喺 Firefox／Safari 度整死個下載；
+     另外 <a> 唔入 DOM 喺部分瀏覽器都唔會觸發。 */
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='diary_'+tag+'.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  hide('exportModal');
 };
 document.getElementById('btnImport').onclick=()=>document.getElementById('importFile').click();
 document.getElementById('importFile').onchange=async function(){
@@ -1562,7 +1696,10 @@ document.getElementById('importFile').onchange=async function(){
     const data=JSON.parse(await file.text());
     if(!data.tree||!Array.isArray(data.events)) throw new Error();
     if(await confirmBox('確定要匯入？會覆蓋所有資料。')){
-      state={version:1,tree:data.tree,archive:data.archive||blankState().archive,events:data.events,leftW:state.leftW,ai:data.ai||{}};
+      state=sanitizeState({version:1,tree:data.tree,archive:data.archive||blankState().archive,
+        events:data.events,
+        eventsArchive:(Array.isArray(data.eventsArchive)?data.eventsArchive:[]),
+        leftW:state.leftW,ai:data.ai||{}});
       save(); renderTree(); renderCal();
     }
   }catch(e){ alert('匯入失敗'); }
@@ -1574,7 +1711,15 @@ function openSearch(){ show('searchModal'); searchInput.value=''; searchResults.
 document.getElementById('btnSearch').onclick=openSearch;
 document.addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='f'){ e.preventDefault(); openSearch(); }
-  if(e.key==='Escape') document.querySelectorAll('.overlay.show').forEach(o=>o.classList.remove('show'));
+  if(e.key==='Escape'){
+    /* 修正：Esc 直接隱藏 confirmModal 會令 await confirmBox() 嘅 Promise 永遠掛住，
+       之後啲 code 唔會再行。要當佢撳咗「取消」咁 resolve(false)。 */
+    const cm=document.getElementById('confirmModal');
+    if(cm && cm.classList.contains('show') && _pendingConfirmResolver){
+      const r=_pendingConfirmResolver; _pendingConfirmResolver=null; try{ r(false); }catch(_e){}
+    }
+    document.querySelectorAll('.overlay.show').forEach(o=>o.classList.remove('show'));
+  }
 });
 searchInput.addEventListener('input',runSearch);
 document.querySelectorAll('input[name=sscope]').forEach(r=>r.onchange=runSearch);
@@ -1607,7 +1752,8 @@ function runSearch(){
       acts.appendChild(b1); acts.appendChild(b2); d.appendChild(acts); searchResults.appendChild(d);
     });
   }
-  const eHits=state.events.filter(e=>{
+  const eHits=(state.events||[]).filter(e=>{
+    if(!e || typeof e.title!=='string' || typeof e.start!=='string') return false;
     if(e.title.toLowerCase().includes(lq)) return true;
     return scope==='all' && (e.sop||'').toLowerCase().includes(lq);
   }).sort((a,b)=>b.start.localeCompare(a.start));
@@ -1650,7 +1796,13 @@ function revealInTree(id){
   });
 })();
 
-setInterval(()=>{ if(!document.hidden) renderCal(); }, 60000);
+setInterval(()=>{
+  if(document.hidden) return;
+  /* 修正：無條件每分鐘重畫，會喺用戶雙擊改緊時間／改緊名嗰陣直接殺死個 input。 */
+  if(document.querySelector('.overlay.show')) return;
+  if(calArea.querySelector('input')) return;
+  renderCal();
+}, 60000);
 
 /* =========================================================
    🤖 AI 排程助手（新加，唔會改到上面任何原有功能）
@@ -1865,8 +2017,9 @@ function describeDiff(fromStr, toStr){
     const added=[], removed=[], edited=[];
     te.forEach((e,id)=>{ if(!fe.has(id)) added.push(e.title||'(未命名)'); });
     fe.forEach((e,id)=>{ if(!te.has(id)) removed.push(e.title||'(未命名)'); else {
-      const o=fe.get(id);
-      if(o.title!==e.title || o.start!==e.start || (o.endOverride||'')!==(e.endOverride||'') || !!o.done!==!!e.done) edited.push(e.title||'(未命名)');
+      /* 原本寫 fe.get(id)，即係攞返同一個 object 同自己比，永遠相等 → 「修改」永遠報唔到出嚟 */
+      const o=te.get(id);
+      if(o.title!==e.title || o.start!==e.start || (o.endOverride||'')!==(e.endOverride||'') || !!o.done!==!!e.done) edited.push(o.title||'(未命名)');
     }});
     const fmt = (arr,label)=>{ if(!arr.length) return ''; const t=arr.slice(0,3).map(s=>'「'+s+'」').join('、'); return label+' '+arr.length+(arr.length<=3?' '+t:' 項'); };
     const parts=[fmt(added,'新增'),fmt(removed,'刪除'),fmt(edited,'修改')].filter(Boolean);
@@ -1915,7 +2068,7 @@ function doUndo(){
     state = JSON.parse(prevStr);
     lastSnapshot = prevStr;
     takeSnap();
-    _save();
+    save();   /* 用 save() 唔用 _save()：_save() 係最原始嗰個，會繞過訪客模式嘅寫入封鎖 */
     renderTree(); renderCal();
     skipUndo = false;
     updateUndoBtns();
@@ -1933,7 +2086,7 @@ function doRedo(){
     state = JSON.parse(nextStr);
     lastSnapshot = nextStr;
     takeSnap();
-    _save();
+    save();   /* 同上：唔好繞過訪客模式封鎖 */
     renderTree(); renderCal();
     skipUndo = false;
     updateUndoBtns();
@@ -1948,17 +2101,15 @@ resetUndoHistory(true);
 const _renderTree = renderTree;
 renderTree = function(){ try{ ensureAI(); if(snap===null || (typeof loading!=='undefined' && loading)) takeSnap(); }catch(e){} return _renderTree.apply(this, arguments); };
 try{ if(typeof auth!=='undefined' && auth.onAuthStateChanged) auth.onAuthStateChanged(()=>{ snap=null; resetUndoHistory(false); }); }catch(e){}
-/* Firebase 同步完成之後（loading=false）都要重置基準，避免將雲端版本誤當成改動 */
-const _loadFromFirebase = loadFromFirebase;
-if(typeof _loadFromFirebase === 'function'){
-  loadFromFirebase = function(){
-    const prev = loading;
-    const r = _loadFromFirebase.apply(this, arguments);
-    /* 喺下一個 tick 檢查：如果 loading 已經結束，就重置 undo 基準 */
-    setTimeout(()=>{ if(!loading && typeof resetUndoHistory==='function') resetUndoHistory(true); }, 0);
-    return r;
-  };
-}
+/* 修正：原本用 setTimeout(...,0) 去等 Firebase 載完，但網絡回覆一定慢過 0ms，
+   結果 lastSnapshot 定咗做「登入前嘅本機 state」。之後隨便改一嘢，undoStack 入面
+   第一格就係嗰份舊資料 —— 撳一次 Ctrl+Z 就會用佢覆蓋返雲端，成盤資料冇晒。
+   而家改成由 loadFromFirebase 真正載完之後主動 call 呢個 hook。 */
+window.__onStateLoaded = function(){
+  snap = null;
+  try{ ensureAI(); takeSnap(); }catch(e){}
+  resetUndoHistory(true);
+};
 
 /* 匯入 JSON 時唔好整走 Data Log */
 try{
@@ -2103,6 +2254,10 @@ function openAI(tab){
   setTimeout(()=>{ if((tab||'ask')==='ask') $('aiInput').focus(); }, 60);
 }
 function switchTab(p){
+  /* 訪客模式只可以用「講低你想做乜」同「傾偈」 */
+  if(document.body.classList.contains('readonly') && (p==='log' || p==='rule')){
+    p = 'ask';
+  }
   document.querySelectorAll('#aiTabs button').forEach(b=>b.classList.toggle('on', b.dataset.p===p));
   document.querySelectorAll('#aiModal .aiPane').forEach(x=>x.classList.remove('on'));
   $('pane'+p.charAt(0).toUpperCase()+p.slice(1)).classList.add('on');
@@ -2152,7 +2307,7 @@ async function doSend(extraNote){
     const j = grabJSON(raw);
     cur.plan = j; cur.req = text + (extraNote? '（補充：'+extraNote+'）' : '');
 
-    logPush('request', cur.req);
+    logPush('request', cur.req, document.body.classList.contains('readonly') ? {guest:true} : {});
     logPush('plan', (j.reply||'') + '\n' + (j.items||[]).map(it=>'· '+(it.action||'add')+' '+(it.date||'')+' '+(it.time||'')+' '+(it.title||'')+(it.reason? '｜'+it.reason:'')).join('\n'),
       {count:(j.items||[]).length});
     (j.learned||[]).slice(0,5).forEach(x=>{ if(x) logPush('feedback','AI 觀察到：'+x, {kind:'ai-learned'}); });
@@ -2174,7 +2329,7 @@ async function doSend(extraNote){
 function clashText(date, time, skipId){
   if(!date||!time) return '';
   const t = minutes(time);
-  const hit = (state.events||[]).filter(e=>e.start.slice(0,10)===date && e.id!==skipId && Math.abs(minutes(e.start.slice(11))-t) < 30);
+  const hit = (state.events||[]).filter(e=>e && typeof e.start==='string' && e.start.slice(0,10)===date && e.id!==skipId && Math.abs(minutes(e.start.slice(11))-t) < 30);
   return hit.length ? '⚠ 同「'+hit.map(e=>e.title+' '+e.start.slice(11)).join('、')+'」時間好近' : '';
 }
 
@@ -2247,6 +2402,7 @@ $('aiApply').onclick = ()=>{
   $('aiApply').disabled = true;
   $('aiApply').textContent = '✓ 已加入';
   const added = [];
+  const revertData = {added:[], moved:[], deleted:[]};
   let firstDate = '';
   mute = true;
   try{
@@ -2259,6 +2415,7 @@ $('aiApply').onclick = ()=>{
       if(r.act==='delete'){
         const ev = (state.events||[]).find(e=>e.id===o.id);
         if(ev){
+          revertData.deleted.push(JSON.parse(JSON.stringify(ev)));
           state.events = state.events.filter(e=>e.id!==o.id);
           added.push('🗑 刪走：'+ev.title+'（'+ev.start.replace('T',' ')+'）');
         }
@@ -2280,6 +2437,7 @@ $('aiApply').onclick = ()=>{
       if(r.act==='move'){
         const ev = (state.events||[]).find(e=>e.id===o.id);
         if(ev){
+          revertData.moved.push({id:ev.id, before:{title:ev.title, start:ev.start, endOverride:ev.endOverride||null, color:ev.color||''}});
           ev.title = title; ev.start = start; ev.endOverride = end;
           if(color) ev.color = color;
           ev.ai = true;
@@ -2287,23 +2445,35 @@ $('aiApply').onclick = ()=>{
           if(!firstDate) firstDate = date;
           return;
         }
+        /* 修正：原本搵唔到 ev 就會跌落去下面嘅「新增」分支，
+           AI 報錯一個 id 就會靜靜雞多一件重複項目。而家改成明確略過同記低。 */
+        added.push('⚠ 搵唔到要改時間嘅「'+title+'」，已經略過（AI 報嘅 id 唔存在）');
+        logPush('correction','AI 想 move 一個唔存在嘅 id：'+String(o.id||'')+'（'+title+'）', {kind:'bad-id', title:title});
+        return;
       }
       const tpl = findTplByName(title);
       const future = start > nowStr();
+      const newEvId = uid();
       state.events.push({
-        id: uid(), title: title, start: start, endOverride: end,
+        id: newEvId, title: title, start: start, endOverride: end,
         sop: String(o.sop||'') || (tpl ? (tpl.sop||'') : ''),
         color: color || (tpl ? (tpl.color||'') : ''),
         templateId: tpl ? tpl.id : null,
         planned: future, done: !future,
-        ai: true, aiAt: nowISO()
+        ai: true, aiAt: nowISO(),
+        guestPending: document.body.classList.contains('readonly')
       });
+      revertData.added.push(newEvId);
       added.push('✅ '+date+'（星期'+wdOf(date)+'）'+time+'　'+title);
       if(!firstDate) firstDate = date;
     });
   } finally { mute = false; }
 
-  logPush('plan', '已落實：\n' + (added.join('\n')||'（冇加入任何嘢）'), {kind:'applied', count:added.length});
+  const _isGuest = document.body.classList.contains('readonly');
+  logPush('plan', '已落實：\n' + (added.join('\n')||'（冇加入任何嘢）'), {kind:'applied', count:added.length, revert:revertData, guest:_isGuest});
+  if(_isGuest){
+    logPush('feedback', '👤 訪客（例如細路女）透過 AI 排咗時間表，改動已標記為「待確認」，需要主人稍後決定確認或還原。', {kind:'guest-notify', guest:true});
+  }
   takeSnap();
   save();
 
@@ -2329,6 +2499,42 @@ $('aiApply').onclick = ()=>{
 };
 
 /* ---------- 6. Data Log 版面 ---------- */
+/* 還原單一條「已落實」log 所做嘅 action（新增→刪除、修改→還原舊值、刪除→加返） */
+async function revertLog(logId){
+  const entry = (state.ai.log||[]).find(x=>x.id===logId);
+  if(!entry || !entry.revert){ return; }
+  const rv = entry.revert;
+  const actions = [];
+  /* 1. 刪走嗰次新增嘅 event */
+  (rv.added||[]).forEach(id=>{
+    const ev = (state.events||[]).find(e=>e.id===id);
+    if(ev){
+      state.events = state.events.filter(e=>e.id!==id);
+      actions.push('刪除「'+ev.title+'」');
+    }
+  });
+  /* 2. 還原被修改嘅 event 去舊值 */
+  (rv.moved||[]).forEach(m=>{
+    const ev = (state.events||[]).find(e=>e.id===m.id);
+    if(ev && m.before){
+      ev.title = m.before.title; ev.start = m.before.start;
+      ev.endOverride = m.before.endOverride; ev.color = m.before.color;
+      actions.push('還原「'+ev.title+'」嘅時間');
+    }
+  });
+  /* 3. 加返被刪除嘅 event */
+  (rv.deleted||[]).forEach(oldEv=>{
+    if(!(state.events||[]).some(e=>e.id===oldEv.id)){
+      state.events.push(JSON.parse(JSON.stringify(oldEv)));
+      actions.push('加返「'+oldEv.title+'」');
+    }
+  });
+  entry.reverted = true; /* 標記做已還原 */
+  save();
+  renderLog(); renderCal(); renderTree();
+  undoToast('↩ 已還原：' + (actions.join('、') || '冇改動'), 'undo');
+}
+
 function renderLog(){
   ensureAI();
   const f = $('aiLogFilter').value;
@@ -2341,13 +2547,31 @@ function renderLog(){
     return;
   }
   list.slice(0,300).forEach(x=>{
-    const d = document.createElement('div'); d.className='logItem';
+    const d = document.createElement('div'); d.className='logItem' + (x.reverted?' reverted':'');
     const meta = document.createElement('div'); meta.className='meta';
     const tp = document.createElement('span'); tp.className='logType t-'+x.type; tp.textContent = TYPE_NAME[x.type]||x.type;
     const tm = document.createElement('span'); tm.textContent = String(x.at||'').slice(0,16).replace('T',' ');
     const sp = document.createElement('span'); sp.style.flex='1';
+    /* 有 revert 資料就顯示「還原」掣；已還原就顯示標籤 */
+    if(x.revert && !x.reverted){
+      const rv = document.createElement('button'); rv.className='logRevertBtn'; rv.textContent='↩ 還原';
+      rv.title = '淨係還原呢一條 log 所做嘅改動';
+      rv.onclick = async ()=>{
+        if(await confirmBox('確定要還原呢一條記錄所做嘅改動？\n\n'+short(x.text,100))){
+          revertLog(x.id);
+        }
+      };
+      meta.appendChild(rv);
+    } else if(x.reverted){
+      const tag = document.createElement('span'); tag.className='logRevertedTag'; tag.textContent='✓ 已還原';
+      meta.appendChild(tag);
+    }
     const del = document.createElement('button'); del.className='mini'; del.textContent='刪';
     del.onclick = ()=>{ state.ai.log = state.ai.log.filter(y=>y.id!==x.id); save(); renderLog(); };
+    if(x.guest){
+      const gTag=document.createElement('span'); gTag.className='badge guest'; gTag.textContent='👤 訪客'; gTag.style.fontSize='10px';
+      meta.appendChild(gTag);
+    }
     meta.appendChild(tp); meta.appendChild(tm); meta.appendChild(sp); meta.appendChild(del);
     const t = document.createElement('div'); t.className='txt'; t.textContent = x.text;
     d.appendChild(meta); d.appendChild(t);
@@ -2370,10 +2594,12 @@ $('aiLogClear').onclick = async ()=>{
 $('aiLogExport').onclick = ()=>{
   ensureAI();
   const blob = new Blob([JSON.stringify({type:'diarycal_ai', at:nowISO(), ai:state.ai}, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  a.href = url;
   a.download = 'diary_ai_memory_'+fmtDate(new Date()).replace(/-/g,'')+'.json';
-  a.click(); URL.revokeObjectURL(a.href);
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
 };
 $('aiLogImportBtn').onclick = ()=>$('aiLogImport').click();
 $('aiLogImport').onchange = async function(){
@@ -2667,11 +2893,13 @@ function mdToWhatsApp(md){
       ln = ln.replace(/^\s*[-*]\s+/, '• ');
     }
     /* 行內格式轉換 */
-    /* 粗體 **text** → *text*（WhatsApp 粗體） */
-    ln = ln.replace(/\*\*(.+?)\*\*/g, function(m,p1){ return '*' + p1 + '*'; });
-    /* 斜體 *text*（單星號）→ _text_（WhatsApp 斜體）
-       要喺粗體轉換之後做，避開已轉嘅 *text* */
+    /* 粗體 **text** → *text*（WhatsApp 粗體）
+       修正：原本轉完之後個 *text* 會即刻被下面條斜體 regex 再食一次，變咗 _text_，
+       即係所有粗體都會無端端變晒斜體。而家先換做一個唔會撞嘅 placeholder。 */
+    ln = ln.replace(/\*\*(.+?)\*\*/g, '\u0000$1\u0000');
+    /* 斜體 *text*（單星號）→ _text_（WhatsApp 斜體） */
     ln = ln.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1_$2_');
+    ln = ln.replace(/\u0000/g, '*');
     /* 刪除線 ~~text~~ → ~text~ */
     ln = ln.replace(/~~(.+?)~~/g, '~$1~');
     /* 連結 [text](url) → text (url) */
@@ -2767,6 +2995,11 @@ async function chatSend(presetText){
     ];
     const reply = await callAI(messages, {json:false, temp:0.5, max:6000});
     chatHistory.push({role:'assistant', content:reply, at:nowISO()});
+    /* 訪客模式：記錄對話落 Data Log，等主人可以 check 返 */
+    if(document.body.classList.contains('readonly')){
+      logPush('feedback', '👤 訪客對話記錄：\n我：'+text+'\n\nAI：'+short(reply,500), {kind:'guest-chat', guest:true});
+      save();
+    }
     renderChat();
   }catch(err){
     loadingEl.classList.remove('ai'); loadingEl.classList.add('sys');
@@ -2933,10 +3166,15 @@ function setGuestMode(on){
 }
 
 /* ---------- 監聽 Firebase 嘅解鎖密碼 hash（跨裝置同步）---------- */
+let unlockHashRef = null;
 function watchUnlockHash(){
+  /* 修正：原本每次 onAuthStateChanged 都 .on() 一次但從來冇 .off()，
+     登入登出幾次就會叠幾個 listener，每次改動 callback 行幾次。 */
+  if(unlockHashRef){ try{ unlockHashRef.off(); }catch(e){} unlockHashRef=null; }
   if(!currentUser || !dbRef){ unlockHash=''; applyGuestUI(); return; }
   try{
-    dbRef.child('guestUnlockHash').on('value', snap=>{
+    unlockHashRef = dbRef.child('guestUnlockHash');
+    unlockHashRef.on('value', snap=>{
       unlockHash = snap.val() || '';
       applyGuestUI();
     });
@@ -2958,10 +3196,14 @@ auth.onAuthStateChanged(user=>{
 try{ if(localStorage.getItem(GUEST_KEY)==='1') guestMode = true; }catch(e){}
 applyGuestUI();
 
-/* ---------- save() 封鎖：訪客模式之下全面禁止寫入 ---------- */
+/* ---------- save() 封鎖：訪客模式之下禁止寫入，但允許 AI 排程／傾偈 ---------- */
 const _saveBeforeGuest = save;
 save = function(){
-  if(guestMode){ toast('🔒 訪客模式：已經封鎖修改'); return; }
+  if(guestMode){
+    /* AI Modal 開啟期間允許寫入（訪客可以透過 AI 排程同傾偈改嘢，改動會被標記為 guestPending） */
+    const aiModalOpen = document.getElementById('aiModal') && document.getElementById('aiModal').classList.contains('show');
+    if(!aiModalOpen){ toast('🔒 訪客模式：已經封鎖修改'); return; }
+  }
   return _saveBeforeGuest.apply(this, arguments);
 };
 
