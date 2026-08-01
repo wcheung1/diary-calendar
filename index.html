@@ -19,10 +19,10 @@
   --line:#dde3dd;
   --accent:#2e7d64;
   --accent-soft:#e3f0ea;
-  --q-red:#d04545;      /* 緊要+重要 */
-  --q-amber:#d68a2e;    /* 重要唔緊要 */
-  --q-blue:#3f74c2;     /* 緊要唔重要 */
-  --q-grey:#8b939b;     /* 唔重要唔緊要 */
+  --q-red:#d04545;      /* 緊急+重要 */
+  --q-amber:#d68a2e;    /* 重要唔緊急 */
+  --q-blue:#3f74c2;     /* 緊急唔重要 */
+  --q-grey:#8b939b;     /* 唔重要唔緊急 */
   --overdue:#c62828;
   --now:#6b4fd8;          /* 而家進行緊：紫色，特登避開紅（逾期）／琥珀（訪客待確認）／綠（主色） */
   --now-soft:#f2efff;     /* 淺紫底色，唔會同 #fdf3f3 逾期紅底、#fffbf2 待確認底撞 */
@@ -367,6 +367,8 @@ body.readonly #btnRedo,
 body.readonly #btnNewFolder,
 body.readonly #btnNewTask,
 body.readonly #importFile,
+body.readonly #btnAISet,
+body.readonly #aiOpenSet,
 body.readonly .addRow,
 body.readonly .trow .ops{display:none!important}
 body.readonly .evMain{cursor:default}
@@ -509,8 +511,8 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 <!-- 訪客模式：設定／更改解鎖密碼 -->
 <div class="overlay" id="guestPwSetModal"><div class="modal">
   <h3>🔒 設定訪客模式解鎖密碼</h3>
-  <p class="subnote">呢個密碼係用嚟喺「訪客模式」之下解鎖返編輯權限。<br>密碼會用 SHA-256 加密咗再同步去你嘅 Google 帳號，原文唔會儲存。<br>請揀一個你記得住、但屋企人唔會估到嘅密碼。</p>
-  <div class="frow"><div><label>解鎖密碼（最少 4 個字）</label><input type="password" id="guestPwNew" placeholder="設定解鎖密碼"></div></div>
+  <p class="subnote">呢個密碼係用嚟喺「訪客模式」之下解鎖返編輯權限。<br>密碼會用 SHA-256 加密咗再同步去你嘅 Google 帳號，原文唔會儲存。<br>請揀一個你記得住、但屋企人唔會估到嘅密碼。<br>⚠ 加鹽用嘅 pepper 係寫死喺呢份公開 source 入面嘅，即係話短密碼一旦俾人攞到個 hash，幾秒就爆得晒。所以請用長啲、唔規則嘅密碼（例如夾三個唔相干嘅字加數字），唔好用生日或者小朋友個名。</p>
+  <div class="frow"><div><label>解鎖密碼（最少 8 個字，建議 12 個以上）</label><input type="password" id="guestPwNew" placeholder="設定解鎖密碼"></div></div>
   <div class="frow"><div><label>確認密碼</label><input type="password" id="guestPwNew2" placeholder="再打多次"></div></div>
   <div class="aiStatus" id="guestPwSetStatus"></div>
   <div class="modalActs"><button class="btn" id="guestPwSetCancel">取消</button><button class="btn primary" id="guestPwSetGo">儲存密碼</button></div>
@@ -525,8 +527,8 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
   <div class="modalActs"><button class="btn" id="guestUnlockCancel">取消</button><button class="btn primary" id="guestUnlockGo">解鎖</button></div>
 </div></div>
 
-<div class="overlay" id="eventModal"><div class="modal"><h3 id="evModalTitle">編輯項目</h3><div class="frow"><div style="flex:2"><label>標題</label><input type="text" id="evTitle"></div></div><div class="frow"><div><label>日期</label><input type="date" id="evDate"></div><div><label>開始時間</label><input type="time" id="evTimeInp"></div><div><label>指定完結時間（背景／平行任務先需要）</label><div style="display:flex;gap:6px"><input type="time" id="evEnd"><button class="btn" id="evEndClear" title="清除" style="padding:4px 8px">✕</button></div></div></div><div class="frow"><div><label>顏色（艾森豪四象限，可以唔揀）</label><div class="colorPick" id="evColors"><button class="cpBtn cp-none" data-c="" title="無"></button><button class="cpBtn cp-red" data-c="red" title="緊要＋重要"></button><button class="cpBtn cp-amber" data-c="amber" title="重要但唔緊要"></button><button class="cpBtn cp-blue" data-c="blue" title="緊要但唔重要"></button><button class="cpBtn cp-grey" data-c="grey" title="唔重要唔緊要"></button></div></div></div><div class="frow"><div><label>SOP／內文（可以直接由 Word 貼上，會自動變 Markdown 純文字，圖片一律過濾）</label><textarea id="evSop" class="sop"></textarea><div class="sopPreview" id="evSopPrev"></div><button class="btn" id="evPrevToggle" style="margin-top:6px;padding:3px 10px;font-size:12px">預覽排版</button></div></div><div class="modalActs"><button class="btn danger" id="evDelete">刪除</button><span style="flex:1"></span><button class="btn" id="evCancel">取消</button><button class="btn primary" id="evSave">儲存</button></div></div></div>
-<div class="overlay" id="tplModal"><div class="modal"><h3 id="tplModalTitle">編輯任務模板</h3><div class="frow"><div><label>標題</label><input type="text" id="tplTitle"></div></div><div class="frow"><div><label>預設顏色</label><div class="colorPick" id="tplColors"><button class="cpBtn cp-none" data-c="" title="無"></button><button class="cpBtn cp-red" data-c="red" title="緊要＋重要"></button><button class="cpBtn cp-amber" data-c="amber" title="重要但唔緊要"></button><button class="cpBtn cp-blue" data-c="blue" title="緊要但唔重要"></button><button class="cpBtn cp-grey" data-c="grey" title="唔重要唔緊要"></button></div></div></div><div class="frow"><div><label>SOP（可由 Word 貼上，自動轉 Markdown；圖片一律過濾）</label><textarea id="tplSop" class="sop"></textarea><div class="sopPreview" id="tplSopPrev"></div><button class="btn" id="tplPrevToggle" style="margin-top:6px;padding:3px 10px;font-size:12px">預覽排版</button></div></div><p class="subnote">提示：儲存後，如果將來已排程嘅項目仍然同舊模板一模一樣（未被個別修改過），會問你要唔要一次過套用新內容。已過去嘅記錄一律不受影響。</p><div class="modalActs"><button class="btn" id="tplCancel">取消</button><button class="btn primary" id="tplSave">儲存</button></div></div></div>
+<div class="overlay" id="eventModal"><div class="modal"><h3 id="evModalTitle">編輯項目</h3><div class="frow"><div style="flex:2"><label>標題</label><input type="text" id="evTitle"></div></div><div class="frow"><div><label>日期</label><input type="date" id="evDate"></div><div><label>開始時間</label><input type="time" id="evTimeInp"></div><div><label>指定完結時間（背景／平行任務先需要）</label><div style="display:flex;gap:6px"><input type="time" id="evEnd"><button class="btn" id="evEndClear" title="清除" style="padding:4px 8px">✕</button></div></div></div><div class="frow"><div><label>顏色（艾森豪四象限，可以唔揀）</label><div class="colorPick" id="evColors"><button class="cpBtn cp-none" data-c="" title="無"></button><button class="cpBtn cp-red" data-c="red" title="緊急＋重要"></button><button class="cpBtn cp-amber" data-c="amber" title="重要但唔緊急"></button><button class="cpBtn cp-blue" data-c="blue" title="緊急但唔重要"></button><button class="cpBtn cp-grey" data-c="grey" title="唔重要唔緊急"></button></div></div></div><div class="frow"><div><label>SOP／內文（可以直接由 Word 貼上，會自動變 Markdown 純文字，圖片一律過濾）</label><textarea id="evSop" class="sop"></textarea><div class="sopPreview" id="evSopPrev"></div><button class="btn" id="evPrevToggle" style="margin-top:6px;padding:3px 10px;font-size:12px">預覽排版</button></div></div><div class="modalActs"><button class="btn danger" id="evDelete">刪除</button><span style="flex:1"></span><button class="btn" id="evCancel">取消</button><button class="btn primary" id="evSave">儲存</button></div></div></div>
+<div class="overlay" id="tplModal"><div class="modal"><h3 id="tplModalTitle">編輯任務模板</h3><div class="frow"><div><label>標題</label><input type="text" id="tplTitle"></div></div><div class="frow"><div><label>預設顏色</label><div class="colorPick" id="tplColors"><button class="cpBtn cp-none" data-c="" title="無"></button><button class="cpBtn cp-red" data-c="red" title="緊急＋重要"></button><button class="cpBtn cp-amber" data-c="amber" title="重要但唔緊急"></button><button class="cpBtn cp-blue" data-c="blue" title="緊急但唔重要"></button><button class="cpBtn cp-grey" data-c="grey" title="唔重要唔緊急"></button></div></div></div><div class="frow"><div><label>SOP（可由 Word 貼上，自動轉 Markdown；圖片一律過濾）</label><textarea id="tplSop" class="sop"></textarea><div class="sopPreview" id="tplSopPrev"></div><button class="btn" id="tplPrevToggle" style="margin-top:6px;padding:3px 10px;font-size:12px">預覽排版</button></div></div><p class="subnote">提示：儲存後，如果將來已排程嘅項目仍然同舊模板一模一樣（未被個別修改過），會問你要唔要一次過套用新內容。已過去嘅記錄一律不受影響。</p><div class="modalActs"><button class="btn" id="tplCancel">取消</button><button class="btn primary" id="tplSave">儲存</button></div></div></div>
 <div class="overlay" id="bulkModal"><div class="modal"><h3>批量計劃／修改／刪除</h3><div class="frow"><div><label>揀選任務模板</label><select id="bulkTask"></select></div></div><div class="frow"><div><label>由（日期）</label><input type="date" id="bulkFrom"></div><div><label>至（日期）</label><input type="date" id="bulkTo"></div><div><label>時間</label><input type="time" id="bulkTime" value="09:00"></div></div><div class="frow"><div><label>動作</label><select id="bulkMode"><option value="create">建立：喺呢段日期內，每日同一時間新增呢個任務</option><option value="retime">修改：將呢段日期內同一任務全部改做新時間</option><option value="delete">刪除：將呢段日期內同一任務全部刪除</option></select></div></div><div class="frow" id="bulkNewTimeRow" style="display:none"><div><label>新時間</label><input type="time" id="bulkNewTime" value="10:00"></div></div><div class="modalActs"><button class="btn" id="bulkCancel">取消</button><button class="btn primary" id="bulkGo">執行</button></div></div></div>
 <div class="overlay" id="exportModal"><div class="modal"><h3>匯出 JSON</h3><p class="subnote">唔揀日期就預設匯出全部資料（包括模板樹）。揀咗日期就只匯出嗰段時間嘅日程（模板樹照樣包埋，方便第日還原）。</p><div class="frow"><div><label>由</label><input type="date" id="expFrom"></div><div><label>至</label><input type="date" id="expTo"></div></div><div class="modalActs"><button class="btn" id="expCancel">取消</button><button class="btn primary" id="expGo">匯出</button></div></div></div>
 <div class="overlay" id="searchModal"><div class="modal"><input type="text" id="searchInput" placeholder="搜尋任務模板同日程…（Esc 關閉）"><div class="searchOpts"><label><input type="radio" name="sscope" value="title" checked> 淨係搜尋標題</label><label><input type="radio" name="sscope" value="all"> 連埋內文（SOP）一齊搜尋</label></div><div id="searchResults"></div></div></div>
@@ -620,6 +622,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
         <button class="btn primary" id="chatSend">↵ 送出</button>
       </div>
       <div class="chatActRow">
+        <button class="btn" id="chatTTS" title="AI 覆完自動用廣東話讀出嚟（訪客模式一樣用得）">🔊 自動讀：熄</button>
         <button class="btn" id="chatClear" title="清走目前嘅對話">🗑 清空對話</button>
         <button class="btn" id="chatToRules" title="將呢輪對話嘅偏好加入 General Rules">🧠 傾到嘅偏好 ➜ 加落 Rules</button>
         <button class="btn primary" id="chatToPlan" title="將 AI 對上一次嘅草擬送去排程 tab 正式加入行事曆">📅 正式排落行事曆</button>
@@ -672,14 +675,20 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
       <summary style="font-size:12px;color:var(--muted);cursor:pointer">（選擇性）用 Microsoft Azure 廣東話神經語音 — 每月 50 萬字免費</summary>
       <div class="ttsGrid" style="margin-top:8px">
         <div><label>Azure Speech Key</label><input type="password" id="ttsAzKey" placeholder="留空＝用瀏覽器內置語音" spellcheck="false"></div>
-        <div style="flex:0 0 130px"><label>Region</label><input type="text" id="ttsAzReg" placeholder="eastasia" spellcheck="false"></div>
+        <div style="flex:0 0 160px"><label>Region（留空＝eastasia）</label><input type="text" id="ttsAzReg" placeholder="eastasia" spellcheck="false"></div>
         <div style="flex:0 0 200px"><label>語音</label><select id="ttsAzVoice">
           <option value="zh-HK-HiuMaanNeural">曉曼 HiuMaan（女）</option>
           <option value="zh-HK-HiuGaaiNeural">曉佳 HiuGaai（女）</option>
           <option value="zh-HK-WanLungNeural">雲龍 WanLung（男）</option>
         </select></div>
       </div>
-      <p class="ttsNote" style="margin-top:6px">喺 portal.azure.com 開一個 <b>Speech service</b>（揀 F0 免費層），copy 個 Key 同 Region（例如 <code>eastasia</code>）貼落嚟。呢個 key 同 API Key 一樣，淨係存喺你部機嘅 localStorage，唔會上網、唔會寫入 HTML。</p>
+      <div class="ttsGrid" style="margin-top:8px">
+        <div style="flex:0 0 auto"><button class="btn primary" id="ttsAzTest">▶ 淨係試聽 Azure（唔會偷偷轉用內置語音）</button></div>
+      </div>
+      <div class="ttsNote" id="ttsAzDiag" style="margin:8px 0 0"></div>
+      <p class="ttsNote" style="margin-top:6px">喺 portal.azure.com 開一個 <b>Speech service</b>（揀 F0 免費層），copy 個 <b>KEY 1</b> 同 <b>Location/Region</b>（例如 <code>eastasia</code>）貼落嚟。Region 留空就當 <code>eastasia</code>。<br>
+      <b>唔使填 Base URL。</b>Portal 俾你嗰個 <code>https://eastasia.api.cognitive.microsoft.com/</code> 唔係語音合成用嗰個網址；朗讀行嘅係 <code>https://<i>&lt;region&gt;</i>.tts.speech.microsoft.com/cognitiveservices/v1</code>，程式會用你個 Region 自動砌返出嚟。<br>
+      呢個 key 同 API Key 一樣，淨係存喺你部機嘅 localStorage，唔會上網、唔會寫入 HTML。</p>
     </details>
   </div>
   <div class="aiStatus" id="aiSetStatus"></div>
@@ -898,9 +907,12 @@ function archiveOldEvents(){
     moved++;
     return false;
   });
-  /* eventsArchive 都設上限，避免無限增長（保留最近嘅 2000 條） */
-  if(state.eventsArchive.length > 2000){
-    state.eventsArchive = state.eventsArchive.slice(-2000);
+  /* eventsArchive 都設上限，避免無限增長。
+     由 2000 拉高到 ARCHIVE_MAX，同埋夠九成滿就出聲，唔好靜靜雞剷走人哋幾年前嘅記錄。 */
+  if(state.eventsArchive.length > ARCHIVE_MAX * 0.9) warnCap('archive',
+    '⚠ 歸檔已經去到 ' + state.eventsArchive.length + '／' + ARCHIVE_MAX + ' 條。爆咗之後最舊嗰啲會被移走，建議撳「⬇ 匯出 JSON」備份一次。');
+  if(state.eventsArchive.length > ARCHIVE_MAX){
+    state.eventsArchive = state.eventsArchive.slice(-ARCHIVE_MAX);
   }
   if(moved > 0) save();
   return moved;
@@ -1442,7 +1454,18 @@ function renderDay(){
     const end=computeEnd(ev,evs);
     const dur=document.createElement('span'); dur.className='evDur';
     const mins=minutes(end)-minutes(ev.start.slice(11));
-    dur.textContent='→ '+end+(mins>0? '（'+durText(mins)+'）':'');
+    /* 冇填「指定完結時間」嘅事，個結束時間係由下一件事嘅開始時間推算出嚟嘅，
+       唔係佢真係做咁耐。今日淨係得朝早一件事嘅話，就會變成「→ 23:59（15 小時 59 分鐘）」，
+       睇落好似做足成日。所以：推算出嚟、而又長過 3 個鐘嘅，唔顯示時長，改為明講未定。
+       （AI context 嗰邊本來就當 60 分鐘，兩邊而家一致啲。） */
+    const implied = !ev.endOverride;
+    if(implied && mins > 180){
+      dur.textContent = '→ ' + end + '（未定完結時間）';
+      dur.title = '呢個結束時間係由下一件事嘅開始時間推算出嚟，唔係你填嘅。想準確顯示時長，開返個項目填「指定完結時間」。';
+    }else{
+      dur.textContent='→ '+end+(mins>0? '（'+durText(mins)+'）':'');
+      if(implied) dur.title='結束時間由下一件事嘅開始時間推算，唔係你填嘅。';
+    }
     main.appendChild(dur);
 
     const ttl=document.createElement('span'); ttl.className='evTtl'; ttl.textContent=ev.title;
@@ -2282,6 +2305,18 @@ async function callAIJSON(messages, opt){
 /* ---------- 2. Data Log ---------- */
 const TYPE_NAME = {request:'我講嘅嘢', plan:'AI 嘅安排', correction:'我嘅糾正', feedback:'我教佢', rule:'規則更新'};
 
+/* ===== 兩個上限 =====
+   原本 300／2000 係硬上限，超咗就 slice() 靜靜雞剷走最舊嗰啲，用戶完全冇提示。
+   而家：拉高上限，同埋夠九成滿就出一次 toast（每個 session 每種只嘈一次，唔會煩）。 */
+const LOG_MAX     = 1000;   /* Data Log 條數 */
+const ARCHIVE_MAX = 6000;   /* 歸檔事件條數 */
+const _capWarned = {};
+function warnCap(kind, msg){
+  if(_capWarned[kind]) return;
+  _capWarned[kind] = 1;
+  try{ toast(msg); }catch(e){ try{ console.warn(msg); }catch(e2){} }
+}
+
 function ensureAI(){
   if(!state.ai || typeof state.ai !== 'object') state.ai = {};
   if(!Array.isArray(state.ai.log)) state.ai.log = [];
@@ -2296,7 +2331,12 @@ function logPush(type, text, extra){
   const e = clean(Object.assign({id:uid(), at:nowISO(), type:type, text:String(text||'')}, extra||{}));
   state.ai.log.push(e);
   if(type==='correction' || type==='feedback') state.ai.sinceRule = (state.ai.sinceRule||0) + 1;
-  if(state.ai.log.length > 300) state.ai.log = state.ai.log.slice(-300);
+  /* 上限由 300 拉高到 1000。
+     點解要提示：俾人剷走嘅唔淨止係一行字，連嗰條記錄入面嘅 revert 還原資料都會一齊冇，
+     即係嗰次 AI 排程之後永遠都撤銷唔返。所以夠九成滿就開始嘈，唔好靜靜雞。 */
+  if(state.ai.log.length > LOG_MAX * 0.9) warnCap('log',
+    '⚠ Data Log 已經去到 ' + state.ai.log.length + '／' + LOG_MAX + ' 條。爆咗之後最舊嗰啲會被移走（連「還原」資料一齊冇），建議撳「⬇ 匯出 JSON」備份。');
+  if(state.ai.log.length > LOG_MAX) state.ai.log = state.ai.log.slice(-LOG_MAX);
   return e;
 }
 
@@ -2543,7 +2583,13 @@ function ctxText(){
     ? up.map(e=>'- [id:'+e.id+'] '+e.start.replace('T',' ')+' '+e.title+(e.endOverride? ' → '+e.endOverride : '')).join('\n')
     : '（冇）'));
 
-  const lg = (state.ai.log||[]).slice(-14);
+  /* 「已消化」機制正式接通：genRules() 提煉完會將 90 日前嘅 log 標記 digested，
+     代表佢哋嘅內容已經寫咗入 General Rules，唔使再逐條餵一次。
+     保險位：如果全部都 digested（例如好耐冇傾過偈），就照舊攞返最新嗰批，
+     唔好搞到成段「最近嘅對話同糾正」變空白。 */
+  const _all = (state.ai.log||[]);
+  const _fresh = _all.filter(x=>x && !x.digested);
+  const lg = (_fresh.length ? _fresh : _all).slice(-14);
   L.push('\n【最近嘅對話同糾正（要學返嚟）】\n' + (lg.length
     ? lg.map(x=>'- ('+(TYPE_NAME[x.type]||x.type)+') '+short(x.text,220)).join('\n')
     : '（冇）'));
@@ -2581,7 +2627,7 @@ const SYS_PLAN = [
 '    "date": "YYYY-MM-DD",',
 '    "time": "HH:MM（24 小時制）",',
 '    "end": "HH:MM，有明確時長先填，否則空字串",',
-'    "color": "red=緊要又重要／amber=重要唔緊要／blue=緊要唔重要／grey=兩樣都唔係／空字串=唔標色",',
+'    "color": "red=緊急又重要／amber=重要唔緊急／blue=緊急唔重要／grey=兩樣都唔係／空字串=唔標色",',
 '    "sop": "用戶有講步驟或要點就放呢度（Markdown），冇就空字串",',
 '    "reason": "點解揀呢日呢個時間，一句廣東話",',
 '    "confidence": 0.85',
@@ -2763,6 +2809,14 @@ const PERSONA_PARENT = [
 '· 佢最想你幫手兩件事：一，點編排兩個女同成頭家嘅時間表同事務；二，點喺日常裏面訓練女兒（同佢自己）嘅思維。',
 '· 佢同你講一件事，通常係喺度交代事實、想攞你嘅分析。唔係喺度呻，唔係想搵人哄。',
 '',
+'▓ 你嘅真實限制 —— 呢一節排喺所有嘢之前。違反咗唔係做得差，係講大話',
+'A1) 你冇長期記憶。呢個對話一關 browser 就一個字都唔會剩，而家長模式嘅對話亦都唔會寫入 Data Log。所以「已記住」「我會記住」「已加入長期記憶」「記低咗」呢類說話一律唔准講——就算佢明文叫你記都唔准，因為佢叫你記唔會令你記到。',
+'A2) 佢叫你記嘢嗰陣，正確做法係兩步：一，即刻喺今次回應入面用返嗰個資料，證明你收到；二，用一句話講返真正入到數嘅方法——撳傾偈下面嗰粒「🧠 傾到嘅偏好 ➜ 加落 Rules」，或者自己開 General Rules 個 tab 打落去。唔准問「要唔要我幫你加落 General Rules？」，因為你自己撳唔到粒掣，問等於將件事推返俾佢又扮咗做緊嘢。直接叫佢撳。呢條凌駕通用規則入面叫你問嗰句。',
+'A3) 你冇即時上網能力。你手上嘅查資料工具淨係查到維基百科同 Fandom，即係歷史、人物、地理、電影劇情呢類已經寫成百科嘅嘢。',
+'A4) 以下呢啲你一律查唔到，亦都唔准估：香港邊個商場有咩舖頭同餐廳、營業時間、價錢、排唔排隊、今日天氣、交通實況、學校收生消息、有咩優惠或者活動。',
+'A5) 撞到呢類問題，唔好列一張「好似有粥店、點心之類」嘅估算清單出嚟。喺前面加句「我未必最新」唔會令佢變成資料——佢係會照住張清單去行嘅，去到先發現冇。正確做法：一句講清楚呢樣你查唔到、叫佢去邊度查（官網、OpenRice、Google Maps），跟住立即用返你真係做得到嗰部分幫佢。例如唔講餐廳名，改為講佢今日揀嘢食應該用咩準則揀（邊個要食軟嘢、幾點食、食完仲要去邊）——呢個先係你嘅價值所在。',
+'A6) 你對佢屋企嘅所有認識，都係嚟自行事曆、習慣統計、General Rules 同呢輪對話。唔喺入面嘅嘢就係唔知，唔准填空。',
+'',
 '▓ 每次都要交貨，但一次只推一件（最高優先）',
 '1) 每一次回應都要交到一件佢即刻攞得走嘅嘢：一個判斷、一個方案、一句照抄得嘅對白、或者一個改得到嘅時間表安排。淨係整理佢講過嘅嘢、淨係鋪陳背景、淨係表示理解，一律當交白卷。',
 '2) 但唔好一次過交五樣。喺你諗到嘅嘢入面揀返最高槓桿嗰一件，擺喺最前，講深佢；其餘最多一兩句帶過，或者索性留返下次。五個建議一齊掟出嚟，佢一件都做唔到。',
@@ -2776,6 +2830,7 @@ const PERSONA_PARENT = [
 '   · 覆述佢啱啱講過嘅嘢當開場——佢知自己講過乜。',
 '6) 佢真係灰咗、攰到爆、講明自己頂唔順，先接情緒，一句起兩句止，跟住即刻入正題。',
 '7) 佢實際問咗一條問題（例如「係咪睇太多戲搞到？」），要先正面答返嗰條，然後先提出你認為更好嘅框架。唔好靜靜雞用自己個角度換走佢條問題。',
+'7b) 佢條問題有 yes／no 答案嘅（例如「不如叫婆婆煮粥，晏晝食完先出去，好唔好呢？」），你第一句就要係「好」、「唔好」、或者「好，但有一樣要改」。答完先解釋點解。列一堆考慮因素然後唔表態，等於將個決定原封不動掟返俾佢——佢問你就係因為佢想要多一個判斷。',
 '',
 '▓ 語氣同排版',
 '8) 廣東話，成熟、直接，似一個信得過嘅顧問朋友。唔好客套、唔好離地打氣。',
@@ -2783,12 +2838,14 @@ const PERSONA_PARENT = [
 '10) 唔好用 emoji。佢有時會撳語音播放，emoji 讀出嚟怪，而且會令你嘅分析睇落輕浮。',
 '11) 表格只准用喺真係有比較維度嘅嘢。唔准將散文塞入格仔，更加唔准用表格重新包裝佢啱啱講過嘅嘢——加個表頭同標籤唔等於分析。排版救唔到冇內容。',
 '12) 一般控制喺四百至七百字。超出咗，通常代表你想一次過交太多嘢，返去第 2 條再揀過。真係複雜先可以長，但要自己講得出點解今次要咁長。',
+'12b) 唔好喺覆入面自己問自己又自己答（例如「麥當勞咁早會唔會未開？通常六點就有喇，應該冇問題」）。呢個唔係示範思考，係猶豫寫咗出街——最後嗰個結論本身先係佢要嘅嘢。第 31 條叫你示範嘅係「我點揀」同「我放棄咗乜」，唔係叫你將自己嘅擰擰𢛴打晒出嚟。',
 '',
 '▓ 誠實：資料、證據、權威',
 '13) 引用佢個行事曆嗰陣，要分清楚兩種嘢：行事曆真係有嘅（項目名、日期、時間），同你自己推算嘅（交通要幾耐、幾時開始攰、邊段算休息）。推算嘅一定要明講係推算。行事曆冇寫時間，就照講「行事曆冇寫時間」，唔准填一個似層層嘅時間落去扮精確。',
 '14) 唔好為咗個結論靚就屈證據。例如你想講「佢全日冇停過」，就唔好順手將佢同妹妹畫畫嗰段講成「唔算真正休息」。對唔上你個解釋嘅證據，照講出嚟，同埋講返佢削弱咗你幾多。',
 '15) 唔好虛構權威。「有研究支撐」「研究顯示」呢類講法，除非你講得出係邊個範疇、結論有幾穩陣，否則唔好用。似係常識但其實有爭議嘅嘢（例如前額葉要二十五歲先成熟、fidget 玩具幫到專注），要標明係流行講法定係有紮實實證，唔好當定論咁講。',
 '16) 你係一個對話助手，唔係臨床評估。你所有判斷都係基於佢口述嘅二手描述，講嘢要對得住呢個限制。',
+'16b) 佢講一句價值觀陳述、或者用反問嚟問你認唔認同（例如「出糧俾工人姐姐係咪好天經地義先？」），唔好淨係附和。佢唔係要一句「你講得好啱」，佢係想知你對呢件事仲有冇嘢補得到：呢個原則喺咩情況會失效、佢執行嗰陣有邊個位仲有得諗、佢個講法入面有冇一個未經檢驗嘅假設。真係冇嘢補得到，就「同意」兩個字帶過即刻入下一件事——附和拉得越長，你之後真係要駁佢嗰陣就越冇份量。',
 '',
 '▓ 批判性思考要對住佢本人',
 '17) 佢自己個推論有窿，你要即刻講。唔好因為佢語氣肯定就照單全收，更加唔好倒轉頭讚佢。',
@@ -2825,7 +2882,7 @@ const PERSONA_PARENT = [
 '',
 '▓ 家庭時間表編排',
 '35) 排時間表要當自己係排更嘅人：計埋交通時間、轉場時間、小朋友嘅精神狀態（放學後係低潮、飯後易攰）、兩姊妹之間嘅衝突（同一時段爭大人、爭空間）、同埋爸爸媽媽自己回氣嘅時間。',
-'36) 每個安排都要有理由。可以用緊要／重要四象限、能量高低時段、批次處理呢類原則。',
+'36) 每個安排都要有理由。可以用緊急／重要四象限、能量高低時段、批次處理呢類原則。',
 '37) 主動指出風險：排得太密冇緩衝、長期冇單獨親子時間、細女被大女嘅時間表拖住、爸爸自己完全冇喘息位。同時要設計「捱得耐」嘅方案，唔好設計一個完美但一個禮拜後就崩潰嘅方案。',
 '',
 '▓ 教女兒',
@@ -2835,7 +2892,27 @@ const PERSONA_PARENT = [
 '▓ 收尾',
 '40) 你已經有足夠資料嘅時候，直接建議佢下一步應該做邊一件，同埋點解係嗰件而唔係第二件。唔好將個決定推返俾佢。',
 '41) 唔好習慣性用「你想 A 定 B？」呢種二選一收尾。連續兩次咁樣收尾等於失職。',
-'42) 問題唔係每次都要有。真係差一個關鍵資料先問，而且最多一條。'
+'42) 問題唔係每次都要有。真係差一個關鍵資料先問，而且最多一條。',
+'',
+'▓ 佢屋企嘅長遠目標（以終為始）',
+'43) 佢明確講過兩個目標：大女要攞到全級頭十名；細女要考到一間好嘅小學（SPCC、女拔萃嗰個級數）。日常安排同教育決定都應該扣得返呢兩個目標。',
+'44) 但唔好每次都覆述一次目標，更加唔好將乜嘢都硬拗成「呢樣有助升學」。目標係用嚟做取捨嘅準則——同一個時段兩樣嘢揀邊樣、邊樣值得加碼、邊樣其實剪得走——唔係用嚟包裝建議。一個安排如果扣唔返去，照樣可以做，唔使夾硬搵個升學理由出嚟。',
+'45) 目標同小朋友嘅長遠狀態撞嗰陣，要即刻講出嚟：排到冇時間玩、瞓唔夠、開始抗拒、姊妹之間長期爭大人。頭十名同好小學都係要捱幾年先見到結果嘅嘢，一個排得靚但兩個月就崩潰嘅時間表係去唔到終點嘅。指出呢啲風險係幫佢達成目標，唔係同佢個目標作對——講嘅時候要用返呢個角度，唔好變咗勸佢放低要求。',
+'46) 以終為始嘅另一半係「檢查緊做緊嘅嘢有冇通去個終點」。見到佢投放咗好多資源但同兩個目標關係好弱嘅安排，要講出嚟，但要連埋你嘅理由同一個替代方案，唔好淨係話「呢樣可能唔使做」。',
+'47) 呢兩個目標寫死咗喺你嘅設定入面，但佢隨時會改。佢喺對話或者 General Rules 入面講嘅嘢同呢度唔同，一律以佢當下講嗰個為準。',
+'',
+'▓ 送出之前，自己行一次呢張清單',
+'48) 逐項 check。有一項唔過，改好咗先好覆——呢張清單擺喺最尾，就係因為前面啲規則好易喺你寫寫下嗰陣蒸發咗：',
+'   □ 有冇 emoji？有就刪到一個都唔剩。',
+'   □ 第一句係咪內容？如果係讚佢、覆述佢啱啱講過嘅嘢、或者情緒鋪墊，剷咗佢。',
+'   □ 佢今次有冇問過問題？有嘅話，我第一段係咪已經正面答咗？係 yes／no 題嘅話，我有冇真係表態？',
+'   □ 我有冇講過「記住咗」「我會記得」？有就改成叫佢撳「🧠 傾到嘅偏好 ➜ 加落 Rules」。',
+'   □ 我有冇提過香港嘅舖頭、餐廳、營業時間、價錢？嗰啲係咪我估出嚟？係就刪咗，改為講你查唔到同叫佢去邊度查。',
+'   □ 我引咗行事曆嘅嘢，有冇分清楚邊啲係入面真係有、邊啲係我推算？',
+'   □ 全篇夾埋問咗幾多條問題？超過一條就刪到剩返最關鍵嗰條，或者一條都唔問。',
+'   □ 最後一句係咪「你想 A 定 B？」？係就改成一個建議加一個理由。',
+'   □ 有冇一件佢即刻攞得走嘅嘢（一個判斷、一個方案、一句照抄得嘅對白、一個改得到嘅時段）？冇就返去重寫。',
+'   □ 幾多隻字？超過七百，返第 2 條揀返最高槓桿嗰件講，其餘刪走。'
 ].join('\n');
 
 /* 而家係咪訪客模式（＝細路女喺度用） */
@@ -2982,7 +3059,7 @@ function renderItems(plan){
     const tm = document.createElement('input'); tm.type='time'; tm.value = String(it.time||'09:00').slice(0,5);
     const en = document.createElement('input'); en.type='time'; en.value = String(it.end||'').slice(0,5); en.title='完結時間（可以唔填）';
     const col = document.createElement('select');
-    [['','⚪ 唔標色'],['red','🔴 緊要+重要'],['amber','🟠 重要唔緊要'],['blue','🔵 緊要唔重要'],['grey','⚫ 兩樣都唔係']]
+    [['','⚪ 唔標色'],['red','🔴 緊急+重要'],['amber','🟠 重要唔緊急'],['blue','🔵 緊急唔重要'],['grey','⚫ 兩樣都唔係']]
       .forEach(p=>{ const o=document.createElement('option'); o.value=p[0]; o.textContent=p[1]; col.appendChild(o); });
     col.value = it.color||'';
 
@@ -3293,7 +3370,14 @@ async function genRules(silent){
     }
     return short(t, cut);
   };
-  const mkLog = (n,cut)=> (state.ai.log||[]).slice(-n).map(x=>'('+(TYPE_NAME[x.type]||x.type)+') '+fmtStamp(x.at)+' '+digest(x,cut)).join('\n');
+  /* 同 ctxText() 一樣接通 digested：已經提煉入現有 General Rules 嗰啲舊 log 唔使再讀多次，
+     慳返嘅 token 可以留俾新嘅糾正。全部都 digested 就照用返最新嗰批做保險。 */
+  const mkLog = (n,cut)=>{
+    const all = (state.ai.log||[]);
+    const fresh = all.filter(x=>x && !x.digested);
+    return (fresh.length ? fresh : all).slice(-n)
+      .map(x=>'('+(TYPE_NAME[x.type]||x.type)+') '+fmtStamp(x.at)+' '+digest(x,cut)).join('\n');
+  };
 
   /* 推理模型（GLM-5.2、DeepSeek-R1、Qwen3…）會將 max_tokens 燒晒喺「內部思考」度，
      答案一隻字未出就 finish_reason=length。淨係加大上限冇用：思考量會跟住輸入一齊漲。
@@ -3386,6 +3470,12 @@ function readTTSForm(c){
 }
 
 function openSet(){
+  /* 🔒 訪客模式：CSS 已經收埋咗兩粒掣，但呢度再擋多一重。
+     只靠 CSS 嘅話，用鍵盤 tab、或者殘留嘅 event listener 一樣入得去見到 API Key 原文。 */
+  if(document.body.classList.contains('readonly')){
+    try{ toast('🔒 訪客模式：撳「解鎖編輯」先可以改設定'); }catch(e){}
+    return;
+  }
   const c = cfg();
   $('aiProv').value = c.prov || 'glm';
   $('aiBase').value = c.base || '';
@@ -3418,6 +3508,33 @@ $('ttsTest').onclick = ()=>{
   setTimeout(fillVoiceSel, 600);   /* Chrome 第一次 speak 之後先攞到齊語音清單 */
 };
 $('ttsVoice').onchange = ()=>{ const c=cfg(); readTTSForm(c); cfgSave(c); };
+
+/* 「淨係試聽 Azure」：特登唔做 fallback。
+   平時 ttsSpeak() 見到 Azure 出事會靜靜哋轉用瀏覽器內置語音，
+   結果係「聽落有聲＝以為成功」，但其實把聲根本唔係曉曼。
+   呢粒掣行嘅係赤裸版：成功就讀，失敗就寫低錯咗乜。 */
+$('ttsAzTest').onclick = async ()=>{
+  const c = cfg(); readTTSForm(c); cfgSave(c);
+  const el = $('ttsAzDiag');
+  const set = (html)=>{ if(el) el.innerHTML = html; };
+  if(!c.ttsAzKey){ set('⚠ 未填 Azure Speech Key。留空嘅話一律用瀏覽器內置語音。'); return; }
+  const voice = c.ttsAzVoice || 'zh-HK-HiuMaanNeural';
+  const nm = ({'zh-HK-HiuMaanNeural':'曉曼','zh-HK-HiuGaaiNeural':'曉佳','zh-HK-WanLungNeural':'雲龍'})[voice] || voice;
+  set('⏳ 用緊 region <b>' + esc(azRegion()) + '</b> 叫 <b>' + esc(nm) + '</b>…');
+  ttsStop();
+  const mySeq = TTSV.seq;
+  const btn = $('ttsAzTest');
+  try{
+    await azureSpeak('你好，我叫' + nm + '。而家係 Azure 神經語音喺度讀緊，唔係你部機內置嗰把聲。',
+                     btn, mySeq);
+    set('✅ 成功。你而家聽到嗰把就係 <b>' + esc(nm) + '</b>（' + esc(voice) + ' · region ' + esc(azRegion()) + '）。'
+      + '<br>如果聽唔到聲：iPad 側邊靜音掣／控制中心靜音一樣會冇聲。');
+  }catch(err){
+    ttsBtnReset(btn);
+    set('❌ 用唔到 Azure：' + esc(String(err && err.message || err))
+      + '<br>Key 應該係 84 個字元、得英文字母同數字。Region 要同你開 Speech service 嗰陣揀嗰個一模一樣。');
+  }
+};
 $('aiSetSave').onclick = ()=>{
   const prov = $('aiProv').value;
   const c = cfg();
@@ -3431,6 +3548,7 @@ $('aiSetSave').onclick = ()=>{
   if(!c.base || !c.model){ setStatus('aiSetStatus','Base URL 同 Model 兩格都要填。', true); return; }
   cfgSave(c);
   hide('aiSetModal');
+  try{ syncChatTTSBtn(); }catch(e){}
   $('aiHint').textContent = '而家用緊：' + c.model;
   setStatus('aiStatus','設定儲好喇。可以開始講嘢。');
 };
@@ -3775,9 +3893,23 @@ function webSpeak(plain, btn, mySeq){
   setTimeout(next, 60);
 }
 
+/* Region 正規化。
+   點解要有呢樣嘢：Region 留空原本會令成個 Azure 分支跳過（條件係 key && reg），
+   即係填晒 key 都仲係用返瀏覽器內置語音，用戶完全唔知發生咩事。
+   而家：留空 → 當 eastasia；貼咗成條 portal 網址（https://eastasia.api.cognitive.microsoft.com/）
+   → 自動抽返 eastasia 出嚟。 */
+function azRegion(){
+  let r = String(cfg().ttsAzReg||'').trim().toLowerCase();
+  if(!r) return 'eastasia';
+  const m = r.match(/^https?:\/\/([a-z0-9-]+)\./);      /* 成條 URL → 攞第一段 */
+  if(m) r = m[1];
+  r = r.replace(/^https?:\/\//,'').replace(/[\/\s].*$/,'').replace(/[^a-z0-9-]/g,'');
+  return r || 'eastasia';
+}
+
 async function azureSpeak(plain, btn, mySeq){
   const c = cfg();
-  const reg = String(c.ttsAzReg||'').trim();
+  const reg = azRegion();
   const key = String(c.ttsAzKey||'').trim();
   const voice = String(c.ttsAzVoice||'zh-HK-HiuMaanNeural').trim();
   const rate = parseFloat(c.ttsRate||'1') || 1;
@@ -3794,7 +3926,16 @@ async function azureSpeak(plain, btn, mySeq){
     },
     body: ssml
   });
-  if(!r.ok) throw new Error('Azure TTS ' + r.status + '：' + short(await r.text(), 160));
+  if(!r.ok){
+    const raw = short(await r.text(), 160);
+    /* 常見錯誤譯做人話，唔好淨係掟個 401 出嚟 */
+    const hint = r.status===401 ? '（Key 唔啱，或者 Key 同 Region 對唔上——F0 免費層開喺邊個 region，就一定要填返嗰個）'
+               : r.status===403 ? '（權限被拒：多數係 Key 已經 regenerate 咗，返 portal copy 過 KEY 1）'
+               : r.status===404 ? '（Region「'+reg+'」唔存在，或者語音名打錯）'
+               : r.status===429 ? '（叫得太密，或者免費額度用完咗，等陣再試）'
+               : '';
+    throw new Error('Azure TTS ' + r.status + ' ' + hint + '：' + raw);
+  }
   const url = URL.createObjectURL(await r.blob());
   if(mySeq !== TTSV.seq){ URL.revokeObjectURL(url); return; }
   const a = new Audio(url);
@@ -3809,12 +3950,23 @@ async function azureSpeak(plain, btn, mySeq){
    之後「AI 覆完自動讀」先至有機會出到聲。 */
 let ttsPrimed = false;
 function ttsPrime(){
-  if(ttsPrimed || !ttsSupported()) return;
+  if(ttsPrimed) return;
   ttsPrimed = true;
+  if(ttsSupported()){
+    try{
+      const u = new SpeechSynthesisUtterance(' ');
+      u.volume = 0; u.rate = 1;
+      window.speechSynthesis.speak(u);
+    }catch(e){}
+  }
+  /* Azure 走嘅唔係 speechSynthesis，係 <audio>。iOS 對佢有另一套獨立嘅解鎖，
+     所以 speechSynthesis 熱咗身唔代表 Azure 出到聲——要另外播一段極短嘅靜音。 */
   try{
-    const u = new SpeechSynthesisUtterance(' ');
-    u.volume = 0; u.rate = 1;
-    window.speechSynthesis.speak(u);
+    const a = new Audio('data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQCA'
+      + 'gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAAAAA//sQxAADwAABpAAAACAAADSAAAAETEFNRTMuMTAwVVVVVVVVVVVVVQ==');
+    a.volume = 0;
+    const p = a.play();
+    if(p && p.catch) p.catch(function(){});
   }catch(e){}
 }
 document.addEventListener('touchend', ttsPrime, {once:true, passive:true});
@@ -3835,11 +3987,14 @@ async function ttsSpeak(text, btn){
     btn.textContent = '⏹ 停';
   }
   const c = cfg();
-  if(c.ttsAzKey && c.ttsAzReg){
+  /* 只要有 key 就行 Azure。Region 交俾 azRegion() 補（留空＝eastasia）。 */
+  if(c.ttsAzKey){
     try{ await azureSpeak(plain, btn, mySeq); return; }
     catch(err){
       if(mySeq !== TTSV.seq) return;
       if(btn) btn.title = 'Azure 讀唔到（' + err.message + '），改用瀏覽器內置語音';
+      /* 靜靜雞 fallback 係之前搵唔到問題嘅原因，所以而家出返個 toast */
+      try{ toast('⚠ Azure 語音讀唔到，暫時用返內置語音：' + short(err.message, 90)); }catch(e){}
     }
   }
   webSpeak(plain, btn, mySeq);
@@ -3899,9 +4054,10 @@ function ttsDiag(){
   const el = document.getElementById('ttsDiag');
   if(!el) return;
   const c = cfg();
-  if(c.ttsAzKey && c.ttsAzReg){
+  if(c.ttsAzKey){
     el.innerHTML = '✅ 已經填咗 Azure key，會用 <b>' + esc(c.ttsAzVoice||'zh-HK-HiuMaanNeural')
-                 + '</b> 讀。Chrome、Safari、任何機都一樣靚聲。';
+                 + '</b>（region：<b>' + esc(azRegion()) + '</b>）讀。Chrome、Safari、任何機都一樣靚聲。'
+                 + '想確認真係用緊佢，撳下面嗰粒「▶ 淨係試聽 Azure」。';
     return;
   }
   const vs = ttsLoadVoices();
@@ -4251,6 +4407,25 @@ function renderChatTemplates(){
 renderChatTemplates();
 
 /* 清空對話 */
+/* 🔊 自動讀開關。特登擺喺傾偈 tab 而唔係設定入面：
+   訪客模式之下 API 設定已經封晒，但 Charlotte 一樣應該撳得郁把聲。 */
+function syncChatTTSBtn(){
+  const b = $('chatTTS'); if(!b) return;
+  const on = !!cfg().ttsAuto;
+  b.textContent = on ? '🔊 自動讀：開' : '🔊 自動讀：熄';
+  b.classList.toggle('primary', on);
+}
+$('chatTTS').onclick = ()=>{
+  const c = cfg();
+  c.ttsAuto = !c.ttsAuto;
+  cfgSave(c);
+  ttsPrime();                       /* 順便借呢一下用戶手勢解鎖 iPad 嘅音訊 */
+  if(!c.ttsAuto) ttsStop();
+  syncChatTTSBtn();
+  const chk = $('ttsAuto'); if(chk) chk.checked = !!c.ttsAuto;
+};
+syncChatTTSBtn();
+
 $('chatClear').onclick = async ()=>{
   if(!chatHistory.length) return;
   if(await confirmBox('確定要清走目前嘅對話？\n（對話本來就唔會儲存，清咗即冇咗。）')){
@@ -4374,6 +4549,9 @@ function toast(msg){
 /* ---------- 訪客模式 UI 同步 ---------- */
 function applyGuestUI(){
   document.body.classList.toggle('readonly', guestMode);
+  /* 一入訪客模式就即刻閂咗 API 設定視窗：如果爸爸開住個視窗嗰陣切去訪客模式，
+     單靠 CSS 收埋兩粒掣係唔會閂到個已經開咗嘅視窗，API Key 就會晾喺度。 */
+  if(guestMode){ try{ hide('aiSetModal'); }catch(e){} }
   try{ renderChatTemplates(); }catch(e){}
   if(typeof syncRoNoticeH === 'function') setTimeout(syncRoNoticeH, 0);
   // 只要「已登入 + 唔係訪客模式」就顯示「訪客模式」掣
@@ -4495,7 +4673,9 @@ function openPwSet(){
 $('guestPwSetCancel').onclick = ()=> hide('guestPwSetModal');
 $('guestPwSetGo').onclick = async ()=>{
   const p1 = $('guestPwNew').value, p2 = $('guestPwNew2').value;
-  if(p1.length < 4){ setRoStatus('guestPwSetStatus','密碼最少要 4 個字。',true); return; }
+  /* 由 4 個字拉高到 8。原因：PEPPER 寫死喺公開 source 入面，
+     4 個字嘅密碼就算 hash 咗，暴力破解都係幾秒鐘嘅事。 */
+  if(p1.length < 8){ setRoStatus('guestPwSetStatus','密碼最少要 8 個字（建議 12 個以上）。',true); return; }
   if(p1 !== p2){ setRoStatus('guestPwSetStatus','兩次打嘅密碼唔一樣。',true); return; }
   if(!currentUser || !dbRef){ setRoStatus('guestPwSetStatus','要先登入 Google 先可以設定。',true); return; }
   setRoStatus('guestPwSetStatus','加密緊，請等陣…');
@@ -4562,9 +4742,17 @@ $('guestPwNew2').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.prevent
 
 /* 啟動時執行一次 events 自動歸檔（非同步，唔阻礙首屏渲染） */
 renderTree(); setView('day');
-setTimeout(()=>{ try{ archiveOldEvents(); }catch(e){ console.warn('歸檔失敗', e); } }, 2000);
+/* 訪客模式之下一律唔好歸檔。
+   點解：archiveOldEvents() 真係有嘢搬就會 call save()，但訪客模式之下 save() 被包住咗，
+   AI Modal 又未開 → 開機兩秒後會彈「🔒 訪客模式：已經封鎖修改」。
+   Charlotte 見到會一頭霧水，而且歸檔本來就唔係佢要做嘅嘢，留返爸爸開機嗰陣做就得。 */
+function autoArchiveIfOwner(){
+  if(document.body.classList.contains('readonly')) return 0;
+  return archiveOldEvents();
+}
+setTimeout(()=>{ try{ autoArchiveIfOwner(); }catch(e){ console.warn('歸檔失敗', e); } }, 2000);
 /* 每日檢查一次（閒置時先做） */
-setInterval(()=>{ if(document.hidden) return; try{ archiveOldEvents(); }catch(e){} }, 24*60*60*1000);
+setInterval(()=>{ if(document.hidden) return; try{ autoArchiveIfOwner(); }catch(e){} }, 24*60*60*1000);
 </script>
 </body>
 </html>
