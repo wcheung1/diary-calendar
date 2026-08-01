@@ -320,6 +320,16 @@ mark{background:#ffe9a8;border-radius:2px}
 .chatCopyBtn{border:1px solid var(--line);background:#fff;border-radius:5px;padding:2px 8px;font-size:11px;color:var(--muted);cursor:pointer;white-space:nowrap}
 .chatCopyBtn:hover{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
 .chatCopyBtn.copied{background:var(--accent);color:#fff;border-color:var(--accent)}
+.chatCopyBtn.speaking{background:#b45309;color:#fff;border-color:#b45309}
+.ttsBar{display:flex;gap:4px;flex-wrap:wrap;margin:4px 0}
+.ttsBox{border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:12px;background:#fbfcfb}
+.ttsBox h4{margin:0 0 6px;font-size:13px;color:var(--accent)}
+.ttsGrid{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.ttsGrid>div{flex:1 1 170px;min-width:130px}
+.ttsGrid label{display:block;font-size:11px;color:var(--muted);margin-bottom:3px}
+.ttsGrid select,.ttsGrid input{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;font-size:12px}
+.ttsChk{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px;margin-top:8px}
+.ttsNote{font-size:11px;color:var(--muted);line-height:1.6;margin:0 0 8px}
 .chatTemplates{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
 .chatTpl{border:1px dashed var(--accent);background:var(--accent-soft);border-radius:20px;padding:3px 12px;font-size:12px;color:var(--accent);cursor:pointer}
 .chatTpl:hover{background:var(--accent);color:#fff}
@@ -520,6 +530,7 @@ body.readonly .roNotice{display:block}
     <div class="aiBar" id="aiEgs"></div>
     <div class="aiStatus" id="aiStatus"></div>
     <div class="aiReply" id="aiReply"></div>
+    <div class="ttsBar" id="aiReplyBar" style="display:none"></div>
     <div id="aiItems"></div>
     <div class="modalActs" id="aiActs" style="display:none">
       <button class="btn" id="aiRedo">↺ 唔啱，我補多兩句叫佢再排</button>
@@ -602,7 +613,41 @@ body.readonly .roNotice{display:block}
   <div class="aiRow" id="aiCorsWarn" style="display:none;margin-top:4px">
     <div class="aiWarn">⚠ 偵測到你用 <code>file://</code> 直接開啟個 HTML。部分瀏覽器喺呢個情況下會拒絕連線。<br>請改用正規網址開啟（例如 GitHub Pages：<code>https://你的用戶名.github.io/倉庫名/index.html</code>），或者用本地伺服器 <code>python -m http.server 8000</code> 再用 <code>http://localhost:8000</code> 打開。GLM／z.ai 經實測支援任意 https 網址，GitHub Pages 完全用到。</div>
   </div>
-  <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px"><input type="checkbox" id="aiJson"> 用嚴格 JSON 模式（OpenAI／DeepSeek 支援；如果送出時報錯，熄返佢）</label>
+  <label class="ttsChk"><input type="checkbox" id="aiJson"> 用嚴格 JSON 模式（OpenAI／DeepSeek／GLM 支援；供應商唔支援就會報錯，嗰陣先熄返佢）</label>
+  <label class="ttsChk"><input type="checkbox" id="aiAutoFix" checked> JSON 讀唔到時自動修補＋重試（強烈建議開住）</label>
+  <label class="ttsChk"><input type="checkbox" id="aiNoThink"> 關閉 AI 內部思考 reasoning（GLM 5.2／Qwen3 等推理模型建議開；可以慳好多 token，減少「淨係出咗思考過程」）</label>
+
+  <div class="ttsBox">
+    <h4>🔊 語音朗讀（TTS）</h4>
+    <p class="ttsNote">預設用瀏覽器內置語音，<b>完全免費、唔使申請任何 key、唔使裝 server</b>。Edge（Windows）同 iPhone／iPad Safari 內置有正宗廣東話女聲；桌面版 Chrome 多數淨係有普通話音。想部部機都靚聲，可以填埋下面嘅 Azure（微軟）免費 key。</p>
+    <div class="ttsGrid">
+      <div><label>語音（識廣東話嗰啲會標 ⭐）</label><select id="ttsVoice"></select></div>
+      <div style="flex:0 0 120px"><label>語速</label><select id="ttsRate">
+        <option value="0.8">慢 0.8×</option>
+        <option value="0.9">0.9×</option>
+        <option value="1">正常 1×</option>
+        <option value="1.15">1.15×</option>
+        <option value="1.3">快 1.3×</option>
+        <option value="1.5">好快 1.5×</option>
+      </select></div>
+      <div style="flex:0 0 auto;align-self:flex-end"><button class="btn" id="ttsTest">▶ 試聽</button></div>
+    </div>
+    <div class="ttsNote" id="ttsDiag" style="margin:8px 0 0">⏳ 偵測緊你部機有咩語音…</div>
+    <label class="ttsChk"><input type="checkbox" id="ttsAuto"> AI 喺「傾偈」度覆完，自動讀出嚟</label>
+    <details style="margin-top:8px">
+      <summary style="font-size:12px;color:var(--muted);cursor:pointer">（選擇性）用 Microsoft Azure 廣東話神經語音 — 每月 50 萬字免費</summary>
+      <div class="ttsGrid" style="margin-top:8px">
+        <div><label>Azure Speech Key</label><input type="password" id="ttsAzKey" placeholder="留空＝用瀏覽器內置語音" spellcheck="false"></div>
+        <div style="flex:0 0 130px"><label>Region</label><input type="text" id="ttsAzReg" placeholder="eastasia" spellcheck="false"></div>
+        <div style="flex:0 0 200px"><label>語音</label><select id="ttsAzVoice">
+          <option value="zh-HK-HiuMaanNeural">曉曼 HiuMaan（女）</option>
+          <option value="zh-HK-HiuGaaiNeural">曉佳 HiuGaai（女）</option>
+          <option value="zh-HK-WanLungNeural">雲龍 WanLung（男）</option>
+        </select></div>
+      </div>
+      <p class="ttsNote" style="margin-top:6px">喺 portal.azure.com 開一個 <b>Speech service</b>（揀 F0 免費層），copy 個 Key 同 Region（例如 <code>eastasia</code>）貼落嚟。呢個 key 同 API Key 一樣，淨係存喺你部機嘅 localStorage，唔會上網、唔會寫入 HTML。</p>
+    </details>
+  </div>
   <div class="aiStatus" id="aiSetStatus"></div>
   <div class="modalActs">
     <button class="btn danger" id="aiSetClear">清除全部</button>
@@ -1853,7 +1898,7 @@ async function callAI(messages, opt){
   const c = cfg();
   if(!c.base || !c.model) throw new Error('仲未設定 API。撳一下右上角「⚙ API 設定」，填返 Base URL、Model 同 API Key。');
   const url = endpoint(c);
-  let headers, body;
+  let headers, body, prefilled = false;
   if(c.kind==='anthropic'){
     headers = {
       'content-type':'application/json',
@@ -1862,11 +1907,15 @@ async function callAI(messages, opt){
       'anthropic-dangerous-direct-browser-access':'true'
     };
     const sys = messages.filter(m=>m.role==='system').map(m=>m.content).join('\n\n');
+    const conv = messages.filter(m=>m.role!=='system').map(m=>({role:m.role, content:m.content}));
+    /* Claude 冇 response_format。改用「prefill」：預先幫佢寫低一個 '{'，
+       佢就冇得再寫開場白／思考，一定要由 JSON 內容開始續落去。 */
+    if(opt.json){ conv.push({role:'assistant', content:'{'}); prefilled = true; }
     body = {
       model:c.model, max_tokens:opt.max||4000,
       temperature: opt.temp==null ? 0.2 : opt.temp,
       system: sys,
-      messages: messages.filter(m=>m.role!=='system').map(m=>({role:m.role, content:m.content}))
+      messages: conv
     };
   } else {
     headers = {'content-type':'application/json'};
@@ -1876,6 +1925,9 @@ async function callAI(messages, opt){
     const defMax = isReasoning ? 8000 : 4000;
     body = {model:c.model, temperature: opt.temp==null?0.2:opt.temp, max_tokens:opt.max||defMax, messages:messages};
     if(opt.json && c.jsonMode) body.response_format = {type:'json_object'};
+    /* 關閉推理模型嘅「內部思考」。唔識呢兩個欄位嘅供應商會直接無視，唔會出事。
+       開咗嘅話，GLM 5.2 / Qwen3 就唔會將 max_tokens 燒晒喺 reasoning 度、答案未出就爆額。 */
+    if(c.noThink){ body.thinking = {type:'disabled'}; body.enable_thinking = false; }
   }
   let res;
   try{
@@ -1902,35 +1954,199 @@ async function callAI(messages, opt){
   }
   let data;
   try{ data = JSON.parse(txt); }catch(e){ throw new Error('讀唔明 AI 嘅回覆：' + short(txt,200)); }
-  let out = '';
+  let out = '', reason = '', finish = '';
   if(c.kind==='anthropic'){
     out = (data.content||[]).filter(b=>b && b.type==='text').map(b=>b.text).join('\n');
+    reason = (data.content||[]).filter(b=>b && (b.type==='thinking'||b.type==='redacted_thinking')).map(b=>b.thinking||'').join('\n');
+    finish = data.stop_reason || '';
+    if(prefilled) out = '{' + out;          /* 補返我哋 prefill 嗰個 '{' */
+    if(finish==='max_tokens') finish = 'length';
   } else {
     const ch = (data.choices||[])[0];
     const msg = ch && ch.message;
     const mc = msg && msg.content;
+    finish = (ch && ch.finish_reason) || '';
     out = Array.isArray(mc) ? mc.map(x=>x.text||'').join('') : (mc||'');
-    /* GLM 5.2 / DeepSeek-R1 等推理模型：content 為空時，fallback 去 reasoning_content */
-    if(!out && msg && msg.reasoning_content){
-      out = String(msg.reasoning_content);
+    reason = String((msg && (msg.reasoning_content || msg.reasoning)) || '');
+  }
+  out = stripThink(out);
+
+  /* ── 修正 ①：爆 token 一定要報，唔可以因為有 reasoning_content 就靜雞雞當佢係答案 ──
+     舊寫法係「out 空咗先 check finish_reason」，但推理模型多數會俾到一段 reasoning，
+     結果條 check 永遠唔會行到，然後就將「思考過程」當成 JSON 交去 grabJSON，
+     於是出紅字：「AI 覆嘅 JSON 有錯，讀唔到」。 */
+  if(finish==='length'){
+    /* 要 JSON 嗰啲，斷咗尾即係死症 → 掟返出去等外面自動重試（加大 token）。
+       傾偈嗰啲純文字回覆，有幾多睇幾多，補返一句提示就得，唔使成段掟走。 */
+    if(opt.json || !String(out||'').trim()){
+      const e = new Error('AI 未講完就爆咗 token 上限（finish_reason=length）。'
+        + (reason ? '佢用咗大約 ' + reason.length + ' 個字喺「內部思考」度。' : '')
+        + '\n解決：喺「⚙ API 設定」剔「關閉 AI 內部思考」，或者叫佢分幾次、每次排少啲項目。');
+      e.retryable = true; e.raw = out || reason;
+      throw e;
     }
-    /* token 用晒喺推理度，正式答案未出 */
-    if(!out && ch && ch.finish_reason==='length'){
-      throw new Error('AI 諗嘢就爆 token（finish_reason=length）。GLM 5.2 等推理模型會先消耗 token 做內部推理，max_tokens 太少就連正式答案都未出。');
+    out = String(out) + '\n\n（⚠ 講到呢度就爆咗 token 上限，未講完。可以打「接住講落去」叫佢繼續。）';
+  }
+
+  /* ── 修正 ②：reasoning_content 唔可以當答案交去解 JSON ──
+     要 JSON 嗰陣，最多只可以喺思考段落入面「撈返」一個完整嘅 JSON object 出嚟；
+     撈唔到就要照直講係「淨係出咗思考過程」，唔好扮成 JSON 格式錯。 */
+  out = String(out||'').trim();
+  if(!out && reason){
+    if(opt.json){
+      const sp = (jsonSpans(stripFences(reason))||[]).filter(x=>x.complete);
+      if(sp.length){ out = sp[sp.length-1].text; }
+      else {
+        const e = new Error('AI 淨係輸出咗「思考過程」，冇正式答案（content 係空嘅，得 reasoning_content）。'
+          + '\n多數係推理模型 + 嚴格 JSON 模式撞咗。解決：喺「⚙ API 設定」剔「關閉 AI 內部思考」。');
+        e.retryable = true; e.raw = reason;
+        throw e;
+      }
+    } else {
+      out = stripThink(reason).trim();
     }
   }
-  out = String(out||'').trim();
   if(!out) throw new Error('AI 冇覆到內容。原始回覆：' + short(txt,200));
   return out;
 }
 
-function grabJSON(txt){
-  let s = String(txt||'').trim();
-  s = s.replace(/^```[a-zA-Z]*\s*/,'').replace(/```\s*$/,'').trim();
-  const i = s.indexOf('{'), j = s.lastIndexOf('}');
-  if(i<0 || j<=i) throw new Error('AI 冇跟格式覆 JSON。佢覆咗：\n' + short(s,300));
-  try{ return JSON.parse(s.slice(i, j+1)); }
-  catch(e){ throw new Error('AI 覆嘅 JSON 有錯，讀唔到。佢覆咗：\n' + short(s,300)); }
+/* =========================================================
+   JSON 容錯讀取
+   對付：① 推理模型嘅 <think> 段落 ② ``` 圍欄 ③ 開場白
+        ④ 爆 token 截斷咗嘅半截 JSON ⑤ 全形引號／冒號 ⑥ 尾逗號
+========================================================= */
+function jsonErr(msg){ const e = new Error(msg); e.jsonFail = true; return e; }
+
+/* 攞走 <think>…</think>；如果得開頭冇結尾，即係成段都係思考，全部唔要 */
+function stripThink(s){
+  s = String(s||'');
+  s = s.replace(/<think>[\s\S]*?<\/think>/gi,'')
+       .replace(/<thinking>[\s\S]*?<\/thinking>/gi,'')
+       .replace(/◁think▷[\s\S]*?◁\/think▷/gi,'');
+  const i = s.search(/<think>|<thinking>|◁think▷/i);
+  if(i>=0) s = s.slice(0,i);
+  return s.trim();
+}
+
+/* 攞走 markdown 圍欄 */
+function stripFences(s){
+  s = String(s||'');
+  s = s.replace(/```[a-zA-Z]*\s*([\s\S]*?)```/g,'$1');
+  s = s.replace(/```[a-zA-Z]*\s*/g,'').replace(/```/g,'');
+  return s.trim();
+}
+
+/* 掃描平衡括號，攞返所有頂層 { … }。識得跳過字串同 backslash escape，
+   所以就算 reply 入面有「{」呢個字都唔會拆錯。 */
+function jsonSpans(s){
+  s = String(s||'');
+  const out=[]; let start=-1, depth=0, inStr=false, esc=false, stack=[];
+  for(let i=0;i<s.length;i++){
+    const ch = s[i];
+    if(depth===0){
+      if(ch==='{'){ start=i; depth=1; stack=['{']; }
+      continue;
+    }
+    if(inStr){
+      if(esc){ esc=false; continue; }
+      if(ch==='\\'){ esc=true; continue; }
+      if(ch==='"'){ inStr=false; }
+      continue;
+    }
+    if(ch==='"'){ inStr=true; continue; }
+    if(ch==='{'||ch==='['){ depth++; stack.push(ch); continue; }
+    if(ch==='}'||ch===']'){
+      depth--; stack.pop();
+      if(depth===0){ out.push({text:s.slice(start,i+1), complete:true}); start=-1; }
+      continue;
+    }
+  }
+  if(start>=0) out.push({text:s.slice(start), complete:false, inStr:inStr, stack:stack.slice()});
+  return out;
+}
+
+/* 補救俾人截斷咗嘅 JSON：閂返未閂嘅引號同括號，剷走尾巴嗰個寫到一半嘅欄位 */
+function repairJSON(sp){
+  let s = sp.text;
+  if(sp.inStr) s += '"';
+  s = s.replace(/,\s*"[^"]*"\s*:?\s*$/,'');   /* 尾巴：, "key": （未寫完） */
+  s = s.replace(/[,:]\s*$/,'');
+  const close = {'{':'}','[':']'};
+  for(let i=(sp.stack||[]).length-1;i>=0;i--) s += (close[sp.stack[i]]||'');
+  return s;
+}
+
+/* 逐層放寬去 parse */
+function tolerantParse(s){
+  const fixes = [
+    function(x){ return x; },
+    function(x){ return x.replace(/,(\s*[}\]])/g,'$1'); },                    /* 尾逗號 */
+    function(x){ return x.replace(/[\u201c\u201d\u201e]/g,'"'); },            /* 全形雙引號 */
+    function(x){ return x.replace(/"\s*\uff1a/g,'":').replace(/\uff0c(\s*")/g,',$1'); }, /* 全形冒號／逗號 */
+    function(x){ return x.replace(/\/\/[^\n]*/g,'').replace(/\/\*[\s\S]*?\*\//g,''); } /* 註解 */
+  ];
+  let cur = String(s);
+  for(let i=0;i<fixes.length;i++){
+    cur = fixes[i](cur);
+    try{ return JSON.parse(cur); }catch(e){}
+  }
+  return null;
+}
+
+function grabJSON(txt, want){
+  const s = stripFences(stripThink(txt));
+  const spans = jsonSpans(s);
+  if(!spans.length) throw jsonErr('AI 冇跟格式覆 JSON（成段字都搵唔到一對 { }）。佢覆咗：\n' + short(s,300));
+  const keys = want || ['reply','items'];
+  const got = [];
+  spans.forEach(function(sp){
+    const o = sp.complete ? tolerantParse(sp.text) : tolerantParse(repairJSON(sp));
+    if(o && typeof o==='object' && !Array.isArray(o)) got.push({o:o, complete:!!sp.complete});
+  });
+  if(!got.length) throw jsonErr('AI 覆嘅 JSON 有錯，讀唔到（修唔返，多數係中途爆咗 token）。佢覆咗：\n' + short(s,300));
+  /* 揀最似樣嗰個：有齊我哋要嘅 key 為先，然後先至係完整嗰個 */
+  const hit = got.filter(function(g){ return keys.some(function(k){ return k in g.o; }); });
+  const pool = hit.length ? hit : got;
+  return (pool.filter(function(g){ return g.complete; })[0] || pool[0]).o;
+}
+
+/* =========================================================
+   要 JSON 嘅呼叫：自動修補 + 最多試三次
+   第 1 次：照設定 → 第 2 次：加句「淨係出 JSON」+ 加大 token + temp 0
+   第 3 次：熄咗 response_format（部分供應商開咗反而衰）再試
+========================================================= */
+async function callAIJSON(messages, opt){
+  opt = opt || {};
+  const base = opt.max || 12000;
+  const plans = [
+    {json:true,  max:base,      temp:opt.temp, note:''},
+    {json:true,  max:base+4000, temp:0, note:'⚠ 你頭先個回覆讀唔到。今次請「淨係」輸出一個完整嘅 JSON object：唔准開場白、唔准解釋、唔准 ``` 圍欄、唔准輸出思考過程。內容寫精簡啲，確保 JSON 收得到尾。'},
+    {json:false, max:base+8000, temp:0, note:'⚠ 最後一次：由「{」開始、以「}」完結，中間淨係得 JSON，其他字一律唔好出。'}
+  ];
+  let lastErr = null, lastRaw = '';
+  for(let i=0;i<plans.length;i++){
+    const p = plans[i];
+    let msgs = messages;
+    if(p.note){
+      msgs = messages.slice();
+      const k = msgs.length-1;
+      msgs[k] = {role:msgs[k].role, content: msgs[k].content + '\n\n' + p.note
+                 + (lastRaw ? '\n\n【你頭先覆咗（節錄，唔好照抄）】\n' + short(lastRaw,800) : '')};
+    }
+    try{
+      const raw = await callAI(msgs, {json:p.json, temp:(p.temp==null?opt.temp:p.temp), max:p.max});
+      lastRaw = raw;
+      return {json:grabJSON(raw, opt.want), attempt:i+1, raw:raw};
+    }catch(err){
+      lastErr = err;
+      if(err.raw) lastRaw = err.raw;
+      /* API key 錯、網絡斷、429 呢啲重試都冇用，即刻掟返出去 */
+      if(!(err.jsonFail || err.retryable)) throw err;
+      if(cfg().autoFix === false) throw err;
+      if(i < plans.length-1 && typeof opt.onRetry === 'function') opt.onRetry(i+2, err);
+    }
+  }
+  throw lastErr;
 }
 
 /* ---------- 2. Data Log ---------- */
@@ -2266,7 +2482,7 @@ function switchTab(p){
 }
 document.querySelectorAll('#aiTabs button').forEach(b=> b.onclick = ()=>switchTab(b.dataset.p));
 $('btnAI').onclick = ()=>openAI('ask');
-$('aiClose').onclick = ()=>hide('aiModal');
+$('aiClose').onclick = ()=>{ ttsStop(); hide('aiModal'); };
 document.addEventListener('keydown', e=>{
   if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); openAI('ask'); }
 });
@@ -2297,14 +2513,17 @@ async function doSend(extraNote){
   if(!cfgReady()){ setStatus('aiStatus','仲未設定 API。撳右上角「⚙ API 設定」。', true); show('aiSetModal'); return; }
   $('aiSend').disabled = true;
   $('aiActs').style.display='none';
+  ttsStop();
+  $('aiReplyBar').style.display='none'; $('aiReplyBar').innerHTML='';
   $('aiItems').innerHTML=''; $('aiReply').className='aiReply';
   setStatus('aiStatus','AI 諗緊點幫你排…', false, true);
   try{
-    const raw = await callAI([
+    const got = await callAIJSON([
       {role:'system', content:SYS_PLAN},
       {role:'user', content: ctxText() + '\n\n【用戶今次講】\n' + text + (extraNote ? '\n\n【用戶對上一次建議嘅意見，要照住改】\n'+extraNote : '')}
-    ], {json:true, temp:0.2, max:12000});
-    const j = grabJSON(raw);
+    ], {temp:0.2, max:12000, want:['reply','items'],
+        onRetry:function(n){ setStatus('aiStatus','AI 頭先覆嘅 JSON 讀唔到，自動再試多一次（第 '+n+' 次）…', false, true); }});
+    const j = got.json;
     cur.plan = j; cur.req = text + (extraNote? '（補充：'+extraNote+'）' : '');
 
     logPush('request', cur.req, document.body.classList.contains('readonly') ? {guest:true} : {});
@@ -2313,9 +2532,14 @@ async function doSend(extraNote){
     (j.learned||[]).slice(0,5).forEach(x=>{ if(x) logPush('feedback','AI 觀察到：'+x, {kind:'ai-learned'}); });
     save();
 
-    setStatus('aiStatus','');
+    setStatus('aiStatus', got.attempt>1 ? ('（頭 '+(got.attempt-1)+' 次 JSON 讀唔到，自動重試後搞掂咗）') : '');
     $('aiReply').textContent = j.reply || '（AI 冇留低說明）';
     $('aiReply').className = 'aiReply show';
+    /* 🔊 讀出安排 / 📋 複製 */
+    const rb = $('aiReplyBar');
+    rb.innerHTML = ''; rb.style.display = 'flex';
+    rb.appendChild(makeTTSBtn(function(){ return j.reply||''; }, '🔊 讀出安排'));
+    rb.appendChild(makeCopyBtn('📋 複製', '複製純文字', function(){ return copyPlainText(j.reply||''); }));
     renderItems(j);
     if((j.items||[]).length){ $('aiActs').style.display='flex'; }
     else setStatus('aiStatus','AI 覆咗你，但冇排到任何項目。試下講得具體啲。', true);
@@ -2696,6 +2920,19 @@ $('aiMic').onclick = ()=>{
     const c = cfg(); c.kind = p.kind; cfgSave(c);
   };
 })();
+/* 將設定 form 上面嘅 TTS／JSON 選項讀返落 config object */
+function readTTSForm(c){
+  c.autoFix   = $('aiAutoFix').checked;
+  c.noThink   = $('aiNoThink').checked;
+  c.ttsVoice  = $('ttsVoice').value || '';
+  c.ttsRate   = $('ttsRate').value || '1';
+  c.ttsAuto   = $('ttsAuto').checked;
+  c.ttsAzKey  = $('ttsAzKey').value.trim();
+  c.ttsAzReg  = $('ttsAzReg').value.trim();
+  c.ttsAzVoice= $('ttsAzVoice').value || 'zh-HK-HiuMaanNeural';
+  return c;
+}
+
 function openSet(){
   const c = cfg();
   $('aiProv').value = c.prov || 'glm';
@@ -2703,6 +2940,14 @@ function openSet(){
   $('aiModel').value = c.model || '';
   $('aiKey').value = c.apiKey || '';
   $('aiJson').checked = !!c.jsonMode;
+  $('aiAutoFix').checked = (c.autoFix !== false);
+  $('aiNoThink').checked = !!c.noThink;
+  $('ttsRate').value = c.ttsRate || '1';
+  $('ttsAuto').checked = !!c.ttsAuto;
+  $('ttsAzKey').value = c.ttsAzKey || '';
+  $('ttsAzReg').value = c.ttsAzReg || '';
+  $('ttsAzVoice').value = c.ttsAzVoice || 'zh-HK-HiuMaanNeural';
+  fillVoiceSel();
   /* 偵測 file:// 開啟 → 顯示 CORS 警告 */
   const viaFile = /^file:/i.test(location.protocol);
   const warn = $('aiCorsWarn');
@@ -2714,6 +2959,12 @@ $('btnAISet').onclick = openSet;
 $('aiOpenSet').onclick = openSet;
 $('aiSetCancel').onclick = ()=>hide('aiSetModal');
 $('aiKeyShow').onclick = ()=>{ const i=$('aiKey'); i.type = i.type==='password' ? 'text' : 'password'; };
+$('ttsTest').onclick = ()=>{
+  const c = cfg(); readTTSForm(c); cfgSave(c);
+  ttsSpeak('你好，我而家用廣東話讀返俾你聽。今日星期六，下晝三點同陳生開會，記得帶把遮。', $('ttsTest'));
+  setTimeout(fillVoiceSel, 600);   /* Chrome 第一次 speak 之後先攞到齊語音清單 */
+};
+$('ttsVoice').onchange = ()=>{ const c=cfg(); readTTSForm(c); cfgSave(c); };
 $('aiSetSave').onclick = ()=>{
   const prov = $('aiProv').value;
   const c = cfg();
@@ -2723,6 +2974,7 @@ $('aiSetSave').onclick = ()=>{
   c.model = $('aiModel').value.trim();
   c.apiKey = $('aiKey').value.trim();
   c.jsonMode = $('aiJson').checked;
+  readTTSForm(c);
   if(!c.base || !c.model){ setStatus('aiSetStatus','Base URL 同 Model 兩格都要填。', true); return; }
   cfgSave(c);
   hide('aiSetModal');
@@ -2744,6 +2996,7 @@ $('aiTest').onclick = async ()=>{
   c.model = $('aiModel').value.trim();
   c.apiKey = $('aiKey').value.trim();
   c.jsonMode = $('aiJson').checked;
+  readTTSForm(c);
   cfgSave(c);
   if(!c.base || !c.model){ setStatus('aiSetStatus','Base URL 同 Model 都要填先測到。', true); return; }
   setStatus('aiSetStatus','試緊連線…', false, true);
@@ -2909,6 +3162,318 @@ function mdToWhatsApp(md){
   return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
+/* =========================================================
+   🔊 TTS（文字轉語音）— 廣東話
+   渠道 1（預設，免費）：瀏覽器內置 Web Speech API
+     · Edge / Windows：Microsoft HiuMaan、HiuGaai Online (Natural) — 正宗廣東話
+     · iPhone / iPad Safari：Sinji（粵語）
+     · Android Chrome：Google 粵語（香港）
+     · 桌面 Chrome：多數淨係得普通話音，讀廣東話字會怪怪哋
+   渠道 2（選擇性）：Azure Speech REST，zh-HK-HiuMaanNeural 等神經語音，
+     每月 50 萬字免費，任何瀏覽器一樣靚聲。
+   註：Edge 嗰啲 Natural 語音喺 Edge 瀏覽器度本身就攞得到，唔使駁 server；
+       想喺 Chrome 都用到微軟語音，就要行渠道 2（官方 Azure）。
+========================================================= */
+const TTSV = {list:[], btn:null, audio:null, keep:0, seq:0};
+
+function ttsSupported(){ return (typeof window!=='undefined') && ('speechSynthesis' in window); }
+function ttsLoadVoices(){
+  if(!ttsSupported()) return [];
+  TTSV.list = window.speechSynthesis.getVoices() || [];
+  return TTSV.list;
+}
+function isYueVoice(v){
+  return /^(zh[-_]?(hk|yue)|yue)/i.test(v.lang||'')
+      || /粵|粤|廣東|广东|香港|cantonese|hiumaan|hiugaai|wanlung|sin[\s_-]?ji|tracy|danny/i.test(v.name||'');
+}
+function pickVoice(){
+  const c = cfg(), vs = ttsLoadVoices();
+  if(c.ttsVoice){
+    const hit = vs.filter(function(v){ return v.voiceURI===c.ttsVoice || v.name===c.ttsVoice; })[0];
+    if(hit) return hit;
+  }
+  const yue = vs.filter(isYueVoice);
+  if(yue.length){
+    yue.sort(function(a,b){
+      return (/(natural|online)/i.test(b.name)?1:0) - (/(natural|online)/i.test(a.name)?1:0);
+    });
+    return yue[0];
+  }
+  return vs.filter(function(v){ return /^zh[-_]?tw/i.test(v.lang); })[0]
+      || vs.filter(function(v){ return /^zh/i.test(v.lang); })[0]
+      || null;
+}
+
+/* Markdown → 讀得出口嘅純文字 */
+function mdToPlain(md){
+  let s = String(md||'');
+  s = s.replace(/```[\s\S]*?```/g,'（呢度有段程式碼，略過）');
+  s = s.replace(/`([^`]+)`/g,'$1');
+  s = s.replace(/!\[[^\]]*\]\([^)]*\)/g,'');
+  s = s.replace(/\[([^\]]+)\]\([^)]*\)/g,'$1');
+  s = s.replace(/^\s{0,3}#{1,6}\s*/gm,'');
+  s = s.replace(/^\s*>\s?/gm,'');
+  s = s.replace(/^\s*[-*+]\s+/gm,'');
+  s = s.replace(/^\s*\d+[.)]\s+/gm,'');
+  s = s.replace(/^\s*\|?[\s:|-]{5,}\|?\s*$/gm,'');
+  s = s.replace(/\|/g,'、');
+  s = s.replace(/\*\*([^*]+)\*\*/g,'$1').replace(/\*([^*]+)\*/g,'$1').replace(/~~([^~]+)~~/g,'$1');
+  s = s.replace(/[*_#>]/g,' ');
+  try{ s = s.replace(/[\u{1F300}-\u{1FAFF}\u{2190}-\u{27BF}\u{FE0F}\u{2B00}-\u{2BFF}]/gu,''); }catch(e){}
+  s = s.replace(/\n{2,}/g,'\n').replace(/[ \t]{2,}/g,' ');
+  return s.trim();
+}
+
+/* 斬短啲，Chrome 一句太長會唔記得讀埋落去 */
+function ttsChunks(s, n){
+  n = n || 140;
+  const out = []; let buf = '';
+  const push = function(){ if(buf.trim()) out.push(buf.trim()); buf=''; };
+  for(let i=0;i<s.length;i++){
+    const ch = s[i];
+    buf += ch;
+    if(/[。！？；\n!?;]/.test(ch) && buf.length>=16) push();
+    else if(buf.length>=n && /[，、,.\s）)」』]/.test(ch)) push();
+    else if(buf.length>=Math.round(n*1.8)) push();
+  }
+  push();
+  return out;
+}
+
+function ttsBtnReset(btn){
+  if(!btn) return;
+  btn.classList.remove('speaking');
+  btn.textContent = btn.dataset.lab || '🔊 讀';
+}
+function ttsStop(){
+  TTSV.seq++;
+  if(ttsSupported()){ try{ window.speechSynthesis.cancel(); }catch(e){} }
+  if(TTSV.audio){ try{ TTSV.audio.pause(); }catch(e){} TTSV.audio = null; }
+  if(TTSV.keep){ clearInterval(TTSV.keep); TTSV.keep = 0; }
+  ttsBtnReset(TTSV.btn);
+  TTSV.btn = null;
+}
+
+function webSpeak(plain, btn, mySeq){
+  if(!ttsSupported()){
+    alert('你部機／個瀏覽器唔支援語音朗讀。試下用 Chrome、Edge 或者 Safari，或者喺設定入面填 Azure key。');
+    ttsBtnReset(btn); if(TTSV.btn===btn) TTSV.btn=null;
+    return;
+  }
+  const c = cfg();
+  const v = pickVoice();
+  const rate = parseFloat(c.ttsRate||'1') || 1;
+  const chunks = ttsChunks(plain);
+  let i = 0;
+
+  const clearWatch = function(){ if(TTSV.keep){ clearInterval(TTSV.keep); TTSV.keep = 0; } };
+  const finish = function(){
+    clearWatch();
+    ttsBtnReset(btn);
+    if(TTSV.btn===btn) TTSV.btn = null;
+  };
+
+  const next = function(){
+    clearWatch();
+    if(mySeq !== TTSV.seq) return;                  /* 已經撳咗停 */
+    if(i >= chunks.length){ finish(); return; }
+
+    const text = chunks[i++];
+    const u = new SpeechSynthesisUtterance(text);
+    if(v){ u.voice = v; u.lang = v.lang; } else { u.lang = 'zh-HK'; }
+    u.rate = rate; u.pitch = 1; u.volume = 1;
+
+    let done = false;
+    const go = function(hard){
+      if(done) return;
+      done = true;
+      clearWatch();
+      if(hard){ try{ window.speechSynthesis.cancel(); }catch(e){} }
+      setTimeout(next, hard ? 140 : 0);
+    };
+    u.onend   = function(){ go(false); };
+    u.onerror = function(){ go(true); };
+
+    const t0  = Date.now();
+    /* 中文 TTS 大概 3～4 個字／秒，加 3 秒緩衝做上限 */
+    const est = Math.max(5000, Math.round(text.length * 330 / rate) + 3000);
+    try{ window.speechSynthesis.speak(u); }catch(e){ go(true); return; }
+
+    /* ── 睇門口 ──
+       ① Chrome（尤其 Windows）自 2025 年起有 bug：Google 語音唔會 fire onend，
+          所以淨係識讀第一句就死機。→ 見到 speaking 變返 false 就自己行下一句。
+       ② Chrome 另一個老 bug：讀夠 15 秒左右會自己收聲 → 定時 resume 頂住。
+       ③ 真係卡死（speaking 一直 true）→ 夠鐘就 cancel 咗佢再讀下一句。 */
+    let saw = false;
+    TTSV.keep = setInterval(function(){
+      if(mySeq !== TTSV.seq){ clearWatch(); return; }
+      const el = Date.now() - t0;
+      let speaking = false, pending = false;
+      try{ speaking = !!window.speechSynthesis.speaking; pending = !!window.speechSynthesis.pending; }catch(e){}
+      if(speaking){ saw = true; try{ window.speechSynthesis.resume(); }catch(e){} }
+      /* 見過佢開始講、而家又停咗 → 即係讀完但 onend 冇 fire，照行下一句 */
+      if(saw && !speaking && !pending){ go(false); return; }
+      /* 由頭到尾都冇開始講（俾人擋咗 / 語音載入唔到）→ 等夠 2 秒就過下一句 */
+      if(!saw && el > 1400 && !speaking && !pending){ go(false); return; }
+      if(el > est){ go(true); return; }                              /* 卡死，硬過下一句 */
+    }, 200);
+  };
+
+  setTimeout(next, 60);
+}
+
+async function azureSpeak(plain, btn, mySeq){
+  const c = cfg();
+  const reg = String(c.ttsAzReg||'').trim();
+  const key = String(c.ttsAzKey||'').trim();
+  const voice = String(c.ttsAzVoice||'zh-HK-HiuMaanNeural').trim();
+  const rate = parseFloat(c.ttsRate||'1') || 1;
+  const pct = Math.round((rate-1)*100);
+  const ssml = '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="zh-HK">'
+             + '<voice name="'+voice+'"><prosody rate="'+(pct>=0?'+':'')+pct+'%">'
+             + esc(plain) + '</prosody></voice></speak>';
+  const r = await fetch('https://'+reg+'.tts.speech.microsoft.com/cognitiveservices/v1', {
+    method:'POST',
+    headers:{
+      'Ocp-Apim-Subscription-Key': key,
+      'Content-Type':'application/ssml+xml',
+      'X-Microsoft-OutputFormat':'audio-24khz-48kbitrate-mono-mp3'
+    },
+    body: ssml
+  });
+  if(!r.ok) throw new Error('Azure TTS ' + r.status + '：' + short(await r.text(), 160));
+  const url = URL.createObjectURL(await r.blob());
+  if(mySeq !== TTSV.seq){ URL.revokeObjectURL(url); return; }
+  const a = new Audio(url);
+  TTSV.audio = a;
+  const fin = function(){ URL.revokeObjectURL(url); ttsBtnReset(btn); if(TTSV.btn===btn) TTSV.btn=null; };
+  a.onended = fin; a.onerror = fin;
+  await a.play();
+}
+
+/* iOS / iPadOS Safari 唔准網頁喺冇 user gesture 之下出聲。
+   喺用戶第一次撳嘢嗰陣，靜靜哋 speak 一句「空白」去解鎖個語音引擎，
+   之後「AI 覆完自動讀」先至有機會出到聲。 */
+let ttsPrimed = false;
+function ttsPrime(){
+  if(ttsPrimed || !ttsSupported()) return;
+  ttsPrimed = true;
+  try{
+    const u = new SpeechSynthesisUtterance(' ');
+    u.volume = 0; u.rate = 1;
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+document.addEventListener('touchend', ttsPrime, {once:true, passive:true});
+document.addEventListener('click', ttsPrime, {once:true});
+
+async function ttsSpeak(text, btn){
+  ttsPrimed = true;                       /* 用戶親手撳掣，唔使再熱身 */
+  const same = !!btn && (TTSV.btn === btn);
+  ttsStop();
+  if(same) return;                       /* 再撳一次＝停 */
+  const plain = mdToPlain(typeof text==='function' ? text() : text);
+  if(!plain) return;
+  const mySeq = TTSV.seq;
+  if(btn){
+    TTSV.btn = btn;
+    if(!btn.dataset.lab) btn.dataset.lab = btn.textContent;
+    btn.classList.add('speaking');
+    btn.textContent = '⏹ 停';
+  }
+  const c = cfg();
+  if(c.ttsAzKey && c.ttsAzReg){
+    try{ await azureSpeak(plain, btn, mySeq); return; }
+    catch(err){
+      if(mySeq !== TTSV.seq) return;
+      if(btn) btn.title = 'Azure 讀唔到（' + err.message + '），改用瀏覽器內置語音';
+    }
+  }
+  webSpeak(plain, btn, mySeq);
+}
+
+/* 朗讀掣 */
+function makeTTSBtn(getText, label){
+  const b = document.createElement('button');
+  b.className = 'chatCopyBtn';
+  b.textContent = label || '🔊 讀';
+  b.dataset.lab = b.textContent;
+  b.title = '用語音讀出呢段字（再撳一次＝停）';
+  b.onclick = function(e){ e.stopPropagation(); ttsSpeak(getText, b); };
+  return b;
+}
+
+/* 設定入面嗰個語音下拉 */
+function fillVoiceSel(){
+  const sel = document.getElementById('ttsVoice');
+  if(!sel) return;
+  const c = cfg(), want = c.ttsVoice || '';
+  const vs = ttsLoadVoices();
+  sel.innerHTML = '';
+  const auto = document.createElement('option');
+  const p = pickVoice();
+  auto.value = '';
+  auto.textContent = '自動揀（' + (p ? p.name + ' · ' + p.lang : '搵唔到中文語音') + '）';
+  sel.appendChild(auto);
+  vs.slice().sort(function(a,b){ return (isYueVoice(b)?1:0)-(isYueVoice(a)?1:0); }).forEach(function(v){
+    const o = document.createElement('option');
+    o.value = v.voiceURI || v.name;
+    o.textContent = (isYueVoice(v)?'⭐ ':'') + v.name + '（' + v.lang + '）';
+    sel.appendChild(o);
+  });
+  sel.value = want;
+  if(sel.value !== want) sel.value = '';
+  ttsDiag();
+}
+
+/* iPhone／iPad 專屬提醒：冇聲最大機會係靜音掣，唔係個網頁壞咗。
+   iPad 上面所有 browser（Chrome、Firefox、Edge）底層都係 WebKit，行為同 Safari 一樣。 */
+function isIOS(){
+  const ua = navigator.userAgent || '';
+  return /iPad|iPhone|iPod/.test(ua)
+      || (/Macintosh/.test(ua) && (navigator.maxTouchPoints||0) > 1);   /* iPadOS 會扮 Mac */
+}
+function iosTip(){
+  if(!isIOS()) return '';
+  return '<br>📱 iPad／iPhone 提醒：<b>側邊靜音掣或者控制中心校咗靜音，一樣會冇聲</b>（就算音量校到盡）。'
+       + '想成日都讀廣東話，可以入「設定 → 輔助使用 → 朗讀內容 → 語音 → 中文 → 朗讀語言」揀「廣東話」。'
+       + '另外 iPad 上面所有瀏覽器（Chrome／Edge／Firefox）內裡都係 WebKit，朗讀行為同 Safari 一模一樣；'
+       + '但「🎤 講嘢」嗰個語音輸入就淨係 Safari 有機會用到。';
+}
+
+/* 話返俾用戶知：你部機到底搵唔搵到廣東話語音 */
+function ttsDiag(){
+  const el = document.getElementById('ttsDiag');
+  if(!el) return;
+  const c = cfg();
+  if(c.ttsAzKey && c.ttsAzReg){
+    el.innerHTML = '✅ 已經填咗 Azure key，會用 <b>' + esc(c.ttsAzVoice||'zh-HK-HiuMaanNeural')
+                 + '</b> 讀。Chrome、Safari、任何機都一樣靚聲。';
+    return;
+  }
+  const vs = ttsLoadVoices();
+  if(!vs.length){
+    el.innerHTML = '⏳ 仲攞緊語音清單…撳一下「▶ 試聽」，或者閂咗呢個視窗再開一次。';
+    return;
+  }
+  const yue = vs.filter(isYueVoice);
+  const p = pickVoice();
+  if(yue.length){
+    el.innerHTML = '✅ 搵到 <b>' + yue.length + '</b> 把廣東話語音，而家會用：<b>' + esc(p ? p.name : '') + '</b>' + iosTip();
+    return;
+  }
+  el.innerHTML = '⚠ <b>呢個瀏覽器搵唔到廣東話（zh-HK）語音。</b>'
+    + (p ? '而家會用「' + esc(p.name) + '（' + esc(p.lang) + '）」照讀，廣東話字會變咗普通話音。' : '連中文語音都搵唔到。')
+    + '<br>· <b>Windows + Chrome</b>：設定 → 時間與語言 → 語音 → 管理語音 → 新增「中文（繁體，香港特別行政區）」，裝完要<b>完全閂晒 Chrome 再開</b>。'
+    + '<br>· <b>iPhone／iPad</b>：設定 → 輔助使用 → 朗讀內容 → 語音 → 中文 → 揀「廣東話（香港）」。'
+    + '<br>· 唔想搞：填上面嘅 Azure key（每月 50 萬字免費），或者暫時用 Edge 開呢一頁。'
+    + iosTip();
+}
+if(ttsSupported()){
+  ttsLoadVoices();
+  window.speechSynthesis.onvoiceschanged = function(){ ttsLoadVoices(); fillVoiceSel(); };
+}
+
 /* 複製按鈕：撳完短暫顯示「✓ 已複製」 */
 function makeCopyBtn(label, title, doCopy){
   const b = document.createElement('button');
@@ -2952,9 +3517,11 @@ function renderChat(){
     bar.className = 'chatCopyBar';
     if(m.role==='user'){
       /* 用戶訊息：一個複製掣（純文字） */
+      bar.appendChild(makeTTSBtn(m.content, '🔊 讀'));
       bar.appendChild(makeCopyBtn('📋 複製', '複製純文字', ()=>copyPlainText(m.content)));
     } else if(isAI){
       /* AI 訊息：三個掣 —— 純文字、Word 格式、WhatsApp 格式 */
+      bar.appendChild(makeTTSBtn(m.content, '🔊 讀'));
       bar.appendChild(makeCopyBtn('📋 文字', '複製純文字（Markdown 原文）', ()=>copyPlainText(m.content)));
       bar.appendChild(makeCopyBtn('📝 Word', '複製成富格式，貼上 Microsoft Word 保留表格、粗體等格式', ()=>copyRichForWord(mdToWordHtml(m.content), m.content)));
       bar.appendChild(makeCopyBtn('💬 WhatsApp', '轉做 WhatsApp 格式（*粗體*、_斜體_ 等）再複製', ()=>copyPlainText(mdToWhatsApp(m.content))));
@@ -3001,6 +3568,7 @@ async function chatSend(presetText){
       save();
     }
     renderChat();
+    if(cfg().ttsAuto) ttsSpeak(reply, null);
   }catch(err){
     loadingEl.classList.remove('ai'); loadingEl.classList.add('sys');
     loadingEl.textContent = '❌ 出錯：' + (err.message || err);
@@ -3035,6 +3603,7 @@ $('chatSend').onclick = ()=>chatSend();
 $('chatClear').onclick = async ()=>{
   if(!chatHistory.length) return;
   if(await confirmBox('確定要清走目前嘅對話？\n（對話本來就唔會儲存，清咗即冇咗。）')){
+    ttsStop();
     chatHistory = [];
     renderChat();
     $('chatHint').textContent = '';
