@@ -98,7 +98,7 @@ header .spacer{flex:1}
 .archiveHead{margin-top:14px;border-top:1px dashed var(--line);padding-top:8px}
 
 /* ===== 右邊：行事曆 ===== */
-#calArea{flex:1;overflow:auto;padding:12px}
+#calArea{flex:1;overflow:auto;padding:12px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .dayList{max-width:860px;margin:0 auto}
 .dayTitle{font-size:15px;font-weight:700;margin:4px 0 12px;color:var(--muted)}
 .evRow{
@@ -371,13 +371,31 @@ body.readonly .aiTabs button[data-p="log"],
 body.readonly .aiTabs button[data-p="rule"]{display:none!important}
 /* 訪客排程（待確認）事件樣式 */
 .evRow.guestPending{border-color:var(--q-amber);border-left-color:var(--q-amber);background:#fffbf2}
+.evRow.guestDel .evTtl{text-decoration:line-through;opacity:.6}
+.evRow.guestDel{background:#fdf5f2}
 .badge.guest{background:#fdf0dd;color:var(--q-amber);font-weight:700}
 .roNotice{
-  position:fixed;bottom:10px;left:50%;transform:translateX(-50%);
-  background:var(--q-amber);color:#fff;padding:4px 14px;border-radius:20px;
-  font-size:12px;z-index:40;display:none;box-shadow:var(--shadow);letter-spacing:1px;
+  position:fixed;bottom:calc(10px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);
+  background:var(--q-amber);color:#fff;padding:5px 8px 5px 14px;border-radius:20px;
+  font-size:12px;z-index:40;display:none;box-shadow:var(--shadow);letter-spacing:.5px;
+  max-width:min(94vw,860px);line-height:1.55;text-align:center;
+  align-items:center;gap:8px;
 }
-body.readonly .roNotice{display:block}
+body.readonly .roNotice{display:flex}
+.roNotice .roTxt{flex:1;min-width:0}
+.roNotice .roMin{
+  flex:0 0 auto;border:0;background:rgba(255,255,255,.28);color:#fff;
+  width:20px;height:20px;border-radius:50%;font-size:13px;line-height:1;padding:0;
+}
+.roNotice .roMin:hover{background:rgba(255,255,255,.5)}
+/* 收埋之後淨係剩一粒細掣，撳返佢就展開 */
+body.readonly .roNotice.mini{padding:5px 12px;cursor:pointer;letter-spacing:1px}
+body.readonly .roNotice.mini .roTxt,
+body.readonly .roNotice.mini .roMin{display:none}
+body.readonly .roNotice.mini::before{content:"👤 訪客模式 ⌃"}
+/* 🔑 重點：喺時間表底部預留返個提示條嘅高度，
+   等最尾嗰行行程唔會匿埋喺個橙色 box 下面。--roH 由 JS 度返實際高度。 */
+body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 
 /* ===== 左面板收合（桌面） ===== */
 #btnToggleLeft{flex:0 0 auto;line-height:1}
@@ -458,7 +476,10 @@ body.readonly .roNotice{display:block}
   <button class="hbtn" id="btnUnlock">🔒 解鎖編輯</button>
   <button class="hbtn" id="btnLogin">👤 Google 登入</button>
 </header>
-<div class="roNotice">👤 訪客模式：可以用 AI 排程同傾偈，改動會標記為「待確認」　撳「解鎖編輯」輸入密碼先可以完全修改</div>
+<div class="roNotice" id="roNotice">
+  <span class="roTxt">👤 訪客模式：可以用 AI 排程同傾偈，改動會標記為「待確認」；撳「解鎖編輯」輸入密碼先可以完全修改</span>
+  <button class="roMin" id="roMin" title="收埋呢個提示">−</button>
+</div>
 
 <div id="main">
   <div id="leftPane">
@@ -1231,7 +1252,7 @@ function computeEnd(ev, dayEvs){
 }
 function isOverdue(ev){ return ev.planned && !ev.done && ev.start <= nowStr(); }
 function evStatusBadge(ev){
-  if(ev.guestPending) return '<span class="badge guest">👤 訪客·待確認</span>';
+  if(ev.guestPending) return '<span class="badge guest">' + (ev.guestDel ? '👤 訪客想刪走·待確認' : '👤 訪客·待確認') + '</span>';
   if(ev.endOverride) {
     if(ev.planned && !ev.done && isOverdue(ev)) return '<span class="badge late">逾期未確認</span> <span class="badge bg">背景任務 → '+esc(ev.endOverride)+'</span>';
     return '<span class="badge bg">背景任務 → '+esc(ev.endOverride)+'</span>' + (ev.planned? (ev.done?' <span class="badge done">已完成</span>':' <span class="badge plan">已計劃</span>') : '');
@@ -1352,7 +1373,7 @@ function renderDay(){
 
   evs.forEach(ev=>{
     const row=document.createElement('div');
-    row.className='evRow'+(ev.color?' c-'+ev.color:'')+(isOverdue(ev)?' overdue':'')+(ev.guestPending?' guestPending':'');
+    row.className='evRow'+(ev.color?' c-'+ev.color:'')+(isOverdue(ev)?' overdue':'')+(ev.guestPending?' guestPending':'')+(ev.guestDel?' guestDel':'');
     const main=document.createElement('div'); main.className='evMain';
 
     const tEl=document.createElement('span');
@@ -1386,7 +1407,16 @@ function renderDay(){
         actBtn(acts,'✓ 確認做咗',()=>{ ev.done=true; save(); renderCal(); });
         actBtn(acts,'⏭ 延後一日',()=>{ const d=new Date(ev.start); d.setDate(d.getDate()+1); ev.start=fmtDate(d)+'T'+ev.start.slice(11); save(); renderCal(); });
       }
-      if(ev.guestPending){
+      if(ev.guestPending && ev.guestDel){
+        /* 訪客要求刪走呢件嘢 */
+        const gYes=actBtn(acts,'✓ 同意刪走',async()=>{
+          if(await confirmBox('訪客要求刪走「'+ev.title+'」。確定要刪？')){
+            state.events=state.events.filter(x=>x.id!==ev.id); save(); renderCal();
+          }
+        });
+        gYes.classList.add('danger');
+        actBtn(acts,'✋ 唔刪，保留返',()=>{ ev.guestPending=false; ev.guestDel=false; save(); renderCal(); });
+      } else if(ev.guestPending){
         actBtn(acts,'✓ 確認接受',()=>{ ev.guestPending=false; save(); renderCal(); });
         const gDel=actBtn(acts,'↩ 還原（刪除）',async()=>{
           if(await confirmBox('確定要還原（刪除）呢個訪客排嘅「'+ev.title+'」？')){
@@ -2639,6 +2669,12 @@ $('aiApply').onclick = ()=>{
       if(r.act==='delete'){
         const ev = (state.events||[]).find(e=>e.id===o.id);
         if(ev){
+          /* 訪客唔可以真係剷走主人啲行程：改成「要求刪除」，留返俾主人確認 */
+          if(document.body.classList.contains('readonly')){
+            ev.guestPending = true; ev.guestDel = true;
+            added.push('🗑 已提出刪走（等主人確認）：'+ev.title+'（'+ev.start.replace('T',' ')+'）');
+            return;
+          }
           revertData.deleted.push(JSON.parse(JSON.stringify(ev)));
           state.events = state.events.filter(e=>e.id!==o.id);
           added.push('🗑 刪走：'+ev.title+'（'+ev.start.replace('T',' ')+'）');
@@ -2665,6 +2701,8 @@ $('aiApply').onclick = ()=>{
           ev.title = title; ev.start = start; ev.endOverride = end;
           if(color) ev.color = color;
           ev.ai = true;
+          /* 訪客改時間都要俾主人 review，唔可以靜靜雞改咗就算 */
+          if(document.body.classList.contains('readonly')) ev.guestPending = true;
           added.push('🕒 改時間：'+title+' → '+date+'（星期'+wdOf(date)+'）'+time);
           if(!firstDate) firstDate = date;
           return;
@@ -3723,6 +3761,7 @@ function toast(msg){
 /* ---------- 訪客模式 UI 同步 ---------- */
 function applyGuestUI(){
   document.body.classList.toggle('readonly', guestMode);
+  if(typeof syncRoNoticeH === 'function') setTimeout(syncRoNoticeH, 0);
   // 只要「已登入 + 唔係訪客模式」就顯示「訪客模式」掣
   // （未設密碼嗰陣，撳落去會自動彈出「設定解鎖密碼」視窗）
   const showGuestBtn = !guestMode && !!currentUser;
@@ -3763,6 +3802,37 @@ auth.onAuthStateChanged(user=>{
 
 /* 啟動時讀取本機嘅訪客模式狀態 */
 try{ if(localStorage.getItem(GUEST_KEY)==='1') guestMode = true; }catch(e){}
+
+/* ---------- 橙色提示條：唔好遮住時間表最尾嗰行 ---------- */
+const RO_MIN_KEY = 'diarycal_ro_notice_mini';
+function syncRoNoticeH(){
+  const n = document.getElementById('roNotice');
+  if(!n) return;
+  const on = document.body.classList.contains('readonly');
+  /* 度唔到（例如字體未載入好）就用返 36px 做保底，總之唔好變 0 */
+  const h = on ? Math.max(36, Math.ceil(n.getBoundingClientRect().height)) : 0;
+  document.documentElement.style.setProperty('--roH', h + 'px');
+}
+(function initRoNotice(){
+  const n = document.getElementById('roNotice');
+  if(!n) return;
+  try{ if(localStorage.getItem(RO_MIN_KEY)==='1') n.classList.add('mini'); }catch(e){}
+  const setMini = function(on){
+    n.classList.toggle('mini', !!on);
+    try{ localStorage.setItem(RO_MIN_KEY, on ? '1' : '0'); }catch(e){}
+    syncRoNoticeH();
+  };
+  const btn = document.getElementById('roMin');
+  if(btn) btn.onclick = function(e){ e.stopPropagation(); setMini(true); };
+  n.onclick = function(){ if(n.classList.contains('mini')) setMini(false); };
+  window.addEventListener('resize', syncRoNoticeH);
+  window.addEventListener('orientationchange', function(){ setTimeout(syncRoNoticeH, 250); });
+  if(window.ResizeObserver){
+    try{ new ResizeObserver(syncRoNoticeH).observe(n); }catch(e){}
+  }
+  setTimeout(syncRoNoticeH, 0);
+})();
+
 applyGuestUI();
 
 /* ---------- save() 封鎖：訪客模式之下禁止寫入，但允許 AI 排程／傾偈 ---------- */
