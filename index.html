@@ -218,6 +218,14 @@ header .spacer{flex:1}
 .hwSheets button.act{background:var(--q-amber);border-color:var(--q-amber);color:#fff}
 .hwSheets button.fin{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
 /* 訪客模式：Charlotte 睇得到自己張清單，但改唔到嘢 */
+.hwChain{font-size:11.5px;color:var(--muted);background:var(--bg);border-radius:6px;
+  padding:6px 9px;margin-top:7px;line-height:1.7}
+.hwChain b{color:var(--ink)}
+.hwArr{color:var(--accent);font-weight:700;margin:0 2px}
+.hwSlot{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px;
+  font-size:12px;color:var(--muted);background:var(--bg);border-radius:6px;padding:6px 9px}
+.hwSlot.on{background:var(--accent-soft);color:var(--accent)}
+.hwSlot input{padding:4px 7px;border:1px solid var(--line);border-radius:5px;font-size:12px}
 body.readonly .hwOwner,
 body.readonly .hwBar{display:none!important}#guestExpModal{z-index:56}
 #confirmModal{z-index:90}   /* 阻塞式確認框，永遠要喺最頂 */
@@ -588,7 +596,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
   <div class="modalActs"><button class="btn" id="guestUnlockCancel">取消</button><button class="btn primary" id="guestUnlockGo">解鎖</button></div>
 </div></div>
 
-<div class="overlay" id="eventModal"><div class="modal"><h3 id="evModalTitle">編輯項目</h3><div class="frow"><div style="flex:2"><label>標題</label><input type="text" id="evTitle"></div></div><div class="frow"><div><label>日期</label><input type="date" id="evDate"></div><div><label>開始時間</label><input type="time" id="evTimeInp"></div><div><label>指定完結時間（背景／平行任務先需要）</label><div style="display:flex;gap:6px"><input type="time" id="evEnd"><button class="btn" id="evEndClear" title="清除" style="padding:4px 8px">✕</button></div></div></div><div class="frow"><div><label>顏色（艾森豪四象限，可以唔揀）</label><div class="colorPick" id="evColors"><button class="cpBtn cp-none" data-c="" title="無"></button><button class="cpBtn cp-red" data-c="red" title="緊急＋重要"></button><button class="cpBtn cp-amber" data-c="amber" title="重要但唔緊急"></button><button class="cpBtn cp-blue" data-c="blue" title="緊急但唔重要"></button><button class="cpBtn cp-grey" data-c="grey" title="唔重要唔緊急"></button></div></div></div><div class="frow"><div><label>SOP／內文（可以直接由 Word 貼上，會自動變 Markdown 純文字，圖片一律過濾）</label><textarea id="evSop" class="sop"></textarea><div class="sopPreview" id="evSopPrev"></div><button class="btn" id="evPrevToggle" style="margin-top:6px;padding:3px 10px;font-size:12px">預覽排版</button></div></div><div class="modalActs"><button class="btn danger" id="evDelete">刪除</button><span style="flex:1"></span><button class="btn" id="evCancel">取消</button><button class="btn primary" id="evSave">儲存</button></div></div></div>
+<div class="overlay" id="eventModal"><div class="modal"><h3 id="evModalTitle">編輯項目</h3><div class="frow"><div style="flex:2"><label>標題</label><input type="text" id="evTitle"></div></div><div class="frow"><div><label>日期</label><input type="date" id="evDate"></div><div><label>開始時間</label><input type="time" id="evTimeInp"></div><div><label>指定完結時間（背景／平行任務先需要）</label><div style="display:flex;gap:6px"><input type="time" id="evEnd"><button class="btn" id="evEndClear" title="清除" style="padding:4px 8px">✕</button></div></div></div><div class="frow"><div><label><input type="checkbox" id="evHwSlot" style="margin-right:6px;vertical-align:-1px">呢個係「做功課／練習」嘅時段，唔係上堂</label><div class="subnote" style="margin-top:2px">剔咗之後，系統就唔會當佢係一堂而再派多一份功課出嚟。</div></div></div><div class="frow"><div><label>顏色（艾森豪四象限，可以唔揀）</label><div class="colorPick" id="evColors"><button class="cpBtn cp-none" data-c="" title="無"></button><button class="cpBtn cp-red" data-c="red" title="緊急＋重要"></button><button class="cpBtn cp-amber" data-c="amber" title="重要但唔緊急"></button><button class="cpBtn cp-blue" data-c="blue" title="緊急但唔重要"></button><button class="cpBtn cp-grey" data-c="grey" title="唔重要唔緊急"></button></div></div></div><div class="frow"><div><label>SOP／內文（可以直接由 Word 貼上，會自動變 Markdown 純文字，圖片一律過濾）</label><textarea id="evSop" class="sop"></textarea><div class="sopPreview" id="evSopPrev"></div><button class="btn" id="evPrevToggle" style="margin-top:6px;padding:3px 10px;font-size:12px">預覽排版</button></div></div><div class="modalActs"><button class="btn danger" id="evDelete">刪除</button><span style="flex:1"></span><button class="btn" id="evCancel">取消</button><button class="btn primary" id="evSave">儲存</button></div></div></div>
 <div class="overlay" id="tplModal"><div class="modal"><h3 id="tplModalTitle">編輯任務模板</h3><div class="frow"><div><label>標題</label><input type="text" id="tplTitle"></div></div><div class="frow"><div><label>預設顏色</label><div class="colorPick" id="tplColors"><button class="cpBtn cp-none" data-c="" title="無"></button><button class="cpBtn cp-red" data-c="red" title="緊急＋重要"></button><button class="cpBtn cp-amber" data-c="amber" title="重要但唔緊急"></button><button class="cpBtn cp-blue" data-c="blue" title="緊急但唔重要"></button><button class="cpBtn cp-grey" data-c="grey" title="唔重要唔緊急"></button></div></div></div><div class="frow"><div><label>SOP（可由 Word 貼上，自動轉 Markdown；圖片一律過濾）</label><textarea id="tplSop" class="sop"></textarea><div class="sopPreview" id="tplSopPrev"></div><button class="btn" id="tplPrevToggle" style="margin-top:6px;padding:3px 10px;font-size:12px">預覽排版</button></div></div><p class="subnote">提示：儲存後，如果將來已排程嘅項目仍然同舊模板一模一樣（未被個別修改過），會問你要唔要一次過套用新內容。已過去嘅記錄一律不受影響。</p><div class="modalActs"><button class="btn" id="tplCancel">取消</button><button class="btn primary" id="tplSave">儲存</button></div></div></div>
 <div class="overlay" id="bulkModal"><div class="modal"><h3>批量計劃／修改／刪除</h3><div class="frow"><div><label>揀選任務模板</label><select id="bulkTask"></select></div></div><div class="frow"><div><label>由（日期）</label><input type="date" id="bulkFrom"></div><div><label>至（日期）</label><input type="date" id="bulkTo"></div><div><label>時間</label><input type="time" id="bulkTime" value="09:00"></div></div><div class="frow"><div><label>動作</label><select id="bulkMode"><option value="create">建立：喺呢段日期內，每日同一時間新增呢個任務</option><option value="retime">修改：將呢段日期內同一任務全部改做新時間</option><option value="delete">刪除：將呢段日期內同一任務全部刪除</option></select></div></div><div class="frow" id="bulkNewTimeRow" style="display:none"><div><label>新時間</label><input type="time" id="bulkNewTime" value="10:00"></div></div><div class="modalActs"><button class="btn" id="bulkCancel">取消</button><button class="btn primary" id="bulkGo">執行</button></div></div></div>
 <div class="overlay" id="exportModal"><div class="modal"><h3>匯出 JSON</h3><p class="subnote">唔揀日期就預設匯出全部資料（包括模板樹）。揀咗日期就只匯出嗰段時間嘅日程（模板樹照樣包埋，方便第日還原）。</p><div class="frow"><div><label>由</label><input type="date" id="expFrom"></div><div><label>至</label><input type="date" id="expTo"></div></div><div class="modalActs"><button class="btn" id="expCancel">取消</button><button class="btn primary" id="expGo">匯出</button></div></div></div>
@@ -1860,6 +1868,11 @@ function openEvent(ev,defaults){
   document.getElementById('evEnd').value = ev&&ev.endOverride? ev.endOverride : '';
   document.getElementById('evSop').value = ev? (ev.sop||'') : '';
   evColorPick.set(ev? ev.color : '');
+  /* 「做功課時段」剔號：冇明確設定過就用個名去估（isHwSlot 嘅字眼判斷）， 
+     等爸爸開個舊項目都見到個合理預設值。 */
+  document.getElementById('evHwSlot').checked = ev
+    ? (ev.hwSlot === true || (ev.hwSlot !== false && !!ev.hwFor) || (ev.hwSlot === undefined && HW_SLOT_WORDS.test(ev.title||'')))
+    : false;
   document.getElementById('evDelete').style.display = ev? '' : 'none';
   show('eventModal');
   document.getElementById('evTitle').focus();
@@ -1880,14 +1893,17 @@ document.getElementById('evSave').onclick=()=>{
        行事曆會顯示「已完成 ✓」但件事根本未做。要跟住新時間更新狀態。 */
     const wasFuture = editingEv.start > nowStr();
     const nowFuture = start > nowStr();
-    Object.assign(editingEv,{title,start,endOverride,sop,color});
+    Object.assign(editingEv,{title,start,endOverride,sop,color,
+      hwSlot: document.getElementById('evHwSlot').checked});
     if(nowFuture && !wasFuture && editingEv.done){ editingEv.planned = true; editingEv.done = false; }
   } else {
     const future = start > nowStr();
-    state.events.push({id:uid(),title,start,endOverride,sop,color,templateId:null,planned:future,done:!future});
+    state.events.push({id:uid(),title,start,endOverride,sop,color,templateId:null,planned:future,done:!future,
+      hwSlot: document.getElementById('evHwSlot').checked});
   }
   save(); hide('eventModal');
   cursor=new Date(date+'T00:00'); renderCal();
+  try{ if($('paneHw').classList.contains('on')) renderHw(); }catch(e){}
 };
 document.getElementById('evDelete').onclick=async()=>{
   if(!editingEv) return;
@@ -2725,13 +2741,15 @@ function defaultHwRules(){
   return [
     {id:uid(), match:'大提琴', due:'week', items:[{name:'練習大提琴', times:1}]},
     {id:uid(), match:'鋼琴',   due:'week', items:[{name:'練習鋼琴', times:1}]},
-    {id:uid(), match:'中文',   due:'next', items:[{name:'中文堂功課（要做完，唔係做一半）', times:1}]},
+    {id:uid(), match:'中文',   due:'next', items:[
+        {name:'課文功課', times:1},
+        {name:'補充練習', times:1}]},
     {id:uid(), match:'英文',   due:'next', items:[{name:'英文練習簿', times:3}]},
     {id:uid(), match:'學而思', due:'next', items:[
         {name:'Textbook 練習', times:1},
         {name:'練習簿', times:1},
         {name:'速算練習簿', times:1}]},
-    {id:uid(), match:'普通話', due:'next', items:[{name:'普通話功課（拼音練習）', times:1}]},
+    {id:uid(), match:'普通話', due:'next', items:[{name:'預習下一堂（冇功課，但要預習）', times:1}]},
     {id:uid(), match:'游水',   due:'none', items:[]}
   ];
 }
@@ -2741,6 +2759,27 @@ const HW_FADE_DAYS     = 7;    /* 做完之後仲喺「啱啱做完」度留幾�
 const HW_SHEET_MAX     = 12;   /* 風琴 folder 有幾多格 */
 
 function hwKey(evId, itemName){ return evId + '::' + itemName; }
+
+/* 分清「上堂嘅時段」同「做功課嘅時段」。
+   點解一定要分：爸爸自己喺行事曆加一格「做中文功課」，如果當咗佢係一堂中文，
+   就會再派多一份中文功課出嚟，越排越多，張清單就廢咗。
+   兩重判斷：① 個項目有冇明確剔咗「做功課時段」；② 名入面有冇做功課嘅字眼。 */
+const HW_SLOT_WORDS = /(做功課|功課時間|做練習|練習時間|溫習|温習|複習|預習|做卷|工作紙|補充練習)/;
+function isHwSlot(ev){
+  if(!ev) return false;
+  if(ev.hwSlot === true) return true;
+  if(ev.hwSlot === false) return false;      /* 爸爸明確話咗「呢個真係一堂」 */
+  if(ev.hwFor) return true;
+  return HW_SLOT_WORDS.test(String(ev.title||''));
+}
+/* 搵返一件功課排咗喺邊個時段做 */
+function hwSlotOf(key, label){
+  const evs = state.events || [];
+  const byKey = evs.filter(function(e){ return e.hwFor === key; });
+  if(byKey.length) return byKey.sort(function(a,b){ return a.start.localeCompare(b.start); })[0];
+  const byName = evs.filter(function(e){ return isHwSlot(e) && String(e.title||'').indexOf(label) >= 0; });
+  return byName.sort(function(a,b){ return a.start.localeCompare(b.start); })[0] || null;
+}
 function daysAgo(iso){ if(!iso) return 999;
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000); }
 
@@ -2755,18 +2794,25 @@ function homeworkBoard(){
 
   /* ── 來源一：補習班功課（由行事曆嘅堂自動生成，預設就係有功課）── */
   (state.ai.hwRules||[]).length && evs
-    .filter(function(e){ return e && e.start <= nw && e.start >= limS; })
+    .filter(function(e){ return e && e.start <= nw && e.start >= limS && !isHwSlot(e); })
     .sort(function(a,b){ return a.start.localeCompare(b.start); })
     .forEach(function(ev){
       (state.ai.hwRules||[]).forEach(function(rule){
         if(!rule.match || !rule.items || !rule.items.length) return;
         if(String(ev.title||'').indexOf(rule.match) < 0) return;
-        let due = '';
+        let due = '', nextCls = '';
         if(rule.due === 'next'){
-          const nxt = evs.filter(function(x){ return x.start > ev.start && String(x.title||'').indexOf(rule.match) >= 0; })
+          /* 死線 = 下一堂「前一日」，唔係嗰日。
+             排喺當日等於要佢臨出門前先做，冇緩衝；提早一日先製造到適度嘅緊迫感。 */
+          const nxt = evs.filter(function(x){ return x.start > ev.start && !isHwSlot(x)
+                            && String(x.title||'').indexOf(rule.match) >= 0; })
                          .sort(function(a,b){ return a.start.localeCompare(b.start); })[0];
-          due = nxt ? nxt.start.slice(0,10)
-                    : fmtDate(new Date(new Date(ev.start.slice(0,10)).getTime() + 7*86400000));
+          if(nxt){
+            nextCls = nxt.start.slice(0,10);
+            due = fmtDate(new Date(new Date(nextCls).getTime() - 86400000));
+          }else{
+            due = fmtDate(new Date(new Date(ev.start.slice(0,10)).getTime() + 6*86400000));
+          }
         }else if(rule.due === 'week'){
           due = fmtDate(new Date(new Date(ev.start.slice(0,10)).getTime() + 7*86400000));
         }else return;
@@ -2774,6 +2820,7 @@ function homeworkBoard(){
           const need = Math.max(1, parseInt(it.times,10) || 1);
           const k = hwKey(ev.id, it.name);
           const o = {key:k, src:'class', label:it.name, need:need, done:hwDoneN(k), due:due,
+                     fromClass:ev.title, classDate:ev.start.slice(0,10), nextClass:nextCls,
                      sub:ev.start.slice(0,10) + '　' + ev.title, doneAt:hwDoneAt(k)};
           o.overdue = !!(due && today > due);
           if(state.ai.hwSkip[k]) skipped.push(o);
@@ -2836,19 +2883,94 @@ function hwSkipToggle(o){
 
 let hwFilter = 'all';
 
+/* 建立／改動一件功課嘅「做功課時段」。
+   呢個係同 timetable 即時同步嘅位：喺功課卡度改時間，行事曆嗰邊即刻郁。 */
+function hwSchedule(o, dateStr, timeStr){
+  const ex = hwSlotOf(o.key, o.label);
+  const start = dateStr + 'T' + (timeStr || '20:00');
+  if(ex){
+    ex.start = start;
+    ex.hwFor = o.key;
+    ex.hwSlot = true;
+    if(start > nowStr()){ ex.planned = true; ex.done = false; }
+  }else{
+    state.events.push({id:uid(), title:'做功課：'+o.label, start:start, endOverride:null,
+      sop:'', color:'amber', templateId:null, planned:start>nowStr(), done:false,
+      hwSlot:true, hwFor:o.key});
+  }
+  save(); try{ renderCal(); }catch(e){}
+  renderHw();
+}
+function hwUnschedule(o){
+  const ex = hwSlotOf(o.key, o.label);
+  if(!ex) return;
+  state.events = state.events.filter(function(x){ return x.id !== ex.id; });
+  save(); try{ renderCal(); }catch(e){}
+  renderHw();
+}
+
 function hwCard(o, finished){
+  const guest = document.body.classList.contains('readonly');
   const d = document.createElement('div');
   d.className = 'hwCard' + (finished ? ' fin' : (o.overdue ? ' over' : ''));
   const tag = o.src==='class' ? '<span class="hwSrc">📖 補習班</span>'
             : o.src==='sheet' ? '<span class="hwSrc w">🗂 工作紙</span>'
             :                   '<span class="hwSrc p">✍️ 爸爸</span>';
+
+  /* 因果鏈：點解會有呢份功課、點解死線係嗰日 */
+  let chain = '';
+  if(o.src === 'class'){
+    chain = '<div class="hwChain">' +
+      '<b>' + esc(o.classDate) + '</b> 上咗「' + esc(o.fromClass) + '」' +
+      ' <span class="hwArr">➜</span> 派咗呢份功課' +
+      (o.nextClass
+        ? ' <span class="hwArr">➜</span> 下堂 <b>' + o.nextClass + '</b>，所以要 <b>' + o.due + '</b>（前一日）之前做完'
+        : ' <span class="hwArr">➜</span> 未排下一堂，暫時當 <b>' + o.due + '</b> 之前做完') +
+      '</div>';
+  }
   const dueTxt = finished
     ? '做完咗　·　' + (o.doneAt ? fmtStamp(o.doneAt) : '')
-    : (o.due ? (o.overdue ? '⚠ 死線 ' + o.due + ' 已經過咗' : '要喺 ' + o.due + ' 之前做完') : '冇死線');
+    : (o.due ? (o.overdue ? '⚠ 死線 ' + o.due + ' 已經過咗' : '死線 ' + o.due) : '冇死線');
+
   d.innerHTML = '<div class="t">' + tag + esc(o.label) +
       (o.need>1 ? ' <span style="color:var(--muted);font-weight:400">（'+o.done+'／'+o.need+' 轉）</span>' : '') +
-    '</div><div class="s">' + esc(o.sub) + '　·　' + dueTxt + '</div>' +
+    '</div><div class="s">' + (o.src==='class' ? '' : esc(o.sub) + '　·　') + dueTxt + '</div>' + chain +
     (o.need>1 ? '<div class="hwProg"><i style="width:'+Math.round(o.done/o.need*100)+'%"></i></div>' : '');
+
+  /* 排咗喺邊個時段做 */
+  if(!finished){
+    const slot = hwSlotOf(o.key, o.label);
+    const sl = document.createElement('div');
+    sl.className = 'hwSlot' + (slot ? ' on' : '');
+    if(guest){
+      sl.innerHTML = slot
+        ? '🗓 排咗 <b>' + slot.start.slice(0,10) + ' ' + slot.start.slice(11) + '</b> 做'
+        : '🗓 未排時間';
+    }else{
+      const dv = slot ? slot.start.slice(0,10) : (o.due || fmtDate(new Date()));
+      const tv = slot ? slot.start.slice(11) : '20:00';
+      sl.innerHTML = '<span>🗓 ' + (slot ? '排咗喺' : '未排時間 —— 排落') + '</span>' +
+        '<input type="date" value="' + dv + '"><input type="time" value="' + tv + '">';
+      const go = document.createElement('button');
+      go.className = 'btn'; go.style.cssText = 'padding:3px 10px;font-size:12px';
+      go.textContent = slot ? '↻ 更新時間表' : '📅 排落時間表';
+      go.onclick = ()=>{
+        const ins = sl.querySelectorAll('input');
+        hwSchedule(o, ins[0].value, ins[1].value);
+        toast(slot ? '時間表已經更新' : '排咗落時間表');
+      };
+      sl.appendChild(go);
+      if(slot){
+        const rm = document.createElement('button');
+        rm.className = 'btn'; rm.style.cssText = 'padding:3px 10px;font-size:12px';
+        rm.textContent = '✕ 唔排';
+        rm.onclick = ()=>{ hwUnschedule(o); toast('已經由時間表拎走'); };
+        sl.appendChild(rm);
+      }
+    }
+    d.appendChild(sl);
+  }
+
   const bar = document.createElement('div'); bar.className = 'hwBar';
   if(!finished){
     const b1 = document.createElement('button');
@@ -2862,7 +2984,6 @@ function hwCard(o, finished){
     }
     const b3 = document.createElement('button'); b3.className='btn';
     b3.textContent = o.src==='class' ? '✕ 今次冇呢份功課' : '✕ 刪走';
-    b3.title = o.src==='class' ? '呢一堂真係冇功課，交叉走佢' : '';
     b3.onclick = ()=> hwSkipToggle(o);
     bar.appendChild(b3);
   }else{
@@ -3051,12 +3172,20 @@ function ctxText(){
   const hw = pendingHomework();
   L.push('\n【課後功課：仲未做完（自動由「上完邊堂要跟進乜」推算）】\n' + (hw.length
     ? hw.map(function(h){
-        return '- ' + h.item + (h.need>1 ? '（做咗 '+h.done+'／'+h.need+' 轉）' : '')
-             + '　←　' + h.classDate + ' 上咗「' + h.classTitle + '」'
-             + (h.due ? '，要喺 ' + h.due + ' 之前做完' : '')
-             + (h.overdue ? '　⚠ 已經過咗期' : '');
+        const slot = hwSlotOf(h.key, h.label);
+        return '- ' + h.label + (h.need>1 ? '（做咗 '+h.done+'／'+h.need+' 轉）' : '')
+             + (h.src==='class'
+                 ? '　←　' + h.classDate + ' 上咗「' + h.fromClass + '」'
+                   + (h.nextClass ? '，下堂 ' + h.nextClass : '')
+                 : '　←　' + h.sub)
+             + (h.due ? '，死線 ' + h.due : '')
+             + (h.overdue ? '　⚠ 已經過咗期' : '')
+             + (slot ? '　🗓 已經排咗 ' + slot.start.replace('T',' ') + ' 做' : '　🗓 未排時間');
       }).join('\n')
-    : '（全部跟進都做完咗，唔好作一件出嚟提佢）'));
+    : '（全部跟進都做完咗，唔好作一件出嚟提佢）')
+    + '\n註：用戶叫你幫手安排做功課嘅時間嗰陣，就用返上面呢張清單，'
+    + '死線越近／已經過咗期嘅越優先。開嘅項目 title 一定要係「做功課：<功課個名>」呢個格式，'
+    + '系統見到呢個格式就知道嗰格係做功課，唔會當佢係一堂而再派多一份新功課出嚟。');
 
   /* 欠住未做嘅嘢。擺喺 General Rules 之後、其他歷史之前，因為呢個係要即刻跟進嘅。 */
   const pend = pendingItems(14, 20);
@@ -3121,6 +3250,12 @@ const SYS_PLAN = [
 '9) 用戶想改時間 → action="move"；想取消 → action="delete"，兩者都要填返上面清單嗰個 id。',
 '10) reply 一定要用廣東話口語，逐件講清楚你安排咗幾時做乜，例如：「幫你安排咗 7月25號（星期六）09:00 跑步」。',
 '10c) 所有輸出一律使用繁體中文（Traditional Chinese），嚴禁使用簡體字。',
+'11) 用戶叫你幫細路排做功課嘅時間（例如「星期日幫佢排晒啲未做嘅功課」）：照【課後功課：仲未做完】嗰欄嚟排，一件功課開一格。',
+'11a) title 一定要用「做功課：<功課個名>」呢個格式，例如「做功課：速算練習簿」。呢個格式好重要——系統靠佢分辨「做功課嘅時段」同「上堂嘅時段」，寫錯咗就會當咗係新一堂，再派多一份功課出嚟，越滾越多。',
+'11b) 次序：已經過咗期嘅排最前，跟住死線最近嗰啲。已經寫住「已經排咗」嘅唔使再排一次。',
+'11c) 一格通常 30 至 45 分鐘，兩格之間要留最少 15 分鐘唞。一日唔好排多過三至四格功課——細路連續坐兩三個鐘，後面嗰啲係做嚟交數，冇效果。',
+'11d) 要順住佢嘅作息：食飯、沖涼、練琴、出街嗰啲已經排咗嘅嘢一律避開。朝早頭腦最清，最難嗰份（例如數學）排朝早；下晝攰啲，排抄寫、預習、工作紙呢類。夜晚 8 點之後唔好排新嘅硬嘢。',
+'11e) 喺 reply 度講返你點解咁排（邊份最急、點解排喺嗰個時段），唔好淨係列一堆時間出嚟。',
 '10b) 如果用戶要求嘅唔係排程，而係管理操作（例如：copy 任務去工作模板、整理分類、按 structure 排好），喺 reply 入面講明你暫時做唔到呢類操作，建議佢用左邊嘅工作模板手動操作，或者分開多次講。',
 '11) 一次最多 30 件 item。真係要更多就喺 reply 講明剩返嗰啲要佢再講一次。',
 '',
