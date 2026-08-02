@@ -703,6 +703,8 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
       <div style="flex:0 0 auto;align-self:flex-end"><button class="btn" id="webTest">🔎 試搜尋一次</button></div>
     </div>
     <div class="ttsNote" id="webDiag" style="margin:8px 0 0"></div>
+    <label class="ttsChk"><input type="checkbox" id="webGuest" checked> 訪客模式（Charlotte）都可以上網搜尋</label>
+    <p class="ttsNote" style="margin-top:4px">剔走嘅話，Charlotte 喺訪客模式之下淨係查得到維基百科同 Fandom（呢兩個係有人編輯過嘅百科），唔會攞成個互聯網嘅內容返嚟。你自己用就唔受影響。</p>
   </div>
 
   <div class="aiStatus" id="aiSetStatus"></div>
@@ -3565,6 +3567,7 @@ function readTTSForm(c){
   c.ttsAzReg  = $('ttsAzReg').value.trim();
   c.ttsAzVoice= $('ttsAzVoice').value || 'zh-HK-HiuMaanNeural';
   c.webKey    = cleanAzKey($('webKey').value);   /* 同 Azure key 一樣要剝隱形字元 */
+  c.webGuest  = $('webGuest').checked;
   if($('webKey').value !== c.webKey) $('webKey').value = c.webKey;
   return c;
 }
@@ -3619,6 +3622,7 @@ function openSet(){
   $('ttsAzReg').value = c.ttsAzReg || '';
   $('ttsAzVoice').value = c.ttsAzVoice || 'zh-HK-HiuMaanNeural';
   $('webKey').value = c.webKey || '';
+  $('webGuest').checked = (c.webGuest !== false);
   try{ $('webDiag').innerHTML = c.webKey ? '已經填咗 key。撳「🔎 試搜尋一次」確認行唔行得通。' : ''; }catch(e){}
   try{ azKeyLenNote(); }catch(e){}
   /* 已經填咗 Azure key 就自動攤開嗰個 <details>，
@@ -4653,7 +4657,11 @@ async function runLookups(text){
 }
 
 function searchNote(){
-  const hasWeb = !!String(cfg().webKey||'').trim();
+  const c = cfg();
+  const guest = (typeof isGuestNow === 'function') ? isGuestNow() : false;
+  /* 訪客模式（Charlotte）可以獨立熄咗上網搜尋：
+     維基同 Fandom 係編輯過嘅百科，[[WEB]] 攞返嚟嘅係整個互聯網。 */
+  const hasWeb = !!String(c.webKey||'').trim() && (!guest || c.webGuest !== false);
   return [
 '【你識得上網查資料】',
 '· 你有查資料工具，可以查維基百科、Fandom（電影、動畫、遊戲、卡通嘅專門百科）'
@@ -4663,12 +4671,19 @@ function searchNote(){
 '    [[FANDOM: 網站代號 | 查詢詞]]        ← 查 Fandom，代號例如 disney、aliceinwonderland、wicked、pokemon、marvel',
 (hasWeb
   ? '    [[WEB: 查詢詞]]                     ← 上網搜尋，會攞返頭三個結果嘅正文'
-  : '    （上網搜尋未開啟：用戶未填 Jina API Key，所以你冇 [[WEB]] 呢個工具。）'),
+  : '    （上網搜尋而家冇開：所以你冇 [[WEB]] 呢個工具。）'),
 '· 一次最多三個標記。出標記嗰個回應用戶係睇唔到嘅，所以唔好喺入面同佢傾偈、唔好講「等我查下先」。',
 '· 系統查完會將資料交返俾你，你先至用返平時嘅語氣答佢。',
+'',
+'【揀邊個工具 —— 由上而下行，啱咗就唔好再落去】',
+'① 電影、動畫、卡通、遊戲、童話嘅劇情、角色、設定細節 → [[FANDOM]]。呢啲嘢 Fandom 寫得最深最齊。',
+'② 人物、地方、歷史、科學、書、已經定型嘅事實 → [[SEARCH]]（維基百科）。',
 (hasWeb
-  ? '· 幾時用 [[WEB]] 而唔用 [[SEARCH]]：維基百科係百科全書，寫嘅係已經定型嘅嘢。凡係「而家嘅實況」——香港邊間商場有咩舖頭同餐廳、營業時間、價錢、今日天氣、交通、學校收生消息、時事——維基一律冇，一定要用 [[WEB]]。'
-  : '· 香港本地商戶、餐廳、營業時間、價錢、天氣、交通呢類「而家嘅實況」，維基百科查唔到，你亦都冇工具查得到。呢種問題唔准估，要老實講你查唔到，叫用戶自己上官網或者 OpenRice 睇。'),
+  ? '③ 淨係「而家嘅實況」先至用 [[WEB]]：香港邊間商場有咩舖頭同餐廳、營業時間、價錢、今日天氣、交通、學校收生消息、近期新聞。'
+  : '③ 「而家嘅實況」——商場有咩餐廳、營業時間、價錢、天氣、交通——你冇工具查得到。呢類問題唔准估，要老實講你查唔到，叫佢自己上官網或者問大人。'),
+(hasWeb
+  ? '· [[WEB]] 慢好多，又會用緊用戶啲配額，所以①②做得到嘅嘢唔好用佢。例如問《愛麗絲夢遊仙境》有咩角色，應該用 [[FANDOM: aliceinwonderland | 角色]]；問「AIRSIDE 有咩餐廳」就一定要 [[WEB]]，因為維基同 Fandom 一定冇。'
+  : ''),
 (hasWeb
   ? '· 查香港嘅嘢，查詢詞要夾埋地區同年份，例如「AIRSIDE 啟德 餐廳 2026」好過淨係打「AIRSIDE」。查完之後，講返你係邊個網站見到，等用戶知件事有幾可靠。'
   : ''),
