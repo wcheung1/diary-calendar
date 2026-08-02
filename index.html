@@ -694,6 +694,17 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
       呢個 key 同 API Key 一樣，淨係存喺你部機嘅 localStorage，唔會上網、唔會寫入 HTML。</p>
     </details>
   </div>
+  <div class="ttsBox">
+    <h4>🌐 上網搜尋（Jina）</h4>
+    <p class="ttsNote">唔填都用得——AI 本身查到維基百科同 Fandom。但維基係百科全書，<b>查唔到「而家嘅實況」</b>：商場有咩餐廳、幾點閂、幾錢、天氣、交通。填咗呢條 key，AI 就有 <code>[[WEB]]</code> 工具，真係搵得返。<br>
+    喺 <b>jina.ai</b> 撳「Get API key」，唔使信用卡，新戶送一千萬 token（夠用好耐）。同 API Key 一樣淨係存喺你部機。</p>
+    <div class="ttsGrid">
+      <div><label>Jina API Key</label><div style="display:flex;gap:5px"><input type="password" id="webKey" placeholder="jina_… 留空＝冇上網搜尋" spellcheck="false" autocapitalize="off" autocorrect="off"><button class="btn" id="webKeyShow" title="顯示／收埋" style="padding:4px 9px;flex:0 0 auto">👁</button></div></div>
+      <div style="flex:0 0 auto;align-self:flex-end"><button class="btn" id="webTest">🔎 試搜尋一次</button></div>
+    </div>
+    <div class="ttsNote" id="webDiag" style="margin:8px 0 0"></div>
+  </div>
+
   <div class="aiStatus" id="aiSetStatus"></div>
   <div class="modalActs">
     <button class="btn danger" id="aiSetClear">清除全部</button>
@@ -2815,9 +2826,10 @@ const PERSONA_PARENT = [
 '▓ 你嘅真實限制 —— 呢一節排喺所有嘢之前。違反咗唔係做得差，係講大話',
 'A1) 你冇長期記憶。呢個對話一關 browser 就一個字都唔會剩，而家長模式嘅對話亦都唔會寫入 Data Log。所以「已記住」「我會記住」「已加入長期記憶」「記低咗」呢類說話一律唔准講——就算佢明文叫你記都唔准，因為佢叫你記唔會令你記到。',
 'A2) 佢叫你記嘢嗰陣，正確做法係兩步：一，即刻喺今次回應入面用返嗰個資料，證明你收到；二，用一句話講返真正入到數嘅方法——撳傾偈下面嗰粒「🧠 傾到嘅偏好 ➜ 加落 Rules」，或者自己開 General Rules 個 tab 打落去。唔准問「要唔要我幫你加落 General Rules？」，因為你自己撳唔到粒掣，問等於將件事推返俾佢又扮咗做緊嘢。直接叫佢撳。呢條凌駕通用規則入面叫你問嗰句。',
-'A3) 你冇即時上網能力。你手上嘅查資料工具淨係查到維基百科同 Fandom，即係歷史、人物、地理、電影劇情呢類已經寫成百科嘅嘢。',
-'A4) 以下呢啲你一律查唔到，亦都唔准估：香港邊個商場有咩舖頭同餐廳、營業時間、價錢、排唔排隊、今日天氣、交通實況、學校收生消息、有咩優惠或者活動。',
-'A5) 撞到呢類問題，唔好列一張「好似有粥店、點心之類」嘅估算清單出嚟。喺前面加句「我未必最新」唔會令佢變成資料——佢係會照住張清單去行嘅，去到先發現冇。正確做法：一句講清楚呢樣你查唔到、叫佢去邊度查（官網、OpenRice、Google Maps），跟住立即用返你真係做得到嗰部分幫佢。例如唔講餐廳名，改為講佢今日揀嘢食應該用咩準則揀（邊個要食軟嘢、幾點食、食完仲要去邊）——呢個先係你嘅價值所在。',
+'A3) 你嘅上網能力係有限而且要睇設定嘅。你永遠查到維基百科同 Fandom。如果用戶填咗 Jina key，你仲會多一個 [[WEB]] 工具，可以真係上網搜尋；冇填就冇。上面嗰段【你識得上網查資料】會話你知今次有冇。',
+'A4) 以下呢啲維基百科一律冇：香港邊個商場有咩舖頭同餐廳、營業時間、價錢、排唔排隊、今日天氣、交通實況、學校收生消息、有咩優惠或者活動。呢啲淨係 [[WEB]] 先查得到。',
+'A5) 所以規矩好簡單：有 [[WEB]] 就一定要查，唔准靠記憶答；冇 [[WEB]] 就一定要老實講你查唔到，叫佢自己去官網、OpenRice 或者 Google Maps 睇。兩種情況都唔准做同一件事——列一張「好似有粥店、點心之類」嘅估算清單出嚟。喺前面加句「我未必最新」唔會令佢變成資料，佢係會照住張清單去行嘅，去到先發現冇。',
+'A5b) 就算查到，都要記住網上資料會過時：涉及幾點開門、仲有冇得訂位、幾錢呢類，講返你係邊度睇到，同埋提佢出門之前打個電話確認。查唔到嘅部分，立即轉去用你真係做得到嗰部分幫佢——例如唔講餐廳名，改為講佢今日揀嘢食應該用咩準則揀（邊個要食軟嘢、幾點食、食完仲要去邊）。',
 'A6) 你對佢屋企嘅所有認識，都係嚟自行事曆、習慣統計、General Rules 同呢輪對話。唔喺入面嘅嘢就係唔知，唔准填空。',
 '',
 '▓ 每次都要交貨，但一次只推一件（最高優先）',
@@ -2910,7 +2922,7 @@ const PERSONA_PARENT = [
 '   □ 第一句係咪內容？如果係讚佢、覆述佢啱啱講過嘅嘢、或者情緒鋪墊，剷咗佢。',
 '   □ 佢今次有冇問過問題？有嘅話，我第一段係咪已經正面答咗？係 yes／no 題嘅話，我有冇真係表態？',
 '   □ 我有冇講過「記住咗」「我會記得」？有就改成叫佢撳「🧠 傾到嘅偏好 ➜ 加落 Rules」。',
-'   □ 我有冇提過香港嘅舖頭、餐廳、營業時間、價錢？嗰啲係咪我估出嚟？係就刪咗，改為講你查唔到同叫佢去邊度查。',
+'   □ 我有冇提過香港嘅舖頭、餐廳、營業時間、價錢？有 [[WEB]] 嘅話我查咗未？冇 [[WEB]] 而我又寫咗出嚟，即係我估緊——刪咗佢。',
 '   □ 我引咗行事曆嘅嘢，有冇分清楚邊啲係入面真係有、邊啲係我推算？',
 '   □ 全篇夾埋問咗幾多條問題？超過一條就刪到剩返最關鍵嗰條，或者一條都唔問。',
 '   □ 最後一句係咪「你想 A 定 B？」？係就改成一個建議加一個理由。',
@@ -3552,8 +3564,35 @@ function readTTSForm(c){
   if($('ttsAzKey').value !== c.ttsAzKey) $('ttsAzKey').value = c.ttsAzKey;
   c.ttsAzReg  = $('ttsAzReg').value.trim();
   c.ttsAzVoice= $('ttsAzVoice').value || 'zh-HK-HiuMaanNeural';
+  c.webKey    = cleanAzKey($('webKey').value);   /* 同 Azure key 一樣要剝隱形字元 */
+  if($('webKey').value !== c.webKey) $('webKey').value = c.webKey;
   return c;
 }
+
+$('webKeyShow').onclick = ()=>{
+  const i = $('webKey');
+  i.type = (i.type === 'password') ? 'text' : 'password';
+  $('webKeyShow').textContent = (i.type === 'text') ? '🙈' : '👁';
+};
+
+/* 試搜尋一次：確認條 key 真係行得通，順便俾佢睇下攞返嚟嘅係咩料 */
+$('webTest').onclick = async ()=>{
+  const c = cfg(); readTTSForm(c); cfgSave(c);
+  const el = $('webDiag');
+  const set = (h)=>{ if(el) el.innerHTML = h; };
+  if(!c.webKey){ set('⚠ 未填 key。留空嘅話 AI 冇 [[WEB]] 工具，唔會上到網。'); return; }
+  set('⏳ 搜尋緊「AIRSIDE 啟德 餐廳」…');
+  const t0 = Date.now();
+  const res = await lookupWeb('AIRSIDE 啟德 餐廳 2026');
+  const ms = Date.now() - t0;
+  const first = res[0] || '';
+  if(first.indexOf('◆ 上網搜尋') === 0 || first.indexOf('◆ 未設定') === 0){
+    set('❌ ' + esc(first));
+    return;
+  }
+  set('✅ <b>搜尋成功</b>（' + ms + 'ms，攞到 ' + res.length + ' 個來源）。AI 而家上到網喇。'
+    + '<br><span style="color:var(--muted)">頭一個來源：' + esc(short(first, 180)) + '</span>');
+};
 
 function openSet(){
   /* 🔒 訪客模式：CSS 已經收埋咗兩粒掣，但呢度再擋多一重。
@@ -3576,6 +3615,8 @@ function openSet(){
   $('ttsAzKey').value = c.ttsAzKey || '';
   $('ttsAzReg').value = c.ttsAzReg || '';
   $('ttsAzVoice').value = c.ttsAzVoice || 'zh-HK-HiuMaanNeural';
+  $('webKey').value = c.webKey || '';
+  try{ $('webDiag').innerHTML = c.webKey ? '已經填咗 key。撳「🔎 試搜尋一次」確認行唔行得通。' : ''; }catch(e){}
   try{ azKeyLenNote(); }catch(e){}
   /* 已經填咗 Azure key 就自動攤開嗰個 <details>，
      唔使每次都撳多下先搵到驗證同試聽兩粒掣。 */
@@ -4488,39 +4529,97 @@ async function lookupFandom(sub, query){
   }
 }
 
+/* ===== 🌐 真・上網搜尋（Jina Reader s.jina.ai）=====
+   維基同 Fandom 查唔到嘅嘢——香港邊間商場有咩餐廳、營業時間、時事——靠呢個。
+   點解揀 Jina：實測佢 CORS 通得過瀏覽器直接 call（純靜態 HTML 冇 server 都用到），
+   而且佢會將頭幾個結果嘅正文一次過攞埋返嚟，唔使再 fetch 多轮先讀到內容。
+   要條 key：匿名 call 會俾 401。免費 key 喺 jina.ai 攞，唔使信用卡。 */
+async function lookupWeb(query){
+  const key = String(cfg().webKey||'').trim();
+  if(!key){
+    return ['◆ 未設定上網搜尋。撳「⚙ AI 設定」填 Jina API Key（免費，jina.ai 攞，唔使信用卡）先用得到。'];
+  }
+  const ctl = (typeof AbortController!=='undefined') ? new AbortController() : null;
+  const timer = ctl ? setTimeout(()=>{ try{ ctl.abort(); }catch(e){} }, 25000) : 0;
+  try{
+    const r = await fetch('https://s.jina.ai/?q=' + encodeURIComponent(query), {
+      headers:{ 'Accept':'application/json', 'Authorization':'Bearer ' + key },
+      signal: ctl ? ctl.signal : undefined
+    });
+    if(timer) clearTimeout(timer);
+    if(r.status === 401) return ['◆ 上網搜尋：條 Jina key 唔啱或者已經失效（401）。去「⚙ AI 設定」換過條。'];
+    if(r.status === 429) return ['◆ 上網搜尋：一時間查得太密（429），隔陣先再試。'];
+    if(!r.ok) return ['◆ 上網搜尋出錯（HTTP '+r.status+'）。'];
+    const j = await r.json();
+    const items = (j && (j.data || j.results)) || [];
+    if(!items.length) return ['◆ 上網搵唔到「'+query+'」嘅結果。'];
+    /* 淨係要頭三條，每條剪到 1200 字：全文照塞會即刻爆 token 上限。 */
+    return items.slice(0,3).map(function(x){
+      const title = x.title || x.url || '（冇標題）';
+      const body  = String(x.content || x.description || x.snippet || '').replace(/\n{3,}/g,'\n\n').trim();
+      return '◆ 來源：' + title + (x.url ? '\n' + x.url : '') + '\n' + short(body, 1200);
+    });
+  }catch(err){
+    if(timer) clearTimeout(timer);
+    return ['◆ 上網搜尋失敗（'+(err.message||err)+'）。可能係網絡問題，或者查得太耐 timeout 咗。'];
+  }
+}
+
 function reSearch(){ return /\[\[\s*SEARCH\s*:\s*([^\]|]+?)\s*\]\]/gi; }
 function reFandom(){ return /\[\[\s*FANDOM\s*:\s*([^|\]]+?)\s*\|\s*([^\]]+?)\s*\]\]/gi; }
-function hasLookup(s){ return reSearch().test(String(s||'')) || reFandom().test(String(s||'')); }
-function stripLookup(s){ return String(s||'').replace(reSearch(),'').replace(reFandom(),'').replace(/\n{3,}/g,'\n\n').trim(); }
+function reWeb(){ return /\[\[\s*WEB\s*:\s*([^\]|]+?)\s*\]\]/gi; }
+function hasLookup(s){ s=String(s||''); return reSearch().test(s) || reFandom().test(s) || reWeb().test(s); }
+function stripLookup(s){ return String(s||'').replace(reSearch(),'').replace(reFandom(),'').replace(reWeb(),'').replace(/\n{3,}/g,'\n\n').trim(); }
 
 async function runLookups(text){
   const jobs = []; let m;
   const r1 = reSearch(); while((m = r1.exec(text))) jobs.push({t:'wiki', q:m[1].trim()});
   const r2 = reFandom(); while((m = r2.exec(text))) jobs.push({t:'fandom', sub:m[1].trim(), q:m[2].trim()});
+  const r3 = reWeb();    while((m = r3.exec(text))) jobs.push({t:'web', q:m[1].trim()});
   const out = [];
   for(let i = 0; i < Math.min(jobs.length, SEARCH_MAX_JOBS); i++){
     const j = jobs[i];
     let res;
-    try{ res = (j.t === 'wiki') ? await lookupWiki(j.q) : await lookupFandom(j.sub, j.q); }
+    try{
+      res = (j.t === 'wiki')   ? await lookupWiki(j.q)
+          : (j.t === 'fandom') ? await lookupFandom(j.sub, j.q)
+          :                      await lookupWeb(j.q);
+    }
     catch(err){ res = ['◆ 查嘅時候出錯：'+(err.message||err)]; }
     out.push('▼ 你查嘅係「'+j.q+'」\n' + (res.length ? res.join('\n\n') : '（搵唔到相關資料）'));
   }
   return out.join('\n\n────────────────\n\n') || '（今次冇查到任何嘢）';
 }
 
-const SEARCH_NOTE = [
+function searchNote(){
+  const hasWeb = !!String(cfg().webKey||'').trim();
+  return [
 '【你識得上網查資料】',
-'· 你有一個查資料工具，可以查維基百科同 Fandom（電影、動畫、遊戲、卡通嘅專門百科）。',
+'· 你有查資料工具，可以查維基百科、Fandom（電影、動畫、遊戲、卡通嘅專門百科）'
+  + (hasWeb ? '，同埋真正嘅互聯網搜尋。' : '。'),
 '· 想查嘅時候，成個回應淨係輸出標記，唔好寫任何其他字：',
 '    [[SEARCH: 查詢詞]]                  ← 查維基百科（會自動查中文同英文）',
 '    [[FANDOM: 網站代號 | 查詢詞]]        ← 查 Fandom，代號例如 disney、aliceinwonderland、wicked、pokemon、marvel',
+(hasWeb
+  ? '    [[WEB: 查詢詞]]                     ← 上網搜尋，會攞返頭三個結果嘅正文'
+  : '    （上網搜尋未開啟：用戶未填 Jina API Key，所以你冇 [[WEB]] 呢個工具。）'),
 '· 一次最多三個標記。出標記嗰個回應用戶係睇唔到嘅，所以唔好喺入面同佢傾偈、唔好講「等我查下先」。',
 '· 系統查完會將資料交返俾你，你先至用返平時嘅語氣答佢。',
+(hasWeb
+  ? '· 幾時用 [[WEB]] 而唔用 [[SEARCH]]：維基百科係百科全書，寫嘅係已經定型嘅嘢。凡係「而家嘅實況」——香港邊間商場有咩舖頭同餐廳、營業時間、價錢、今日天氣、交通、學校收生消息、時事——維基一律冇，一定要用 [[WEB]]。'
+  : '· 香港本地商戶、餐廳、營業時間、價錢、天氣、交通呢類「而家嘅實況」，維基百科查唔到，你亦都冇工具查得到。呢種問題唔准估，要老實講你查唔到，叫用戶自己上官網或者 OpenRice 睇。'),
+(hasWeb
+  ? '· 查香港嘅嘢，查詢詞要夾埋地區同年份，例如「AIRSIDE 啟德 餐廳 2026」好過淨係打「AIRSIDE」。查完之後，講返你係邊個網站見到，等用戶知件事有幾可靠。'
+  : ''),
+(hasWeb
+  ? '· 查返嚟嘅資料如果自相矛盾，或者明顯係舊嘅，要講出嚟，唔好扮晒肯定。網上啲舖頭資料好易過時，涉及開唔開門、幾點閂呢類，提用戶去到之前最好打個電話。'
+  : ''),
 '· 應該查嘅：電影／劇集／書／遊戲嘅劇情同角色細節、時事、日期、數字、邊個係邊個、任何你唔夠肯定嘅事實。寧願查多過估錯。',
 '· 唔使查嘅：日常常識、科學原理、佢自己嘅生活同感受、你本身好肯定嘅嘢。',
 '· 查完之後直接講內容就得，唔好喺答案入面講「我查咗維基百科」呢啲技術細節，除非佢問你點解知。',
 '· 如果查完仲係搵唔到，唔好就咁話「我查唔到」收工，要跟返人格設定入面「唔准就咁話唔知」嗰一節，照樣用邏輯推理答佢。'
-].join('\n');
+  ].filter(Boolean).join('\n');
+}
 
 async function chatSend(presetText){
   if(chatBusy) return;
@@ -4547,7 +4646,7 @@ async function chatSend(presetText){
   try{
     /* 組 messages：system + 用戶資料 + 對話歷史 */
     const messages = [
-      {role:'system', content: SYS_CHAT + '\n\n' + SEARCH_NOTE + '\n\n' + personaBlock() + '\n\n' + ctxText()},
+      {role:'system', content: SYS_CHAT + '\n\n' + searchNote() + '\n\n' + personaBlock() + '\n\n' + ctxText()},
       ...chatHistory.map(m=>({role:m.role, content:m.content}))
     ];
     /* 傾偈係最需要「內部思考」嘅場合（要拆問題、諗點示範、揀邊樣講）。
