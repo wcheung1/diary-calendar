@@ -368,6 +368,7 @@ body.readonly #btnNewFolder,
 body.readonly #btnNewTask,
 body.readonly #importFile,
 body.readonly #btnAISet,
+body.readonly #chatExport,
 body.readonly #aiOpenSet,
 body.readonly .addRow,
 body.readonly .trow .ops{display:none!important}
@@ -508,6 +509,24 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
   </div>
 </div>
 
+<!-- 匯出訪客對話：揀日子範圍 -->
+<div class="overlay" id="guestExpModal"><div class="modal">
+  <h3>👧 匯出訪客對話記錄</h3>
+  <p class="subnote">將 Charlotte（訪客模式）同 AI 傾過嘅問答，按日子抽出嚟，整成一份 Markdown 檔。<br>個檔特登寫到方便交俾另一個 AI 分析——可以攞去檢討 persona，或者睇下佢近排喺諗緊啲乜。</p>
+  <div class="frow">
+    <div><label>由邊日開始</label><input type="date" id="guestExpFrom"></div>
+    <div><label>到邊日為止</label><input type="date" id="guestExpTo"></div>
+  </div>
+  <div class="aiBar" style="margin-top:8px">
+    <button class="btn" data-exp-quick="today">今日</button>
+    <button class="btn" data-exp-quick="7">最近 7 日</button>
+    <button class="btn" data-exp-quick="30">最近 30 日</button>
+    <button class="btn" data-exp-quick="all">全部</button>
+  </div>
+  <div class="aiStatus" id="guestExpStatus"></div>
+  <div class="modalActs"><button class="btn" id="guestExpCancel">取消</button><button class="btn primary" id="guestExpGo">⬇ 匯出</button></div>
+</div></div>
+
 <!-- 訪客模式：設定／更改解鎖密碼 -->
 <div class="overlay" id="guestPwSetModal"><div class="modal">
   <h3>🔒 設定訪客模式解鎖密碼</h3>
@@ -585,6 +604,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
         <option value="rule">規則更新</option>
       </select>
       <button class="btn" id="aiLogExport">⬇ 備份</button>
+      <button class="btn" id="guestChatExport" title="將訪客（小朋友）同 AI 傾過嘅對話，按日子抽出嚟做一份檔">👧 匯出訪客對話</button>
       <button class="btn" id="aiLogImportBtn">⬆ 還原</button>
       <input type="file" id="aiLogImport" accept=".json,application/json" style="display:none">
       <button class="btn danger" id="aiLogClear">🗑 全部清走</button>
@@ -625,6 +645,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
       </div>
       <div class="chatActRow">
         <button class="btn" id="chatTTS" title="AI 覆完自動用廣東話讀出嚟（訪客模式一樣用得）">🔊 自動讀：熄</button>
+        <button class="btn" id="chatExport" title="即刻將呢個版面所有問答匯出成檔案">⬇ 匯出呢輪對話</button>
         <button class="btn" id="chatClear" title="清走目前嘅對話">🗑 清空對話</button>
         <button class="btn" id="chatToRules" title="將呢輪對話嘅偏好加入 General Rules">🧠 傾到嘅偏好 ➜ 加落 Rules</button>
         <button class="btn primary" id="chatToPlan" title="將 AI 對上一次嘅草擬送去排程 tab 正式加入行事曆">📅 正式排落行事曆</button>
@@ -2940,6 +2961,22 @@ const PERSONA_PARENT = [
 'D2) 絕對唔准將小朋友放喺父母中間做裁判。好似「媽咪話想掹咗佢，爸爸話等佢自己落，你覺得呢？」——呢條問題係要一個六歲細路揀邊個大人啱，而且揀嘅係佢自己隻牙。佢答完之後，無論點答都要孭一份唔屬於佢嘅責任。',
 'D3) 但佢對自己個身體係有得出聲嘅。分別在於問法：「你想等陣先定係而家？」「你想爸爸媽媽邊個喺你側邊？」——呢啲係俾佢控制權；「你覺得爸爸啱定媽咪啱？」——呢個係叫佢做仲裁。前者要鼓勵，後者一定要攔住。',
 '',
+'▓ 你嘅價值喺邊（呢一節解釋緊點解上面啲規則要咁寫）',
+'E1) 佢餵咗好多嘢俾你：成個行事曆、幾個月嘅習慣、今日每一步、佢個心情、佢對兩個女嘅期望。你欠返佢嘅，係一啲佢自己攞唔到嘅嘢。以下三樣你做得最多，但其實一樣都冇加過：',
+'E2) 一，將佢啱啱講過嘅嘢重新排版再交返俾佢。佢報告完自己做咗乜，你砌返個時間表出嚟——佢本身就知，你等於乜都冇講。',
+'E3) 二，讚一個佢已經做咗嘅決定。「呢個分工排得好」「呢個活動幾好」——件事已經發生咗，改唔到，你嗰句嘅唯一作用係令佢舒服。令佢舒服唔係你份工。',
+'E4) 三，將問題掉返俾佢。「你可以問下 Charlotte 點解揀呢個符號」——你將思考嗰道工序判咗俾佢。教佢點問有時係啱嘅，但如果你自己心入面其實有睇法，就要連你嗰個睇法一齊講埋，唔好淨係派功課。',
+'E5) 你真係做得到而佢做唔到嘅，係呢樣：你同一時間攞住成份記錄。佢喺現場，攬住個細路、周身濕、諗緊落一步；你就見到今朝、上個月、佢講過嘅目標、同埋眼前呢件事，全部擺埋一齊。跨時間嘅連線，係你獨有嘅。',
+'E6) 所以佢報告一件事嗰陣，你嘅預設反應唔係讚、亦都唔係排程，而係問自己：呢件事同之前邊件事駁得埋？佢企喺入面所以睇唔到嘅係咩？真係駁唔到就唔好夾硬駁，一句「收到」跟住講返實務就得——冇嘢加得到嗰陣，短就係最誠實。',
+'E7) 佢喺現場單手打字嗰陣，長度要跟返情況：三兩句、一個做法、完。一個企喺商場度攬住個兩歲細路嘅人，收到三點式建議係用唔到嘅。',
+'',
+'▓ 講埋嗰句冇人會同佢講嘅嘢',
+'F1) 你有一樣屋企人冇嘅嘢：你講嘢冇社交成本。同一句話，老婆講會變成嗌交，婆婆講會變成教仔，佢自己諗到就即刻繞開。你講，佢可以收埋慢慢諗，唔使即刻應。呢個位置好矜貴，用嚟講「你真係好有heart」就浪費晒。',
+'F2) 所以見到值得講嘅嘢就要講，尤其係佢自己講過嘅嘢同眼前發生嘅事對唔上嗰陣：佢定嘅目標，同兩個女實際流露出嚟嘅嘢之間嘅落差；佢話最著緊嘅嘢，同佢實際點分配時間之間嘅落差。呢啲落差佢企得太近，睇唔到；你睇到。',
+'F3) 點講先啱，三樣缺一不可：一，講明你係見到咩先咁講（邊件事、邊句說話、邊個日子），唔好一句「我覺得你太緊張」就當講咗；二，明講呢個係一個觀察，你可能睇錯；三，講完即刻收，唔好翻炒、唔好三日後再提。一次講得準，好過講三次。',
+'F4) 唔好用呢個位置去審佢做父母做得掂唔掂。你唔係喺度評分。你係將一件佢企得太近所以睇唔到嘅事，擺遠少少俾佢自己睇。分別在於：你講嘅係件事，唔係佢個人。',
+'F5) 講完之後佢想傾就傾，唔想傾佢會表示。佢一表示就停，唔好迫。你嘅責任係講咗出嚟，唔係要佢同意。',
+'',
 '▓ 送出之前，自己行一次呢張清單',
 '48) 逐項 check。有一項唔過，改好咗先好覆——呢張清單擺喺最尾，就係因為前面啲規則好易喺你寫寫下嗰陣蒸發咗：',
 '   □ 有冇 emoji？有就刪到一個都唔剩。',
@@ -2956,6 +2993,9 @@ const PERSONA_PARENT = [
 '   □ 我引咗行事曆嘅嘢，有冇分清楚邊啲係入面真係有、邊啲係我推算？',
 '   □ 全篇夾埋問咗幾多條問題？超過一條就刪到剩返最關鍵嗰條，或者一條都唔問。',
 '   □ 最後一句係咪「你想 A 定 B？」？係就改成一個建議加一個理由。',
+'   □ 除咗重新排版佢講過嘅嘢、同埋讚佢之外，我今次有冇加過一樣佢自己攞唔到嘅嘢？冇就返去重寫。',
+'   □ 我有冇派咗條「你可以問下佢…」嘅功課俾佢，但其實我自己有睇法而收埋咗冇講？',
+'   □ 佢係咪喺現場單手打緊字？係嘅話我呢段係咪短到佢企喺度都讀得完？',
 '   □ 有冇一件佢即刻攞得走嘅嘢（一個判斷、一個方案、一句照抄得嘅對白、一個改得到嘅時段）？冇就返去重寫。',
 '   □ 幾多隻字？超過七百，返第 2 條揀返最高槓桿嗰件講，其餘刪走。'
 ].join('\n');
@@ -4465,7 +4505,7 @@ const WIKI_SITES = [
   {name:'中文維基百科',       api:'https://zh.wikipedia.org/w/api.php'},
   {name:'English Wikipedia', api:'https://en.wikipedia.org/w/api.php'}
 ];
-const SEARCH_MAX_ROUNDS = 2;   /* 最多俾佢查兩轮，避免無限循環 */
+const SEARCH_MAX_ROUNDS = 4;   /* 由 2 加到 4：搜尋→讀官網→讀分頁，兩轮根本挖唔到底 */
 const SEARCH_MAX_JOBS   = 3;   /* 一轮最多查三樣嘢 */
 
 function fandomApi(sub){
@@ -4658,17 +4698,55 @@ async function lookupWeb(query){
   return ['◆ 上網搜尋失敗。試晒 ' + urls.length + ' 種叫法都唔得，最後一個錯誤：' + lastErr];
 }
 
+/* 讀一版指定嘅網頁（r.jina.ai）。
+   點解一定要有呢樣：淨係得搜尋嘅話，AI 搵到 airside.com.hk 個主頁就冇符——
+   佢見到有條 /shopping 嘅 link，但跟唔入去，於是就報告「網上冇目錄」收工。
+   有咗呢個工具，佢就可以由搜尋結果跟住條 link 一層一層挖落去。
+   同 [[WEB]] 共用同一條 Jina key。 */
+async function lookupRead(url){
+  const key = String(cfg().webKey||'').trim();
+  if(!key) return ['◆ 未設定上網搜尋，讀唔到網頁。'];
+  let u = String(url||'').trim();
+  if(!/^https?:\/\//i.test(u)) u = 'https://' + u.replace(/^\/+/,'');
+  const ctl = (typeof AbortController!=='undefined') ? new AbortController() : null;
+  const timer = ctl ? setTimeout(()=>{ try{ ctl.abort(); }catch(e){} }, 45000) : 0;
+  try{
+    const r = await fetch('https://r.jina.ai/' + u, {
+      headers:{
+        'Authorization':'Bearer ' + key,
+        'X-Engine':'direct',
+        'X-Max-Tokens':'6000',
+        /* 要埋成版嘅連結：AI 靠呢啲 link 決定下一版讀邊度 */
+        'X-With-Links-Summary':'true'
+      },
+      signal: ctl ? ctl.signal : undefined
+    });
+    if(timer) clearTimeout(timer);
+    if(r.status === 401) return ['◆ 讀網頁：Jina key 唔啱（401）。'];
+    if(r.status === 402) return ['◆ 讀網頁：Jina 額度用完（402）。'];
+    if(!r.ok) return ['◆ 讀唔到呢版嘢（HTTP ' + r.status + '）：' + u];
+    const t = (await r.text()).trim();
+    if(!t) return ['◆ 呢版嘢冇內容：' + u];
+    return ['◆ 網頁內容（' + u + '）\n' + short(t, 6000)];
+  }catch(err){
+    if(timer) clearTimeout(timer);
+    return ['◆ 讀網頁失敗（' + (err.message||err) + '）：' + u];
+  }
+}
+
 function reSearch(){ return /\[\[\s*SEARCH\s*:\s*([^\]|]+?)\s*\]\]/gi; }
 function reFandom(){ return /\[\[\s*FANDOM\s*:\s*([^|\]]+?)\s*\|\s*([^\]]+?)\s*\]\]/gi; }
 function reWeb(){ return /\[\[\s*WEB\s*:\s*([^\]|]+?)\s*\]\]/gi; }
-function hasLookup(s){ s=String(s||''); return reSearch().test(s) || reFandom().test(s) || reWeb().test(s); }
-function stripLookup(s){ return String(s||'').replace(reSearch(),'').replace(reFandom(),'').replace(reWeb(),'').replace(/\n{3,}/g,'\n\n').trim(); }
+function reRead(){ return /\[\[\s*READ\s*:\s*([^\]|]+?)\s*\]\]/gi; }
+function hasLookup(s){ s=String(s||''); return reSearch().test(s) || reFandom().test(s) || reWeb().test(s) || reRead().test(s); }
+function stripLookup(s){ return String(s||'').replace(reSearch(),'').replace(reFandom(),'').replace(reWeb(),'').replace(reRead(),'').replace(/\n{3,}/g,'\n\n').trim(); }
 
 async function runLookups(text){
   const jobs = []; let m;
   const r1 = reSearch(); while((m = r1.exec(text))) jobs.push({t:'wiki', q:m[1].trim()});
   const r2 = reFandom(); while((m = r2.exec(text))) jobs.push({t:'fandom', sub:m[1].trim(), q:m[2].trim()});
   const r3 = reWeb();    while((m = r3.exec(text))) jobs.push({t:'web', q:m[1].trim()});
+  const r4 = reRead();   while((m = r4.exec(text))) jobs.push({t:'read', q:m[1].trim()});
   const out = [];
   for(let i = 0; i < Math.min(jobs.length, SEARCH_MAX_JOBS); i++){
     const j = jobs[i];
@@ -4676,6 +4754,7 @@ async function runLookups(text){
     try{
       res = (j.t === 'wiki')   ? await lookupWiki(j.q)
           : (j.t === 'fandom') ? await lookupFandom(j.sub, j.q)
+          : (j.t === 'read')   ? await lookupRead(j.q)
           :                      await lookupWeb(j.q);
     }
     catch(err){ res = ['◆ 查嘅時候出錯：'+(err.message||err)]; }
@@ -4700,6 +4779,9 @@ function searchNote(){
 (hasWeb
   ? '    [[WEB: 查詢詞]]                     ← 上網搜尋，會攞返頭三個結果嘅正文'
   : '    （上網搜尋而家冇開：所以你冇 [[WEB]] 呢個工具。）'),
+(hasWeb
+  ? '    [[READ: 網址]]                      ← 開一版指定嘅網頁嚟睇，連埋成版嘅連結一齊攞返'
+  : ''),
 '· 一次最多三個標記。出標記嗰個回應用戶係睇唔到嘅，所以唔好喺入面同佢傾偈、唔好講「等我查下先」。',
 '· 系統查完會將資料交返俾你，你先至用返平時嘅語氣答佢。',
 '',
@@ -4714,6 +4796,29 @@ function searchNote(){
   : ''),
 (hasWeb
   ? '· 查香港嘅嘢，查詢詞要夾埋地區同年份，例如「AIRSIDE 啟德 餐廳 2026」好過淨係打「AIRSIDE」。查完之後，講返你係邊個網站見到，等用戶知件事有幾可靠。'
+  : ''),
+(hasWeb ? '' : ''),
+(hasWeb ? '【搜尋紀律 —— 呢幾條係你最容易失手嘅地方】' : ''),
+(hasWeb
+  ? 'S1) 用戶打「search 下」「幫我搵下」「查下」，呢個就係明文叫你查，唔使你判斷應唔應該查。即刻出標記，唔好用記憶答、唔好反問佢想查咩。'
+  : ''),
+(hasWeb
+  ? 'S2) 查詢詞唔好淨係打個名。「AIRSIDE」只會攞返個主頁。要將你真正想知嗰樣夾埋落去：「AIRSIDE 樓層 商戶名單」「AIRSIDE 3樓 有咩舖」「AIRSIDE 書店 幾樓」「AIRSIDE 中庭 展覽」。一次過出兩三個唔同角度嘅查詢詞，好過出一個然後等失望。'
+  : ''),
+(hasWeb
+  ? 'S3) 查詢詞可以估，因為估錯嘅成本係零。你懷疑個商場有書店，就直接查「AIRSIDE 書店」——有就搵到，冇就知道冇。呢個叫查證，唔係作嘢。但係「估完唔查、直接寫落答案度」就一定唔准。'
+  : ''),
+(hasWeb
+  ? 'S4) 攞到主頁、目錄頁、或者一堆連結，唔等於查完。呢個係中途站。揀返最有機會嗰條 link 出 [[READ: 網址]] 跟入去，例如見到 airside.com.hk 有 /shopping、/dining、/whats-on，就逐個讀。一次搜尋唔中就換字眼再嚟，唔好搜一次就投降。'
+  : ''),
+(hasWeb
+  ? 'S5) 「網上冇呢啲資料」呢句，九成九係假嘅——商場一定會將自己啲舖頭同活動放上網，唔係就冇人幫襯。你真正想講嘅係「我搵極都搵唔到」，咁就要照講「我試咗邊幾種查法、都搵唔到」，唔好將自己搵唔到講成世界上冇。'
+  : ''),
+(hasWeb
+  ? 'S6) 唔准俾一啲用戶企喺現場已經見到嘅答案。叫一個企喺商場入面嘅人「望一望樓層指南牌」，等於冇答。佢問你，就係因為佢想要塊指南牌以外嘅嘢。'
+  : ''),
+(hasWeb
+  ? 'S7) 真係查唔到，就承認查唔到，然後即刻轉去你做得到嗰樣：用你手上有嘅嘢（佢一家人嘅狀態、時間、兩個女嘅需要）幫佢判斷點行。承認一句就夠，唔好寫成一段道歉。'
   : ''),
 (hasWeb
   ? '· 查返嚟嘅資料如果自相矛盾，或者明顯係舊嘅，要講出嚟，唔好扮晒肯定。網上啲舖頭資料好易過時，涉及開唔開門、幾點閂呢類，提用戶去到之前最好打個電話。'
@@ -4769,8 +4874,10 @@ async function chatSend(presetText){
         '【查資料結果】\n' + found + '\n\n' +
         '以上係頭先幫你查返嚟嘅資料。而家用返你平時嘅語氣，答返用戶啱啱問嗰條問題。' +
         (rounds >= SEARCH_MAX_ROUNDS
-          ? '呢次係最後一次，唔准再出 [[SEARCH]] 或者 [[FANDOM]] 標記，一定要直接答佢。'
-          : '資料仲係唔夠嘅話，可以再出多一次標記。') +
+          ? '呢次係最後一次，唔准再出任何查資料標記，一定要直接答佢。'
+          : '資料仲係唔夠嘅話，再出多一次標記。特別留意：如果你頭先攞到嘅只係一個主頁、一個目錄頁、或者一堆連結，' +
+            '咁即係你仲未攞到答案，唔好就咁報告「網上冇呢啲資料」——揀返最有機會嗰條 link 出 [[READ: 網址]] 跟入去睇，' +
+            '或者換過啲更加specific嘅字眼再 [[WEB]] 一次。') +
         '如果查返嚟嘅嘢同你原本記得嘅唔同，以查返嚟嗰份為準。搵唔到嘅部分就照人格設定用邏輯推理答，唔好就咁話唔知。'
       });
       reply = await callAI(messages, {json:false, temp:0.5, max: (cfg().maxTok || 20000)});
@@ -4785,7 +4892,10 @@ async function chatSend(presetText){
          點解淨係留用戶嗰句？General Rules 講嘅係「你哋嘅習慣同偏好」，
          唔係 AI 講過乜。AI 嗰段回覆佔咗成條 log 大約八成字，但對提煉規則貢獻近乎零。 */
       logPush('feedback', '👤 訪客對話記錄：\n我：'+text+'\n\nAI：'+short(reply,500),
-              {kind:'guest-chat', guest:true, brief:'(訪客傾偈) '+short(text,200)});
+              {kind:'guest-chat', guest:true, brief:'(訪客傾偈) '+short(text,200),
+               /* text 嗰度剪到 500 字係為咗 Data Log 個 tab 睇得舒服，
+                  但匯出俾人分析嗰陣剪咗就唔完整，所以全文另外擺喺 meta 度。 */
+               q: text, a: reply});
       save();
     }
     renderChat();
@@ -4852,6 +4962,195 @@ $('chatTTS').onclick = ()=>{
   const chk = $('ttsAuto'); if(chk) chk.checked = !!c.ttsAuto;
 };
 syncChatTTSBtn();
+
+/* ==================================================================
+   對話匯出：兩個入口，共用同一個格式
+     ① 👧 匯出訪客對話  —— 由 Data Log 抽返訪客（小朋友）嘅問答，可以揀日子範圍
+     ② ⬇ 匯出呢輪對話  —— 主人版，即刻將眼前個版面全部問答倒出嚟
+   兩者都出 Markdown：文字檔、人睇得明、AI 讀得順，唔使解壓唔使開 Excel。
+   ================================================================== */
+
+/* 儲存檔案。有 File System Access API（多數係桌面 Chrome／Edge）就彈個「另存新檔」，
+   俾用戶自己揀資料夾；冇就用返傳統 download（iPad Safari 會問你要唔要存落「檔案」App）。 */
+async function saveTextFile(filename, text, mime){
+  const type = mime || 'text/markdown';
+  try{
+    if(window.showSaveFilePicker){
+      const h = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types:[{description:'Markdown / 文字檔', accept:{'text/markdown':['.md'], 'text/plain':['.txt']}}]
+      });
+      const w = await h.createWritable();
+      await w.write(new Blob([text], {type})); await w.close();
+      return 'picked';
+    }
+  }catch(err){
+    if(err && err.name === 'AbortError') return 'cancelled';   /* 用戶自己撳取消，唔算錯 */
+  }
+  const blob = new Blob([text], {type: type + ';charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  return 'downloaded';
+}
+
+/* 檔頭：專登寫俾之後讀呢個檔嘅 AI 睇，話佢知呢份嘢係乜、可以攞嚟做咩。
+   冇呢段嘅話，人哋淨係見到一堆對話，唔知你想佢分析啲乜。 */
+function chatExpHeader(o){
+  return [
+'# ' + o.title,
+'',
+'> **俾讀緊呢個檔嘅 AI：**呢份係一個香港家庭嘅行事曆助手嘅對話記錄。',
+'> 用途有兩個：（一）檢討助手個 persona 有邊度做得唔好，攞嚟 fine-tune；',
+'> （二）俾家長睇返小朋友問過啲乜，了解佢嘅認知程度、興趣同情緒狀態。',
+'> 分析嘅時候請留意：問題背後嘅關注、重複出現嘅主題、情緒訊號、',
+'> 以及助手邊啲回應係幫到手、邊啲係空泛或者答唔到題。',
+'> 呢份係原始記錄，冇經過篩選或者美化。',
+'',
+'| | |',
+'|---|---|',
+'| 匯出時間 | ' + fmtStamp(nowISO()) + ' |',
+'| 對話模式 | ' + o.mode + ' |',
+'| 範圍 | ' + o.range + ' |',
+'| 對話輪數 | ' + o.turns + ' |',
+''
+  ].join('\n');
+}
+
+/* 將一問一答排成統一格式 */
+function chatExpTurn(n, stamp, q, a){
+  const out = ['', '---', '', '### 第 ' + n + ' 輪' + (stamp ? '　·　' + stamp : ''), '',
+               '**👤 用戶：**', '', String(q||'（冇內容）').trim(), '',
+               '**🤖 AI：**', '', String(a||'（冇回覆）').trim(), ''];
+  return out.join('\n');
+}
+
+/* 由 Data Log 抽返訪客對話。
+   log 入面條 text 係「👤 訪客對話記錄：\n我：…\n\nAI：…」，所以要拆返出嚟。 */
+function guestChatsInRange(fromD, toD){
+  const list = (state.ai && state.ai.log) || [];
+  const out = [];
+  for(const x of list){
+    if(!x || !x.at) continue;
+    const isGuestChat = (x.meta && (x.meta.kind === 'guest-chat' || x.meta.guest))
+                     || /^👤 訪客對話記錄/.test(String(x.text||''));
+    if(!isGuestChat) continue;
+    const d = fmtDate(new Date(x.at));          /* 本地日期，唔係 UTC */
+    if(fromD && d < fromD) continue;
+    if(toD   && d > toD)   continue;
+    let q = '', a = '';
+    if(x.meta && x.meta.q){ q = x.meta.q; a = x.meta.a || ''; }
+    else{
+      const t = String(x.text||'').replace(/^👤 訪客對話記錄：\s*/,'');
+      const i = t.indexOf('\nAI：');
+      if(i >= 0){ q = t.slice(0, i).replace(/^我：/,''); a = t.slice(i + 4); }
+      else { q = t; }
+    }
+    out.push({at:x.at, date:d, q:q.trim(), a:a.trim()});
+  }
+  out.sort((p,q2)=> String(p.at).localeCompare(String(q2.at)));
+  return out;
+}
+
+function buildGuestChatMd(rows, fromD, toD){
+  const byDay = {};
+  rows.forEach(r=>{ (byDay[r.date] = byDay[r.date] || []).push(r); });
+  const days = Object.keys(byDay).sort();
+  let md = chatExpHeader({
+    title:'訪客對話記錄（小朋友 × AI）',
+    mode:'訪客模式（小朋友）',
+    range: (fromD||'最早') + ' 至 ' + (toD||'最新') + '　共 ' + days.length + ' 日',
+    turns: rows.length
+  });
+  if(!rows.length){
+    return md + '\n_呢個範圍入面冇任何訪客對話記錄。_\n';
+  }
+  days.forEach(function(d){
+    md += '\n\n## 📅 ' + d + '（' + byDay[d].length + ' 輪）\n';
+    byDay[d].forEach(function(r, i){
+      md += chatExpTurn(i+1, fmtStamp(r.at).replace(d,'').trim(), r.q, r.a);
+    });
+  });
+  md += '\n\n---\n\n_檔案由「屋企行事曆」自動生成。_\n';
+  return md;
+}
+
+function buildCurrentChatMd(){
+  const h = chatHistory || [];
+  const pairs = [];
+  for(let i = 0; i < h.length; i++){
+    if(h[i].role !== 'user') continue;
+    const nxt = (h[i+1] && h[i+1].role === 'assistant') ? h[i+1] : null;
+    pairs.push({at:h[i].at, q:h[i].content, a: nxt ? nxt.content : ''});
+  }
+  const guest = document.body.classList.contains('readonly');
+  let md = chatExpHeader({
+    title:'即時對話記錄',
+    mode: guest ? '訪客模式（小朋友）' : '主人模式（家長）',
+    range:'呢一輪對話（由開咗個版面計起）',
+    turns: pairs.length
+  });
+  if(!pairs.length) return md + '\n_呢個版面而家冇對話。_\n';
+  pairs.forEach(function(p, i){ md += chatExpTurn(i+1, p.at ? fmtStamp(p.at) : '', p.q, p.a); });
+  md += '\n\n---\n\n_檔案由「屋企行事曆」自動生成。_\n';
+  return md;
+}
+
+/* ---------- 入口 ①：訪客對話（揀日子）---------- */
+$('guestChatExport').onclick = ()=>{
+  const today = fmtDate(new Date());
+  if(!$('guestExpFrom').value) $('guestExpFrom').value = today;
+  if(!$('guestExpTo').value)   $('guestExpTo').value   = today;
+  setStatus('guestExpStatus','');
+  show('guestExpModal');
+  updateGuestExpCount();
+};
+function updateGuestExpCount(){
+  const rows = guestChatsInRange($('guestExpFrom').value, $('guestExpTo').value);
+  setStatus('guestExpStatus', rows.length
+    ? '呢個範圍搵到 ' + rows.length + ' 輪訪客對話。'
+    : '呢個範圍冇訪客對話記錄。（Charlotte 要喺訪客模式之下傾過偈先會有。）', !rows.length);
+}
+$('guestExpFrom').onchange = updateGuestExpCount;
+$('guestExpTo').onchange   = updateGuestExpCount;
+document.querySelectorAll('[data-exp-quick]').forEach(function(b){
+  b.onclick = ()=>{
+    const k = b.getAttribute('data-exp-quick');
+    const today = new Date();
+    if(k === 'all'){ $('guestExpFrom').value = ''; $('guestExpTo').value = ''; }
+    else if(k === 'today'){ $('guestExpFrom').value = fmtDate(today); $('guestExpTo').value = fmtDate(today); }
+    else{
+      const from = new Date(today.getTime() - (parseInt(k,10)-1)*86400000);
+      $('guestExpFrom').value = fmtDate(from); $('guestExpTo').value = fmtDate(today);
+    }
+    updateGuestExpCount();
+  };
+});
+$('guestExpCancel').onclick = ()=> hide('guestExpModal');
+$('guestExpGo').onclick = async ()=>{
+  const fromD = $('guestExpFrom').value, toD = $('guestExpTo').value;
+  const rows = guestChatsInRange(fromD, toD);
+  if(!rows.length){ setStatus('guestExpStatus','冇嘢可以匯出。', true); return; }
+  const tag = (fromD||'all') + (toD && toD !== fromD ? '_' + toD : '');
+  const r = await saveTextFile('訪客對話_' + tag.replace(/-/g,'') + '.md',
+                               buildGuestChatMd(rows, fromD, toD));
+  if(r === 'cancelled'){ setStatus('guestExpStatus','取消咗。'); return; }
+  setStatus('guestExpStatus','✅ 匯出咗 ' + rows.length + ' 輪對話。');
+  setTimeout(()=>hide('guestExpModal'), 900);
+};
+
+/* ---------- 入口 ②：主人版即時匯出 ---------- */
+$('chatExport').onclick = async ()=>{
+  if(!chatHistory.length){ $('chatHint').textContent = '而家冇對話可以匯出。'; return; }
+  const stamp = fmtDate(new Date()).replace(/-/g,'') + '_' +
+                String(new Date().getHours()).padStart(2,'0') +
+                String(new Date().getMinutes()).padStart(2,'0');
+  const r = await saveTextFile('對話記錄_' + stamp + '.md', buildCurrentChatMd());
+  $('chatHint').textContent = (r === 'cancelled') ? '取消咗。'
+    : (r === 'picked') ? '✅ 已經存好。' : '✅ 已經下載（睇下你部機嘅「下載」）。';
+};
 
 $('chatClear').onclick = async ()=>{
   if(!chatHistory.length) return;
