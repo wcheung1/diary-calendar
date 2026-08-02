@@ -660,7 +660,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
     <h4>🔊 語音朗讀（TTS）</h4>
     <p class="ttsNote">預設用瀏覽器內置語音，<b>完全免費、唔使申請任何 key、唔使裝 server</b>。Edge（Windows）同 iPhone／iPad Safari 內置有正宗廣東話女聲；桌面版 Chrome 多數淨係有普通話音。想部部機都靚聲，可以填埋下面嘅 Azure（微軟）免費 key。</p>
     <div class="ttsGrid">
-      <div><label>語音（識廣東話嗰啲會標 ⭐）</label><select id="ttsVoice"></select></div>
+      <div><label id="ttsVoiceLab">語音（識廣東話嗰啲會標 ⭐）</label><select id="ttsVoice"></select></div>
       <div style="flex:0 0 120px"><label>語速</label><select id="ttsRate">
         <option value="0.8">慢 0.8×</option>
         <option value="0.9">0.9×</option>
@@ -3792,6 +3792,10 @@ $('ttsAzTest').onclick = async ()=>{
   ttsStop();
   const mySeq = TTSV.seq;
   const btn = $('ttsAzTest');
+  /* ttsBtnReset() 讀 dataset.lab 嚟還原個字，冇就 fallback 做「🔊 讀」。
+     呢粒掣唔係 makeTTSBtn() 整嘅，所以要自己記低個原本嘅 label，
+     唔係讀完一次之後粒掣就會變咗「🔊 讀」，之後永遠搵唔返。 */
+  if(!btn.dataset.lab) btn.dataset.lab = btn.textContent;
   try{
     await azureSpeak('你好，我叫' + nm + '。而家係 Azure 神經語音喺度讀緊，唔係你部機內置嗰把聲。',
                      btn, mySeq);
@@ -4299,6 +4303,17 @@ function fillVoiceSel(){
   });
   sel.value = want;
   if(sel.value !== want) sel.value = '';
+  /* Azure 開住嗰陣，朗讀一律行 Azure，呢個瀏覽器語音清單根本唔會用到。
+     但佢照舊寫住「自動揀（善怡 · yue-HK）」，好易令人以為把聲仲係善怡。
+     所以有 Azure key 就熄咗佢，順便喺 label 講清楚。 */
+  const azOn = !!String(cfg().ttsAzKey||'').trim();
+  sel.disabled = azOn;
+  sel.style.opacity = azOn ? '.55' : '';
+  sel.title = azOn ? 'Azure 開住，朗讀唔會用呢個清單' : '';
+  const lab = document.getElementById('ttsVoiceLab');
+  if(lab) lab.textContent = azOn
+    ? '語音（Azure 開住，呢個唔生效）'
+    : '語音（識廣東話嗰啲會標 ⭐）';
   ttsDiag();
 }
 
@@ -4558,12 +4573,18 @@ async function lookupWeb(query){
   let lastErr = '';
   for(let i = 0; i < urls.length; i++){
     const ctl = (typeof AbortController!=='undefined') ? new AbortController() : null;
-    const timer = ctl ? setTimeout(()=>{ try{ ctl.abort(); }catch(e){} }, 25000) : 0;
+    const timer = ctl ? setTimeout(()=>{ try{ ctl.abort(); }catch(e){} }, 45000) : 0;
     try{
       const r = await fetch(urls[i], {
         headers:{
           'Accept':'application/json',
-          'Authorization':'Bearer ' + key
+          'Authorization':'Bearer ' + key,
+          /* 提速：預設會開個真瀏覽器行晒每個結果嘅 JS，實測要成廿秒。
+             direct 係唔行 JS 直接攞 HTML，快好多；對商場官網、新聞、餐廳資料呢類
+             靜態內容係夠用嘅。 */
+          'X-Engine':'direct',
+          /* 順手叫佢自己剪短，唔好成篇掟返嚟先由我哋剪 */
+          'X-Max-Tokens':'4000'
         },
         signal: ctl ? ctl.signal : undefined
       });
