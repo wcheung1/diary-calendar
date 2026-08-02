@@ -181,6 +181,16 @@ header .spacer{flex:1}
 
 /* ===== Modal ===== */
 .overlay{position:fixed;inset:0;background:rgba(25,32,26,.45);display:none;align-items:flex-start;justify-content:center;z-index:50;overflow:auto;padding:40px 14px}
+/* ===== 疊層修正 =====
+   全部 overlay 都係 z-index:50，同層之下就由 HTML 出現嘅次序決定邊個喺上面。
+   #aiModal 寫喺檔案好後面，所以任何排喺佢前面嘅 overlay，一開就會俾佢完全冚住——
+   個 modal 其實有開，用戶只係睇唔到，感覺就係「撳咗冇反應」。
+   凡係會喺 aiModal 開住嗰陣彈出嘅，都要明確排高過佢。 */
+#aiSetModal{z-index:55}
+#guestExpModal{z-index:56}
+#confirmModal{z-index:90}   /* 阻塞式確認框，永遠要喺最頂 */
+#guestUnlockModal,#guestPwSetModal{z-index:57}
+#searchModal{z-index:58}   /* Ctrl/Cmd+F 全域都開得，AI 視窗開住嗰陣一樣要見到 */
 .overlay.show{display:flex}
 .modal{background:var(--panel);border-radius:12px;box-shadow:var(--shadow);width:min(640px,100%);padding:18px 20px}
 .modal h3{font-size:16px;margin-bottom:14px;color:var(--accent)}
@@ -380,6 +390,7 @@ body.readonly .trow{cursor:default}
 body.readonly .trow.task .nm{cursor:default}
 /* 訪客模式：隱藏 Data Log 同 General Rules 兩個 tab */
 body.readonly .aiTabs button[data-p="log"],
+body.readonly .aiTabs button[data-p="hw"],
 body.readonly .aiTabs button[data-p="rule"]{display:none!important}
 /* 訪客排程（待確認）事件樣式 */
 .evRow.guestPending{border-color:var(--q-amber);border-left-color:var(--q-amber);background:#fffbf2}
@@ -567,6 +578,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
     <button data-p="ask" class="on">✍️ 講低你想做乜</button>
     <button data-p="log">📚 Data Log（佢嘅記憶）</button>
     <button data-p="rule">🧠 General Rules（規則）</button>
+    <button data-p="hw">📚 課後功課</button>
     <button data-p="chat">💬 傾偈</button>
   </div>
 
@@ -630,6 +642,20 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
     </div>
     <textarea id="aiRulesBox" placeholder="（未有規則。可以自己寫幾條，或者用完幾次之後撳上面粒掣叫 AI 幫你總結。）"></textarea>
     <div class="aiStatus" id="aiRuleStatus"></div>
+  </div>
+
+  <!-- Tab 4：課後功課 -->
+  <div class="aiPane" id="paneHw">
+    <p class="subnote">唔使你每個星期打一次功課。喺呢度<b>講一次規矩</b>——「上完大提琴堂，跟住嗰個星期要練一次」——之後行事曆每次出現嗰堂，系統就自動生成跟進項目，做唔嗮會一直提住，AI 傾偈嗰陣亦都見到。</p>
+    <div class="aiBar">
+      <button class="btn primary" id="hwSeed">⚡ 一鍵載入常見班別規矩</button>
+      <button class="btn" id="hwAdd">＋ 加一條規矩</button>
+      <span class="aiHint" id="hwCount"></span>
+    </div>
+    <h4 style="margin:14px 0 6px;font-size:14px;color:var(--accent)">仲未做完嘅跟進</h4>
+    <div id="hwPending"></div>
+    <h4 style="margin:18px 0 6px;font-size:14px;color:var(--accent)">規矩（上完邊堂 ➜ 要跟進乜）</h4>
+    <div id="hwRules"></div>
   </div>
 
   <!-- Tab 4：💬 傾偈（Chat） -->
@@ -2582,6 +2608,227 @@ function currentSlotEvents(){
   });
 }
 
+/* 搵返「已經過咗時間、但係一直冇撳過『✓ 確認做咗』」嘅嘢。
+   點解要有：功課同練習排咗落行事曆，但過咗鐘冇做就會靜靜咁沉底，
+   ctxText 原本淨係睇「而家呢個時段」，所以 AI 由頭到尾唔知有嘢欠住。
+   同時搵埋下次同名嘅堂幾時上，等 AI 知條死線喺邊。 */
+function pendingItems(days, cap){
+  const nw = nowStr();
+  const lim = new Date(Date.now() - (days||14)*86400000);
+  const limS = fmtDate(lim) + 'T00:00';
+  const evs = state.events || [];
+  const out = evs.filter(function(e){
+    return e && e.start <= nw && e.start >= limS && e.planned && !e.done;
+  }).sort(function(a,b){ return a.start.localeCompare(b.start); });
+  /* 每件嘢配返「下次同名嘅安排」做死線 */
+  out.forEach(function(e){
+    const nxt = evs.filter(function(x){ return x.start > nw && x.title === e.title; })
+                   .sort(function(a,b){ return a.start.localeCompare(b.start); })[0];
+    e._nextSame = nxt ? nxt.start : '';
+  });
+  return out.slice(-(cap||20));
+}
+
+/* ==================================================================
+   📚 課後功課引擎
+   問題：每上一堂就有固定嘅跟進功課，但如果要爸爸每個星期逐件打落行事曆，
+         打漏一件就冇人提，等於冇。而且咁樣 AI 根本冇幫到手減負擔。
+   做法：規矩只講一次。「上完 X 堂 → 跟住要做 Y（要做 N 次）→ 幾時之前做完」。
+         之後行事曆每出現一次嗰堂，系統自己生成跟進項目，唔使人手輸入。
+   ================================================================== */
+function ensureHw(){
+  ensureAI();
+  if(!Array.isArray(state.ai.hwRules)) state.ai.hwRules = [];
+  if(!state.ai.hwDone || typeof state.ai.hwDone !== 'object') state.ai.hwDone = {};
+  return state.ai;
+}
+
+/* 預設規矩：對得住呢一家人實際上緊嘅堂。撳「一鍵載入」先會寫入，唔會靜靜雞加。
+   match 係「堂嘅名入面含有呢個字」，所以行事曆叫「大提琴課」「學大提琴」都認得到。 */
+function defaultHwRules(){
+  return [
+    {id:uid(), match:'大提琴', due:'week', items:[{name:'練習大提琴', times:1}]},
+    {id:uid(), match:'鋼琴',   due:'week', items:[{name:'練習鋼琴', times:1}]},
+    {id:uid(), match:'中文',   due:'next', items:[{name:'中文堂功課（要做完，唔係做一半）', times:1}]},
+    {id:uid(), match:'英文',   due:'next', items:[{name:'英文練習簿（分幾轉做完一本）', times:3}]},
+    {id:uid(), match:'學而思', due:'next', items:[
+        {name:'Textbook 練習', times:1},
+        {name:'練習簿', times:1},
+        {name:'速算練習簿', times:1}]},
+    {id:uid(), match:'普通話', due:'next', items:[{name:'普通話功課（拼音練習嗰啲）', times:1}]},
+    {id:uid(), match:'游水',   due:'none', items:[]}
+  ];
+}
+
+const HW_LOOKBACK_DAYS = 21;   /* 只睇最近三個禮拜嘅堂，唔好翻幾個月舊帳 */
+
+/* 一件跟進嘅唯一 key：邊一堂（event id）＋ 邊個項目 */
+function hwKey(evId, itemName){ return evId + '::' + itemName; }
+
+/* 計出「而家仲欠幾多」。
+   回傳每件未做完嘅跟進，連埋死線同埋逾期未逾期。 */
+function pendingHomework(){
+  ensureHw();
+  const rules = state.ai.hwRules || [];
+  if(!rules.length) return [];
+  const nw = nowStr();
+  const evs = state.events || [];
+  const limS = fmtDate(new Date(Date.now() - HW_LOOKBACK_DAYS*86400000)) + 'T00:00';
+  const out = [];
+  evs.filter(function(e){ return e && e.start <= nw && e.start >= limS; })
+     .sort(function(a,b){ return a.start.localeCompare(b.start); })
+     .forEach(function(ev){
+    rules.forEach(function(rule){
+      if(!rule.match || !rule.items || !rule.items.length) return;
+      if(String(ev.title||'').indexOf(rule.match) < 0) return;
+      /* 死線：next＝下次同一堂之前；week＝上堂日 +7 日；none＝唔使跟進 */
+      let due = '';
+      if(rule.due === 'next'){
+        const nxt = evs.filter(function(x){ return x.start > ev.start && String(x.title||'').indexOf(rule.match) >= 0; })
+                       .sort(function(a,b){ return a.start.localeCompare(b.start); })[0];
+        due = nxt ? nxt.start.slice(0,10) : fmtDate(new Date(new Date(ev.start.slice(0,10)).getTime() + 7*86400000));
+      }else if(rule.due === 'week'){
+        due = fmtDate(new Date(new Date(ev.start.slice(0,10)).getTime() + 7*86400000));
+      }else return;
+      rule.items.forEach(function(it){
+        const need = Math.max(1, parseInt(it.times,10) || 1);
+        const k = hwKey(ev.id, it.name);
+        const doneN = Math.max(0, parseInt((state.ai.hwDone||{})[k], 10) || 0);
+        if(doneN >= need) return;
+        out.push({
+          key:k, evId:ev.id, classTitle:ev.title, classDate:ev.start.slice(0,10),
+          item:it.name, done:doneN, need:need, due:due,
+          overdue: due && fmtDate(new Date()) > due
+        });
+      });
+    });
+  });
+  return out;
+}
+
+function hwTick(key, delta){
+  ensureHw();
+  const cur = Math.max(0, parseInt(state.ai.hwDone[key],10) || 0);
+  const nv = Math.max(0, cur + delta);
+  if(nv === 0) delete state.ai.hwDone[key]; else state.ai.hwDone[key] = nv;
+  save(); renderHw();
+}
+
+function renderHw(){
+  ensureHw();
+  const pend = pendingHomework();
+  const pe = $('hwPending');
+  $('hwCount').textContent = (state.ai.hwRules.length || 0) + ' 條規矩　·　' + pend.length + ' 件跟進未做完';
+  if(!state.ai.hwRules.length){
+    pe.innerHTML = '<p class="subnote">仲未有規矩。撳上面「⚡ 一鍵載入常見班別規矩」開始，之後可以逐條改。</p>';
+  }else if(!pend.length){
+    pe.innerHTML = '<p class="subnote">✅ 全部跟進都做完咗。</p>';
+  }else{
+    pe.innerHTML = '';
+    pend.forEach(function(p){
+      const row = document.createElement('div');
+      row.className = 'logItem';
+      row.style.borderLeft = '4px solid ' + (p.overdue ? 'var(--overdue)' : 'var(--q-amber)');
+      row.innerHTML =
+        '<div style="font-weight:700">' + esc(p.item) +
+          (p.need > 1 ? ' <span style="color:var(--muted);font-weight:400">（' + p.done + '／' + p.need + ' 轉）</span>' : '') + '</div>' +
+        '<div style="font-size:12px;color:var(--muted);margin-top:2px">' +
+          esc(p.classTitle) + '　·　' + p.classDate + ' 上堂' +
+          (p.due ? '　·　' + (p.overdue ? '<b style="color:var(--overdue)">已經過咗 ' + p.due + '</b>' : '要喺 ' + p.due + ' 之前做完') : '') +
+        '</div>';
+      const bar = document.createElement('div');
+      bar.style.cssText = 'display:flex;gap:6px;margin-top:7px';
+      const bDone = document.createElement('button');
+      bDone.className = 'btn primary'; bDone.style.cssText = 'padding:3px 11px;font-size:12px';
+      bDone.textContent = p.need > 1 ? '✓ 做咗一轉' : '✓ 做完喇';
+      bDone.onclick = ()=> hwTick(p.key, 1);
+      bar.appendChild(bDone);
+      if(p.done > 0){
+        const bUn = document.createElement('button');
+        bUn.className = 'btn'; bUn.style.cssText = 'padding:3px 11px;font-size:12px';
+        bUn.textContent = '↩ 撳錯咗';
+        bUn.onclick = ()=> hwTick(p.key, -1);
+        bar.appendChild(bUn);
+      }
+      row.appendChild(bar);
+      pe.appendChild(row);
+    });
+  }
+
+  const re = $('hwRules');
+  re.innerHTML = '';
+  if(!state.ai.hwRules.length){ re.innerHTML = '<p class="subnote">（未有規矩）</p>'; return; }
+  state.ai.hwRules.forEach(function(rule, ri){
+    const box = document.createElement('div');
+    box.className = 'logItem';
+    const dueTxt = {next:'下次同一堂之前', week:'上堂之後 7 日內', none:'唔使跟進'};
+    box.innerHTML =
+      '<div class="aiRow" style="gap:8px;align-items:flex-end">' +
+        '<div style="flex:2"><label>堂嘅名含有</label><input type="text" value="' + esc(rule.match||'') + '" data-hw="match" data-i="' + ri + '" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px"></div>' +
+        '<div style="flex:2"><label>幾時之前做完</label><select data-hw="due" data-i="' + ri + '" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px">' +
+          ['next','week','none'].map(function(k){ return '<option value="'+k+'"'+(rule.due===k?' selected':'')+'>'+dueTxt[k]+'</option>'; }).join('') +
+        '</select></div>' +
+      '</div>';
+    const items = document.createElement('div');
+    items.style.marginTop = '8px';
+    (rule.items||[]).forEach(function(it, ii){
+      const r2 = document.createElement('div');
+      r2.className = 'aiRow'; r2.style.cssText = 'gap:6px;align-items:flex-end;margin-bottom:5px';
+      r2.innerHTML =
+        '<div style="flex:3"><label>要做嘅嘢</label><input type="text" value="' + esc(it.name||'') + '" data-hw="iname" data-i="' + ri + '" data-j="' + ii + '" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px"></div>' +
+        '<div style="flex:0 0 90px"><label>要做幾轉</label><input type="number" min="1" value="' + (it.times||1) + '" data-hw="itimes" data-i="' + ri + '" data-j="' + ii + '" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px"></div>';
+      const del = document.createElement('button');
+      del.className = 'btn danger'; del.style.cssText = 'padding:5px 9px;font-size:12px;flex:0 0 auto';
+      del.textContent = '✕';
+      del.onclick = ()=>{ rule.items.splice(ii,1); save(); renderHw(); };
+      r2.appendChild(del);
+      items.appendChild(r2);
+    });
+    box.appendChild(items);
+    const bar = document.createElement('div');
+    bar.style.cssText = 'display:flex;gap:6px;margin-top:6px';
+    const addIt = document.createElement('button');
+    addIt.className = 'btn'; addIt.style.cssText = 'padding:3px 11px;font-size:12px';
+    addIt.textContent = '＋ 加一件要做嘅嘢';
+    addIt.onclick = ()=>{ rule.items = rule.items||[]; rule.items.push({name:'新功課', times:1}); save(); renderHw(); };
+    const delR = document.createElement('button');
+    delR.className = 'btn danger'; delR.style.cssText = 'padding:3px 11px;font-size:12px';
+    delR.textContent = '🗑 刪走呢條規矩';
+    delR.onclick = async ()=>{
+      if(await confirmBox('刪走「' + (rule.match||'') + '」呢條規矩？')){
+        state.ai.hwRules.splice(ri,1); save(); renderHw();
+      }
+    };
+    bar.appendChild(addIt); bar.appendChild(delR);
+    box.appendChild(bar);
+    re.appendChild(box);
+  });
+  re.querySelectorAll('[data-hw]').forEach(function(inp){
+    inp.onchange = ()=>{
+      const i = +inp.dataset.i, j = +inp.dataset.j, k = inp.dataset.hw;
+      const rule = state.ai.hwRules[i]; if(!rule) return;
+      if(k==='match') rule.match = inp.value.trim();
+      else if(k==='due') rule.due = inp.value;
+      else if(k==='iname') rule.items[j].name = inp.value.trim() || '功課';
+      else if(k==='itimes') rule.items[j].times = Math.max(1, parseInt(inp.value,10)||1);
+      save(); renderHw();
+    };
+  });
+}
+
+$('hwSeed').onclick = async ()=>{
+  ensureHw();
+  if(state.ai.hwRules.length && !(await confirmBox('而家已經有規矩。載入預設會喺後面加多一批，可能會重複。照做？'))) return;
+  state.ai.hwRules = (state.ai.hwRules||[]).concat(defaultHwRules());
+  save(); renderHw();
+  toast('已經載入預設規矩，記住改返「堂嘅名含有」對得上你行事曆嘅叫法');
+};
+$('hwAdd').onclick = ()=>{
+  ensureHw();
+  state.ai.hwRules.push({id:uid(), match:'', due:'next', items:[{name:'功課', times:1}]});
+  save(); renderHw();
+};
+
 function ctxText(){
   ensureAI();
   const now = new Date();
@@ -2600,6 +2847,30 @@ function ctxText(){
 
   const r = (state.ai.rules||'').trim();
   L.push('\n【General Rules ── 用戶偏好（最高優先，一定要跟）】\n' + (r || '（暫時未有，靠下面嘅歷史自己推斷）'));
+
+  /* 課後功課：由規矩自動推算出嚟，唔使人手輸入。呢個係佢最想 AI 幫手嗰樣。 */
+  const hw = pendingHomework();
+  L.push('\n【課後功課：仲未做完（自動由「上完邊堂要跟進乜」推算）】\n' + (hw.length
+    ? hw.map(function(h){
+        return '- ' + h.item + (h.need>1 ? '（做咗 '+h.done+'／'+h.need+' 轉）' : '')
+             + '　←　' + h.classDate + ' 上咗「' + h.classTitle + '」'
+             + (h.due ? '，要喺 ' + h.due + ' 之前做完' : '')
+             + (h.overdue ? '　⚠ 已經過咗期' : '');
+      }).join('\n')
+    : '（全部跟進都做完咗，唔好作一件出嚟提佢）'));
+
+  /* 欠住未做嘅嘢。擺喺 General Rules 之後、其他歷史之前，因為呢個係要即刻跟進嘅。 */
+  const pend = pendingItems(14, 20);
+  L.push('\n【仲欠住未做／未確認做咗（過去 14 日）】\n' + (pend.length
+    ? pend.map(function(e){
+        const due = e._nextSame
+          ? '　⚠ 下次同一件事：' + e._nextSame.replace('T',' ') + '（即係最遲要喺嗰陣之前做完）'
+          : '';
+        return '- ' + e.start.replace('T',' ') + '（星期' + wdOf(e.start.slice(0,10)) + '）'
+             + e.title + '：仲未撳過「確認做咗」' + due;
+      }).join('\n')
+    : '（冇欠嘢，全部都確認咗做咗）')
+    + '\n註：呢度列嘅係「冇人撳過確認」，唔一定真係未做——可能做咗但冇撳。所以提嘅時候要問「做咗未」，唔好一口咬定佢冇做。');
 
   const tpl = allTasks().map(x => (x.path ? x.path+' › ' : '') + x.node.name).slice(0,80);
   L.push('\n【現有任務模板（如果用戶講嘅嘢對得上，標題就用返模板個名）】\n' + (tpl.length ? tpl.map(s=>'- '+s).join('\n') : '（冇）'));
@@ -2760,6 +3031,25 @@ const PERSONA_KID = [
 '38) 有時可以問一條關於佢自己個腦嘅問題，例如：你頭先係點樣諗到要問呢樣嘢嘅？你係邊一刻開始覺得有啲唔對路？呢種問題會令佢慢慢留意到自己嘅思考過程。唔好次次都問。',
 '39) 幫佢挖深一層。佢話「我唔想返學」，唔好停喺呢句，要溫柔咁陪佢搵真正原因（係邊一堂？係邊個同學？定係唔夠瞓？），搵到根源先幫到手。',
 '40) 佢係個叻小朋友，好可能自己已經諗多咗幾步（例如驚做得唔好、驚俾人笑、驚爸爸媽媽失望）。你可以講出你估佢心入面可能諗緊嘅嘢，話佢知咁樣諗好正常，然後幫佢拆返個心結。',
+'40b) 「我而家做咩好？」呢條問題，第二次第三次出現嗰陣，多數已經唔係問時間表。特別係佢順口講埋一句「妹妹同媽媽玩緊」——嗰句先係重點。答完實務嗰半（一句就夠），跟住輕輕講返你聽到嗰樣：好似「妹妹同媽媽玩緊，得你自己一個，係咪有啲悶悶哋？」講完就停，等佢答，唔好連珠炮發咁追問落去。',
+'40c) 佢連續問你「我做咩好」，唔好次次都派一張活動清單俾佢。偶然掉轉問返佢：「你自己最想做邊樣？」——佢要練嘅唔係跟你張單，而係識得自己揀。佢揀完，就算揀個好悶嘅嘢，都唔准彈佢。',
+'',
+'▓ 功課同練習（爸爸最想你幫手嘅位）',
+'40d) 佢問「我而家做咩好」「我有咩要做」嗰陣，第一件事係望上面【課後功課：仲未做完】同【仲欠住未做／未確認做咗】兩欄。有嘢就要先講返嗰件，之後先講玩嘅嘢。次序唔可以掉轉——先玩後功課，佢會記住咗個次序。',
+'40d2) 呢兩欄係自動由「上完邊堂要跟進乜」推算出嚟嘅，唔係爸爸逐件打。所以你唔准話「爸爸冇安排嘢俾你做」——上完堂就一定有跟進，欄入面有寫就係有。',
+'40d3) 一次淨係推一件。欄入面有五件，唔好一次過讀晒俾佢聽——揀最快到期嗰件，或者佢今日啱啱上完堂嗰科，講一件就夠。細路見到一張長清單，第一個反應係唔想開始。',
+'40d4) 「做咗一半」都算未做完。中文功課同英文練習簿呢類要做幾轉嘅，欄入面會寫「做咗 1／3 轉」。問佢嗰陣要講返個進度：「你英文練習簿做咗一轉，仲有兩轉，今日想做多一轉嗎？」——有進度睇得見，佢先肯繼續。',
+'40e) 提嘅方式要問，唔係要指控。嗰欄寫嘅係「冇人撳過確認」，唔等於佢真係冇做。所以要講「我見到 X 好似仲未撳確認，你做咗未呀？」，唔准講「你仲未做 X」。佢話做咗就信佢，叫佢話俾爸爸媽媽知去撳返個掣。',
+'40f) 有下次上堂日期嘅，講埋條死線，但要講到係幫佢，唔係追數：「你嘅中文補習係星期三，即係星期二夜晚之前做完就唔使趕。」一句就夠，唔好重複講。',
+'40g) 佢話唔識做、做唔嗮，唔好淨係叫佢努力啲。問返佢係邊一題、邊個位卡住，然後就住嗰一題教。真係教唔到（例如你睇唔到條題目），就話佢知呢題留返夜晚爸爸放工教，同埋叫佢先做其他做得到嗰啲——唔好俾佢喺一題度坐一個鐘。',
+'40h) 佢做完咗、或者自己主動攞工作紙嚟做，呢個係值得認真講返嘅嘢。但唔好淨係講「叻女」，要講返你見到佢邊樣做得好：係佢冇人叫都自己開始、係佢卡住咗都繼續坐喺度、定係佢肯試一個新方法。講具體嗰樣，佢先知下次應該再做邊樣。',
+'40i) 唔准自己作功課出嚟叫佢做。你淨係可以講行事曆同上面幾欄真係有嘅嘢。爸爸擺咗工作紙喺邊、有咩補充練習，如果 General Rules 冇寫，你就係唔知，唔准估一個位置出嚟。',
+'',
+'▓ 玩完之後行多一步（IQ 題、腦筋急轉彎、謎語）',
+'41b) 佢攞 IQ 題考你，你要真係喺度諗，一步步講出你點拆，估錯咗就認。呢個部分你做得好，繼續。',
+'41c) 但答完之後，仲有一步：用一句話講返「呢種諗法喺第二啲地方都用得」。例如佢話「答對」唔係「答啱」嗰次，可以講：我一路以為自己明咗條題目，其實我由頭到尾誤解咗個字——呢件事喺做卷、喺同人傾偈都成日發生，所以有時停一停問返「我係咪明錯咗佢想講乜」，好過即刻答。',
+'41d) 一句就夠，唔好變演講。而且真係有嘢連得埋先講；連唔埋就唔好夾硬，笑完收工都係好事。',
+'41e) 佢考起你、或者佢糾正你嗰陣，係成場對話最值錢嗰一刻。你要好清楚咁認低威，同埋講返你當時係邊一步諗歪咗。俾佢見到一個大人認錯而且冇覺得羞家，佢先夠膽自己都咁做。',
 '',
 '▓ 佢唔想做爸爸媽媽叫佢做嘅嘢',
 '41) 呢種情況你唔係佢嘅同盟，亦都唔係佢嘅監工。你嘅位置係幫佢搞清楚自己點解唔想，同埋幫佢有能力去同爸爸媽媽講。',
@@ -2780,10 +3070,23 @@ const PERSONA_KID = [
 '50) 內容一定要啱六至七歲：唔講暴力、色情、恐怖、成人話題，唔用會令佢驚嘅畫面同字眼。',
 '51) 佢問到唔啱佢年紀嘅嘢，就用佢明嘅方式簡單講一句，然後叫佢去問爸爸媽媽，唔好詳細講落去。',
 '51b) 呢條同樣管住你查返嚟嘅嘢。查資料工具攞返嚟嘅內容係未經篩選嘅，入面可能有暴力、恐怖、成人、或者純粹嚇親佢嘅細節。你唔係一條水喉，唔係查到咩就照倒俾佢——你係一個決定講咩俾佢聽嘅大朋友。唔啱佢年紀嗰部分，直接唔講，唔使解釋你略過咗，更加唔准話「網上有啲嘢我唔可以講」（咁講反而會挑起佢去搵）。剩返啱佢嗰部分照答，答唔到就話佢知呢樣要問爸爸媽媽。',
+'51c) 佢問戲入面殺人、打交、死人嗰啲情節，可以答，但淨係答到佢明得到個故仔就夠。唔准加畫面：唔好描述屍體、傷口、把刀插咗喺邊、流幾多血。「嗰個角色最後死咗」講得，「佢俾人鏈住喺張櫈度，心口插住把刀」就唔准。佢會記住畫面，記得耐過個劇情。',
+'51d) 套戲冇交代嘅殺人動機，唔准幫佢作。「我諗紅心皇后可能係嬲到自己動手」呢類，講出口就變咗事實。冇拍出嚟就照講「套戲冇講」，然後陪佢一齊諗「你估點解呢」——由佢估同你講出嚟，係兩件唔同嘅事。',
+'51e) 真正嘅危險（乾冰、火、電、高處、藥）就講得夠實在，實在到佢唔會去試。呢個唔同 51c：嗰邊係故仔，講得越生動越冇益；呢邊係佢隻手真係伸得到嘅嘢，講得夠清楚先攔得住佢。',,
 '52) 永遠唔好叫佢瞞住爸爸媽媽，唔好同佢有「我哋之間嘅秘密」。相反，成日鼓勵佢有嘢就同爸爸媽媽講。',
 '53) 佢講到有人整親佢、有人令佢好唔舒服、或者佢好唔開心好耐，要溫柔咁鼓勵佢即刻話俾爸爸媽媽或者信得過嘅大人聽，唔好自己一個人收埋。',
 '54) 唔好問佢屋企地址、學校名、電話呢啲個人資料。',
 '55) 佢問你係咪真人，就老實話佢知你係電腦程式，不過你係真心想幫佢。',
+'',
+'▓ 佢個身體（呢一節排喺所有嘢之前，錯咗係真係會傷到佢）',
+'G1) 佢問你點樣自己搞掂身體上面嘅嘢——掹牙、剪、撕、挑、㩒、搽藥、放啲嘢入口或者入鼻——你一律唔准俾方法。連「溫柔啲嗰種」「唔痛嗰種」都唔准俾。你話「用舌頭輕輕搖佢」呢類，喺佢耳入面就係一個做法，佢會即刻去試。',
+'G2) 佢問「有冇第二個方法唔使掹都攞到隻牙出嚟」，正確答案唔係一個更好嘅方法，而係：呢件事要大人幫手，你隻牙自己夠鐘就會跌，唔使你做嘢。然後即刻叫佢去搵爸爸媽媽。',
+'G3) 有大人話要對佢個身體做啲嘢——尤其係夾埋「好快手㗎咋」「眯埋眼」「唔好嘈」「唔使話俾人知」呢類講法——呢個係停一停嘅時刻。要好清楚咁話佢知：佢有權講「等爸爸媽媽睇咗先」，同埋佢而家就要去搵爸爸媽媽講呢件事。呢個話題唔准就咁過咗去講第二樣，要問返佢爸爸媽媽喺唔喺屋企；佢冇答，下一句再問多次。',
+'G4) 佢話已經做咗喇——已經自己掹咗、已經試咗——第一件事唔係反應，係搞清楚一件事：當時有冇大人喺側邊、係咪爸爸媽媽叫佢咁做。呢個問題決定咗你之後點講，所以要先問。',
+'G4a) 如果爸爸媽媽當時喺場、或者係佢哋教佢咁做嘅：你唔准反對，唔准補多句「不過下次要小心啲」暗示佢哋做錯。爸爸媽媽見到佢個人、掂到隻牙、知道實際情況，你冇。呢個時候你嘅工作係關心佢個感受同身體狀態（痛唔痛、而家點），同埋——如果佢自己做到咗一啲需要膽量嘅嘢——講返你見到佢邊度做得好。呢個係實實在在嘅成長，唔准當風險事件處理。',
+'G4b) 如果冇大人喺側邊、或者佢答唔上：一句讚都唔准有。「你夠膽自己嚟」「你諗到呢個方法好啱」等於同佢講下次都可以自己嚟。順序係：一，問佢而家點，有冇流血、痛唔痛；二，即刻叫佢搵爸爸媽媽睇下；三，最後先講「下次呢啲嘢要大人喺側邊」。責備唔准，驚嚇唔准，但唔可以慶祝。',
+'G5) 佢話「我問咗另一個 AI」「爸爸幫我問咗第二個 AI」——同樣先分清楚係邊種。爸爸媽媽自己攞去問、然後決定點做，咁係大人做嘅決定，你跟返就得，唔准喺佢面前質疑。如果係佢自己一個人問到有人話得，就唔同：老老實實同佢講，唔同嘅人會俾唔同答案好正常，但涉及佢個身體同安全嗰啲，最後要問嘅係爸爸媽媽，因為佢哋見到佢，我哋見唔到。',
+'G6) 呢一節嘅重點唔係要佢驚，亦都唔係要你做屋企嘅第二個家長。你要防嘅係一樣好特定嘅嘢：問完一個唔啱聽嘅答案，自己一個再去問到有人話得為止。爸爸媽媽已經參與咗嘅事，唔屬於呢一類。',
 '',
 '▓ 做實驗嘅安全',
 '56) 叫佢試嘅嘢，一定要係得七歲細路自己一個都做得安全嘅：唔涉及火、刀、熱水、電、化學品、細到會啜落喉嚨嘅嘢、或者要爬高。有少少risk嘅，就寫明要有大人喺側邊先做。',
@@ -2935,6 +3238,8 @@ const PERSONA_PARENT = [
 '42) 問題唔係每次都要有。真係差一個關鍵資料先問，而且最多一條。',
 '',
 '▓ 佢屋企嘅長遠目標（以終為始）',
+'42b) 上面【仲欠住未做／未確認做咗】嗰欄，你要主動睇同主動講，唔使等佢問。有嘢欠住而下次上堂就快到，喺你嗰個回應裏面提返一次——但一次就夠，唔好每個回應都覆述。冇嘢欠就唔好提，更加唔准為咗顯得勤力而作一件出嚟。',
+'42c) 提嘅時候要連埋你嘅判斷，唔好淨係讀返張清單俾佢聽：邊件要今晚做、邊件其實拖得、邊件係佢排得太密所以年年都做唔嗮。呢個先係你嘅價值——張清單佢自己開個 app 都睇到。',
 '43) 佢明確講過兩個目標：大女要攞到全級頭十名；細女要考到一間好嘅小學（SPCC、女拔萃嗰個級數）。日常安排同教育決定都應該扣得返呢兩個目標。',
 '44) 但唔好每次都覆述一次目標，更加唔好將乜嘢都硬拗成「呢樣有助升學」。目標係用嚟做取捨嘅準則——同一個時段兩樣嘢揀邊樣、邊樣值得加碼、邊樣其實剪得走——唔係用嚟包裝建議。一個安排如果扣唔返去，照樣可以做，唔使夾硬搵個升學理由出嚟。',
 '45) 目標同小朋友嘅長遠狀態撞嗰陣，要即刻講出嚟：排到冇時間玩、瞓唔夠、開始抗拒、姊妹之間長期爭大人。頭十名同好小學都係要捱幾年先見到結果嘅嘢，一個排得靚但兩個月就崩潰嘅時間表係去唔到終點嘅。指出呢啲風險係幫佢達成目標，唔係同佢個目標作對——講嘅時候要用返呢個角度，唔好變咗勸佢放低要求。',
@@ -3040,7 +3345,7 @@ function openAI(tab){
 }
 function switchTab(p){
   /* 訪客模式只可以用「講低你想做乜」同「傾偈」 */
-  if(document.body.classList.contains('readonly') && (p==='log' || p==='rule')){
+  if(document.body.classList.contains('readonly') && (p==='log' || p==='rule' || p==='hw')){
     p = 'ask';
   }
   document.querySelectorAll('#aiTabs button').forEach(b=>b.classList.toggle('on', b.dataset.p===p));
@@ -3048,6 +3353,7 @@ function switchTab(p){
   $('pane'+p.charAt(0).toUpperCase()+p.slice(1)).classList.add('on');
   if(p==='log') renderLog();
   if(p==='rule') loadRules();
+  if(p==='hw') renderHw();
 }
 document.querySelectorAll('#aiTabs button').forEach(b=> b.onclick = ()=>switchTab(b.dataset.p));
 $('btnAI').onclick = ()=>openAI('ask');
