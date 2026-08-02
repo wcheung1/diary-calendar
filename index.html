@@ -3581,17 +3581,20 @@ $('webTest').onclick = async ()=>{
   const el = $('webDiag');
   const set = (h)=>{ if(el) el.innerHTML = h; };
   if(!c.webKey){ set('⚠ 未填 key。留空嘅話 AI 冇 [[WEB]] 工具，唔會上到網。'); return; }
-  set('⏳ 搜尋緊「AIRSIDE 啟德 餐廳」…');
+  set('⏳ 搜尋緊「AIRSIDE 啟德 餐廳」…（會逐種 endpoint 試）');
   const t0 = Date.now();
   const res = await lookupWeb('AIRSIDE 啟德 餐廳 2026');
   const ms = Date.now() - t0;
   const first = res[0] || '';
+  const klen = c.webKey.length;
+  const lenNote = '<br><span style="color:var(--muted)">條 key 長度：' + klen + ' 個字元'
+    + (klen === 65 ? '（Jina 標準長度 ✅）' : '（Jina 通常係 65，你呢條對唔上，check 下貼齊未）') + '</span>';
   if(first.indexOf('◆ 上網搜尋') === 0 || first.indexOf('◆ 未設定') === 0){
-    set('❌ ' + esc(first));
+    set('❌ ' + esc(first) + lenNote);
     return;
   }
   set('✅ <b>搜尋成功</b>（' + ms + 'ms，攞到 ' + res.length + ' 個來源）。AI 而家上到網喇。'
-    + '<br><span style="color:var(--muted)">頭一個來源：' + esc(short(first, 180)) + '</span>');
+    + '<br><span style="color:var(--muted)">頭一個來源：' + esc(short(first, 180)) + '</span>' + lenNote);
 };
 
 function openSet(){
@@ -4534,35 +4537,72 @@ async function lookupFandom(sub, query){
    點解揀 Jina：實測佢 CORS 通得過瀏覽器直接 call（純靜態 HTML 冇 server 都用到），
    而且佢會將頭幾個結果嘅正文一次過攞埋返嚟，唔使再 fetch 多轮先讀到內容。
    要條 key：匿名 call 會俾 401。免費 key 喺 jina.ai 攞，唔使信用卡。 */
+/* s.jina.ai 歷年有過三種叫法，而家官方文檔寫嘅係 GET /search。
+   我第一版用咗 `/?q=` 嗰種，返 500。所以呢度逐種試，邊種通就用邊種。
+   500 唔係 key 嘅問題（key 唔啱會覆 401），係打錯咗門口。 */
+function azWebUrls(query){
+  const q = encodeURIComponent(query);
+  return [
+    'https://s.jina.ai/search?q=' + q,   /* 官方文檔嘅 SearcherHost endpoint */
+    'https://s.jina.ai/' + q,            /* 舊式：查詢詞直接擺喺 path */
+    'https://s.jina.ai/?q=' + q          /* 最舊嗰種 */
+  ];
+}
+
 async function lookupWeb(query){
   const key = String(cfg().webKey||'').trim();
   if(!key){
     return ['◆ 未設定上網搜尋。撳「⚙ AI 設定」填 Jina API Key（免費，jina.ai 攞，唔使信用卡）先用得到。'];
   }
-  const ctl = (typeof AbortController!=='undefined') ? new AbortController() : null;
-  const timer = ctl ? setTimeout(()=>{ try{ ctl.abort(); }catch(e){} }, 25000) : 0;
-  try{
-    const r = await fetch('https://s.jina.ai/?q=' + encodeURIComponent(query), {
-      headers:{ 'Accept':'application/json', 'Authorization':'Bearer ' + key },
-      signal: ctl ? ctl.signal : undefined
-    });
-    if(timer) clearTimeout(timer);
-    if(r.status === 401) return ['◆ 上網搜尋：條 Jina key 唔啱或者已經失效（401）。去「⚙ AI 設定」換過條。'];
-    if(r.status === 429) return ['◆ 上網搜尋：一時間查得太密（429），隔陣先再試。'];
-    if(!r.ok) return ['◆ 上網搜尋出錯（HTTP '+r.status+'）。'];
-    const j = await r.json();
-    const items = (j && (j.data || j.results)) || [];
-    if(!items.length) return ['◆ 上網搵唔到「'+query+'」嘅結果。'];
-    /* 淨係要頭三條，每條剪到 1200 字：全文照塞會即刻爆 token 上限。 */
-    return items.slice(0,3).map(function(x){
-      const title = x.title || x.url || '（冇標題）';
-      const body  = String(x.content || x.description || x.snippet || '').replace(/\n{3,}/g,'\n\n').trim();
-      return '◆ 來源：' + title + (x.url ? '\n' + x.url : '') + '\n' + short(body, 1200);
-    });
-  }catch(err){
-    if(timer) clearTimeout(timer);
-    return ['◆ 上網搜尋失敗（'+(err.message||err)+'）。可能係網絡問題，或者查得太耐 timeout 咗。'];
+  const urls = azWebUrls(query);
+  let lastErr = '';
+  for(let i = 0; i < urls.length; i++){
+    const ctl = (typeof AbortController!=='undefined') ? new AbortController() : null;
+    const timer = ctl ? setTimeout(()=>{ try{ ctl.abort(); }catch(e){} }, 25000) : 0;
+    try{
+      const r = await fetch(urls[i], {
+        headers:{
+          'Accept':'application/json',
+          'Authorization':'Bearer ' + key
+        },
+        signal: ctl ? ctl.signal : undefined
+      });
+      if(timer) clearTimeout(timer);
+
+      /* 401／402／429 係帳戶問題，唔使再試其他 URL，即刻講返俾用戶知 */
+      if(r.status === 401) return ['◆ 上網搜尋：條 Jina key 唔啱或者已經失效（401）。去「⚙ AI 設定」換過條。'];
+      if(r.status === 402) return ['◆ 上網搜尋：Jina 免費 token 用完咗（402）。上 jina.ai 睇下個額度。'];
+      if(r.status === 429) return ['◆ 上網搜尋：一時間查得太密（429），隔陣先再試。'];
+
+      if(!r.ok){
+        lastErr = 'HTTP ' + r.status + '（' + urls[i].split('?')[0].replace('https://','') + '）';
+        try{ const t = await r.text(); if(t) lastErr += '：' + short(t, 200); }catch(e){}
+        continue;                                   /* 換下一種 endpoint 再試 */
+      }
+
+      const txt = await r.text();
+      let items = [];
+      try{
+        const j = JSON.parse(txt);
+        items = j.data || j.results || (Array.isArray(j) ? j : []);
+      }catch(e){
+        /* 有時佢會直接回 markdown 純文字，唔係 JSON。照用得。 */
+        if(txt.trim()) return ['◆ 上網搵到（' + esc(query) + '）：\n' + short(txt.trim(), 3000)];
+      }
+      if(!items.length){ lastErr = '呢個 endpoint 覆咗 200 但冇結果'; continue; }
+
+      /* 淨係要頭三條，每條剪到 1200 字：全文照塞會即刻爆 token 上限。 */
+      return items.slice(0,3).map(function(x){
+        const title = x.title || x.url || '（冇標題）';
+        const body  = String(x.content || x.description || x.snippet || '').replace(/\n{3,}/g,'\n\n').trim();
+        return '◆ 來源：' + title + (x.url ? '\n' + x.url : '') + '\n' + short(body, 1200);
+      });
+    }catch(err){
+      if(timer) clearTimeout(timer);
+      lastErr = String(err && err.message || err);
+    }
   }
+  return ['◆ 上網搜尋失敗。試晒 ' + urls.length + ' 種叫法都唔得，最後一個錯誤：' + lastErr];
 }
 
 function reSearch(){ return /\[\[\s*SEARCH\s*:\s*([^\]|]+?)\s*\]\]/gi; }
