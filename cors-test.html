@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>搜尋 API 瀏覽器測試</title>
+<style>
+:root{
+  --bg:#f4f6f4; --panel:#fff; --ink:#20291f; --muted:#68746b; --line:#dde3dd;
+  --accent:#2e7d64; --accent-soft:#e3f0ea;
+  --ok:#2e7d64; --warn:#d68a2e; --bad:#d04545; --idle:#8b939b;
+  --shadow:0 4px 18px rgba(32,41,31,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--ink); padding:20px 16px 60px;
+  font:15px/1.7 -apple-system,BlinkMacSystemFont,"PingFang HK","Noto Sans HK","Segoe UI",sans-serif;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:760px;margin:0 auto}
+h1{font-size:21px;letter-spacing:-.01em;margin-bottom:6px}
+.lede{color:var(--muted);font-size:13px;margin-bottom:4px}
+.warnbox{
+  background:#fdf6e9;border:1px solid var(--warn);border-left-width:4px;
+  border-radius:8px;padding:11px 13px;font-size:13px;line-height:1.65;margin:14px 0 18px;
+}
+.warnbox b{color:#8a5a12}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+button{
+  font:inherit;font-size:14px;padding:9px 16px;border-radius:8px;cursor:pointer;
+  border:1px solid var(--line);background:var(--panel);color:var(--ink);
+}
+button.go{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+button:disabled{opacity:.5;cursor:default}
+.keys{
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:12px 14px;margin-bottom:18px;
+}
+.keys summary{cursor:pointer;font-size:13px;color:var(--muted);font-weight:600}
+.krow{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+.krow label{flex:0 0 118px;font-size:12px;color:var(--muted)}
+.krow input{
+  flex:1;min-width:180px;padding:7px 9px;border:1px solid var(--line);
+  border-radius:6px;font:13px ui-monospace,Menlo,Consolas,monospace;
+}
+.note{font-size:12px;color:var(--muted);margin-top:9px;line-height:1.6}
+
+/* 每個 provider 一張卡：左邊一條狀態色帶，一眼掃到邊個得 */
+.card{
+  background:var(--panel);border:1px solid var(--line);border-left:5px solid var(--idle);
+  border-radius:10px;padding:13px 15px;margin-bottom:10px;box-shadow:var(--shadow);
+}
+.card.ok{border-left-color:var(--ok)}
+.card.bad{border-left-color:var(--bad)}
+.card.warn{border-left-color:var(--warn)}
+.card.run{border-left-color:var(--accent);opacity:.75}
+.chead{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.cname{font-weight:700;font-size:15px}
+.ctag{
+  font-size:11px;padding:2px 8px;border-radius:99px;
+  background:var(--accent-soft);color:var(--accent);font-weight:700;
+}
+.ctag.paid{background:#fdf0e2;color:#a8641a}
+.cdesc{font-size:12px;color:var(--muted);margin-top:3px}
+.verdict{margin-top:9px;font-size:13.5px;font-weight:700}
+.verdict.ok{color:var(--ok)}
+.verdict.bad{color:var(--bad)}
+.verdict.warn{color:var(--warn)}
+.detail{
+  font:12px/1.6 ui-monospace,Menlo,Consolas,monospace;color:var(--muted);
+  margin-top:6px;white-space:pre-wrap;word-break:break-word;
+}
+.summary{
+  background:var(--panel);border:1px solid var(--accent);border-radius:10px;
+  padding:14px 16px;margin-top:20px;display:none;font-size:14px;line-height:1.75;
+}
+.summary h2{font-size:15px;color:var(--accent);margin-bottom:7px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>搜尋 API：邊個俾瀏覽器直接 call？</h1>
+<p class="lede">呢一頁會由你部機、你個瀏覽器，實測每個搜尋 API 嘅 CORS。試完就知邊個接得上你個行事曆。</p>
+
+<div class="warnbox">
+  <b>⚠ 一定要放喺同一個網域行</b><br>
+  將呢個檔擺去你 GitHub Pages，同 <code>index.html</code> 同一個資料夾，然後用
+  <code>https://你個名.github.io/cors-test.html</code> 開。<br>
+  用 <code>file://</code> 雙撳開係測唔準嘅 —— 本機檔案嘅 origin 係 <code>null</code>，行為同真正上線唔同。
+</div>
+
+<details class="keys">
+  <summary>🔑 API Key（唔填都試到頭三個，佢哋唔使 key）</summary>
+  <div class="krow"><label>Jina</label><input id="kJina" placeholder="jina_… 唔填就用免費匿名額度" spellcheck="false" autocapitalize="off"></div>
+  <div class="krow"><label>Tavily</label><input id="kTavily" placeholder="tvly-…" spellcheck="false" autocapitalize="off"></div>
+  <div class="krow"><label>Serper</label><input id="kSerper" placeholder="Serper API key" spellcheck="false" autocapitalize="off"></div>
+  <div class="krow"><label>Google Key</label><input id="kGoogle" placeholder="AIza…" spellcheck="false" autocapitalize="off"></div>
+  <div class="krow"><label>Google cx</label><input id="kCx" placeholder="搜尋引擎 ID" spellcheck="false" autocapitalize="off"></div>
+  <p class="note">啲 key 淨係擺喺呢一頁嘅記憶體度，唔會儲存、唔會傳去第三方。閂咗個頁就冇。</p>
+</details>
+
+<div class="bar">
+  <button class="go" id="run">▶ 開始測試</button>
+  <button id="q2">試「AIRSIDE 啟德 餐廳」</button>
+</div>
+
+<div id="cards"></div>
+
+<div class="summary" id="summary"></div>
+
+</div>
+
+<script>
+var $ = function(id){ return document.getElementById(id); };
+var QUERY = '啟德 AIRSIDE 商場';
+
+/* 每個 provider：run() 要 return {status, sample} 或者 throw。
+   分兩種失敗：
+     · fetch 直接 throw TypeError  → 多數係 CORS 擋咗（瀏覽器連個 response 都唔俾你睇）
+     · 收到 HTTP status            → CORS 過咗，得個 key／額度問題，呢啲修得返 */
+var PROVIDERS = [
+  {
+    id:'wiki', name:'維基百科', tag:'對照組', free:true,
+    desc:'你個 app 而家用緊嘅。呢個一定要綠色，唔係就代表你部機上唔到網，其他結果全部唔算數。',
+    run: async function(){
+      var u = 'https://zh.wikipedia.org/w/api.php?action=query&list=search&srsearch='
+            + encodeURIComponent(QUERY) + '&format=json&origin=*';
+      var r = await fetch(u);
+      var j = await r.json();
+      var hit = j && j.query && j.query.search && j.query.search[0];
+      return {status:r.status, sample: hit ? hit.title : '（冇結果）'};
+    }
+  },
+  {
+    id:'ddg', name:'DuckDuckGo Instant Answer', tag:'免費・唔使 key', free:true,
+    desc:'公開、免費、一向都開住 CORS。但佢淨係俾百科式嘅簡答，唔會出一張真嘅搜尋結果清單。',
+    run: async function(){
+      var u = 'https://api.duckduckgo.com/?q=' + encodeURIComponent(QUERY)
+            + '&format=json&no_html=1&skip_disambig=1';
+      var r = await fetch(u);
+      var j = await r.json();
+      var s = (j.AbstractText || j.Heading || '').slice(0,90);
+      return {status:r.status, sample: s || '（連得到，但呢條 query 冇簡答內容）'};
+    }
+  },
+  {
+    id:'jina', name:'Jina Reader（s.jina.ai）', tag:'免費・唔使 key', free:true,
+    desc:'搜尋 + 直接讀返頭五個結果嘅全文，最啱餵俾 LLM。匿名用有速率限制，開個免費 key 就寬鬆好多。',
+    run: async function(){
+      var h = {'Accept':'application/json'};
+      var k = $('kJina').value.trim();
+      if(k) h['Authorization'] = 'Bearer ' + k;
+      var r = await fetch('https://s.jina.ai/?q=' + encodeURIComponent(QUERY), {headers:h});
+      var t = await r.text();
+      var s = '';
+      try{ var j = JSON.parse(t); s = (j.data && j.data[0] && j.data[0].title) || ''; }catch(e){ s = t.slice(0,90); }
+      return {status:r.status, sample: s || '（有回應）'};
+    }
+  },
+  {
+    id:'tavily', name:'Tavily', tag:'免費額度', free:false,
+    desc:'專門做 AI grounding 嘅搜尋，答案乾淨。要 key，每月有免費額度。',
+    run: async function(){
+      var k = $('kTavily').value.trim();
+      if(!k) return {skip:'未填 Tavily key'};
+      var r = await fetch('https://api.tavily.com/search', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+k},
+        body: JSON.stringify({query:QUERY, max_results:3})
+      });
+      var j = await r.json();
+      return {status:r.status, sample:(j.results && j.results[0] && j.results[0].title) || JSON.stringify(j).slice(0,90)};
+    }
+  },
+  {
+    id:'serper', name:'Serper（Google SERP）', tag:'2500 次免費', free:false,
+    desc:'直接俾你 Google 嘅搜尋結果，最貼近你平時 Google 出嚟嗰啲。新戶送 2500 次，唔使信用卡。',
+    run: async function(){
+      var k = $('kSerper').value.trim();
+      if(!k) return {skip:'未填 Serper key'};
+      var r = await fetch('https://google.serper.dev/search', {
+        method:'POST',
+        headers:{'X-API-KEY':k, 'Content-Type':'application/json'},
+        body: JSON.stringify({q:QUERY, gl:'hk', hl:'zh-tw'})
+      });
+      var j = await r.json();
+      return {status:r.status, sample:(j.organic && j.organic[0] && j.organic[0].title) || JSON.stringify(j).slice(0,90)};
+    }
+  },
+  {
+    id:'gcse', name:'Google Programmable Search', tag:'每日 100 次免費', free:false,
+    desc:'Google 官方 JSON API，每日頭 100 次免費。要開一個搜尋引擎攞 cx，設定手續最長，但係最穩。',
+    run: async function(){
+      var k = $('kGoogle').value.trim(), cx = $('kCx').value.trim();
+      if(!k || !cx) return {skip:'未填 Google key 或者 cx'};
+      var u = 'https://www.googleapis.com/customsearch/v1?key=' + encodeURIComponent(k)
+            + '&cx=' + encodeURIComponent(cx) + '&q=' + encodeURIComponent(QUERY) + '&num=3';
+      var r = await fetch(u);
+      var j = await r.json();
+      return {status:r.status, sample:(j.items && j.items[0] && j.items[0].title) || (j.error && j.error.message) || '（有回應）'};
+    }
+  }
+];
+
+function render(){
+  var box = $('cards');
+  box.innerHTML = '';
+  PROVIDERS.forEach(function(p){
+    var c = document.createElement('div');
+    c.className = 'card'; c.id = 'c_' + p.id;
+    c.innerHTML =
+      '<div class="chead"><span class="cname">' + p.name + '</span>' +
+      '<span class="ctag' + (p.free ? '' : ' paid') + '">' + p.tag + '</span></div>' +
+      '<div class="cdesc">' + p.desc + '</div>' +
+      '<div class="verdict" id="v_' + p.id + '">— 未試</div>' +
+      '<div class="detail" id="d_' + p.id + '"></div>';
+    box.appendChild(c);
+  });
+}
+
+function setCard(id, cls, verdict, detail){
+  var c = $('c_' + id), v = $('v_' + id), d = $('d_' + id);
+  c.className = 'card ' + cls;
+  v.className = 'verdict ' + (cls === 'run' ? '' : cls);
+  v.textContent = verdict;
+  d.textContent = detail || '';
+}
+
+async function runAll(){
+  $('run').disabled = true; $('q2').disabled = true;
+  $('summary').style.display = 'none';
+  var passed = [], blocked = [], authfail = [];
+
+  for(var i=0; i<PROVIDERS.length; i++){
+    var p = PROVIDERS[i];
+    setCard(p.id, 'run', '⏳ 試緊…', '');
+    var t0 = Date.now();
+    try{
+      var res = await p.run();
+      var ms = Date.now() - t0;
+      if(res.skip){ setCard(p.id, '', '— 跳過', res.skip); continue; }
+      if(res.status >= 200 && res.status < 300){
+        setCard(p.id, 'ok', '✅ 用得 — 瀏覽器 call 得通',
+          'HTTP ' + res.status + '｜' + ms + 'ms\n頭條結果：' + res.sample);
+        passed.push(p.name);
+      }else if(res.status === 401 || res.status === 403 || res.status === 429){
+        setCard(p.id, 'warn', '⚠ CORS 通咗，但條 key 或者額度有問題',
+          'HTTP ' + res.status + '｜' + ms + 'ms\n' + res.sample +
+          '\n\n重點：收到 status 就代表 CORS 冇擋你。換條啱嘅 key 就用得。');
+        authfail.push(p.name);
+      }else{
+        setCard(p.id, 'warn', '⚠ CORS 通咗，但 API 覆咗 ' + res.status,
+          'HTTP ' + res.status + '｜' + ms + 'ms\n' + res.sample);
+        authfail.push(p.name);
+      }
+    }catch(err){
+      setCard(p.id, 'bad', '❌ 俾 CORS 擋住 — 呢個用唔到',
+        String(err && err.message || err) +
+        '\n\n瀏覽器連個回應都唔俾你睇。要用嘅話一定要自己架 server 代做，' +
+        '純靜態 HTML 冇得救。');
+      blocked.push(p.name);
+    }
+  }
+
+  var s = $('summary');
+  var html = '<h2>結論</h2>';
+  if(passed.indexOf('維基百科') < 0){
+    html += '<b style="color:var(--bad)">對照組（維基百科）都試唔到，即係你部機而家上唔到網，或者俾網絡擋住咗。' +
+            '搞掂咗網絡先再試一次，下面啲結果唔好信。</b>';
+  }else{
+    var usable = passed.filter(function(n){ return n !== '維基百科'; });
+    html += usable.length
+      ? '<b>可以直接接落個行事曆嘅：</b>' + usable.join('、') +
+        '<br>揀最上面嗰個話我知，我幫你寫入 <code>index.html</code>。'
+      : '<b>暫時未有一個真正嘅搜尋 API 通到。</b>';
+    if(authfail.length){
+      html += '<br><br><b style="color:var(--warn)">差條 key 就得：</b>' + authfail.join('、') +
+              '<br>呢啲 CORS 已經通咗，補返條啱嘅 key 再試一次就會變綠色。';
+    }
+    if(blocked.length){
+      html += '<br><br><b style="color:var(--bad)">用唔到：</b>' + blocked.join('、') +
+              '<br>佢哋唔准瀏覽器直接 call，靜態 HTML 冇得繞。';
+    }
+  }
+  s.innerHTML = html;
+  s.style.display = 'block';
+  s.scrollIntoView({behavior:'smooth', block:'nearest'});
+  $('run').disabled = false; $('q2').disabled = false;
+}
+
+$('run').onclick = runAll;
+$('q2').onclick = function(){
+  QUERY = 'AIRSIDE 啟德 餐廳';
+  runAll();
+};
+render();
+</script>
+</body>
+</html>
