@@ -187,7 +187,39 @@ header .spacer{flex:1}
    個 modal 其實有開，用戶只係睇唔到，感覺就係「撳咗冇反應」。
    凡係會喺 aiModal 開住嗰陣彈出嘅，都要明確排高過佢。 */
 #aiSetModal{z-index:55}
-#guestExpModal{z-index:56}
+/* ===== 📚 課後功課版面 ===== */
+.hwTabs{display:flex;gap:5px;flex-wrap:wrap;margin:10px 0 8px}
+.hwTabs button{border:1px solid var(--line);background:var(--panel);color:var(--muted);
+  padding:5px 12px;border-radius:99px;font-size:12.5px}
+.hwTabs button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.hwStat{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);
+  background:var(--accent-soft);border-radius:8px;padding:8px 12px;margin-bottom:12px}
+.hwStat b{color:var(--ink);font-size:15px}
+.hwH{margin:14px 0 6px;font-size:14px;color:var(--accent)}
+.hwFold{border:1px solid var(--line);border-radius:9px;padding:9px 12px;margin-top:12px;background:var(--panel)}
+.hwFold summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--muted)}
+.hwCard{border:1px solid var(--line);border-left:4px solid var(--q-amber);border-radius:8px;
+  padding:10px 12px;margin-bottom:8px;background:var(--panel)}
+.hwCard.over{border-left-color:var(--overdue);background:#fdf3f3}
+.hwCard.fin{border-left-color:var(--accent);opacity:.62}
+.hwCard .t{font-weight:700;font-size:14px}
+.hwCard .s{font-size:12px;color:var(--muted);margin-top:2px}
+.hwSrc{font-size:10.5px;padding:1px 7px;border-radius:99px;background:var(--accent-soft);
+  color:var(--accent);margin-right:6px;font-weight:700;vertical-align:1px}
+.hwSrc.p{background:#fdf0e2;color:#a8641a}
+.hwSrc.w{background:#eceaff;color:#5b48c9}
+.hwBar{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.hwBar button{padding:3px 11px;font-size:12px}
+.hwProg{height:5px;background:var(--line);border-radius:99px;margin-top:7px;overflow:hidden}
+.hwProg i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.hwSheets{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.hwSheets button{width:42px;height:42px;border-radius:9px;border:1px solid var(--line);
+  background:var(--panel);font-size:14px;font-weight:700;color:var(--muted)}
+.hwSheets button.act{background:var(--q-amber);border-color:var(--q-amber);color:#fff}
+.hwSheets button.fin{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+/* 訪客模式：Charlotte 睇得到自己張清單，但改唔到嘢 */
+body.readonly .hwOwner,
+body.readonly .hwBar{display:none!important}#guestExpModal{z-index:56}
 #confirmModal{z-index:90}   /* 阻塞式確認框，永遠要喺最頂 */
 #guestUnlockModal,#guestPwSetModal{z-index:57}
 #searchModal{z-index:58}   /* Ctrl/Cmd+F 全域都開得，AI 視窗開住嗰陣一樣要見到 */
@@ -390,7 +422,6 @@ body.readonly .trow{cursor:default}
 body.readonly .trow.task .nm{cursor:default}
 /* 訪客模式：隱藏 Data Log 同 General Rules 兩個 tab */
 body.readonly .aiTabs button[data-p="log"],
-body.readonly .aiTabs button[data-p="hw"],
 body.readonly .aiTabs button[data-p="rule"]{display:none!important}
 /* 訪客排程（待確認）事件樣式 */
 .evRow.guestPending{border-color:var(--q-amber);border-left-color:var(--q-amber);background:#fffbf2}
@@ -578,7 +609,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
     <button data-p="ask" class="on">✍️ 講低你想做乜</button>
     <button data-p="log">📚 Data Log（佢嘅記憶）</button>
     <button data-p="rule">🧠 General Rules（規則）</button>
-    <button data-p="hw">📚 課後功課</button>
+    <button data-p="hw" id="tabHw">📚 課後功課</button>
     <button data-p="chat">💬 傾偈</button>
   </div>
 
@@ -646,16 +677,52 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 
   <!-- Tab 4：課後功課 -->
   <div class="aiPane" id="paneHw">
-    <p class="subnote">唔使你每個星期打一次功課。喺呢度<b>講一次規矩</b>——「上完大提琴堂，跟住嗰個星期要練一次」——之後行事曆每次出現嗰堂，系統就自動生成跟進項目，做唔嗮會一直提住，AI 傾偈嗰陣亦都見到。</p>
-    <div class="aiBar">
-      <button class="btn primary" id="hwSeed">⚡ 一鍵載入常見班別規矩</button>
-      <button class="btn" id="hwAdd">＋ 加一條規矩</button>
-      <span class="aiHint" id="hwCount"></span>
+    <p class="subnote" id="hwIntro">上完堂 <b>預設就係有功課</b>。行事曆一出現嗰堂，跟進項目自動彈落「未做完」，唔使你打。真係冇功課嗰次，撳嗰件嘢右邊嘅 ✕ 交叉走佢就得。做完嘅嘢會喺「啱啱做完」度留 7 日然後自動淡出，唔會塞住個畫面。</p>
+
+    <div class="hwTabs" id="hwFilter">
+      <button data-f="all" class="on">全部</button>
+      <button data-f="class">📖 補習班功課</button>
+      <button data-f="parent">✍️ 爸爸俾嘅練習</button>
+      <button data-f="sheet">🗂 實體工作紙</button>
     </div>
-    <h4 style="margin:14px 0 6px;font-size:14px;color:var(--accent)">仲未做完嘅跟進</h4>
+
+    <div class="hwStat" id="hwStat"></div>
+
+    <h4 class="hwH">仲未做完</h4>
     <div id="hwPending"></div>
-    <h4 style="margin:18px 0 6px;font-size:14px;color:var(--accent)">規矩（上完邊堂 ➜ 要跟進乜）</h4>
-    <div id="hwRules"></div>
+
+    <details class="hwFold" id="hwDoneFold">
+      <summary>✅ 啱啱做完（7 日內）<span id="hwDoneN"></span></summary>
+      <div id="hwDone"></div>
+    </details>
+
+    <details class="hwFold hwOwner">
+      <summary>➕ 加練習俾佢（爸爸專用）</summary>
+      <div style="padding:4px 2px 2px">
+        <div class="aiRow" style="gap:8px;align-items:flex-end">
+          <div style="flex:3"><label>練習名（例如：數學變種題 ×10）</label><input type="text" id="hwNewTitle" placeholder="打練習個名" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px"></div>
+          <div style="flex:0 0 90px"><label>要做幾轉</label><input type="number" id="hwNewTimes" min="1" value="1" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px"></div>
+          <div style="flex:0 0 150px"><label>幾時之前做完</label><input type="date" id="hwNewDue" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px"></div>
+          <div style="flex:0 0 auto"><button class="btn primary" id="hwNewGo">加落去</button></div>
+        </div>
+        <label style="margin-top:12px;display:block">🗂 風琴 folder 工作紙（撳個號碼就派俾佢做，再撳一次就收返）</label>
+        <div class="hwSheets" id="hwSheets"></div>
+      </div>
+    </details>
+
+    <details class="hwFold hwOwner">
+      <summary>⚙ 規矩：上完邊堂 ➜ 要跟進乜<span class="aiHint" id="hwCount" style="margin-left:8px"></span></summary>
+      <div class="aiBar" style="margin:8px 0">
+        <button class="btn primary" id="hwSeed">⚡ 一鍵載入常見班別規矩</button>
+        <button class="btn" id="hwAdd">＋ 加一條規矩</button>
+      </div>
+      <div id="hwRules"></div>
+    </details>
+
+    <details class="hwFold hwOwner">
+      <summary>🚫 交叉咗嘅（話咗今次冇功課）<span id="hwSkipN"></span></summary>
+      <div id="hwSkip"></div>
+    </details>
   </div>
 
   <!-- Tab 4：💬 傾偈（Chat） -->
@@ -2640,172 +2707,287 @@ function ensureHw(){
   ensureAI();
   if(!Array.isArray(state.ai.hwRules)) state.ai.hwRules = [];
   if(!state.ai.hwDone || typeof state.ai.hwDone !== 'object') state.ai.hwDone = {};
+  if(!state.ai.hwSkip || typeof state.ai.hwSkip !== 'object') state.ai.hwSkip = {};
+  if(!Array.isArray(state.ai.hwTasks)) state.ai.hwTasks = [];
   return state.ai;
 }
 
-/* 預設規矩：對得住呢一家人實際上緊嘅堂。撳「一鍵載入」先會寫入，唔會靜靜雞加。
-   match 係「堂嘅名入面含有呢個字」，所以行事曆叫「大提琴課」「學大提琴」都認得到。 */
+/* hwDone 由「一個數字」升級做 {n, at}，因為要知幾時做完先做到「7 日後淡出」。
+   舊格式（純數字）照樣讀得到，唔會整爛已經撳過嘅記錄。 */
+function hwDoneN(k){ const v=(state.ai.hwDone||{})[k]; if(v==null) return 0;
+  return (typeof v==='number') ? v : Math.max(0, parseInt(v.n,10)||0); }
+function hwDoneAt(k){ const v=(state.ai.hwDone||{})[k];
+  return (v && typeof v==='object' && v.at) ? v.at : ''; }
+function hwSetDone(k,n){ ensureHw();
+  if(n<=0) delete state.ai.hwDone[k]; else state.ai.hwDone[k]={n:n, at:nowISO()}; }
+
 function defaultHwRules(){
   return [
     {id:uid(), match:'大提琴', due:'week', items:[{name:'練習大提琴', times:1}]},
     {id:uid(), match:'鋼琴',   due:'week', items:[{name:'練習鋼琴', times:1}]},
     {id:uid(), match:'中文',   due:'next', items:[{name:'中文堂功課（要做完，唔係做一半）', times:1}]},
-    {id:uid(), match:'英文',   due:'next', items:[{name:'英文練習簿（分幾轉做完一本）', times:3}]},
+    {id:uid(), match:'英文',   due:'next', items:[{name:'英文練習簿', times:3}]},
     {id:uid(), match:'學而思', due:'next', items:[
         {name:'Textbook 練習', times:1},
         {name:'練習簿', times:1},
         {name:'速算練習簿', times:1}]},
-    {id:uid(), match:'普通話', due:'next', items:[{name:'普通話功課（拼音練習嗰啲）', times:1}]},
+    {id:uid(), match:'普通話', due:'next', items:[{name:'普通話功課（拼音練習）', times:1}]},
     {id:uid(), match:'游水',   due:'none', items:[]}
   ];
 }
 
-const HW_LOOKBACK_DAYS = 21;   /* 只睇最近三個禮拜嘅堂，唔好翻幾個月舊帳 */
+const HW_LOOKBACK_DAYS = 21;   /* 只睇最近三個禮拜嘅堂 */
+const HW_FADE_DAYS     = 7;    /* 做完之後仲喺「啱啱做完」度留幾多日 */
+const HW_SHEET_MAX     = 12;   /* 風琴 folder 有幾多格 */
 
-/* 一件跟進嘅唯一 key：邊一堂（event id）＋ 邊個項目 */
 function hwKey(evId, itemName){ return evId + '::' + itemName; }
+function daysAgo(iso){ if(!iso) return 999;
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000); }
 
-/* 計出「而家仲欠幾多」。
-   回傳每件未做完嘅跟進，連埋死線同埋逾期未逾期。 */
-function pendingHomework(){
+/* 一次過計晒成塊板：未做完、啱啱做完、交叉咗。
+   三個來源共用同一個 item 結構，所以畫面同 AI context 都唔使分開處理。 */
+function homeworkBoard(){
   ensureHw();
-  const rules = state.ai.hwRules || [];
-  if(!rules.length) return [];
-  const nw = nowStr();
+  const nw = nowStr(), today = fmtDate(new Date());
   const evs = state.events || [];
   const limS = fmtDate(new Date(Date.now() - HW_LOOKBACK_DAYS*86400000)) + 'T00:00';
-  const out = [];
-  evs.filter(function(e){ return e && e.start <= nw && e.start >= limS; })
-     .sort(function(a,b){ return a.start.localeCompare(b.start); })
-     .forEach(function(ev){
-    rules.forEach(function(rule){
-      if(!rule.match || !rule.items || !rule.items.length) return;
-      if(String(ev.title||'').indexOf(rule.match) < 0) return;
-      /* 死線：next＝下次同一堂之前；week＝上堂日 +7 日；none＝唔使跟進 */
-      let due = '';
-      if(rule.due === 'next'){
-        const nxt = evs.filter(function(x){ return x.start > ev.start && String(x.title||'').indexOf(rule.match) >= 0; })
-                       .sort(function(a,b){ return a.start.localeCompare(b.start); })[0];
-        due = nxt ? nxt.start.slice(0,10) : fmtDate(new Date(new Date(ev.start.slice(0,10)).getTime() + 7*86400000));
-      }else if(rule.due === 'week'){
-        due = fmtDate(new Date(new Date(ev.start.slice(0,10)).getTime() + 7*86400000));
-      }else return;
-      rule.items.forEach(function(it){
-        const need = Math.max(1, parseInt(it.times,10) || 1);
-        const k = hwKey(ev.id, it.name);
-        const doneN = Math.max(0, parseInt((state.ai.hwDone||{})[k], 10) || 0);
-        if(doneN >= need) return;
-        out.push({
-          key:k, evId:ev.id, classTitle:ev.title, classDate:ev.start.slice(0,10),
-          item:it.name, done:doneN, need:need, due:due,
-          overdue: due && fmtDate(new Date()) > due
+  const pending = [], done = [], skipped = [];
+
+  /* ── 來源一：補習班功課（由行事曆嘅堂自動生成，預設就係有功課）── */
+  (state.ai.hwRules||[]).length && evs
+    .filter(function(e){ return e && e.start <= nw && e.start >= limS; })
+    .sort(function(a,b){ return a.start.localeCompare(b.start); })
+    .forEach(function(ev){
+      (state.ai.hwRules||[]).forEach(function(rule){
+        if(!rule.match || !rule.items || !rule.items.length) return;
+        if(String(ev.title||'').indexOf(rule.match) < 0) return;
+        let due = '';
+        if(rule.due === 'next'){
+          const nxt = evs.filter(function(x){ return x.start > ev.start && String(x.title||'').indexOf(rule.match) >= 0; })
+                         .sort(function(a,b){ return a.start.localeCompare(b.start); })[0];
+          due = nxt ? nxt.start.slice(0,10)
+                    : fmtDate(new Date(new Date(ev.start.slice(0,10)).getTime() + 7*86400000));
+        }else if(rule.due === 'week'){
+          due = fmtDate(new Date(new Date(ev.start.slice(0,10)).getTime() + 7*86400000));
+        }else return;
+        rule.items.forEach(function(it){
+          const need = Math.max(1, parseInt(it.times,10) || 1);
+          const k = hwKey(ev.id, it.name);
+          const o = {key:k, src:'class', label:it.name, need:need, done:hwDoneN(k), due:due,
+                     sub:ev.start.slice(0,10) + '　' + ev.title, doneAt:hwDoneAt(k)};
+          o.overdue = !!(due && today > due);
+          if(state.ai.hwSkip[k]) skipped.push(o);
+          else if(o.done >= need){ if(daysAgo(o.doneAt) <= HW_FADE_DAYS) done.push(o); }
+          else pending.push(o);
         });
       });
     });
+
+  /* ── 來源二／三：爸爸加嘅練習、實體工作紙 ── */
+  (state.ai.hwTasks||[]).forEach(function(t){
+    const need = Math.max(1, parseInt(t.times,10)||1);
+    const o = {key:'task::'+t.id, src:(t.kind==='sheet'?'sheet':'parent'), taskId:t.id,
+               label:(t.kind==='sheet' ? '工作紙 #'+t.sheetNo : t.title) ,
+               need:need, done:Math.max(0,parseInt(t.done,10)||0), due:t.due||'',
+               sub:(t.kind==='sheet' ? '風琴 folder 第 '+t.sheetNo+' 格' : '爸爸加嘅練習')
+                   + '　·　' + (t.at? t.at.slice(0,10) : ''),
+               doneAt:t.doneAt||''};
+    o.overdue = !!(o.due && today > o.due);
+    if(o.done >= need){ if(daysAgo(o.doneAt) <= HW_FADE_DAYS) done.push(o); }
+    else pending.push(o);
   });
-  return out;
+
+  const rank = {class:0, parent:1, sheet:2};
+  pending.sort(function(a,b){
+    if(a.overdue !== b.overdue) return a.overdue ? -1 : 1;         /* 過咗期擺最前 */
+    if((a.due||'9') !== (b.due||'9')) return (a.due||'9') < (b.due||'9') ? -1 : 1;
+    return rank[a.src] - rank[b.src];
+  });
+  done.sort(function(a,b){ return String(b.doneAt).localeCompare(String(a.doneAt)); });
+  return {pending:pending, done:done, skipped:skipped};
 }
 
-function hwTick(key, delta){
+/* ctxText 用嘅：淨係要未做完嗰批 */
+function pendingHomework(){ return homeworkBoard().pending; }
+
+/* 打卡。class 來源寫入 hwDone，task 來源寫返落張 task 度。 */
+function hwTick(o, delta){
   ensureHw();
-  const cur = Math.max(0, parseInt(state.ai.hwDone[key],10) || 0);
-  const nv = Math.max(0, cur + delta);
-  if(nv === 0) delete state.ai.hwDone[key]; else state.ai.hwDone[key] = nv;
+  if(o.src === 'class'){
+    hwSetDone(o.key, Math.max(0, o.done + delta));
+  }else{
+    const t = (state.ai.hwTasks||[]).filter(function(x){ return x.id === o.taskId; })[0];
+    if(!t) return;
+    t.done = Math.max(0, (parseInt(t.done,10)||0) + delta);
+    t.doneAt = t.done >= Math.max(1,parseInt(t.times,10)||1) ? nowISO() : '';
+  }
   save(); renderHw();
+}
+function hwSkipToggle(o){
+  ensureHw();
+  if(o.src === 'class'){
+    if(state.ai.hwSkip[o.key]) delete state.ai.hwSkip[o.key];
+    else state.ai.hwSkip[o.key] = 1;
+  }else{
+    state.ai.hwTasks = (state.ai.hwTasks||[]).filter(function(x){ return x.id !== o.taskId; });
+  }
+  save(); renderHw();
+}
+
+let hwFilter = 'all';
+
+function hwCard(o, finished){
+  const d = document.createElement('div');
+  d.className = 'hwCard' + (finished ? ' fin' : (o.overdue ? ' over' : ''));
+  const tag = o.src==='class' ? '<span class="hwSrc">📖 補習班</span>'
+            : o.src==='sheet' ? '<span class="hwSrc w">🗂 工作紙</span>'
+            :                   '<span class="hwSrc p">✍️ 爸爸</span>';
+  const dueTxt = finished
+    ? '做完咗　·　' + (o.doneAt ? fmtStamp(o.doneAt) : '')
+    : (o.due ? (o.overdue ? '⚠ 死線 ' + o.due + ' 已經過咗' : '要喺 ' + o.due + ' 之前做完') : '冇死線');
+  d.innerHTML = '<div class="t">' + tag + esc(o.label) +
+      (o.need>1 ? ' <span style="color:var(--muted);font-weight:400">（'+o.done+'／'+o.need+' 轉）</span>' : '') +
+    '</div><div class="s">' + esc(o.sub) + '　·　' + dueTxt + '</div>' +
+    (o.need>1 ? '<div class="hwProg"><i style="width:'+Math.round(o.done/o.need*100)+'%"></i></div>' : '');
+  const bar = document.createElement('div'); bar.className = 'hwBar';
+  if(!finished){
+    const b1 = document.createElement('button');
+    b1.className = 'btn primary';
+    b1.textContent = o.need>1 ? '✓ 做咗一轉' : '✓ 做完喇';
+    b1.onclick = ()=> hwTick(o, 1);
+    bar.appendChild(b1);
+    if(o.done > 0){
+      const b2 = document.createElement('button'); b2.className='btn';
+      b2.textContent='↩ 撳錯'; b2.onclick = ()=> hwTick(o, -1); bar.appendChild(b2);
+    }
+    const b3 = document.createElement('button'); b3.className='btn';
+    b3.textContent = o.src==='class' ? '✕ 今次冇呢份功課' : '✕ 刪走';
+    b3.title = o.src==='class' ? '呢一堂真係冇功課，交叉走佢' : '';
+    b3.onclick = ()=> hwSkipToggle(o);
+    bar.appendChild(b3);
+  }else{
+    const b4 = document.createElement('button'); b4.className='btn';
+    b4.textContent='↩ 未做完'; b4.onclick = ()=> hwTick(o, -1); bar.appendChild(b4);
+  }
+  d.appendChild(bar);
+  return d;
 }
 
 function renderHw(){
   ensureHw();
-  const pend = pendingHomework();
-  const pe = $('hwPending');
-  $('hwCount').textContent = (state.ai.hwRules.length || 0) + ' 條規矩　·　' + pend.length + ' 件跟進未做完';
-  if(!state.ai.hwRules.length){
-    pe.innerHTML = '<p class="subnote">仲未有規矩。撳上面「⚡ 一鍵載入常見班別規矩」開始，之後可以逐條改。</p>';
+  /* 訪客模式：Charlotte 睇得到自己張清單（改唔到，撳掣嘅 CSS 已經收埋）。
+     呢個就係佢唔使成日問「我做咩好」嘅答案——佢自己望得到。 */
+  const guest = document.body.classList.contains('readonly');
+  const tab = document.getElementById('tabHw');
+  if(tab) tab.textContent = guest ? '📋 我要做嘅嘢' : '📚 課後功課';
+  const intro = $('hwIntro');
+  if(intro) intro.innerHTML = guest
+    ? 'Charlotte，呢度係你而家仲未做完嘅嘢。做完一件就同爸爸講，佢會幫你剔走。唔知由邊件開始？揀最上面嗰件，嗰件係最快到期㗎。'
+    : '上完堂 <b>預設就係有功課</b>。行事曆一出現嗰堂，跟進項目自動彈落「未做完」，唔使你打。真係冇功課嗰次，撳嗰件嘢右邊嘅 ✕ 交叉走佢就得。做完嘅嘢會喺「啱啱做完」度留 7 日然後自動淡出，唔會塞住個畫面。';
+  const b = homeworkBoard();
+  const keep = function(x){ return hwFilter==='all' || x.src===hwFilter; };
+  const pend = b.pending.filter(keep), fin = b.done.filter(keep);
+
+  const over = b.pending.filter(function(x){ return x.overdue; }).length;
+  $('hwStat').innerHTML =
+    '<span><b>' + b.pending.length + '</b> 件未做完</span>' +
+    '<span>過咗期 <b style="color:var(--overdue)">' + over + '</b></span>' +
+    '<span>7 日內做完 <b style="color:var(--accent)">' + b.done.length + '</b></span>' +
+    '<span>交叉咗 <b>' + b.skipped.length + '</b></span>';
+
+  const pe = $('hwPending'); pe.innerHTML = '';
+  if(!(state.ai.hwRules||[]).length && !(state.ai.hwTasks||[]).length){
+    pe.innerHTML = '<p class="subnote">仲未有規矩。打開下面「⚙ 規矩」撳「⚡ 一鍵載入常見班別規矩」開始。</p>';
   }else if(!pend.length){
-    pe.innerHTML = '<p class="subnote">✅ 全部跟進都做完咗。</p>';
-  }else{
-    pe.innerHTML = '';
-    pend.forEach(function(p){
-      const row = document.createElement('div');
-      row.className = 'logItem';
-      row.style.borderLeft = '4px solid ' + (p.overdue ? 'var(--overdue)' : 'var(--q-amber)');
-      row.innerHTML =
-        '<div style="font-weight:700">' + esc(p.item) +
-          (p.need > 1 ? ' <span style="color:var(--muted);font-weight:400">（' + p.done + '／' + p.need + ' 轉）</span>' : '') + '</div>' +
-        '<div style="font-size:12px;color:var(--muted);margin-top:2px">' +
-          esc(p.classTitle) + '　·　' + p.classDate + ' 上堂' +
-          (p.due ? '　·　' + (p.overdue ? '<b style="color:var(--overdue)">已經過咗 ' + p.due + '</b>' : '要喺 ' + p.due + ' 之前做完') : '') +
-        '</div>';
-      const bar = document.createElement('div');
-      bar.style.cssText = 'display:flex;gap:6px;margin-top:7px';
-      const bDone = document.createElement('button');
-      bDone.className = 'btn primary'; bDone.style.cssText = 'padding:3px 11px;font-size:12px';
-      bDone.textContent = p.need > 1 ? '✓ 做咗一轉' : '✓ 做完喇';
-      bDone.onclick = ()=> hwTick(p.key, 1);
-      bar.appendChild(bDone);
-      if(p.done > 0){
-        const bUn = document.createElement('button');
-        bUn.className = 'btn'; bUn.style.cssText = 'padding:3px 11px;font-size:12px';
-        bUn.textContent = '↩ 撳錯咗';
-        bUn.onclick = ()=> hwTick(p.key, -1);
-        bar.appendChild(bUn);
-      }
-      row.appendChild(bar);
-      pe.appendChild(row);
-    });
+    pe.innerHTML = '<p class="subnote">✅ 呢個分類冇嘢未做完。</p>';
+  }else pend.forEach(function(o){ pe.appendChild(hwCard(o,false)); });
+
+  const de = $('hwDone'); de.innerHTML = '';
+  $('hwDoneN').textContent = '　' + fin.length + ' 件';
+  if(!fin.length) de.innerHTML = '<p class="subnote">（7 日內冇做完嘅嘢。再舊嘅會自動淡出，唔會塞住個畫面。）</p>';
+  else fin.forEach(function(o){ de.appendChild(hwCard(o,true)); });
+
+  const se = $('hwSkip'); se.innerHTML = '';
+  $('hwSkipN').textContent = '　' + b.skipped.length + ' 件';
+  if(!b.skipped.length) se.innerHTML = '<p class="subnote">（冇交叉咗嘅嘢）</p>';
+  else b.skipped.forEach(function(o){
+    const d = document.createElement('div'); d.className='hwCard fin';
+    d.innerHTML = '<div class="t">' + esc(o.label) + '</div><div class="s">' + esc(o.sub) + '</div>';
+    const bar=document.createElement('div'); bar.className='hwBar';
+    const bk=document.createElement('button'); bk.className='btn'; bk.textContent='↩ 放返出嚟';
+    bk.onclick = ()=> hwSkipToggle(o); bar.appendChild(bk); d.appendChild(bar);
+    se.appendChild(d);
+  });
+
+  /* 風琴 folder：一格一個掣。灰＝未派，橙＝派咗未做完，綠＝做完 */
+  const sh = $('hwSheets');
+  if(sh){
+    sh.innerHTML = '';
+    for(let n=1; n<=HW_SHEET_MAX; n++){
+      const t = (state.ai.hwTasks||[]).filter(function(x){ return x.kind==='sheet' && +x.sheetNo===n; })[0];
+      const fin2 = t && (parseInt(t.done,10)||0) >= Math.max(1,parseInt(t.times,10)||1);
+      const bt = document.createElement('button');
+      bt.textContent = n;
+      bt.className = t ? (fin2 ? 'fin' : 'act') : '';
+      bt.title = t ? (fin2 ? '做完咗，撳一下收返' : '派咗未做完，撳一下收返') : '撳一下派呢張工作紙俾佢做';
+      bt.onclick = ()=>{
+        ensureHw();
+        if(t) state.ai.hwTasks = state.ai.hwTasks.filter(function(x){ return !(x.kind==='sheet' && +x.sheetNo===n); });
+        else state.ai.hwTasks.push({id:uid(), kind:'sheet', sheetNo:n, title:'工作紙 #'+n,
+                                    times:1, done:0, due:'', at:nowISO(), doneAt:''});
+        save(); renderHw();
+      };
+      sh.appendChild(bt);
+    }
   }
 
-  const re = $('hwRules');
+  renderHwRules();
+}
+
+function renderHwRules(){
+  const re = $('hwRules'); if(!re) return;
   re.innerHTML = '';
-  if(!state.ai.hwRules.length){ re.innerHTML = '<p class="subnote">（未有規矩）</p>'; return; }
+  $('hwCount').textContent = (state.ai.hwRules||[]).length + ' 條';
+  if(!(state.ai.hwRules||[]).length){ re.innerHTML = '<p class="subnote">（未有規矩）</p>'; return; }
+  const dueTxt = {next:'下次同一堂之前', week:'上堂之後 7 日內', none:'唔使跟進'};
   state.ai.hwRules.forEach(function(rule, ri){
-    const box = document.createElement('div');
-    box.className = 'logItem';
-    const dueTxt = {next:'下次同一堂之前', week:'上堂之後 7 日內', none:'唔使跟進'};
+    const box = document.createElement('div'); box.className = 'hwCard';
+    box.style.borderLeftColor = 'var(--line)';
     box.innerHTML =
       '<div class="aiRow" style="gap:8px;align-items:flex-end">' +
         '<div style="flex:2"><label>堂嘅名含有</label><input type="text" value="' + esc(rule.match||'') + '" data-hw="match" data-i="' + ri + '" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px"></div>' +
         '<div style="flex:2"><label>幾時之前做完</label><select data-hw="due" data-i="' + ri + '" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px">' +
           ['next','week','none'].map(function(k){ return '<option value="'+k+'"'+(rule.due===k?' selected':'')+'>'+dueTxt[k]+'</option>'; }).join('') +
-        '</select></div>' +
-      '</div>';
-    const items = document.createElement('div');
-    items.style.marginTop = '8px';
+        '</select></div></div>';
+    const items = document.createElement('div'); items.style.marginTop='8px';
     (rule.items||[]).forEach(function(it, ii){
-      const r2 = document.createElement('div');
-      r2.className = 'aiRow'; r2.style.cssText = 'gap:6px;align-items:flex-end;margin-bottom:5px';
+      const r2 = document.createElement('div'); r2.className='aiRow';
+      r2.style.cssText='gap:6px;align-items:flex-end;margin-bottom:5px';
       r2.innerHTML =
         '<div style="flex:3"><label>要做嘅嘢</label><input type="text" value="' + esc(it.name||'') + '" data-hw="iname" data-i="' + ri + '" data-j="' + ii + '" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px"></div>' +
-        '<div style="flex:0 0 90px"><label>要做幾轉</label><input type="number" min="1" value="' + (it.times||1) + '" data-hw="itimes" data-i="' + ri + '" data-j="' + ii + '" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px"></div>';
-      const del = document.createElement('button');
-      del.className = 'btn danger'; del.style.cssText = 'padding:5px 9px;font-size:12px;flex:0 0 auto';
-      del.textContent = '✕';
+        '<div style="flex:0 0 90px"><label>幾轉</label><input type="number" min="1" value="' + (it.times||1) + '" data-hw="itimes" data-i="' + ri + '" data-j="' + ii + '" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px"></div>';
+      const del = document.createElement('button'); del.className='btn danger';
+      del.style.cssText='padding:5px 9px;font-size:12px;flex:0 0 auto'; del.textContent='✕';
       del.onclick = ()=>{ rule.items.splice(ii,1); save(); renderHw(); };
-      r2.appendChild(del);
-      items.appendChild(r2);
+      r2.appendChild(del); items.appendChild(r2);
     });
     box.appendChild(items);
-    const bar = document.createElement('div');
-    bar.style.cssText = 'display:flex;gap:6px;margin-top:6px';
-    const addIt = document.createElement('button');
-    addIt.className = 'btn'; addIt.style.cssText = 'padding:3px 11px;font-size:12px';
-    addIt.textContent = '＋ 加一件要做嘅嘢';
+    const bar = document.createElement('div'); bar.className='hwBar';
+    const addIt = document.createElement('button'); addIt.className='btn';
+    addIt.textContent='＋ 加一件要做嘅嘢';
     addIt.onclick = ()=>{ rule.items = rule.items||[]; rule.items.push({name:'新功課', times:1}); save(); renderHw(); };
-    const delR = document.createElement('button');
-    delR.className = 'btn danger'; delR.style.cssText = 'padding:3px 11px;font-size:12px';
-    delR.textContent = '🗑 刪走呢條規矩';
+    const delR = document.createElement('button'); delR.className='btn danger';
+    delR.textContent='🗑 刪走';
     delR.onclick = async ()=>{
       if(await confirmBox('刪走「' + (rule.match||'') + '」呢條規矩？')){
-        state.ai.hwRules.splice(ri,1); save(); renderHw();
-      }
+        state.ai.hwRules.splice(ri,1); save(); renderHw(); }
     };
-    bar.appendChild(addIt); bar.appendChild(delR);
-    box.appendChild(bar);
+    bar.appendChild(addIt); bar.appendChild(delR); box.appendChild(bar);
     re.appendChild(box);
   });
   re.querySelectorAll('[data-hw]').forEach(function(inp){
     inp.onchange = ()=>{
-      const i = +inp.dataset.i, j = +inp.dataset.j, k = inp.dataset.hw;
+      const i=+inp.dataset.i, j=+inp.dataset.j, k=inp.dataset.hw;
       const rule = state.ai.hwRules[i]; if(!rule) return;
       if(k==='match') rule.match = inp.value.trim();
       else if(k==='due') rule.due = inp.value;
@@ -2816,12 +2998,29 @@ function renderHw(){
   });
 }
 
+document.querySelectorAll('#hwFilter button').forEach(function(b){
+  b.onclick = ()=>{
+    hwFilter = b.dataset.f;
+    document.querySelectorAll('#hwFilter button').forEach(function(x){ x.classList.toggle('on', x===b); });
+    renderHw();
+  };
+});
+$('hwNewGo').onclick = ()=>{
+  ensureHw();
+  const t = $('hwNewTitle').value.trim();
+  if(!t){ toast('未打練習個名'); return; }
+  state.ai.hwTasks.push({id:uid(), kind:'parent', title:t,
+    times:Math.max(1, parseInt($('hwNewTimes').value,10)||1), done:0,
+    due:$('hwNewDue').value || '', at:nowISO(), doneAt:''});
+  $('hwNewTitle').value=''; $('hwNewTimes').value='1'; $('hwNewDue').value='';
+  save(); renderHw(); toast('加咗一件練習俾佢');
+};
 $('hwSeed').onclick = async ()=>{
   ensureHw();
-  if(state.ai.hwRules.length && !(await confirmBox('而家已經有規矩。載入預設會喺後面加多一批，可能會重複。照做？'))) return;
+  if(state.ai.hwRules.length && !(await confirmBox('而家已經有規矩。載入預設會喺後面加多一批，可能重複。照做？'))) return;
   state.ai.hwRules = (state.ai.hwRules||[]).concat(defaultHwRules());
   save(); renderHw();
-  toast('已經載入預設規矩，記住改返「堂嘅名含有」對得上你行事曆嘅叫法');
+  toast('載入咗預設規矩，記住改返「堂嘅名含有」對得上你行事曆嘅叫法');
 };
 $('hwAdd').onclick = ()=>{
   ensureHw();
@@ -3345,7 +3544,7 @@ function openAI(tab){
 }
 function switchTab(p){
   /* 訪客模式只可以用「講低你想做乜」同「傾偈」 */
-  if(document.body.classList.contains('readonly') && (p==='log' || p==='rule' || p==='hw')){
+  if(document.body.classList.contains('readonly') && (p==='log' || p==='rule')){
     p = 'ask';
   }
   document.querySelectorAll('#aiTabs button').forEach(b=>b.classList.toggle('on', b.dataset.p===p));
