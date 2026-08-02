@@ -599,10 +599,12 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 
   <!-- Tab 3：General Rules -->
   <div class="aiPane" id="paneRule">
-    <p class="subnote">呢份規則係 AI 睇完成個 Data Log 之後，總結出嚟嘅「你嘅使用說明書」。每次幫你排程之前，佢都會先讀呢度。你可以自己執，執完撳儲存。</p>
+    <p class="subnote">呢份規則係 AI 睇完成個 Data Log 之後，總結出嚟嘅「你嘅使用說明書」。每次幫你排程之前，佢都會先讀呢度。你可以自己執，執完撳儲存。<br><b>🔒 想手改嘅嘢唔俾 AI 覆蓋，就撳「加鎖區」，寫喺嗰個標題下面。</b>「重新提煉」永遠唔會郁鎖區入面嘅字。</p>
     <div class="aiBar">
       <button class="btn primary" id="aiRuleGen">🧠 依家由 Data Log 重新提煉</button>
       <button class="btn" id="aiRuleSave">💾 儲存我手改嘅</button>
+      <button class="btn" id="aiRuleLock" title="喺最頂加一段 AI 唔准改嘅鎖區">🔒 加鎖區</button>
+      <button class="btn" id="aiRuleUndo" title="還原提煉之前嗰一版">↩ 還原上一版</button>
       <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px"><input type="checkbox" id="aiAutoRule"> 夠 3 次糾正就自動更新</label>
       <span class="aiHint" id="aiRuleAt"></span>
     </div>
@@ -674,7 +676,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
     <details style="margin-top:8px">
       <summary style="font-size:12px;color:var(--muted);cursor:pointer">（選擇性）用 Microsoft Azure 廣東話神經語音 — 每月 50 萬字免費</summary>
       <div class="ttsGrid" style="margin-top:8px">
-        <div><label>Azure Speech Key</label><input type="password" id="ttsAzKey" placeholder="留空＝用瀏覽器內置語音" spellcheck="false"></div>
+        <div><label>Azure Speech Key</label><div style="display:flex;gap:5px"><input type="password" id="ttsAzKey" placeholder="留空＝用瀏覽器內置語音" spellcheck="false" autocapitalize="off" autocorrect="off"><button class="btn" id="ttsAzKeyShow" title="顯示／收埋條 Key" style="padding:4px 9px;flex:0 0 auto">👁</button></div><div class="ttsNote" id="ttsAzKeyLen" style="margin:4px 0 0"></div></div>
         <div style="flex:0 0 160px"><label>Region（留空＝eastasia）</label><input type="text" id="ttsAzReg" placeholder="eastasia" spellcheck="false"></div>
         <div style="flex:0 0 200px"><label>語音</label><select id="ttsAzVoice">
           <option value="zh-HK-HiuMaanNeural">曉曼 HiuMaan（女）</option>
@@ -683,6 +685,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
         </select></div>
       </div>
       <div class="ttsGrid" style="margin-top:8px">
+        <div style="flex:0 0 auto"><button class="btn" id="ttsAzCheck">🔎 驗證條 Key（同自動搵返 Region）</button></div>
         <div style="flex:0 0 auto"><button class="btn primary" id="ttsAzTest">▶ 淨係試聽 Azure（唔會偷偷轉用內置語音）</button></div>
       </div>
       <div class="ttsNote" id="ttsAzDiag" style="margin:8px 0 0"></div>
@@ -3332,6 +3335,37 @@ $('aiLogImport').onchange = async function(){
 };
 
 /* ---------- 7. General Rules ---------- */
+/* ===== 🔒 General Rules 鎖區 =====
+   問題：genRules() 係「整份取代」state.ai.rules，而 SYS_RULE 入面又寫住
+   「只准寫證據支持到嘅嘢」——用戶手寫嘅目標（例如「細女要考 SPCC」）
+   喺 Data Log 入面零證據，所以每次提煉都會被合法咁刪走。
+   解法：呢個標題以下嘅內容永遠唔經 AI 手。提煉之前斬走、提煉之後原字貼返，
+   同時將佢當「必須遵守、唔准改寫」餵埋落 prompt，等新規則唔會同佢打交。 */
+const RULES_LOCK_HEAD = '## 🔒 我自己寫（AI 唔准改）';
+const RULES_LOCK_TIP  = '（呢個標題以下嘅嘢，「重新提煉」永遠唔會改到。想寫目標、底線、硬性安排就寫喺呢度。）';
+
+/* 將整份規則斬做「鎖區」同「AI 管嘅部分」兩橛。
+   鎖區＝由標題嗰行開始，去到下一個 "## " 標題之前（或者去到最尾）。 */
+function splitLockedRules(text){
+  const s = String(text||'');
+  const i = s.indexOf(RULES_LOCK_HEAD);
+  if(i < 0) return {locked:'', rest:s};
+  const after = s.slice(i + RULES_LOCK_HEAD.length);
+  const m = after.match(/\n(?=##\s)/);          /* 下一個同級標題 */
+  const body = m ? after.slice(0, m.index) : after;
+  const tail = m ? after.slice(m.index) : '';
+  return {
+    locked: (RULES_LOCK_HEAD + body).trim(),
+    rest: (s.slice(0, i) + tail).replace(/\n{3,}/g,'\n\n').trim()
+  };
+}
+function joinLockedRules(locked, rest){
+  const L = String(locked||'').trim();
+  const R = String(rest||'').trim();
+  if(!L) return R;
+  return L + '\n\n' + R;
+}
+
 function loadRules(){
   ensureAI();
   $('aiRulesBox').value = state.ai.rules||'';
@@ -3347,6 +3381,39 @@ $('aiRuleSave').onclick = ()=>{
   setStatus('aiRuleStatus','已經儲存好，下次排程即刻用呢份。');
 };
 $('aiAutoRule').onchange = ()=>{ const c=cfg(); c.autoRule = $('aiAutoRule').checked; cfgSave(c); };
+
+/* 🔒 加鎖區：喺最頂插一段模板。已經有就淨係捲返上去，唔會重複加。 */
+$('aiRuleLock').onclick = ()=>{
+  const box = $('aiRulesBox');
+  if(box.value.indexOf(RULES_LOCK_HEAD) >= 0){
+    box.focus();
+    box.setSelectionRange(box.value.indexOf(RULES_LOCK_HEAD), box.value.indexOf(RULES_LOCK_HEAD));
+    setStatus('aiRuleStatus','鎖區已經有喇，直接喺個標題下面寫就得。');
+    return;
+  }
+  const tpl = RULES_LOCK_HEAD + '\n'
+    + '- ' + RULES_LOCK_TIP + '\n'
+    + '- 大女目標：全級頭十名。\n'
+    + '- 細女目標：考到 SPCC／女拔萃嗰個級數嘅小學。\n'
+    + '- 所有日常安排同教育決定，都要扣得返上面兩個目標。\n';
+  box.value = tpl + '\n' + box.value.trim();
+  box.focus(); box.setSelectionRange(tpl.length, tpl.length);
+  setStatus('aiRuleStatus','已經加咗鎖區模板。改成你想要嘅字，然後撳「💾 儲存我手改嘅」。');
+};
+
+/* ↩ 還原上一版：每次提煉之前都會自動備份一次 */
+$('aiRuleUndo').onclick = async ()=>{
+  ensureAI();
+  if(!state.ai.rulesPrev){ setStatus('aiRuleStatus','冇上一版可以還原（未提煉過，或者呢部機未做過提煉）。', true); return; }
+  if(!(await confirmBox('還原提煉之前嗰一版 General Rules？\n（而家呢一版會變成「上一版」，撳多次就掉返轉。）'))) return;
+  const cur = state.ai.rules || '';
+  state.ai.rules = state.ai.rulesPrev;
+  state.ai.rulesPrev = cur;
+  state.ai.rulesAt = nowISO();
+  logPush('rule','還原咗上一版 General Rules', {kind:'undo'});
+  save(); loadRules();
+  setStatus('aiRuleStatus','已經還原。撳多次「↩ 還原上一版」就會掉返轉。');
+};
 $('aiRuleGen').onclick = ()=>{
   genRules(false).catch(err=>setStatus('aiRuleStatus', err.message, true));
 };
@@ -3355,6 +3422,8 @@ async function genRules(silent){
   ensureAI();
   if(!cfgReady()) throw new Error('仲未設定 API。');
   if(!silent) setStatus('aiRuleStatus','AI 睇緊你成個 Data Log，提煉緊規則…', false, true);
+  /* 🔒 先斬走鎖區：唔俾佢入 AI 手，最後原字貼返 */
+  const _lock = splitLockedRules(state.ai.rules||'');
   const hb = habits(30).map(h=>'- '+h.name+'：'+h.n+' 次，慣常 '+h.med+'（'+h.lo+'–'+h.hi+'），多數 '+(h.wd||'無固定')).join('\n');
   /* 提煉規則時用「精簡版」：
      ① 有 brief（新記錄）就直接用；
@@ -3395,7 +3464,13 @@ async function genRules(silent){
       out = await callAI([
         {role:'system', content:SYS_RULE},
         {role:'user', content:
-          '【現有 General Rules】\n' + ((state.ai.rules||'').trim() || '（未有）') +
+          (_lock.locked
+            ? '【用戶親手寫嘅鎖區 ── 唔准改、唔准刪、唔准重寫、唔准複製落你嘅輸出】\n'
+              + _lock.locked
+              + '\n\n呢一段係用戶自己嘅目標同底線，唔需要 Data Log 證據，系統會原字貼返落最終版。'
+              + '你嘅工作係出「其餘部分」：唔可以同上面嗰段衝突，亦都唔好將上面嗰段抄多次。\n\n'
+            : '') +
+          '【現有 General Rules（呢部分先係你要更新嗰橛）】\n' + (_lock.rest || '（未有）') +
           '\n\n【歷史習慣統計】\n' + (hb || '（冇）') +
           '\n\n【Data Log（由舊到新）】\n' + (mkLog(p.logN,p.cut) || '（冇）') +
           '\n\n請輸出更新版嘅 General Rules。'}
@@ -3408,7 +3483,15 @@ async function genRules(silent){
     }
   }
   if(!String(out||'').trim()) throw new Error('試咗三次都爆 token 上限。請喺「⚙ API 設定」剔「關閉 AI 內部思考」，或者換一個唔使內部思考嘅 model。');
-  state.ai.rules = out.replace(/^```[a-zA-Z]*\s*/,'').replace(/```\s*$/,'').trim();
+  /* 備份上一版，俾「↩ 還原上一版」用。提煉係整份取代，冇備份就冇得返轉頭。 */
+  state.ai.rulesPrev = state.ai.rules || '';
+  let _fresh2 = out.replace(/^```[a-zA-Z]*\s*/,'').replace(/```\s*$/,'').trim();
+  /* 保險：如果 AI 唔聽話照抄咗個鎖區落佢嘅輸出，斬走佢，唔好出現兩份。 */
+  if(_lock.locked){
+    const dup = splitLockedRules(_fresh2);
+    if(dup.locked) _fresh2 = dup.rest;
+  }
+  state.ai.rules = joinLockedRules(_lock.locked, _fresh2);
   state.ai.rulesAt = nowISO();
   state.ai.sinceRule = 0;
   /* 標記用嚟提煉嘅 log 做已消化，下次 AI query 唔再重複讀佢哋 */
@@ -3463,7 +3546,10 @@ function readTTSForm(c){
   c.ttsVoice  = $('ttsVoice').value || '';
   c.ttsRate   = $('ttsRate').value || '1';
   c.ttsAuto   = $('ttsAuto').checked;
-  c.ttsAzKey  = $('ttsAzKey').value.trim();
+  /* 一律用 cleanAzKey()：.trim() 淨係剝到頭尾空白，
+     剝唔到中間嘅換行同 zero-width 字元，而 iPad 貼上正正就係最易中呢兩樣。 */
+  c.ttsAzKey  = cleanAzKey($('ttsAzKey').value);
+  if($('ttsAzKey').value !== c.ttsAzKey) $('ttsAzKey').value = c.ttsAzKey;
   c.ttsAzReg  = $('ttsAzReg').value.trim();
   c.ttsAzVoice= $('ttsAzVoice').value || 'zh-HK-HiuMaanNeural';
   return c;
@@ -3490,6 +3576,13 @@ function openSet(){
   $('ttsAzKey').value = c.ttsAzKey || '';
   $('ttsAzReg').value = c.ttsAzReg || '';
   $('ttsAzVoice').value = c.ttsAzVoice || 'zh-HK-HiuMaanNeural';
+  try{ azKeyLenNote(); }catch(e){}
+  /* 已經填咗 Azure key 就自動攤開嗰個 <details>，
+     唔使每次都撳多下先搵到驗證同試聽兩粒掣。 */
+  try{
+    const d = $('ttsAzKey').closest('details');
+    if(d && c.ttsAzKey) d.open = true;
+  }catch(e){}
   fillVoiceSel();
   /* 偵測 file:// 開啟 → 顯示 CORS 警告 */
   const viaFile = /^file:/i.test(location.protocol);
@@ -3509,6 +3602,137 @@ $('ttsTest').onclick = ()=>{
 };
 $('ttsVoice').onchange = ()=>{ const c=cfg(); readTTSForm(c); cfgSave(c); };
 
+/* ===== Azure Key 檢查工具 =====
+   iPad 上面 copy／paste 好易出事：貼漏一截、貼多咗換行、或者貼咗個
+   零闊度字元（zero-width space）落去。條 key 用緊 password 框，全部變黑點，
+   肉眼一個都睇唔到，出咗 401 都唔知係邊度衰。所以呢度做三樣嘢：
+   ① 眼睛掣 —— 睇返條 key 原文
+   ② 即時字數 —— 84 個字元先算齊
+   ③ 驗證掣 —— 真係 call 一次 Azure，401 就自動幫你試晒其他 region */
+
+/* 剝走所有空白同睇唔見嘅字元。Azure key 得英文字母同數字，所以可以剝得咁狠。 */
+function cleanAzKey(s){
+  return String(s||'')
+    .replace(/[\u200B-\u200D\uFEFF\u00A0]/g,'')   /* zero-width、no-break space */
+    .replace(/\s+/g,'')                            /* 空格、tab、換行 */
+    .trim();
+}
+
+/* Azure Speech 常見 region。驗證失敗嗰陣會由頭到尾試一次，
+   香港開嘅資源多數係頭兩個，所以擺喺最前。 */
+const AZ_REGIONS = ['eastasia','southeastasia','japaneast','japanwest','koreacentral',
+  'australiaeast','centralindia','eastus','eastus2','westus','westus2','westus3',
+  'centralus','southcentralus','northeurope','westeurope','uksouth','francecentral',
+  'germanywestcentral','switzerlandnorth','canadacentral','brazilsouth','southafricanorth'];
+
+/* 用 voices/list 做探測：GET、免費、唔會扣字數額度，而且一樣要驗 key。
+   200 ＝ key 同 region 兩樣都啱；401 ＝ 呢個 region 唔認呢條 key。 */
+async function azProbe(region, key, ms){
+  const ctl = (typeof AbortController!=='undefined') ? new AbortController() : null;
+  const t = ctl ? setTimeout(()=>{ try{ ctl.abort(); }catch(e){} }, ms||8000) : 0;
+  try{
+    const r = await fetch('https://'+region+'.tts.speech.microsoft.com/cognitiveservices/voices/list',
+      {method:'GET', headers:{'Ocp-Apim-Subscription-Key': key}, signal: ctl?ctl.signal:undefined});
+    if(t) clearTimeout(t);
+    if(!r.ok) return {ok:false, status:r.status};
+    let list = [];
+    try{ list = await r.json(); }catch(e){}
+    return {ok:true, status:200, voices:Array.isArray(list)?list:[]};
+  }catch(err){
+    if(t) clearTimeout(t);
+    return {ok:false, status:0, err:String(err && err.message || err)};
+  }
+}
+
+function azKeyLenNote(){
+  const el = $('ttsAzKeyLen'); if(!el) return;
+  const raw = $('ttsAzKey').value;
+  const k = cleanAzKey(raw);
+  if(!k){ el.textContent = ''; return; }
+  const bad = raw.length !== k.length;
+  const odd = /[^A-Za-z0-9]/.test(k);
+  let msg = '長度：' + k.length + ' 個字元';
+  if(k.length === 84) msg += ' ✅ 啱數';
+  else if(k.length === 32) msg += '（舊款 32 字元 key，都用得）';
+  else msg += ' ⚠ 你話應該係 84 個，而家對唔上，好可能貼漏咗';
+  if(bad) msg += '｜已經自動剝走 ' + (raw.length - k.length) + ' 個空白／隱形字元';
+  if(odd) msg += '｜⚠ 入面有非英文數字嘅符號，通常代表貼錯咗嘢';
+  el.textContent = msg;
+}
+
+$('ttsAzKeyShow').onclick = ()=>{
+  const i = $('ttsAzKey');
+  i.type = (i.type === 'password') ? 'text' : 'password';
+  $('ttsAzKeyShow').textContent = (i.type === 'text') ? '🙈' : '👁';
+};
+$('ttsAzKey').addEventListener('input', azKeyLenNote);
+/* 貼上之後即刻幫佢清乾淨，唔使佢自己捉隱形字元 */
+$('ttsAzKey').addEventListener('paste', ()=>{ setTimeout(()=>{
+  const i = $('ttsAzKey'); const c = cleanAzKey(i.value);
+  if(c !== i.value) i.value = c;
+  azKeyLenNote();
+}, 0); });
+
+$('ttsAzCheck').onclick = async ()=>{
+  const el = $('ttsAzDiag');
+  const set = (h)=>{ if(el) el.innerHTML = h; };
+  const key = cleanAzKey($('ttsAzKey').value);
+  $('ttsAzKey').value = key;
+  azKeyLenNote();
+  if(!key){ set('⚠ 未填 Azure Speech Key。'); return; }
+  const c = cfg(); readTTSForm(c); cfgSave(c);
+  const reg0 = azRegion();
+
+  set('⏳ 用 region <b>' + esc(reg0) + '</b> 驗緊條 key…');
+  let r = await azProbe(reg0, key);
+
+  if(r.ok){
+    const yue = (r.voices||[]).filter(v=>/^zh-HK/i.test(v.Locale||v.locale||''));
+    const names = yue.map(v=>v.ShortName||v.shortName).join('、');
+    set('✅ <b>條 key 同 region 都啱。</b>（region：' + esc(reg0) + '）'
+      + '<br>呢個 region 有 ' + yue.length + ' 把廣東話語音：' + esc(names || '（搵唔到 zh-HK，好可能揀錯咗 region）')
+      + '<br>而家可以撳「▶ 淨係試聽 Azure」聽下曉曼。');
+    return;
+  }
+
+  if(r.status === 0){
+    set('❌ 連都連唔到 Azure（' + esc(r.err||'網絡錯誤') + '）。'
+      + '<br>唔係 key 嘅問題，係部機上唔到網、或者俾網絡／VPN 擋住咗。');
+    return;
+  }
+
+  if(r.status !== 401 && r.status !== 403){
+    set('❌ Azure 覆咗 ' + r.status + '。呢個唔係認證問題，可能係 region「' + esc(reg0) + '」串錯咗。');
+    return;
+  }
+
+  /* 401／403：可能係 region 唔啱。逐個試返晒。 */
+  set('⚠ region <b>' + esc(reg0) + '</b> 覆 ' + r.status + '（唔認呢條 key）。'
+    + '<br>⏳ 而家自動試緊其他 region，等十幾秒…');
+  const tried = [];
+  for(const reg of AZ_REGIONS){
+    if(reg === reg0) continue;
+    tried.push(reg);
+    const rr = await azProbe(reg, key, 6000);
+    if(rr.ok){
+      $('ttsAzReg').value = reg;
+      const c2 = cfg(); readTTSForm(c2); cfgSave(c2);
+      const yue = (rr.voices||[]).filter(v=>/^zh-HK/i.test(v.Locale||v.locale||''));
+      set('🎯 <b>搵到喇！你條 key 屬於 region「' + esc(reg) + '」，唔係「' + esc(reg0) + '」。</b>'
+        + '<br>我已經幫你填返落 Region 格同儲存好。呢個 region 有 ' + yue.length + ' 把廣東話語音。'
+        + '<br>而家撳「▶ 淨係試聽 Azure」應該就聽到曉曼。'
+        + '<br><span style="color:var(--muted)">（下次開 Speech service 記住睇實個 Location／Region，唔係次次都 East Asia。）</span>');
+      return;
+    }
+  }
+  set('❌ <b>試晒 ' + (tried.length+1) + ' 個 region 都係 401，即係問題出喺條 key 本身，唔係 region。</b>'
+    + '<br>撳粒 👁 睇返條 key 原文，然後逐樣 check：'
+    + '<br>① 條 key 係咪貼齊咗 84 個字元（上面有即時字數）'
+    + '<br>② 你 copy 嗰個資源係咪 <b>Speech service</b>，唔係 Azure OpenAI／Language／Document Intelligence'
+    + '<br>③ 有冇喺 portal 撳過 Regenerate Key（撳完舊嗰條即刻作廢）'
+    + '<br>④ 試下用 <b>KEY 2</b>，有時 KEY 1 copy 嗰陣會漏'
+    + '<br>⑤ 個 Speech service 有冇俾人停用或者刪咗');
+};
 /* 「淨係試聽 Azure」：特登唔做 fallback。
    平時 ttsSpeak() 見到 Azure 出事會靜靜哋轉用瀏覽器內置語音，
    結果係「聽落有聲＝以為成功」，但其實把聲根本唔係曉曼。
