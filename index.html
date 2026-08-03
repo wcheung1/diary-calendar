@@ -3196,8 +3196,8 @@ function renderHw(){
     }
   }
 
-  renderHwCourses();
-  renderHwRules();
+  try{ renderHwCourses(); }catch(e){ console.warn('班別總覽出錯', e); }
+  try{ renderHwRules();   }catch(e){ console.warn('規矩列表出錯', e); }
 }
 
 /* ============ 🎓 班別總覽 ============
@@ -3391,6 +3391,109 @@ function renderHwCourses(){
   });
 
   const si = $('hwSince'); if(si) si.value = state.ai.hwSince || '';
+}
+
+function renderHwRules(){
+  const re = $('hwRules'); if(!re) return;
+  re.innerHTML = '';
+  const R = state.ai.hwRules || [];
+  const cnt = $('hwCount'); if(cnt) cnt.textContent = R.length + ' 條';
+  if(!R.length){
+    re.innerHTML = '<p class="subnote">未有規矩。撳上面「⚡ 重設做預設規矩」載入 8 條常見班別。</p>';
+    return;
+  }
+  const dueTxt = {next:'下次同一堂前一日', week:'上堂之後 7 日內', none:'唔使跟進'};
+  const today = fmtDate(new Date());
+
+  R.forEach(function(rule, ri){
+    const box = document.createElement('div');
+    box.className = 'hwCard';
+    box.style.borderLeftColor = (rule.on===false ? 'var(--q-grey)' : 'var(--accent)');
+    if(rule.on===false) box.style.opacity = '.6';
+
+    box.innerHTML =
+      '<div class="aiRow" style="gap:8px;align-items:flex-end">' +
+        '<div style="flex:2"><label>班別個名</label><input type="text" value="' + esc(rule.name||'') + '" data-hw="name" data-i="' + ri + '"></div>' +
+        '<div style="flex:2"><label>上堂項目要含有（逗號＝而且）</label><input type="text" value="' + esc(rule.match||'') + '" data-hw="match" data-i="' + ri + '" placeholder="普通話,Zoom"></div>' +
+        '<div style="flex:2"><label>但唔可以含有（逗號＝任何一個）</label><input type="text" value="' + esc(rule.not||'') + '" data-hw="not" data-i="' + ri + '" placeholder="功課,練習,特訓"></div>' +
+      '</div>' +
+      '<div class="aiRow" style="gap:8px;align-items:flex-end;margin-top:7px">' +
+        '<div style="flex:2"><label>死線點計</label><select data-hw="due" data-i="' + ri + '">' +
+          ['next','week','none'].map(function(k){ return '<option value="'+k+'"'+(rule.due===k?' selected':'')+'>'+dueTxt[k]+'</option>'; }).join('') +
+        '</select></div>' +
+        '<div style="flex:1"><label>由邊日開始生效</label><input type="date" value="' + esc(rule.from||'') + '" data-hw="from" data-i="' + ri + '"></div>' +
+        '<div style="flex:1"><label>到邊日為止（停咗就填）</label><input type="date" value="' + esc(rule.to||'') + '" data-hw="to" data-i="' + ri + '"></div>' +
+        '<div style="flex:0 0 auto;padding-bottom:6px"><label style="display:block;white-space:nowrap"><input type="checkbox" data-hw="on" data-i="' + ri + '"' + (rule.on===false?'':' checked') + ' style="margin-right:5px;vertical-align:-1px">開住</label></div>' +
+      '</div>';
+
+    /* 即時預覽：呢條規矩而家認到邊幾堂。冇呢個，爸爸永遠唔知系統誤會咗邊個項目係一堂。 */
+    const days = lessonDays(rule);
+    const past = days.filter(function(e){ return e.start.slice(0,10) <= today; }).slice(-3);
+    const futr = days.filter(function(e){ return e.start.slice(0,10) >  today; }).slice(0,2);
+    const pv = document.createElement('div');
+    pv.className = 'hwChain'; pv.style.marginTop = '8px';
+    if(!days.length){
+      pv.innerHTML = '<b style="color:var(--overdue)">⚠ 呢條規矩而家一堂都認唔到。</b>　' +
+                     '行事曆入面冇項目夾到呢個條件，所以唔會派到功課。改一改「要含有」嗰幾個字試下。';
+    }else{
+      pv.innerHTML = '<b>認到 ' + days.length + ' 堂。</b>　' +
+        (past.length ? '最近：' + past.map(function(e){ return e.start.slice(5,10)+' '+esc(short(e.title,14)); }).join('　·　') : '仲未上過') +
+        (futr.length ? '　｜　將來：' + futr.map(function(e){ return e.start.slice(5,10); }).join('　·　') : '　｜　將來未排堂');
+    }
+    box.appendChild(pv);
+
+    const items = document.createElement('div'); items.style.marginTop='8px';
+    (rule.items||[]).forEach(function(it, ii){
+      const r2 = document.createElement('div'); r2.className='aiRow';
+      r2.style.cssText='gap:6px;align-items:flex-end;margin-bottom:5px';
+      r2.innerHTML =
+        '<div style="flex:3"><label>上完堂要做</label><input type="text" value="' + esc(it.name||'') + '" data-hw="iname" data-i="' + ri + '" data-j="' + ii + '"></div>' +
+        '<div style="flex:0 0 90px"><label>幾轉</label><input type="number" min="1" value="' + (it.times||1) + '" data-hw="itimes" data-i="' + ri + '" data-j="' + ii + '"></div>';
+      const del = document.createElement('button'); del.className='btn danger';
+      del.style.cssText='padding:5px 9px;font-size:12px;flex:0 0 auto'; del.textContent='✕';
+      del.onclick = ()=>{ rule.items.splice(ii,1); save(); renderHw(); };
+      r2.appendChild(del); items.appendChild(r2);
+    });
+    box.appendChild(items);
+
+    const bar = document.createElement('div'); bar.className='hwBar';
+    const addIt = document.createElement('button'); addIt.className='btn';
+    addIt.textContent='＋ 加一件要做嘅嘢';
+    addIt.onclick = ()=>{ rule.items = rule.items||[]; rule.items.push({name:'新功課', times:1}); save(); renderHw(); };
+    const dup = document.createElement('button'); dup.className='btn';
+    dup.textContent='⧉ 複製一條';
+    dup.title='同一科有兩種堂（例如面授同 Zoom），或者開新學年嗰陣好用';
+    dup.onclick = ()=>{
+      const c = JSON.parse(JSON.stringify(rule)); c.id = uid(); c.name = (rule.name||'') + '（複製）';
+      state.ai.hwRules.splice(ri+1, 0, c); save(); renderHw();
+    };
+    const delR = document.createElement('button'); delR.className='btn danger';
+    delR.textContent='🗑 刪走';
+    delR.onclick = async ()=>{
+      if(await confirmBox('刪走「' + (rule.name||rule.match||'') + '」呢條規矩？\n（個班只係暫停嘅話，建議改為熄咗「開住」，或者填「到邊日為止」，咁舊記錄唔會亂。）')){
+        state.ai.hwRules.splice(ri,1); save(); renderHw(); }
+    };
+    bar.appendChild(addIt); bar.appendChild(dup); bar.appendChild(delR);
+    box.appendChild(bar);
+    re.appendChild(box);
+  });
+
+  re.querySelectorAll('[data-hw]').forEach(function(inp){
+    inp.onchange = ()=>{
+      const i=+inp.dataset.i, j=+inp.dataset.j, k=inp.dataset.hw;
+      const rule = state.ai.hwRules[i]; if(!rule) return;
+      if(k==='name') rule.name = inp.value.trim();
+      else if(k==='match') rule.match = inp.value.trim();
+      else if(k==='not') rule.not = inp.value.trim();
+      else if(k==='due') rule.due = inp.value;
+      else if(k==='from') rule.from = inp.value;
+      else if(k==='to') rule.to = inp.value;
+      else if(k==='on') rule.on = inp.checked;
+      else if(k==='iname') rule.items[j].name = inp.value.trim() || '功課';
+      else if(k==='itimes') rule.items[j].times = Math.max(1, parseInt(inp.value,10)||1);
+      save(); renderHw();
+    };
+  });
 }
 
 $('hwSinceGo').onclick = ()=>{
