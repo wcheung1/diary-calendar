@@ -252,6 +252,9 @@ header .spacer{flex:1}
 .hwSub2{color:var(--muted);font-weight:400;font-size:11.5px}
 .hwGen{background:var(--bg);border-radius:8px;padding:9px 11px;margin-top:10px}
 .hwGen input,.hwGen select{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px}
+.hwBHead{display:flex;gap:6px;font-size:10.5px;color:var(--muted);padding:0 2px 3px}
+.hwBRow{display:flex;gap:6px;align-items:center;margin-bottom:5px}
+.hwBRow.main{background:var(--accent-soft);border-radius:6px;padding:6px 8px;font-size:12.5px}
 #paneHw details input,#paneHw details select{padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;width:100%}
 .hwTable{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
 .hwTable th{text-align:left;padding:6px 8px;border-bottom:2px solid var(--line);color:var(--muted);font-size:11.5px}
@@ -1731,9 +1734,25 @@ function renderDay(){
   scrollAnchor(rowEls, nowIdx>=0 ? nowIdx : anchorIndex(evs), 'day|'+ds+'|'+evs.length);
 }
 function actBtn(parent,label,fn){
-  const b=document.createElement('button'); b.textContent=label; b.onclick=fn;
+  const b=document.createElement('button'); b.textContent=label;
+  /* 包住個 handler：以前掟咗錯就乜都唔會發生，用戶淨係見到「撳極都冇反應」。 */
+  b.onclick=async (e)=>{
+    try{ await fn(e); }
+    catch(err){
+      console.error('按鈕出錯：'+label, err);
+      try{ toast('⚠ 「'+label+'」出錯：'+String(err && err.message || err).slice(0,70)); }catch(e2){}
+    }
+  };
   parent.appendChild(b); return b;
 }
+
+/* 任何未捕捉嘅錯誤都彈個 toast。冇呢個，一個 typo 就會令某粒掣永遠死寂。 */
+window.addEventListener('error', function(e){
+  try{ toast('⚠ 程式出錯：' + String(e.message||'').slice(0,70)); }catch(x){}
+});
+window.addEventListener('unhandledrejection', function(e){
+  try{ toast('⚠ 未處理嘅錯誤：' + String((e.reason && e.reason.message) || e.reason || '').slice(0,70)); }catch(x){}
+});
 
 /* 每分鐘 check 一次「而家進行緊」有冇轉咗件事；轉咗先重畫，
    所以個高亮會自己跟住時間行，唔使你 refresh。
@@ -1934,9 +1953,15 @@ function openEvent(ev,defaults){
   evColorPick.set(ev? ev.color : '');
   /* 「做功課時段」剔號：冇明確設定過就用個名去估（isHwSlot 嘅字眼判斷）， 
      等爸爸開個舊項目都見到個合理預設值。 */
-  document.getElementById('evHwSlot').checked = ev
-    ? (ev.hwSlot === true || (ev.hwSlot !== false && !!ev.hwFor) || (ev.hwSlot === undefined && HW_SLOT_WORDS.test(ev.title||'')))
-    : false;
+  /* 特登用本地 regex，唔好引用喺檔案後面成千行先宣告嘅 HW_SLOT_WORDS。
+     一有差池就會令成個 openEvent() 掟錯，結果就係撳「✎ 編輯」完全冇反應。 */
+  try{
+    const hwWords = /(功課|練習|溫習|温習|複習|預習|做卷|工作紙|特訓|補充)/;
+    document.getElementById('evHwSlot').checked = ev
+      ? (ev.hwSlot === true || (ev.hwSlot !== false && !!ev.hwFor) ||
+         (ev.hwSlot === undefined && hwWords.test(ev.title||'')))
+      : false;
+  }catch(e){ console.warn('evHwSlot', e); }
   document.getElementById('evDelete').style.display = ev? '' : 'none';
   show('eventModal');
   document.getElementById('evTitle').focus();
@@ -2845,15 +2870,20 @@ function defaultHwRules(){
     {id:uid(), name:'鋼琴課',     match:'鋼琴',   not:NOT, due:'week', on:true, from:'', to:'',
       items:[{name:'練習鋼琴', times:1}]},
     {id:uid(), name:'大眾中文堂', match:'中文',   not:NOT, due:'next', on:true, from:'', to:'',
-      items:[{name:'課文功課', times:1},{name:'補充練習', times:1}]},
-    {id:uid(), name:'英文私人堂', match:'英文',   not:NOT, due:'next', on:true, from:'', to:'',
-      items:[{name:'英文練習簿', times:3}]},
+      items:[{name:'大眾中文課文功課', times:1},
+             {name:'大眾中文補充練習', times:1}]},
+    {id:uid(), name:'英文私人堂（Teacher Aileen）', match:'英文', not:NOT, due:'next', on:true, from:'', to:'',
+      items:[{name:'Teacher Aileen 英文功課 — Grammar', times:1},
+             {name:'Teacher Aileen 英文功課 — Reading', times:1},
+             {name:'Teacher Aileen 英文功課 — Writing', times:1}]},
     {id:uid(), name:'學而思數學', match:'學而思', not:NOT, due:'next', on:true, from:'', to:'',
-      items:[{name:'Textbook 練習', times:1},{name:'練習簿', times:1},{name:'速算練習簿', times:1}]},
+      items:[{name:'學而思數學 Textbook 練習', times:1},
+             {name:'學而思數學練習簿', times:1},
+             {name:'學而思數學速算練習簿', times:1}]},
     {id:uid(), name:'普通話堂（銅鑼灣）', match:'普通話', not:'Zoom,'+NOT, due:'next', on:true, from:'', to:'',
-      items:[{name:'拼音功課', times:1}]},
+      items:[{name:'普通話拼音功課', times:1}]},
     {id:uid(), name:'普通話 Zoom 堂', match:'普通話,Zoom', not:NOT, due:'next', on:true, from:'', to:'',
-      items:[{name:'預習下一堂（Zoom 堂冇功課，只需預習）', times:1}]},
+      items:[{name:'普通話 Zoom 堂預習（冇功課，只需預習下一堂）', times:1}]},
     {id:uid(), name:'游水（唔使跟進）', match:'游水', not:NOT, due:'none', on:true, from:'', to:'', items:[]}
   ];
 }
@@ -3403,7 +3433,8 @@ function renderHwCourses(){
     const p = hwPattern(rule);
     const open = hwOpenRule === rule.id;
     const drafts = hwDraft[rule.id] || [];
-    if(rule.bundle === undefined) rule.bundle = detectBundle(rule);   /* 第一次自動學返個組合拳 */
+    /* 第一次先自動學一次；之後就以用戶手改嘅為準，唔會再自動覆蓋。 */
+    if(rule.bundle === undefined){ rule.bundle = detectBundle(rule); try{ save(); }catch(e){} }
 
     const card = document.createElement('div');
     card.className = 'hwCourse' + (rule.on===false ? ' off' : '') + (days.length ? '' : ' bad');
@@ -3528,29 +3559,82 @@ function renderHwCourses(){
           : '<p class="subnote">今日之後未排堂。用下面推算。</p>');
       body.appendChild(sec2);
 
-      /* ── 組合拳設定 ── */
+      /* ── 組合拳設定（可以手動改）── */
       const bd = document.createElement('div'); bd.className = 'hwGen';
-      let bh = '<div class="hwSecT">呢一堂嘅組合拳（續排新堂嗰陣會一次過出晒）</div>';
-      bh += (rule.bundle||[]).length
-        ? '<ul class="hwLs">' + rule.bundle.map(function(b2){
-            return '<li>' + (b2.off<0 ? '正堂前 ' + (-b2.off) : '正堂後 ' + b2.off) + ' 分鐘　·　' +
-                   esc(short(b2.title,26)) + '　（' + b2.dur + ' 分鐘）</li>';
-          }).join('') + '</ul>'
-        : '<p class="subnote">而家只有正堂一格。如果上堂前後有接送之類嘅安排，撳下面重新偵測。</p>';
-      bd.innerHTML = bh;
+      bd.innerHTML = '<div class="hwSecT">呢一堂嘅組合拳（續排新堂嗰陣會一次過出晒呢幾格）</div>' +
+        '<div class="hwSub" style="margin-bottom:6px">偏移＝相對正堂開始時間。負數＝正堂之前（例如接送 -10 即係早 10 分鐘），正數＝正堂之後。改完即刻儲低，下次推算就跟返你設嘅。</div>';
+
+      const bl = document.createElement('div');
+      /* 正堂自己都列出嚟做參考，但唔俾刪 */
+      const mainRow = document.createElement('div'); mainRow.className = 'hwBRow main';
+      mainRow.innerHTML = '<div style="flex:3"><b>（正堂）' + esc(p ? p.title : (rule.name||'')) + '</b></div>' +
+                          '<div style="flex:0 0 90px" class="hwSub">偏移 0</div>' +
+                          '<div style="flex:0 0 90px" class="hwSub">用上面時間</div>' +
+                          '<div style="flex:0 0 34px"></div>';
+      bl.appendChild(mainRow);
+
+      (rule.bundle||[]).forEach(function(b2, bi){
+        const r = document.createElement('div'); r.className = 'hwBRow';
+        r.innerHTML =
+          '<div style="flex:3"><input type="text" value="' + esc(b2.title||'') + '" data-bd="title" data-b="' + bi + '" placeholder="例如：婆婆帶Charlotte去大眾中文堂"></div>' +
+          '<div style="flex:0 0 92px"><input type="number" step="5" value="' + (b2.off||0) + '" data-bd="off" data-b="' + bi + '" title="相對正堂開始時間嘅分鐘數，負數＝之前"></div>' +
+          '<div style="flex:0 0 92px"><input type="number" min="5" step="5" value="' + (b2.dur||10) + '" data-bd="dur" data-b="' + bi + '" title="呢格幾多分鐘"></div>';
+        const x = document.createElement('button'); x.className='btn danger';
+        x.style.cssText='padding:4px 9px;font-size:12px;flex:0 0 auto'; x.textContent='✕';
+        x.title='刪走呢格';
+        x.onclick = (e)=>{ e.stopPropagation(); rule.bundle.splice(bi,1); save(); renderHw(); };
+        r.appendChild(x);
+        bl.appendChild(r);
+      });
+      if(!(rule.bundle||[]).length){
+        const n = document.createElement('p'); n.className='subnote';
+        n.textContent = '而家只有正堂一格。下面可以自己加，或者由最近一堂自動偵測。';
+        bl.appendChild(n);
+      }
+      bd.appendChild(bl);
+
+      const hdr = document.createElement('div'); hdr.className='hwBHead';
+      hdr.innerHTML = '<div style="flex:3">項目標題</div><div style="flex:0 0 92px">偏移(分鐘)</div>' +
+                      '<div style="flex:0 0 92px">時長(分鐘)</div><div style="flex:0 0 34px"></div>';
+      bd.insertBefore(hdr, bl);
+
       const bb = document.createElement('div'); bb.className='hwBar';
+      const bPre = document.createElement('button'); bPre.className='btn';
+      bPre.textContent='＋ 加正堂之前一格';
+      bPre.onclick = (e)=>{ e.stopPropagation();
+        rule.bundle = rule.bundle || [];
+        rule.bundle.push({title:'去' + (rule.name||'上堂'), off:-10, dur:10});
+        save(); renderHw(); };
+      const bPost = document.createElement('button'); bPost.className='btn';
+      bPost.textContent='＋ 加正堂之後一格';
+      bPost.onclick = (e)=>{ e.stopPropagation();
+        rule.bundle = rule.bundle || [];
+        const p2 = hwPattern(rule);
+        const mainDur = 60;
+        rule.bundle.push({title:'返屋企', off:mainDur, dur:10});
+        save(); renderHw(); };
       const bDet = document.createElement('button'); bDet.className='btn';
-      bDet.textContent='🔍 由最近一堂重新偵測組合拳';
-      bDet.title='掃描最近嗰堂前後一個鐘之內嘅項目，當佢哋係接送等等嘅配套';
+      bDet.textContent='🔍 由最近一堂重新偵測';
+      bDet.title='掃描最近嗰堂前後貼住、而又短過半個鐘嘅項目';
       bDet.onclick = (e)=>{ e.stopPropagation();
         rule.bundle = detectBundle(rule); save(); renderHw();
-        toast(rule.bundle.length ? ('偵測到 ' + rule.bundle.length + ' 格配套') : '搵唔到配套格');
-      };
-      const bClr = document.createElement('button'); bClr.className='btn';
-      bClr.textContent='✕ 淨係要正堂';
+        toast(rule.bundle.length ? ('偵測到 ' + rule.bundle.length + ' 格配套') : '搵唔到配套格，可以自己加'); };
+      const bClr = document.createElement('button'); bClr.className='btn danger';
+      bClr.textContent='✕ 全部清走';
       bClr.onclick = (e)=>{ e.stopPropagation(); rule.bundle = []; save(); renderHw(); };
-      bb.appendChild(bDet); bb.appendChild(bClr);
+      bb.appendChild(bPre); bb.appendChild(bPost); bb.appendChild(bDet); bb.appendChild(bClr);
       bd.appendChild(bb);
+
+      bd.querySelectorAll('[data-bd]').forEach(function(inp){
+        inp.onchange = ()=>{
+          const bi = +inp.dataset.b, k = inp.dataset.bd;
+          const t = rule.bundle[bi]; if(!t) return;
+          if(k==='title') t.title = inp.value.trim() || '（未命名）';
+          else if(k==='off') t.off = parseInt(inp.value,10) || 0;
+          else if(k==='dur') t.dur = Math.max(5, parseInt(inp.value,10) || 10);
+          save(); renderHw();
+        };
+      });
       body.appendChild(bd);
 
       /* ── 續期工具 ── */
