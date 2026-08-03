@@ -242,6 +242,14 @@ header .spacer{flex:1}
 .hwLs li{padding:4px 8px;border-bottom:1px solid var(--line);color:var(--muted)}
 .hwLs li b{color:var(--ink)}
 .hwLs.draft li{background:#fdf9f2}
+.hwLesson{border:1px solid var(--line);border-radius:7px;margin:6px 0;overflow:hidden}
+.hwLessonHd{background:var(--bg);padding:6px 10px;font-size:12.5px}
+.hwItemRow{padding:7px 10px;border-top:1px solid var(--line);border-left:3px solid var(--q-amber)}
+.hwItemRow.over{border-left-color:var(--overdue);background:#fdf3f3}
+.hwItemRow.fin{border-left-color:var(--accent);opacity:.62}
+.hwItemRow.skip{border-left-color:var(--q-grey);opacity:.5}
+.hwItemT{font-size:13px;font-weight:600}
+.hwSub2{color:var(--muted);font-weight:400;font-size:11.5px}
 .hwGen{background:var(--bg);border-radius:8px;padding:9px 11px;margin-top:10px}
 .hwGen input,.hwGen select{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px}
 #paneHw details input,#paneHw details select{padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;width:100%}
@@ -3200,6 +3208,94 @@ function renderHw(){
   try{ renderHwRules();   }catch(e){ console.warn('規矩列表出錯', e); }
 }
 
+/* ============ 組合拳（一堂唔止一格）============
+   上一次中文堂實際上係三格：婆婆帶去 14:20、上堂 14:30、婆婆帶返 15:30。
+   續排新堂嘅時候，三格都要一齊出，唔係淨係出中間嗰格。
+   bundle 記住每格相對「正堂開始時間」嘅偏移（分鐘）同時長，所以改時間都跟得住。
+
+   要唔要將功課／預習都放埋入組合拳？我建議唔好。
+   接送係綁死喺堂前堂後嘅，偏移固定；功課係要睇邊日夠鐘、精神好唔好先排，
+   夾硬綁一個固定偏移，等於每次都要你手動搬。功課交返俾下面「一鍵排」處理好啲。 */
+
+/* 由最近一堂反推組合拳。
+   判斷準則係「時間貼住」，唔係「附近」：
+   前一格嘅完結時間 = 正堂開始時間，或者後一格嘅開始時間 = 正堂完結時間，咁先算配套。
+   用「前後一個鐘」做窗口會連「自由休息」「自由活動」呢啲填充格都掃埋入嚟，
+   續排嘅時候就會多咗幾格唔等使嘅嘢。貼住先係接送嘅特徵。 */
+function detectBundle(rule){
+  const days = lessonDays(rule);
+  if(!days.length) return [];
+  const main = days[days.length-1];
+  const d0 = main.start.slice(0,10);
+  const mainMin = minutes(main.start.slice(11));
+  const mainEnd = main.endOverride ? minutes(main.endOverride) : mainMin + 60;
+  const sameDay = (state.events||[]).filter(function(e){
+    return e.id !== main.id && e.start.slice(0,10) === d0 && !isHwSlot(e) && e.endOverride;
+  });
+  const endOf = function(e){ return minutes(e.endOverride); };
+  /* 除咗要貼住，仲要夠短。
+     一日嘅時間表通常係一格接一格，淨係靠「貼住」會由朝早駁到夜晚，
+     連食飯、自由活動都掃埋入嚟。接送類嘅格通常十幾廿分鐘，
+     所以加多一個上限：長過 30 分鐘就當佢係另一件事，唔算配套。 */
+  const MAXDUR = 30;
+  const out = [];
+  let cursor = mainMin, guard = 0;
+  while(guard++ < 2){
+    const prev = sameDay.filter(function(e){
+      return endOf(e) === cursor && (endOf(e) - minutes(e.start.slice(11))) <= MAXDUR && out.indexOf(e) < 0;
+    })[0];
+    if(!prev) break;
+    out.push(prev); cursor = minutes(prev.start.slice(11));
+  }
+  cursor = mainEnd; guard = 0;
+  while(guard++ < 2){
+    const nxt = sameDay.filter(function(e){
+      return minutes(e.start.slice(11)) === cursor && (endOf(e) - cursor) <= MAXDUR && out.indexOf(e) < 0;
+    })[0];
+    if(!nxt) break;
+    out.push(nxt); cursor = endOf(nxt);
+  }
+  return out.sort(function(a2,b2){ return a2.start.localeCompare(b2.start); })
+            .map(function(e){
+    const m = minutes(e.start.slice(11));
+    return {title:e.title, off:m - mainMin, dur:endOf(e) - m};
+  });
+}
+function hhmm(mins){
+  let m = mins; while(m < 0) m += 1440; m = m % 1440;
+  return String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
+}
+
+/* ============ 一鍵幫功課搵個時段 ============
+   由今日搵到死線，逐日試幾個慣常時段，撞到已經有嘢就跳過。
+   唔使叫 AI —— 呢種係死規則，即撳即有，慳返等 API 嘅時間。 */
+const HW_TRY_TIMES = ['16:00','17:00','19:00','20:00','20:30','10:30','14:30','15:30'];
+function hwFreeSlot(dueDate, durMin){
+  const dur = durMin || 30;
+  const nw = nowStr();
+  const evs = state.events || [];
+  const end = dueDate || fmtDate(new Date(Date.now() + 7*86400000));
+  let d = new Date();
+  for(let day = 0; day <= 21; day++){
+    const ds = fmtDate(d);
+    if(ds > end) break;
+    for(let i = 0; i < HW_TRY_TIMES.length; i++){
+      const st = ds + 'T' + HW_TRY_TIMES[i];
+      if(st <= nw) continue;                          /* 唔好排喺過去 */
+      const s0 = minutes(HW_TRY_TIMES[i]), s1 = s0 + dur;
+      const clash = evs.some(function(e){
+        if(e.start.slice(0,10) !== ds) return false;
+        const a0 = minutes(e.start.slice(11));
+        const a1 = e.endOverride ? minutes(e.endOverride) : a0 + 45;
+        return s0 < a1 && a0 < s1;
+      });
+      if(!clash) return st;
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return (end || fmtDate(new Date())) + 'T20:00';     /* 真係搵唔到就照擺夜晚 */
+}
+
 /* ============ 🎓 班別總覽 ============
    由行事曆現有嘅堂反推規律（通常係「逢星期幾、同一個鐘數、每 7 日」），
    再一撳一堂咁續落去，確認咗先寫入行事曆。
@@ -3229,59 +3325,62 @@ function hwPattern(rule){
           lastStart:last.start};
 }
 
-/* 續多一堂（入草稿，未寫入行事曆） */
-function hwGenNext(rule){
-  const p = hwPattern(rule);
-  if(!p){ toast('呢個班一堂都認唔到，冇規律可以推算。用下面「＋ 開一個新班別」自己設。'); return; }
-  const list = hwDraft[rule.id] = hwDraft[rule.id] || [];
+/* 續多一堂（入草稿，未寫入行事曆）。一堂 = 正堂 + 組合拳嘅其他格。 */
+function hwNextDate(rule){
+  const p = hwPattern(rule); if(!p) return null;
+  const list = hwDraft[rule.id] || [];
   const days = lessonDays(rule);
-  const baseStart = list.length ? list[list.length-1].start
-                                : (days.length ? days[days.length-1].start : p.lastStart);
-  const d = new Date(baseStart.slice(0,10));
-  d.setDate(d.getDate() + p.interval);
+  const base = list.length ? list[list.length-1].date
+             : (days.length ? days[days.length-1].start.slice(0,10) : p.lastStart.slice(0,10));
+  const d = new Date(base); d.setDate(d.getDate() + p.interval);
+  return fmtDate(d);
+}
+function hwMakeDraft(rule, dateStr){
+  const p = hwPattern(rule);
   const tplInp = document.getElementById('hwTpl_' + rule.id);
-  const title = (tplInp && tplInp.value.trim()) || p.title;
-  list.push({start: fmtDate(d) + 'T' + (document.getElementById('hwTime_'+rule.id) ?
-                                        document.getElementById('hwTime_'+rule.id).value : p.time),
-             title: title});
+  const tmInp  = document.getElementById('hwTime_' + rule.id);
+  const title = (tplInp && tplInp.value.trim()) || (p ? p.title : (rule.name||'新堂'));
+  const time  = (tmInp && tmInp.value) || (p ? p.time : '16:00');
+  const base  = minutes(time);
+  const parts = [{title:title, start:dateStr + 'T' + time, main:true}];
+  (rule.bundle||[]).forEach(function(b){
+    parts.push({title:b.title, start:dateStr + 'T' + hhmm(base + b.off), dur:b.dur});
+  });
+  parts.sort(function(a,b){ return a.start.localeCompare(b.start); });
+  return {date:dateStr, parts:parts};
+}
+function hwGenNext(rule){
+  if(!hwPattern(rule)){ toast('呢個班一堂都認唔到，冇規律可以推算'); return; }
+  const d = hwNextDate(rule); if(!d) return;
+  (hwDraft[rule.id] = hwDraft[rule.id] || []).push(hwMakeDraft(rule, d));
   renderHw();
 }
-/* 一次過續到某個月尾 */
 function hwGenUntil(rule, endDate){
-  const p = hwPattern(rule); if(!p){ toast('冇規律可以推算'); return; }
+  if(!hwPattern(rule)){ toast('冇規律可以推算'); return; }
   let guard = 0;
-  while(guard++ < 40){
-    const list = hwDraft[rule.id] || [];
-    const days = lessonDays(rule);
-    const base = list.length ? list[list.length-1].start
-                             : (days.length ? days[days.length-1].start : p.lastStart);
-    const d = new Date(base.slice(0,10));
-    d.setDate(d.getDate() + p.interval);
-    if(fmtDate(d) > endDate) break;
-    hwGenNextSilent(rule, fmtDate(d), p);
+  while(guard++ < 60){
+    const d = hwNextDate(rule);
+    if(!d || d > endDate) break;
+    (hwDraft[rule.id] = hwDraft[rule.id] || []).push(hwMakeDraft(rule, d));
   }
   renderHw();
 }
-function hwGenNextSilent(rule, dateStr, p){
-  const list = hwDraft[rule.id] = hwDraft[rule.id] || [];
-  const tplInp = document.getElementById('hwTpl_' + rule.id);
-  const tmInp  = document.getElementById('hwTime_' + rule.id);
-  list.push({start: dateStr + 'T' + (tmInp ? tmInp.value : p.time),
-             title: (tplInp && tplInp.value.trim()) || p.title});
-}
-
-/* 草稿寫入行事曆。寫入之後功課會照原本嘅規矩自己派（等堂上完先算）。 */
 function hwSyncDrafts(rule){
   const list = hwDraft[rule.id] || [];
   if(!list.length){ toast('冇草稿可以同步'); return; }
-  list.forEach(function(x){
-    state.events.push({id:uid(), title:x.title, start:x.start, endOverride:null, sop:'',
-      color:'', templateId:null, planned:true, done:false, hwSlot:false});
+  let n = 0;
+  list.forEach(function(L){
+    L.parts.forEach(function(x){
+      state.events.push({id:uid(), title:x.title, start:x.start,
+        endOverride: x.dur ? hhmm(minutes(x.start.slice(11)) + x.dur) : null,
+        sop:'', color:'', templateId:null, planned:true, done:false, hwSlot:false});
+      n++;
+    });
   });
   hwDraft[rule.id] = [];
   save(); try{ renderCal(); }catch(e){}
   renderHw();
-  toast('已經加咗 ' + list.length + ' 堂落時間表');
+  toast('加咗 ' + list.length + ' 堂（共 ' + n + ' 格）落時間表');
 }
 
 function renderHwCourses(){
@@ -3290,16 +3389,21 @@ function renderHwCourses(){
   el.innerHTML = '';
   const rules = (state.ai.hwRules||[]);
   if(!rules.length){ el.innerHTML = '<p class="subnote">未有班別。撳「⚡ 重設做預設規矩」開始。</p>'; return; }
+  const board = homeworkBoard();
+  const byKey = {};
+  ['pending','done','skipped'].forEach(function(g){
+    board[g].forEach(function(o){ byKey[o.key] = {o:o, g:g}; });
+  });
 
   rules.forEach(function(rule){
     const days = lessonDays(rule);
     const past = days.filter(function(e){ return e.start.slice(0,10) <= today; });
     const futr = days.filter(function(e){ return e.start.slice(0,10) >  today; });
-    const last = past.length ? past[past.length-1] : null;
     const next = futr.length ? futr[0] : null;
     const p = hwPattern(rule);
     const open = hwOpenRule === rule.id;
     const drafts = hwDraft[rule.id] || [];
+    if(rule.bundle === undefined) rule.bundle = detectBundle(rule);   /* 第一次自動學返個組合拳 */
 
     const card = document.createElement('div');
     card.className = 'hwCourse' + (rule.on===false ? ' off' : '') + (days.length ? '' : ' bad');
@@ -3310,10 +3414,10 @@ function renderHwCourses(){
       '<span class="hwCaret">' + (open ? '▾' : '▸') + '</span>' +
       '<span class="hwCourseName">' + esc(rule.name || rule.match || '（未命名）') + '</span>' +
       '<span class="hwPill">' + (days.length ? '共 ' + days.length + ' 堂' : '⚠ 認唔到堂') + '</span>' +
-      '<span class="hwPill">上咗 ' + past.length + '</span>' +
       '<span class="hwPill">' + (next ? '下一堂 ' + next.start.slice(5,10) + ' ' + next.start.slice(11)
                                       : '<b style="color:var(--overdue)">未排下一堂</b>') + '</span>' +
-      (drafts.length ? '<span class="hwPill draft">草稿 ' + drafts.length + '</span>' : '') +
+      ((rule.bundle||[]).length ? '<span class="hwPill">組合拳 ' + ((rule.bundle||[]).length+1) + ' 格</span>' : '') +
+      (drafts.length ? '<span class="hwPill draft">草稿 ' + drafts.length + ' 堂</span>' : '') +
       (p ? '<span class="hwPill">逢星期' + p.weekday + ' ' + p.time + '　每 ' + p.interval + ' 日</span>' : '');
     head.onclick = ()=>{ hwOpenRule = open ? '' : rule.id; renderHw(); };
     card.appendChild(head);
@@ -3321,70 +3425,176 @@ function renderHwCourses(){
     if(open){
       const body = document.createElement('div'); body.className = 'hwCourseBody';
 
-      /* 過往嘅堂（只顯示最近 5 堂，唔想拉到好長） */
-      let h = '<div class="hwSecT">已經上咗嘅堂（最近 5 堂）</div>';
-      h += past.length
-        ? '<ul class="hwLs">' + past.slice(-5).map(function(e){
-            return '<li><b>' + e.start.slice(0,10) + '</b>　' + e.start.slice(11) + '　' + esc(short(e.title,26)) + '</li>';
-          }).join('') + '</ul>'
-        : '<p class="subnote">仲未上過。</p>';
+      /* ── 已經上咗嘅堂：逐堂攤開埋佢嘅功課 ── */
+      const sec1 = document.createElement('div');
+      sec1.innerHTML = '<div class="hwSecT">已經上咗嘅堂（最近 4 堂）· 撳堂下面嘅功課可以排時間、剔完成</div>';
+      if(!past.length) sec1.innerHTML += '<p class="subnote">仲未上過。</p>';
+      past.slice(-4).forEach(function(ev){
+        const box = document.createElement('div'); box.className = 'hwLesson';
+        box.innerHTML = '<div class="hwLessonHd"><b>' + ev.start.slice(0,10) + '</b>　' +
+                        ev.start.slice(11) + '　' + esc(short(ev.title,26)) + '</div>';
+        const items = (rule.items||[]).map(function(it){ return byKey[hwKey(ev.id, it.name)]; })
+                                      .filter(Boolean);
+        if(!items.length){
+          const n = document.createElement('div'); n.className='hwSub'; n.style.padding='2px 10px 8px';
+          n.textContent = (rule.due==='none') ? '呢個班唔使跟進。'
+            : '（呢堂未產生功課——可能喺「由邊日開始計功課」之前）';
+          box.appendChild(n);
+        }
+        items.forEach(function(rec){
+          const o = rec.o, st = rec.g;
+          const row = document.createElement('div');
+          row.className = 'hwItemRow' + (st==='done' ? ' fin' : (st==='skipped' ? ' skip' : (o.overdue ? ' over' : '')));
+          const slot = hwSlotOf(o.key, o.label);
+          row.innerHTML =
+            '<div class="hwItemT">' +
+              (st==='done' ? '✅ ' : st==='skipped' ? '🚫 ' : o.overdue ? '⚠️ ' : '⬜ ') +
+              esc(o.label) + (o.need>1 ? ' <span class="hwSub2">('+o.done+'／'+o.need+' 轉)</span>' : '') +
+            '</div>' +
+            '<div class="hwSub">' + (o.due ? '死線 ' + o.due : '冇死線') + '　·　' +
+              (slot ? '🗓 排咗 ' + slot.start.slice(5,10) + ' ' + slot.start.slice(11) : '🗓 未排時間') + '</div>';
+          const bar = document.createElement('div'); bar.className = 'hwBar';
+          if(st !== 'done'){
+            const bS = document.createElement('button'); bS.className = slot ? 'btn' : 'btn primary';
+            bS.textContent = slot ? '↻ 換個時間' : '🤖 一鍵排落時間表';
+            bS.onclick = (e)=>{ e.stopPropagation();
+              const st2 = hwFreeSlot(o.due, 30);
+              hwSchedule(o, st2.slice(0,10), st2.slice(11));
+              toast('排咗喺 ' + st2.replace('T',' '));
+            };
+            bar.appendChild(bS);
+            if(slot){
+              const bX = document.createElement('button'); bX.className='btn';
+              bX.textContent='✕ 拎走個時段';
+              bX.onclick = (e)=>{ e.stopPropagation(); hwUnschedule(o); };
+              bar.appendChild(bX);
+            }
+            const bD = document.createElement('button'); bD.className='btn primary';
+            bD.textContent = o.need>1 ? '✓ 做咗一轉' : '✓ 完成';
+            bD.onclick = (e)=>{ e.stopPropagation(); hwTick(o, 1); };
+            bar.appendChild(bD);
+          }else{
+            const bU = document.createElement('button'); bU.className='btn';
+            bU.textContent='↩ 改返做未完成';
+            bU.title='check 完發現有問題，撳呢個放返出嚟';
+            bU.onclick = (e)=>{ e.stopPropagation(); hwTick(o, -1); };
+            bar.appendChild(bU);
+          }
+          if(st !== 'skipped'){
+            const bK = document.createElement('button'); bK.className='btn';
+            bK.textContent='✕ 今次冇呢份';
+            bK.onclick = (e)=>{ e.stopPropagation(); hwSkipToggle(o); };
+            bar.appendChild(bK);
+          }else{
+            const bB = document.createElement('button'); bB.className='btn';
+            bB.textContent='↩ 放返出嚟';
+            bB.onclick = (e)=>{ e.stopPropagation(); hwSkipToggle(o); };
+            bar.appendChild(bB);
+          }
+          row.appendChild(bar);
+          box.appendChild(row);
+        });
+        sec1.appendChild(box);
+      });
+      body.appendChild(sec1);
 
-      h += '<div class="hwSecT">已經排咗、將來嘅堂（' + futr.length + '）</div>';
-      h += futr.length
-        ? '<ul class="hwLs">' + futr.map(function(e){
-            return '<li><b>' + e.start.slice(0,10) + '</b>　' + e.start.slice(11) + '　' + esc(short(e.title,26)) + '</li>';
-          }).join('') + '</ul>'
-        : '<p class="subnote">今日之後未排堂。用下面推算。</p>';
-      body.innerHTML = h;
+      /* 一鍵排晒呢個班所有未排嘅功課 */
+      const unsched = board.pending.filter(function(o){
+        return o.src==='class' && (rule.items||[]).some(function(it){ return o.label === it.name; })
+               && past.some(function(e){ return o.key.indexOf(e.id) === 0; })
+               && !hwSlotOf(o.key, o.label);
+      });
+      if(unsched.length){
+        const b = document.createElement('button'); b.className='btn primary';
+        b.style.cssText = 'margin-top:8px;padding:5px 14px;font-size:12.5px';
+        b.textContent = '🤖 一鍵排晒呢個班未排嘅功課（' + unsched.length + ' 份）';
+        b.onclick = (e)=>{ e.stopPropagation();
+          unsched.forEach(function(o){
+            const st2 = hwFreeSlot(o.due, 30);
+            hwSchedule(o, st2.slice(0,10), st2.slice(11));
+          });
+          toast('排咗 ' + unsched.length + ' 份功課落時間表');
+        };
+        body.appendChild(b);
+      }
 
-      /* 續期工具 */
+      /* ── 將來嘅堂 ── */
+      const sec2 = document.createElement('div');
+      sec2.innerHTML = '<div class="hwSecT">已經排咗、將來嘅堂（' + futr.length + '）</div>' +
+        (futr.length
+          ? '<ul class="hwLs">' + futr.map(function(e){
+              return '<li><b>' + e.start.slice(0,10) + '</b>　' + e.start.slice(11) + '　' + esc(short(e.title,26)) + '</li>';
+            }).join('') + '</ul>'
+          : '<p class="subnote">今日之後未排堂。用下面推算。</p>');
+      body.appendChild(sec2);
+
+      /* ── 組合拳設定 ── */
+      const bd = document.createElement('div'); bd.className = 'hwGen';
+      let bh = '<div class="hwSecT">呢一堂嘅組合拳（續排新堂嗰陣會一次過出晒）</div>';
+      bh += (rule.bundle||[]).length
+        ? '<ul class="hwLs">' + rule.bundle.map(function(b2){
+            return '<li>' + (b2.off<0 ? '正堂前 ' + (-b2.off) : '正堂後 ' + b2.off) + ' 分鐘　·　' +
+                   esc(short(b2.title,26)) + '　（' + b2.dur + ' 分鐘）</li>';
+          }).join('') + '</ul>'
+        : '<p class="subnote">而家只有正堂一格。如果上堂前後有接送之類嘅安排，撳下面重新偵測。</p>';
+      bd.innerHTML = bh;
+      const bb = document.createElement('div'); bb.className='hwBar';
+      const bDet = document.createElement('button'); bDet.className='btn';
+      bDet.textContent='🔍 由最近一堂重新偵測組合拳';
+      bDet.title='掃描最近嗰堂前後一個鐘之內嘅項目，當佢哋係接送等等嘅配套';
+      bDet.onclick = (e)=>{ e.stopPropagation();
+        rule.bundle = detectBundle(rule); save(); renderHw();
+        toast(rule.bundle.length ? ('偵測到 ' + rule.bundle.length + ' 格配套') : '搵唔到配套格');
+      };
+      const bClr = document.createElement('button'); bClr.className='btn';
+      bClr.textContent='✕ 淨係要正堂';
+      bClr.onclick = (e)=>{ e.stopPropagation(); rule.bundle = []; save(); renderHw(); };
+      bb.appendChild(bDet); bb.appendChild(bClr);
+      bd.appendChild(bb);
+      body.appendChild(bd);
+
+      /* ── 續期工具 ── */
       const tools = document.createElement('div'); tools.className = 'hwGen';
       tools.innerHTML =
         '<div class="hwSecT">續排新堂</div>' +
         '<div class="aiRow" style="gap:8px;align-items:flex-end">' +
           '<div style="flex:3"><label>新堂用嘅標題</label><input type="text" id="hwTpl_' + rule.id + '" value="' + esc(p ? p.title : (rule.name||'')) + '"></div>' +
-          '<div style="flex:0 0 100px"><label>幾點上</label><input type="time" id="hwTime_' + rule.id + '" value="' + (p ? p.time : '19:30') + '"></div>' +
+          '<div style="flex:0 0 100px"><label>幾點上</label><input type="time" id="hwTime_' + rule.id + '" value="' + (p ? p.time : '16:00') + '"></div>' +
           '<div style="flex:0 0 150px"><label>一路排到邊日</label><input type="date" id="hwUntil_' + rule.id + '"></div>' +
         '</div>';
-      const bar = document.createElement('div'); bar.className = 'hwBar';
-      const b1 = document.createElement('button'); b1.className='btn';
-      b1.textContent = '＋ 推算多一堂';
-      b1.onclick = (e)=>{ e.stopPropagation(); hwGenNext(rule); };
-      const b2 = document.createElement('button'); b2.className='btn';
-      b2.textContent = '⏩ 一路排到指定日期';
-      b2.onclick = (e)=>{ e.stopPropagation();
+      const bar2 = document.createElement('div'); bar2.className = 'hwBar';
+      const g1 = document.createElement('button'); g1.className='btn';
+      g1.textContent = '＋ 推算多一堂';
+      g1.onclick = (e)=>{ e.stopPropagation(); hwGenNext(rule); };
+      const g2 = document.createElement('button'); g2.className='btn';
+      g2.textContent = '⏩ 一路排到指定日期';
+      g2.onclick = (e)=>{ e.stopPropagation();
         const v = document.getElementById('hwUntil_'+rule.id).value;
         if(!v){ toast('先揀一個「排到邊日」'); return; }
         hwGenUntil(rule, v); };
-      bar.appendChild(b1); bar.appendChild(b2);
-      tools.appendChild(bar);
+      bar2.appendChild(g1); bar2.appendChild(g2);
+      tools.appendChild(bar2);
 
       if(drafts.length){
         const dv = document.createElement('div');
         dv.innerHTML = '<div class="hwSecT">草稿（仲未落時間表）</div><ul class="hwLs draft">' +
-          drafts.map(function(x,i){ return '<li><b>' + x.start.slice(0,10) + '</b>　' + x.start.slice(11) + '　' + esc(short(x.title,26)) + '</li>'; }).join('') +
-          '</ul>';
-        const b3 = document.createElement('button'); b3.className='btn primary';
-        b3.style.cssText='padding:5px 14px;font-size:12.5px;margin-right:6px';
-        b3.textContent = '⬆ 同步落時間表（' + drafts.length + ' 堂）';
-        b3.onclick = (e)=>{ e.stopPropagation(); hwSyncDrafts(rule); };
-        const b4 = document.createElement('button'); b4.className='btn';
-        b4.style.cssText='padding:5px 14px;font-size:12.5px';
-        b4.textContent = '✕ 唔要呢批草稿';
-        b4.onclick = (e)=>{ e.stopPropagation(); hwDraft[rule.id]=[]; renderHw(); };
-        const bb = document.createElement('div'); bb.className='hwBar';
-        bb.appendChild(b3); bb.appendChild(b4);
-        dv.appendChild(bb);
+          drafts.map(function(L){
+            return '<li><b>' + L.date + '</b>　' +
+              L.parts.map(function(x){ return x.start.slice(11) + ' ' + esc(short(x.title,18)); }).join('　→　') +
+            '</li>';
+          }).join('') + '</ul>';
+        const s1 = document.createElement('button'); s1.className='btn primary';
+        s1.textContent = '⬆ 同步落時間表（' + drafts.length + ' 堂）';
+        const s2 = document.createElement('button'); s2.className='btn';
+        s2.textContent = '✕ 唔要呢批草稿';
+        s1.onclick = (e)=>{ e.stopPropagation(); hwSyncDrafts(rule); };
+        s2.onclick = (e)=>{ e.stopPropagation(); hwDraft[rule.id]=[]; renderHw(); };
+        const sb = document.createElement('div'); sb.className='hwBar';
+        sb.appendChild(s1); sb.appendChild(s2);
+        dv.appendChild(sb);
         tools.appendChild(dv);
       }
       body.appendChild(tools);
-
-      const note = document.createElement('p');
-      note.className = 'subnote'; note.style.marginTop='8px';
-      note.textContent = '同步之後唔使再做嘢——呢個班嘅跟進功課（' +
-        ((rule.items||[]).map(function(i){ return i.name; }).join('、') || '冇') +
-        '）會喺每堂上完咗之後自己彈出嚟，死線跟返你設嘅計法。';
-      body.appendChild(note);
       card.appendChild(body);
     }
     el.appendChild(card);
@@ -3392,6 +3602,7 @@ function renderHwCourses(){
 
   const si = $('hwSince'); if(si) si.value = state.ai.hwSince || '';
 }
+
 
 function renderHwRules(){
   const re = $('hwRules'); if(!re) return;
