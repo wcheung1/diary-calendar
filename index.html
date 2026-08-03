@@ -226,6 +226,25 @@ header .spacer{flex:1}
   font-size:12px;color:var(--muted);background:var(--bg);border-radius:6px;padding:6px 9px}
 .hwSlot.on{background:var(--accent-soft);color:var(--accent)}
 .hwSlot input{padding:4px 7px;border:1px solid var(--line);border-radius:5px;font-size:12px}
+.hwCourse{border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;
+  margin-bottom:7px;background:var(--panel);overflow:hidden}
+.hwCourse.bad{border-left-color:var(--overdue)}
+.hwCourse.off{opacity:.55}
+.hwCourseHead{display:flex;gap:7px;align-items:center;flex-wrap:wrap;padding:9px 11px;cursor:pointer}
+.hwCourseHead:hover{background:var(--accent-soft)}
+.hwCaret{color:var(--accent);font-weight:700;width:12px}
+.hwCourseName{font-weight:700;font-size:13.5px;margin-right:4px}
+.hwPill{font-size:11px;padding:2px 8px;border-radius:99px;background:var(--bg);color:var(--muted)}
+.hwPill.draft{background:#fdf0e2;color:#a8641a;font-weight:700}
+.hwCourseBody{padding:4px 12px 12px;border-top:1px solid var(--line)}
+.hwSecT{font-size:11.5px;font-weight:700;color:var(--accent);margin:10px 0 4px}
+.hwLs{list-style:none;margin:0;padding:0;font-size:12.5px}
+.hwLs li{padding:4px 8px;border-bottom:1px solid var(--line);color:var(--muted)}
+.hwLs li b{color:var(--ink)}
+.hwLs.draft li{background:#fdf9f2}
+.hwGen{background:var(--bg);border-radius:8px;padding:9px 11px;margin-top:10px}
+.hwGen input,.hwGen select{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px}
+#paneHw details input,#paneHw details select{padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px;width:100%}
 .hwTable{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
 .hwTable th{text-align:left;padding:6px 8px;border-bottom:2px solid var(--line);color:var(--muted);font-size:11.5px}
 .hwTable td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
@@ -705,7 +724,27 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
     <details class="hwFold hwOwner" open>
       <summary>🎓 班別總覽：邊啲堂上緊、最近一堂、下一堂</summary>
       <div id="hwCourses"></div>
-      <div class="aiRow" style="gap:8px;align-items:flex-end;margin-top:10px">
+      <details class="hwFold" style="margin-top:12px">
+        <summary>＋ 開一個新班別（例如九月開學嘅小學功課、常識科）</summary>
+        <div class="aiRow" style="gap:8px;align-items:flex-end;margin-top:8px">
+          <div style="flex:2"><label>班別個名</label><input type="text" id="ncName" placeholder="例如：小學常識科"></div>
+          <div style="flex:2"><label>時間表用嘅標題</label><input type="text" id="ncTitle" placeholder="例如：Charlotte 常識科"></div>
+        </div>
+        <div class="aiRow" style="gap:8px;align-items:flex-end;margin-top:7px">
+          <div style="flex:0 0 120px"><label>逢星期幾</label><select id="ncWd"></select></div>
+          <div style="flex:0 0 100px"><label>幾點</label><input type="time" id="ncTime" value="16:00"></div>
+          <div style="flex:0 0 140px"><label>由邊日開始</label><input type="date" id="ncFrom"></div>
+          <div style="flex:0 0 140px"><label>排到邊日</label><input type="date" id="ncTo"></div>
+          <div style="flex:0 0 100px"><label>每幾多日一堂</label><input type="number" id="ncGap" min="1" value="7"></div>
+        </div>
+        <div class="aiRow" style="gap:8px;align-items:flex-end;margin-top:7px">
+          <div style="flex:2"><label>上完要跟進乜（逗號分開，留空＝唔使跟進）</label><input type="text" id="ncItems" placeholder="例如：常識工作紙,溫習課文"></div>
+          <div style="flex:0 0 170px"><label>死線點計</label><select id="ncDue"><option value="next">下次同一堂前一日</option><option value="week">上堂之後 7 日內</option><option value="none">唔使跟進</option></select></div>
+          <div style="flex:0 0 auto"><button class="btn primary" id="ncGo">開班＋排晒落時間表</button></div>
+        </div>
+      </details>
+
+      <div class="aiRow" style="gap:8px;align-items:flex-end;margin-top:12px">
         <div style="flex:1"><label>由邊日開始計功課（之前嘅一概唔理）</label><input type="date" id="hwSince" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px"></div>
         <div style="flex:0 0 auto"><button class="btn" id="hwSinceGo">套用</button></div>
         <div style="flex:0 0 auto"><button class="btn" id="hwSinceClr">清走限制</button></div>
@@ -739,7 +778,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
       <div class="aiBar" style="margin:8px 0">
         <button class="btn primary" id="hwSeed">⚡ 重設做預設規矩</button>
         <button class="btn" id="hwAdd">＋ 加一條規矩</button>
-        <button class="btn danger" id="hwWipe">🧹 清空所有功課記錄</button>
+        <button class="btn danger" id="hwWipe">💥 超級清除：所有功課記錄一次過清光</button>
       </div>
       <div id="hwRules"></div>
     </details>
@@ -3161,154 +3200,197 @@ function renderHw(){
   renderHwRules();
 }
 
-/* 🎓 班別總覽：一眼睇晒邊個班上緊、上到第幾堂、最近同下一堂幾時。
-   行事曆未排下一堂嘅，可以喺呢度自己填一個，死線就會跟返你填嗰個。 */
+/* ============ 🎓 班別總覽 ============
+   由行事曆現有嘅堂反推規律（通常係「逢星期幾、同一個鐘數、每 7 日」），
+   再一撳一堂咁續落去，確認咗先寫入行事曆。
+   draft 係未落實嘅堂：撳「推算多一堂」只係入草稿，撳「同步落時間表」先至真係加。 */
+let hwDraft = {};          /* { ruleId: [ {start, title} ] } */
+let hwOpenRule = '';       /* 而家攤開緊邊條 */
+
+/* 由過往嘅堂反推規律：隔幾多日一堂、幾點、用咩標題 */
+function hwPattern(rule){
+  const days = lessonDays(rule);
+  if(!days.length) return null;
+  const last = days[days.length-1];
+  const time = last.start.slice(11);
+  let interval = 7;
+  if(days.length >= 2){
+    /* 攞相鄰兩堂之間嘅日數，用出現得最多嗰個（避免俾一次補堂拉歪） */
+    const gaps = {};
+    for(let i=1;i<days.length;i++){
+      const g = Math.round((new Date(days[i].start.slice(0,10)) - new Date(days[i-1].start.slice(0,10)))/86400000);
+      if(g>0 && g<=35) gaps[g] = (gaps[g]||0)+1;
+    }
+    let best=0;
+    Object.keys(gaps).forEach(function(g){ if(gaps[g]>best){ best=gaps[g]; interval=+g; } });
+  }
+  return {interval:interval, time:time, title:last.title,
+          weekday: WD[(new Date(last.start.slice(0,10)).getDay()+6)%7],
+          lastStart:last.start};
+}
+
+/* 續多一堂（入草稿，未寫入行事曆） */
+function hwGenNext(rule){
+  const p = hwPattern(rule);
+  if(!p){ toast('呢個班一堂都認唔到，冇規律可以推算。用下面「＋ 開一個新班別」自己設。'); return; }
+  const list = hwDraft[rule.id] = hwDraft[rule.id] || [];
+  const days = lessonDays(rule);
+  const baseStart = list.length ? list[list.length-1].start
+                                : (days.length ? days[days.length-1].start : p.lastStart);
+  const d = new Date(baseStart.slice(0,10));
+  d.setDate(d.getDate() + p.interval);
+  const tplInp = document.getElementById('hwTpl_' + rule.id);
+  const title = (tplInp && tplInp.value.trim()) || p.title;
+  list.push({start: fmtDate(d) + 'T' + (document.getElementById('hwTime_'+rule.id) ?
+                                        document.getElementById('hwTime_'+rule.id).value : p.time),
+             title: title});
+  renderHw();
+}
+/* 一次過續到某個月尾 */
+function hwGenUntil(rule, endDate){
+  const p = hwPattern(rule); if(!p){ toast('冇規律可以推算'); return; }
+  let guard = 0;
+  while(guard++ < 40){
+    const list = hwDraft[rule.id] || [];
+    const days = lessonDays(rule);
+    const base = list.length ? list[list.length-1].start
+                             : (days.length ? days[days.length-1].start : p.lastStart);
+    const d = new Date(base.slice(0,10));
+    d.setDate(d.getDate() + p.interval);
+    if(fmtDate(d) > endDate) break;
+    hwGenNextSilent(rule, fmtDate(d), p);
+  }
+  renderHw();
+}
+function hwGenNextSilent(rule, dateStr, p){
+  const list = hwDraft[rule.id] = hwDraft[rule.id] || [];
+  const tplInp = document.getElementById('hwTpl_' + rule.id);
+  const tmInp  = document.getElementById('hwTime_' + rule.id);
+  list.push({start: dateStr + 'T' + (tmInp ? tmInp.value : p.time),
+             title: (tplInp && tplInp.value.trim()) || p.title});
+}
+
+/* 草稿寫入行事曆。寫入之後功課會照原本嘅規矩自己派（等堂上完先算）。 */
+function hwSyncDrafts(rule){
+  const list = hwDraft[rule.id] || [];
+  if(!list.length){ toast('冇草稿可以同步'); return; }
+  list.forEach(function(x){
+    state.events.push({id:uid(), title:x.title, start:x.start, endOverride:null, sop:'',
+      color:'', templateId:null, planned:true, done:false, hwSlot:false});
+  });
+  hwDraft[rule.id] = [];
+  save(); try{ renderCal(); }catch(e){}
+  renderHw();
+  toast('已經加咗 ' + list.length + ' 堂落時間表');
+}
+
 function renderHwCourses(){
   const el = $('hwCourses'); if(!el) return;
   const today = fmtDate(new Date());
   el.innerHTML = '';
-  const rules = (state.ai.hwRules||[]).filter(function(r){ return r.on !== false; });
-  if(!rules.length){ el.innerHTML = '<p class="subnote">未有班別。</p>'; return; }
-  const tb = document.createElement('table'); tb.className = 'hwTable';
-  tb.innerHTML = '<thead><tr><th>班別</th><th>已上</th><th>最近一堂</th><th>下一堂</th><th>上完要跟進</th></tr></thead>';
-  const bd = document.createElement('tbody');
+  const rules = (state.ai.hwRules||[]);
+  if(!rules.length){ el.innerHTML = '<p class="subnote">未有班別。撳「⚡ 重設做預設規矩」開始。</p>'; return; }
+
   rules.forEach(function(rule){
-    const ri = state.ai.hwRules.indexOf(rule);
     const days = lessonDays(rule);
     const past = days.filter(function(e){ return e.start.slice(0,10) <= today; });
     const futr = days.filter(function(e){ return e.start.slice(0,10) >  today; });
     const last = past.length ? past[past.length-1] : null;
     const next = futr.length ? futr[0] : null;
-    const tr = document.createElement('tr');
-    if(!days.length) tr.style.background = '#fdf3f3';
-    tr.innerHTML =
-      '<td><b>' + esc(rule.name || rule.match || '（未命名）') + '</b>' +
-        '<div class="hwSub">認：' + esc(rule.match||'（空）') +
-        (rule.not ? '　排除：' + esc(short(String(rule.not),20)) : '') + '</div></td>' +
-      '<td>' + (days.length ? past.length + '／' + days.length + ' 堂'
-                            : '<b style="color:var(--overdue)">認唔到堂</b>') + '</td>' +
-      '<td>' + (last ? last.start.slice(0,10) + '<div class="hwSub">' + esc(short(last.title,16)) + '</div>' : '—') + '</td>' +
-      '<td class="nx"></td>' +
-      '<td>' + ((rule.items||[]).length
-                 ? esc((rule.items||[]).map(function(i){ return i.name + (i.times>1?' ×'+i.times:''); }).join('、'))
-                 : '<span style="color:var(--muted)">冇</span>') + '</td>';
-    const nc = tr.querySelector('.nx');
-    if(next){
-      nc.innerHTML = '<b style="color:var(--accent)">' + next.start.slice(0,10) + '</b>' +
-                     '<div class="hwSub">行事曆已經排咗</div>';
-    }else{
-      const inp = document.createElement('input');
-      inp.type = 'date'; inp.value = rule.nextManual || '';
-      inp.style.cssText = 'padding:4px 6px;border:1px solid var(--line);border-radius:5px;font-size:12px;width:140px';
-      inp.onchange = ()=>{ state.ai.hwRules[ri].nextManual = inp.value; save(); renderHw(); };
-      nc.appendChild(inp);
-      const sub = document.createElement('div'); sub.className = 'hwSub';
-      sub.textContent = rule.nextManual ? '你自己填嘅' : '行事曆未排，可以自己填';
-      nc.appendChild(sub);
+    const p = hwPattern(rule);
+    const open = hwOpenRule === rule.id;
+    const drafts = hwDraft[rule.id] || [];
+
+    const card = document.createElement('div');
+    card.className = 'hwCourse' + (rule.on===false ? ' off' : '') + (days.length ? '' : ' bad');
+
+    const head = document.createElement('div');
+    head.className = 'hwCourseHead';
+    head.innerHTML =
+      '<span class="hwCaret">' + (open ? '▾' : '▸') + '</span>' +
+      '<span class="hwCourseName">' + esc(rule.name || rule.match || '（未命名）') + '</span>' +
+      '<span class="hwPill">' + (days.length ? '共 ' + days.length + ' 堂' : '⚠ 認唔到堂') + '</span>' +
+      '<span class="hwPill">上咗 ' + past.length + '</span>' +
+      '<span class="hwPill">' + (next ? '下一堂 ' + next.start.slice(5,10) + ' ' + next.start.slice(11)
+                                      : '<b style="color:var(--overdue)">未排下一堂</b>') + '</span>' +
+      (drafts.length ? '<span class="hwPill draft">草稿 ' + drafts.length + '</span>' : '') +
+      (p ? '<span class="hwPill">逢星期' + p.weekday + ' ' + p.time + '　每 ' + p.interval + ' 日</span>' : '');
+    head.onclick = ()=>{ hwOpenRule = open ? '' : rule.id; renderHw(); };
+    card.appendChild(head);
+
+    if(open){
+      const body = document.createElement('div'); body.className = 'hwCourseBody';
+
+      /* 過往嘅堂（只顯示最近 5 堂，唔想拉到好長） */
+      let h = '<div class="hwSecT">已經上咗嘅堂（最近 5 堂）</div>';
+      h += past.length
+        ? '<ul class="hwLs">' + past.slice(-5).map(function(e){
+            return '<li><b>' + e.start.slice(0,10) + '</b>　' + e.start.slice(11) + '　' + esc(short(e.title,26)) + '</li>';
+          }).join('') + '</ul>'
+        : '<p class="subnote">仲未上過。</p>';
+
+      h += '<div class="hwSecT">已經排咗、將來嘅堂（' + futr.length + '）</div>';
+      h += futr.length
+        ? '<ul class="hwLs">' + futr.map(function(e){
+            return '<li><b>' + e.start.slice(0,10) + '</b>　' + e.start.slice(11) + '　' + esc(short(e.title,26)) + '</li>';
+          }).join('') + '</ul>'
+        : '<p class="subnote">今日之後未排堂。用下面推算。</p>';
+      body.innerHTML = h;
+
+      /* 續期工具 */
+      const tools = document.createElement('div'); tools.className = 'hwGen';
+      tools.innerHTML =
+        '<div class="hwSecT">續排新堂</div>' +
+        '<div class="aiRow" style="gap:8px;align-items:flex-end">' +
+          '<div style="flex:3"><label>新堂用嘅標題</label><input type="text" id="hwTpl_' + rule.id + '" value="' + esc(p ? p.title : (rule.name||'')) + '"></div>' +
+          '<div style="flex:0 0 100px"><label>幾點上</label><input type="time" id="hwTime_' + rule.id + '" value="' + (p ? p.time : '19:30') + '"></div>' +
+          '<div style="flex:0 0 150px"><label>一路排到邊日</label><input type="date" id="hwUntil_' + rule.id + '"></div>' +
+        '</div>';
+      const bar = document.createElement('div'); bar.className = 'hwBar';
+      const b1 = document.createElement('button'); b1.className='btn';
+      b1.textContent = '＋ 推算多一堂';
+      b1.onclick = (e)=>{ e.stopPropagation(); hwGenNext(rule); };
+      const b2 = document.createElement('button'); b2.className='btn';
+      b2.textContent = '⏩ 一路排到指定日期';
+      b2.onclick = (e)=>{ e.stopPropagation();
+        const v = document.getElementById('hwUntil_'+rule.id).value;
+        if(!v){ toast('先揀一個「排到邊日」'); return; }
+        hwGenUntil(rule, v); };
+      bar.appendChild(b1); bar.appendChild(b2);
+      tools.appendChild(bar);
+
+      if(drafts.length){
+        const dv = document.createElement('div');
+        dv.innerHTML = '<div class="hwSecT">草稿（仲未落時間表）</div><ul class="hwLs draft">' +
+          drafts.map(function(x,i){ return '<li><b>' + x.start.slice(0,10) + '</b>　' + x.start.slice(11) + '　' + esc(short(x.title,26)) + '</li>'; }).join('') +
+          '</ul>';
+        const b3 = document.createElement('button'); b3.className='btn primary';
+        b3.style.cssText='padding:5px 14px;font-size:12.5px;margin-right:6px';
+        b3.textContent = '⬆ 同步落時間表（' + drafts.length + ' 堂）';
+        b3.onclick = (e)=>{ e.stopPropagation(); hwSyncDrafts(rule); };
+        const b4 = document.createElement('button'); b4.className='btn';
+        b4.style.cssText='padding:5px 14px;font-size:12.5px';
+        b4.textContent = '✕ 唔要呢批草稿';
+        b4.onclick = (e)=>{ e.stopPropagation(); hwDraft[rule.id]=[]; renderHw(); };
+        const bb = document.createElement('div'); bb.className='hwBar';
+        bb.appendChild(b3); bb.appendChild(b4);
+        dv.appendChild(bb);
+        tools.appendChild(dv);
+      }
+      body.appendChild(tools);
+
+      const note = document.createElement('p');
+      note.className = 'subnote'; note.style.marginTop='8px';
+      note.textContent = '同步之後唔使再做嘢——呢個班嘅跟進功課（' +
+        ((rule.items||[]).map(function(i){ return i.name; }).join('、') || '冇') +
+        '）會喺每堂上完咗之後自己彈出嚟，死線跟返你設嘅計法。';
+      body.appendChild(note);
+      card.appendChild(body);
     }
-    bd.appendChild(tr);
+    el.appendChild(card);
   });
-  tb.appendChild(bd); el.appendChild(tb);
+
   const si = $('hwSince'); if(si) si.value = state.ai.hwSince || '';
-}
-
-function renderHwRules(){
-  const re = $('hwRules'); if(!re) return;
-  re.innerHTML = '';
-  $('hwCount').textContent = (state.ai.hwRules||[]).length + ' 條';
-  if(!(state.ai.hwRules||[]).length){ re.innerHTML = '<p class="subnote">（未有規矩）</p>'; return; }
-  const dueTxt = {next:'下次同一堂前一日', week:'上堂之後 7 日內', none:'唔使跟進'};
-  const today = fmtDate(new Date());
-
-  state.ai.hwRules.forEach(function(rule, ri){
-    const box = document.createElement('div');
-    box.className = 'hwCard'; box.style.borderLeftColor = (rule.on===false ? 'var(--q-grey)' : 'var(--accent)');
-    if(rule.on===false) box.style.opacity = '.6';
-
-    box.innerHTML =
-      '<div class="aiRow" style="gap:8px;align-items:flex-end">' +
-        '<div style="flex:2"><label>班別個名</label><input type="text" value="' + esc(rule.name||'') + '" data-hw="name" data-i="' + ri + '"></div>' +
-        '<div style="flex:2"><label>上堂項目要含有（逗號＝而且）</label><input type="text" value="' + esc(rule.match||'') + '" data-hw="match" data-i="' + ri + '" placeholder="普通話,Zoom"></div>' +
-        '<div style="flex:2"><label>但唔可以含有（逗號＝任何一個）</label><input type="text" value="' + esc(rule.not||'') + '" data-hw="not" data-i="' + ri + '" placeholder="功課,練習,特訓"></div>' +
-      '</div>' +
-      '<div class="aiRow" style="gap:8px;align-items:flex-end;margin-top:7px">' +
-        '<div style="flex:2"><label>死線點計</label><select data-hw="due" data-i="' + ri + '">' +
-          ['next','week','none'].map(function(k){ return '<option value="'+k+'"'+(rule.due===k?' selected':'')+'>'+dueTxt[k]+'</option>'; }).join('') +
-        '</select></div>' +
-        '<div style="flex:1"><label>由邊日開始生效</label><input type="date" value="' + esc(rule.from||'') + '" data-hw="from" data-i="' + ri + '"></div>' +
-        '<div style="flex:1"><label>到邊日為止（停咗就填）</label><input type="date" value="' + esc(rule.to||'') + '" data-hw="to" data-i="' + ri + '"></div>' +
-        '<div style="flex:0 0 auto;padding-bottom:6px"><label style="display:block"><input type="checkbox" data-hw="on" data-i="' + ri + '"' + (rule.on===false?'':' checked') + ' style="margin-right:5px;vertical-align:-1px">開住</label></div>' +
-      '</div>';
-
-    /* 即時預覽：呢條規矩而家認到邊幾日係上堂。
-       冇呢個，爸爸永遠唔知系統誤會咗邊個項目係一堂。 */
-    const days = lessonDays(rule);
-    const past = days.filter(function(e){ return e.start.slice(0,10) <= today; }).slice(-3);
-    const futr = days.filter(function(e){ return e.start.slice(0,10) >  today; }).slice(0,2);
-    const pv = document.createElement('div');
-    pv.className = 'hwChain'; pv.style.marginTop = '8px';
-    if(!days.length){
-      pv.innerHTML = '<b style="color:var(--overdue)">⚠ 呢條規矩而家一堂都認唔到。</b>　行事曆入面冇項目夾到呢個條件，' +
-                     '即係唔會派到功課。改一改上面「要含有」嘅字睇下。';
-    }else{
-      pv.innerHTML = '<b>認到 ' + days.length + ' 堂。</b>　最近：' +
-        past.map(function(e){ return e.start.slice(5,10)+' '+esc(e.title); }).join('　·　') +
-        (futr.length ? '　｜　將來：' + futr.map(function(e){ return e.start.slice(5,10)+' '+esc(e.title); }).join('　·　') : '　｜　將來未排堂');
-    }
-    box.appendChild(pv);
-
-    const items = document.createElement('div'); items.style.marginTop='8px';
-    (rule.items||[]).forEach(function(it, ii){
-      const r2 = document.createElement('div'); r2.className='aiRow';
-      r2.style.cssText='gap:6px;align-items:flex-end;margin-bottom:5px';
-      r2.innerHTML =
-        '<div style="flex:3"><label>上完堂要做</label><input type="text" value="' + esc(it.name||'') + '" data-hw="iname" data-i="' + ri + '" data-j="' + ii + '"></div>' +
-        '<div style="flex:0 0 90px"><label>幾轉</label><input type="number" min="1" value="' + (it.times||1) + '" data-hw="itimes" data-i="' + ri + '" data-j="' + ii + '"></div>';
-      const del = document.createElement('button'); del.className='btn danger';
-      del.style.cssText='padding:5px 9px;font-size:12px;flex:0 0 auto'; del.textContent='✕';
-      del.onclick = ()=>{ rule.items.splice(ii,1); save(); renderHw(); };
-      r2.appendChild(del); items.appendChild(r2);
-    });
-    box.appendChild(items);
-
-    const bar = document.createElement('div'); bar.className='hwBar';
-    const addIt = document.createElement('button'); addIt.className='btn';
-    addIt.textContent='＋ 加一件要做嘅嘢';
-    addIt.onclick = ()=>{ rule.items = rule.items||[]; rule.items.push({name:'新功課', times:1}); save(); renderHw(); };
-    const dup = document.createElement('button'); dup.className='btn';
-    dup.textContent='⧉ 複製一條';
-    dup.title='開新學年、或者同一個科目有兩種堂（例如面授同 Zoom）嗰陣好用';
-    dup.onclick = ()=>{
-      const c = JSON.parse(JSON.stringify(rule)); c.id = uid(); c.name = (rule.name||'') + '（複製）';
-      state.ai.hwRules.splice(ri+1, 0, c); save(); renderHw();
-    };
-    const delR = document.createElement('button'); delR.className='btn danger';
-    delR.textContent='🗑 刪走';
-    delR.onclick = async ()=>{
-      if(await confirmBox('刪走「' + (rule.name||rule.match||'') + '」呢條規矩？\n（如果個班只係暫停，建議改為熄咗個「開住」，或者填個「到邊日為止」，咁舊記錄唔會亂。）')){
-        state.ai.hwRules.splice(ri,1); save(); renderHw(); }
-    };
-    bar.appendChild(addIt); bar.appendChild(dup); bar.appendChild(delR);
-    box.appendChild(bar);
-    re.appendChild(box);
-  });
-
-  re.querySelectorAll('[data-hw]').forEach(function(inp){
-    inp.onchange = ()=>{
-      const i=+inp.dataset.i, j=+inp.dataset.j, k=inp.dataset.hw;
-      const rule = state.ai.hwRules[i]; if(!rule) return;
-      if(k==='name') rule.name = inp.value.trim();
-      else if(k==='match') rule.match = inp.value.trim();
-      else if(k==='not') rule.not = inp.value.trim();
-      else if(k==='due') rule.due = inp.value;
-      else if(k==='from') rule.from = inp.value;
-      else if(k==='to') rule.to = inp.value;
-      else if(k==='on') rule.on = inp.checked;
-      else if(k==='iname') rule.items[j].name = inp.value.trim() || '功課';
-      else if(k==='itimes') rule.items[j].times = Math.max(1, parseInt(inp.value,10)||1);
-      save(); renderHw();
-    };
-  });
 }
 
 $('hwSinceGo').onclick = ()=>{
@@ -3320,6 +3402,7 @@ $('hwSinceGo').onclick = ()=>{
 $('hwSinceClr').onclick = ()=>{
   ensureHw(); state.ai.hwSince = ''; if($('hwSince')) $('hwSince').value=''; save(); renderHw();
 };
+try{ $('ncWd').innerHTML = WD.map(function(w,i){ return '<option value="'+i+'">星期'+w+'</option>'; }).join(''); }catch(e){}
 document.querySelectorAll('#hwFilter button').forEach(function(b){
   b.onclick = ()=>{
     hwFilter = b.dataset.f;
@@ -3350,15 +3433,67 @@ $('hwSeed').onclick = async ()=>{
 };
 $('hwWipe').onclick = async ()=>{
   ensureHw();
-  if(!(await confirmBox(
-    '清空所有功課記錄，由零開始？\n\n會清走：\n· 所有「做完咗」嘅剔號\n· 所有「今次冇功課」嘅交叉\n· 所有爸爸加嘅練習同派咗嘅工作紙\n\n同時會將「由邊日開始計功課」設做今日，\n即係今日之前上過嘅堂唔會再彈啲功課返出嚟。\n\n唔會清走：班別規矩、行事曆。'))) return;
-  state.ai.hwDone = {}; state.ai.hwSkip = {}; state.ai.hwTasks = [];
-  /* 關鍵：淨係清記錄係唔夠嘅。啲功課本身係由舊嘅堂推算返出嚟，
-     清咗剔號佢哋即刻又原封不動彈返晒出嚟。所以要同時將「由邊日開始計」推到今日。 */
+  const b = homeworkBoard();
+  /* 超級清除：四種狀態一次過清光。分兩重確認，因為冇得還原。 */
+  const ok1 = await confirmBox(
+    '💥 超級清除 —— 四種狀態一次過清光\n\n' +
+    '而家有：\n' +
+    '· 未做完　　' + b.pending.filter(function(x){ return !x.overdue; }).length + ' 件\n' +
+    '· 過咗期　　' + b.pending.filter(function(x){ return x.overdue; }).length + ' 件\n' +
+    '· 已經做完　' + b.done.length + ' 件\n' +
+    '· 交叉咗　　' + b.skipped.length + ' 件\n\n' +
+    '全部會消失，包括爸爸加嘅練習同派咗嘅工作紙。\n' +
+    '同時會將「由邊日開始計功課」設做今日，所以今日之前上過嘅堂唔會再彈功課返出嚟。\n\n' +
+    '唔會郁：班別規矩、行事曆、Data Log。\n\n繼續？');
+  if(!ok1) return;
+  const ok2 = await confirmBox('最後確認：呢個動作冇得還原。\n\n真係要由零開始？');
+  if(!ok2) return;
+  state.ai.hwDone = {};
+  state.ai.hwSkip = {};
+  state.ai.hwTasks = [];
   state.ai.hwSince = fmtDate(new Date());
+  hwDraft = {};
   save(); renderHw();
-  toast('已經清空，而且由今日 (' + state.ai.hwSince + ') 開始重新計');
+  toast('💥 全部清光咗。由今日 (' + state.ai.hwSince + ') 重新開始。');
 };
+
+/* ＋ 開一個新班別：一次過建規矩、按星期幾排晒堂、寫入時間表 */
+$('ncGo').onclick = ()=>{
+  ensureHw();
+  const name = $('ncName').value.trim();
+  const title = $('ncTitle').value.trim() || name;
+  const from = $('ncFrom').value, to = $('ncTo').value;
+  const wd = parseInt($('ncWd').value,10);
+  const time = $('ncTime').value || '16:00';
+  const gap = Math.max(1, parseInt($('ncGap').value,10)||7);
+  const due = $('ncDue').value;
+  if(!name || !from || !to){ toast('班別名、由邊日、排到邊日都要填'); return; }
+  if(to < from){ toast('「排到邊日」要遲過「由邊日開始」'); return; }
+  /* 由 from 起,搵第一個係指定星期幾嘅日子 */
+  let d = new Date(from);
+  let guard = 0;
+  while(((d.getDay()+6)%7) !== wd && guard++ < 14) d.setDate(d.getDate()+1);
+  const made = [];
+  guard = 0;
+  while(fmtDate(d) <= to && guard++ < 200){
+    made.push(fmtDate(d) + 'T' + time);
+    d.setDate(d.getDate() + gap);
+  }
+  if(!made.length){ toast('喺呢個範圍入面排唔到堂'); return; }
+  made.forEach(function(st){
+    state.events.push({id:uid(), title:title, start:st, endOverride:null, sop:'',
+      color:'', templateId:null, planned:true, done:false, hwSlot:false});
+  });
+  const items = $('ncItems').value.split(/[,，]/).map(function(x){ return x.trim(); })
+                  .filter(Boolean).map(function(n){ return {name:n, times:1}; });
+  state.ai.hwRules.push({id:uid(), name:name, match:title, not:HW_DEFAULT_NOT,
+    due:(items.length ? due : 'none'), on:true, from:from, to:'', items:items});
+  save(); try{ renderCal(); }catch(e){}
+  $('ncName').value=''; $('ncTitle').value=''; $('ncItems').value='';
+  renderHw();
+  toast('開好「' + name + '」，排咗 ' + made.length + ' 堂落時間表');
+};
+
 $('hwAdd').onclick = ()=>{
   ensureHw();
   state.ai.hwRules.push({id:uid(), match:'', due:'next', items:[{name:'功課', times:1}]});
