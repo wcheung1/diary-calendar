@@ -252,6 +252,8 @@ header .spacer{flex:1}
 .hwSub2{color:var(--muted);font-weight:400;font-size:11.5px}
 .hwGen{background:var(--bg);border-radius:8px;padding:9px 11px;margin-top:10px}
 .hwGen input,.hwGen select{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px}
+.hwPick{background:var(--accent-soft);border-radius:7px;padding:8px 10px;margin:6px 0 10px}
+.hwPick select{width:100%;padding:6px 8px;border:1px solid var(--accent);border-radius:6px;font-size:13px;background:#fff}
 .hwBHead{display:flex;gap:6px;font-size:10.5px;color:var(--muted);padding:0 2px 3px}
 .hwBRow{display:flex;gap:6px;align-items:center;margin-bottom:5px}
 .hwBRow.main{background:var(--accent-soft);border-radius:6px;padding:6px 8px;font-size:12.5px}
@@ -2909,21 +2911,54 @@ function ruleMatches(ev, rule){
   return true;
 }
 
+/* 一格幾長。冇填完結時間就當 60 分鐘——真正嘅堂好多時唔會填，
+   而接送格幾乎一定會填（十分鐘），所以呢個預設值幫到手分辨。 */
+function evDurMin(e){
+  const s0 = minutes(e.start.slice(11));
+  return e.endOverride ? Math.max(1, minutes(e.endOverride) - s0) : 60;
+}
+
 /* 認得出嘅堂，一日當一堂。
-   點解要 dedupe：行事曆有「婆婆帶Charlotte去大眾中文堂 14:20」同「Charlotte 大眾中文堂 14:30」，
-   其實係同一堂寫咗兩行。唔 dedupe 嘅話，一係派雙倍功課，一係後面嗰行變咗「下一堂」，
-   死線就會倒推到上堂之前——就係你見到「07-29 上堂但死線 07-28」嗰個怪現象。 */
+   關鍵：同一日有幾個項目 match 到嗰陣，邊個先係「正堂」？
+   之前係揀最早嗰個——結果 14:20「婆婆帶Charlotte去大眾中文堂」贏咗
+   14:30「Charlotte 大眾中文堂」，成個推算就歪晒。
+   而家改成揀最長嗰格：正堂一個鐘，接送十分鐘，分得好清楚。
+   如果連呢個都估錯，可以喺班別卡度用 rule.mainTitle 指定，人手講咗算數。 */
 function lessonDays(rule){
   const evs = state.events || [];
-  const seen = {}, out = [];
+  const byDay = {};
   evs.filter(function(e){ return ruleMatches(e, rule); })
      .sort(function(a,b){ return a.start.localeCompare(b.start); })
      .forEach(function(e){
        const d = e.start.slice(0,10);
-       if(seen[d]) return;
-       seen[d] = 1; out.push(e);
+       (byDay[d] = byDay[d] || []).push(e);
      });
+  const out = [];
+  Object.keys(byDay).sort().forEach(function(d){
+    const cands = byDay[d];
+    let pick = null;
+    /* ① 用戶指定咗正堂標題含有咩，就以佢為準 */
+    if(rule.mainTitle){
+      pick = cands.filter(function(e){ return String(e.title||'').indexOf(rule.mainTitle) >= 0; })[0] || null;
+    }
+    /* ② 否則揀最長嗰格；一樣長就揀最早 */
+    if(!pick){
+      pick = cands.slice().sort(function(a,b){
+        const da = evDurMin(a), db = evDurMin(b);
+        if(da !== db) return db - da;
+        return a.start.localeCompare(b.start);
+      })[0];
+    }
+    if(pick) out.push(pick);
+  });
   return out;
+}
+
+/* 同一日入面，除咗正堂之外仲有邊幾個項目 match 到（俾用戶揀邊個先係正堂） */
+function lessonCandidates(rule, dayStr){
+  return (state.events||[]).filter(function(e){
+    return ruleMatches(e, rule) && e.start.slice(0,10) === dayStr;
+  }).sort(function(a,b){ return a.start.localeCompare(b.start); });
 }
 
 const HW_LOOKBACK_DAYS = 21;   /* 只睇最近三個禮拜嘅堂 */
@@ -3060,13 +3095,18 @@ let hwFilter = 'all';
 function hwSchedule(o, dateStr, timeStr){
   const ex = hwSlotOf(o.key, o.label);
   const start = dateStr + 'T' + (timeStr || '20:00');
+  /* 做功課格一律填返 30 分鐘完結時間。
+     唔填嘅話，行事曆會用「下一件事嘅開始時間」推算，就會變成
+     「15:00 → 19:30（未定完結時間）」，睇落好似要做四個半鐘。 */
+  const endS = hhmm(minutes(start.slice(11)) + 30);
   if(ex){
     ex.start = start;
+    ex.endOverride = ex.endOverride || endS;
     ex.hwFor = o.key;
     ex.hwSlot = true;
     if(start > nowStr()){ ex.planned = true; ex.done = false; }
   }else{
-    state.events.push({id:uid(), title:'做功課：'+o.label, start:start, endOverride:null,
+    state.events.push({id:uid(), title:'做功課：'+o.label, start:start, endOverride:endS,
       sop:'', color:'amber', templateId:null, planned:start>nowStr(), done:false,
       hwSlot:true, hwFor:o.key});
   }
@@ -3563,6 +3603,36 @@ function renderHwCourses(){
       const bd = document.createElement('div'); bd.className = 'hwGen';
       bd.innerHTML = '<div class="hwSecT">呢一堂嘅組合拳（續排新堂嗰陣會一次過出晒呢幾格）</div>' +
         '<div class="hwSub" style="margin-bottom:6px">偏移＝相對正堂開始時間。負數＝正堂之前（例如接送 -10 即係早 10 分鐘），正數＝正堂之後。改完即刻儲低，下次推算就跟返你設嘅。</div>';
+
+      /* 邊個先係正堂？同一日 match 到幾個嘅時候，系統預設揀最長嗰格。
+         估錯咗就喺呢度人手指定，指定咗之後永遠以你揀嗰個為準。 */
+      const refDay = (past.length ? past[past.length-1] : (days.length ? days[days.length-1] : null));
+      if(refDay){
+        const cands = lessonCandidates(rule, refDay.start.slice(0,10));
+        if(cands.length > 1){
+          const pk = document.createElement('div');
+          pk.className = 'hwPick';
+          pk.innerHTML = '<div class="hwSub" style="margin-bottom:4px"><b>邊個先係正堂？</b>　' +
+            refDay.start.slice(0,10) + ' 嗰日有 ' + cands.length + ' 個項目夾到呢條規矩。' +
+            '系統而家揀咗最長嗰格；揀錯咗就喺下面自己指定。</div>';
+          const sel = document.createElement('select');
+          sel.innerHTML = '<option value="">（自動：揀最長嗰格）</option>' +
+            cands.map(function(e){
+              const sel2 = (rule.mainTitle && e.title.indexOf(rule.mainTitle) >= 0) ? ' selected' : '';
+              return '<option value="' + esc(e.title) + '"' + sel2 + '>' +
+                     e.start.slice(11) + '　' + esc(short(e.title,30)) +
+                     '　(' + evDurMin(e) + ' 分鐘)</option>';
+            }).join('');
+          sel.onchange = ()=>{
+            rule.mainTitle = sel.value || '';
+            rule.bundle = detectBundle(rule);      /* 換咗正堂，組合拳要重新計 */
+            save(); renderHw();
+            toast(rule.mainTitle ? ('正堂改咗做「' + short(rule.mainTitle,18) + '」') : '改返自動判斷');
+          };
+          pk.appendChild(sel);
+          bd.appendChild(pk);
+        }
+      }
 
       const bl = document.createElement('div');
       /* 正堂自己都列出嚟做參考，但唔俾刪 */
