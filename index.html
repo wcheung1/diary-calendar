@@ -212,6 +212,11 @@ header .spacer{flex:1}
    個 modal 其實有開，用戶只係睇唔到，感覺就係「撳咗冇反應」。
    凡係會喺 aiModal 開住嗰陣彈出嘅，都要明確排高過佢。 */
 #aiSetModal{z-index:55}
+#kwModal{z-index:56}
+/* 相機一定要排到最高：佢係喺 aiModal（傾偈）入面撳出嚟嘅，
+   而 #camModal 寫喺檔案前面，唔明確排高就會俾 aiModal 完全冚住，
+   用戶睇落就係「撳咗影相冇反應」。 */
+#camModal{z-index:70}
 /* ===== 📚 課後功課版面 ===== */
 .hwTabs{display:flex;gap:5px;flex-wrap:wrap;margin:10px 0 8px}
 .hwTabs button{border:1px solid var(--line);background:var(--panel);color:var(--muted);
@@ -882,7 +887,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
         <button class="btn" id="chatMic" title="用把口講（Chrome 先支援）">🎤</button>
         <button class="btn" id="chatPic" title="由相簿揀相（最多 3 張）">🖼</button>
         <button class="btn" id="chatCam" title="即場影相（只用後置鏡頭）">📷</button>
-        <input type="file" id="chatPicFile" accept="image/*" multiple style="display:none">
+        <input type="file" id="chatPicFile" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/gif,image/bmp" multiple style="display:none">
         <textarea id="chatInput" placeholder="喺度打你想傾嘅嘢…（Enter 送出，Shift+Enter 換行）"></textarea>
         <button class="btn primary" id="chatSend">↵ 送出</button>
       </div>
@@ -2437,6 +2442,10 @@ document.addEventListener('keydown',e=>{
     if(cm && cm.classList.contains('show') && _pendingConfirmResolver){
       const r=_pendingConfirmResolver; _pendingConfirmResolver=null; try{ r(false); }catch(_e){}
     }
+    /* 相機要特別處理：淨係 remove('show') 只係收埋咗個畫面，
+       個 MediaStream 仲開住，鏡頭燈會一路著。 */
+    const cam=document.getElementById('camModal');
+    if(cam && cam.classList.contains('show') && typeof closeCam==='function'){ try{ closeCam(); }catch(_e){} }
     document.querySelectorAll('.overlay.show').forEach(o=>o.classList.remove('show'));
   }
 });
@@ -3366,6 +3375,9 @@ function homeworkBoard(){
       if(rule.due === 'next'){
         due = nextCls ? fmtDate(new Date(new Date(nextCls).getTime() - 86400000))
                       : fmtDate(new Date(new Date(d0).getTime() + 6*86400000));
+      }else if(rule.due === 'sameday'){
+        /* 預習呢類：死線就係下一堂當日（上堂之前做），唔係前一日。 */
+        due = nextCls || fmtDate(new Date(new Date(d0).getTime() + 7*86400000));
       }else if(rule.due === 'week'){
         due = fmtDate(new Date(new Date(d0).getTime() + 7*86400000));
         if(nextCls && nextCls < due) due = fmtDate(new Date(new Date(nextCls).getTime() - 86400000));
@@ -3377,6 +3389,12 @@ function homeworkBoard(){
         const o = {key:k, src:'class', label:it.name, need:need, done:hwDoneN(k), due:due,
                    fromClass:ev.title, ruleName:rule.name||rule.match, classDate:d0, nextClass:nextCls,
                    sub:d0 + '　' + ev.title, doneAt:hwDoneAt(k)};
+        /* 有指定「上堂前幾多分鐘」就計返個建議時間出嚟，等排時間表嗰陣自動填好 */
+        const pm = parseInt(rule.preMin,10) || 0;
+        if(pm > 0 && nxtEv){
+          const t0 = minutes(nxtEv.start.slice(11)) - pm;
+          if(t0 >= 0) o.preAt = nxtEv.start.slice(0,10) + 'T' + hhmm(t0);
+        }
         o.overdue = !!(due && today > due);
         if(state.ai.hwSkip[k]) skipped.push(o);
         else if(o.done >= need){ if(daysAgo(o.doneAt) <= HW_FADE_DAYS) done.push(o); }
@@ -3508,8 +3526,10 @@ function hwCard(o, finished){
         ? '🗓 排咗 <b>' + slot.start.slice(0,10) + ' ' + slot.start.slice(11) + '</b> 做'
         : '🗓 未排時間';
     }else{
-      const dv = slot ? slot.start.slice(0,10) : (o.due || fmtDate(new Date()));
-      const tv = slot ? slot.start.slice(11) : '20:00';
+      const dv = slot ? slot.start.slice(0,10)
+                      : (o.preAt ? o.preAt.slice(0,10) : (o.due || fmtDate(new Date())));
+      const tv = slot ? slot.start.slice(11)
+                      : (o.preAt ? o.preAt.slice(11) : '20:00');
       sl.innerHTML = '<span>🗓 ' + (slot ? '排咗喺' : '未排時間 —— 排落') + '</span>' +
         '<input type="date" value="' + dv + '"><input type="time" value="' + tv + '">';
       const go = document.createElement('button');
@@ -4125,7 +4145,7 @@ function renderHwRules(){
     re.innerHTML = '<p class="subnote">未有規矩。撳上面「⚡ 重設做預設規矩」載入 8 條常見班別。</p>';
     return;
   }
-  const dueTxt = {next:'下次同一堂前一日', week:'上堂之後 7 日內', none:'唔使跟進'};
+  const dueTxt = {next:'下次同一堂前一日', sameday:'下次同一堂當日，上堂之前', week:'上堂之後 7 日內', none:'唔使跟進'};
   const today = fmtDate(new Date());
 
   R.forEach(function(rule, ri){
@@ -4142,11 +4162,14 @@ function renderHwRules(){
       '</div>' +
       '<div class="aiRow" style="gap:8px;align-items:flex-end;margin-top:7px">' +
         '<div style="flex:2"><label>死線點計</label><select data-hw="due" data-i="' + ri + '">' +
-          ['next','week','none'].map(function(k){ return '<option value="'+k+'"'+(rule.due===k?' selected':'')+'>'+dueTxt[k]+'</option>'; }).join('') +
+          ['next','sameday','week','none'].map(function(k){ return '<option value="'+k+'"'+(rule.due===k?' selected':'')+'>'+dueTxt[k]+'</option>'; }).join('') +
         '</select></div>' +
+        '<div style="flex:0 0 130px;min-width:auto"><label>上堂前幾多分鐘做</label><input type="number" min="0" step="5" placeholder="0＝唔指定" value="' + esc(rule.preMin==null?'':rule.preMin) + '" data-hw="preMin" data-i="' + ri + '"></div>' +
         '<div style="flex:1"><label>由邊日開始生效</label><input type="date" value="' + esc(rule.from||'') + '" data-hw="from" data-i="' + ri + '"></div>' +
         '<div style="flex:1"><label>到邊日為止（停咗就填）</label><input type="date" value="' + esc(rule.to||'') + '" data-hw="to" data-i="' + ri + '"></div>' +
-        '<div style="flex:0 0 auto;padding-bottom:6px"><label style="display:block;white-space:nowrap"><input type="checkbox" data-hw="on" data-i="' + ri + '"' + (rule.on===false?'':' checked') + ' style="margin-right:5px;vertical-align:-1px">開住</label></div>' +
+        /* .aiRow>div 有 min-width:150px，所以呢格會俾人扯闊，個剔就同「開住」拉開晒。
+           要明確 min-width:auto，再用 inline-flex 將剔同字綁實。 */
+        '<div style="flex:0 0 auto;min-width:auto;padding-bottom:6px"><label style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap;margin-bottom:0"><input type="checkbox" data-hw="on" data-i="' + ri + '"' + (rule.on===false?'':' checked') + ' style="margin:0">開住</label></div>' +
       '</div>';
 
     /* 即時預覽：呢條規矩而家認到邊幾堂。冇呢個，爸爸永遠唔知系統誤會咗邊個項目係一堂。 */
@@ -4212,6 +4235,7 @@ function renderHwRules(){
       else if(k==='from') rule.from = inp.value;
       else if(k==='to') rule.to = inp.value;
       else if(k==='on') rule.on = inp.checked;
+      else if(k==='preMin') rule.preMin = Math.max(0, parseInt(inp.value,10)||0);
       else if(k==='iname') rule.items[j].name = inp.value.trim() || '功課';
       else if(k==='itimes') rule.items[j].times = Math.max(1, parseInt(inp.value,10)||1);
       save(); renderHw();
@@ -6857,6 +6881,11 @@ async function addChatImgs(files){
   const take = list.slice(0, room);
   if(list.length > room) toast('一次最多 ' + CHAT_IMG_MAX + ' 張，只收咗頭 ' + room + ' 張');
   for(const f of take){
+    /* 明文擋走影片：一段短片入到 model 度可以係一張相嘅幾十倍 token。
+       相機嗰邊本身淨係影靜態相（canvas 截一格），冇錄影功能。 */
+    if(/^video\//.test(f.type||'') || /\.(mp4|mov|m4v|avi|mkv|webm|3gp)$/i.test(f.name||'')){
+      toast('唔收影片——太食 token。想問片入面嘅嘢，就㩒停佢再影張相。'); continue;
+    }
     if(!/^image\//.test(f.type||'')){ toast('「' + (f.name||'呢個檔') + '」唔係相'); continue; }
     try{ chatImgs.push(await shrinkImage(f)); }
     catch(e){ toast('處理唔到一張相：' + e.message); }
@@ -6910,8 +6939,11 @@ function snapCam(){
   cv.getContext('2d').drawImage(v, 0, 0, w, h);
   chatImgs.push(cv.toDataURL('image/jpeg', 0.8));
   renderChatImgs();
-  if(chatImgs.length >= CHAT_IMG_MAX){ toast('夠 ' + CHAT_IMG_MAX + ' 張喇'); closeCam(); }
-  else $('camNote').textContent = '影咗 ' + chatImgs.length + ' 張，仲可以影 ' + (CHAT_IMG_MAX - chatImgs.length) + ' 張。';
+  /* 影完一張就收工返去傾偈。細路見到相機仲喺度，就會一路影落去；
+     想再影就自己撳多次 📷，唔使我哋引導。 */
+  closeCam();
+  toast('影咗喇' + (chatImgs.length < CHAT_IMG_MAX ? '，想再影就撳多次 📷' : ''));
+  try{ chatInput.focus(); }catch(e){}
 }
 
 /* 睇相模型（尤其免費嗰啲）成日繁忙。呢度做兩層：
