@@ -124,6 +124,31 @@ header .spacer{flex:1}
 .evTime input{width:74px;font-size:13px}
 .evDur{color:var(--muted);font-size:12px;min-width:110px}
 .evTtl{flex:1;font-weight:600}
+.chatImgs{display:flex;gap:8px;flex-wrap:wrap;padding:6px 0 0}
+.chatImgs:empty{display:none}
+.chatThumb{position:relative;width:62px;height:62px;border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+.chatThumb img{width:100%;height:100%;object-fit:cover;display:block}
+.chatThumb button{position:absolute;top:1px;right:1px;width:18px;height:18px;border:0;border-radius:50%;
+  background:rgba(0,0,0,.62);color:#fff;font-size:11px;line-height:18px;padding:0;cursor:pointer}
+.chatMsg .msgImgs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.chatMsg .msgImgs img{max-width:150px;max-height:150px;border-radius:8px;display:block}
+#camWrap{position:relative;background:#000;border-radius:10px;overflow:hidden}
+#camVid{width:100%;max-height:60vh;display:block;object-fit:contain;background:#000}
+.camBar{display:flex;gap:10px;justify-content:center;align-items:center;margin-top:12px}
+#camSnap{width:62px;height:62px;border-radius:50%;border:4px solid var(--accent);background:#fff;
+  font-size:24px;cursor:pointer}
+.evSpk{border:0;background:transparent;cursor:pointer;font-size:14px;line-height:1;padding:2px 5px;
+  border-radius:5px;opacity:.35;transition:opacity .15s,background .15s;flex:0 0 auto}
+.evRow:hover .evSpk{opacity:.75}
+.evSpk:hover{opacity:1;background:var(--accent-soft)}
+.evSpk.speaking{opacity:1;background:var(--accent-soft)}
+@media (hover:none){.evSpk{opacity:.6}}
+.kwRow{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.kwRow input[type=text]{flex:1;padding:7px 9px;border:1px solid var(--line);border-radius:6px}
+.kwSw{width:30px;height:30px;border-radius:50%;border:2px solid var(--line);cursor:pointer;flex:0 0 auto}
+.kwPal{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.kwPal button{width:24px;height:24px;border-radius:50%;border:2px solid transparent;cursor:pointer}
+.kwPal button.sel{border-color:var(--ink)}
 .evTags{display:flex;gap:6px;align-items:center;font-size:12px}
 .badge{padding:1px 8px;border-radius:20px;font-size:11px}
 .badge.plan{background:#eef3fb;color:var(--q-blue)}
@@ -446,6 +471,7 @@ mark{background:#ffe9a8;border-radius:2px}
 @keyframes roPulse{0%,100%{box-shadow:0 0 0 0 rgba(214,138,46,.55)}50%{box-shadow:0 0 0 7px rgba(214,138,46,0)}}
 body.readonly #btnUnlock{display:inline-block}
 body.readonly #btnGuest,
+body.readonly #btnKw,
 body.readonly #btnLogin,
 body.readonly #btnExport,
 body.readonly #btnImport,
@@ -566,6 +592,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
   <button class="hbtn" id="btnRedo" disabled title="重做（Ctrl+Y）" style="display:none">↪ 重做</button>
   <button class="hbtn" id="btnAI">🤖 AI 排程 (Ctrl+K)</button>
   <button class="hbtn" id="btnAISet">⚙ AI 設定</button>
+  <button class="hbtn" id="btnKw">🎨 關鍵字顏色</button>
   <button class="hbtn" id="btnSearch">🔍 搜尋 (Ctrl+F)</button>
   <button class="hbtn" id="btnBulk">📅 批量計劃</button>
   <button class="hbtn" id="btnExport">⬇ 匯出 JSON</button>
@@ -638,6 +665,26 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
   <div class="modalActs"><button class="btn" id="guestUnlockCancel">取消</button><button class="btn primary" id="guestUnlockGo">解鎖</button></div>
 </div></div>
 
+<div class="overlay" id="camModal"><div class="modal" style="max-width:560px"><h3>📷 影相</h3>
+  <div id="camWrap"><video id="camVid" playsinline autoplay muted></video></div>
+  <div class="camBar"><button id="camSnap" title="影">⚪</button></div>
+  <p class="subnote" id="camNote" style="text-align:center;margin-top:8px">只會用後置鏡頭。</p>
+  <div class="modalActs"><button class="btn" id="camClose">收工</button></div>
+</div></div>
+<div class="overlay" id="kwModal"><div class="modal"><h3>🎨 關鍵字顏色</h3>
+  <p class="subnote">時間表標題入面撞到呢啲字，就會用你揀嘅顏色顯示。幾個關鍵字用同一隻色係冇問題嘅。大細楷唔分。</p>
+  <div id="kwRows" style="margin-top:10px"></div>
+  <div class="aiBar" style="margin-top:6px">
+    <button class="btn" id="kwAdd">＋ 加一個</button>
+    <button class="btn" id="kwSeed">⚡ 用返預設</button>
+    <button class="btn danger" id="kwClear">清走全部</button>
+  </div>
+  <div style="margin-top:12px;padding:10px;border:1px solid var(--line);border-radius:8px">
+    <label style="display:block;margin-bottom:6px">預覽</label>
+    <div id="kwPrev" style="font-weight:600"></div>
+  </div>
+  <div class="modalActs"><button class="btn primary" id="kwClose">完成</button></div>
+</div></div>
 <div class="overlay" id="eventModal"><div class="modal"><h3 id="evModalTitle">編輯項目</h3><div class="frow"><div style="flex:2"><label>標題</label><input type="text" id="evTitle"></div></div><div class="frow"><div><label>日期</label><input type="date" id="evDate"></div><div><label>開始時間</label><input type="time" id="evTimeInp"></div><div><label>指定完結時間（背景／平行任務先需要）</label><div style="display:flex;gap:6px"><input type="time" id="evEnd"><button class="btn" id="evEndClear" title="清除" style="padding:4px 8px">✕</button></div></div></div><div class="frow"><div><label><input type="checkbox" id="evHwSlot" style="margin-right:6px;vertical-align:-1px">呢個係「做功課／練習」嘅時段，唔係上堂</label><div class="subnote" style="margin-top:2px">剔咗之後，系統就唔會當佢係一堂而再派多一份功課出嚟。</div></div></div><div class="frow"><div><label>顏色（艾森豪四象限，可以唔揀）</label><div class="colorPick" id="evColors"><button class="cpBtn cp-none" data-c="" title="無"></button><button class="cpBtn cp-red" data-c="red" title="緊急＋重要"></button><button class="cpBtn cp-amber" data-c="amber" title="重要但唔緊急"></button><button class="cpBtn cp-blue" data-c="blue" title="緊急但唔重要"></button><button class="cpBtn cp-grey" data-c="grey" title="唔重要唔緊急"></button></div></div></div><div class="frow"><div><label>SOP／內文（可以直接由 Word 貼上，會自動變 Markdown 純文字，圖片一律過濾）</label><textarea id="evSop" class="sop"></textarea><div class="sopPreview" id="evSopPrev"></div><button class="btn" id="evPrevToggle" style="margin-top:6px;padding:3px 10px;font-size:12px">預覽排版</button></div></div><div class="modalActs"><button class="btn danger" id="evDelete">刪除</button><span style="flex:1"></span><button class="btn" id="evCancel">取消</button><button class="btn primary" id="evSave">儲存</button></div></div></div>
 <div class="overlay" id="tplModal"><div class="modal"><h3 id="tplModalTitle">編輯任務模板</h3><div class="frow"><div><label>標題</label><input type="text" id="tplTitle"></div></div><div class="frow"><div><label>預設顏色</label><div class="colorPick" id="tplColors"><button class="cpBtn cp-none" data-c="" title="無"></button><button class="cpBtn cp-red" data-c="red" title="緊急＋重要"></button><button class="cpBtn cp-amber" data-c="amber" title="重要但唔緊急"></button><button class="cpBtn cp-blue" data-c="blue" title="緊急但唔重要"></button><button class="cpBtn cp-grey" data-c="grey" title="唔重要唔緊急"></button></div></div></div><div class="frow"><div><label>SOP（可由 Word 貼上，自動轉 Markdown；圖片一律過濾）</label><textarea id="tplSop" class="sop"></textarea><div class="sopPreview" id="tplSopPrev"></div><button class="btn" id="tplPrevToggle" style="margin-top:6px;padding:3px 10px;font-size:12px">預覽排版</button></div></div><p class="subnote">提示：儲存後，如果將來已排程嘅項目仍然同舊模板一模一樣（未被個別修改過），會問你要唔要一次過套用新內容。已過去嘅記錄一律不受影響。</p><div class="modalActs"><button class="btn" id="tplCancel">取消</button><button class="btn primary" id="tplSave">儲存</button></div></div></div>
 <div class="overlay" id="bulkModal"><div class="modal"><h3>批量計劃／修改／刪除</h3><div class="frow"><div><label>揀選任務模板</label><select id="bulkTask"></select></div></div><div class="frow"><div><label>由（日期）</label><input type="date" id="bulkFrom"></div><div><label>至（日期）</label><input type="date" id="bulkTo"></div><div><label>時間</label><input type="time" id="bulkTime" value="09:00"></div></div><div class="frow"><div><label>動作</label><select id="bulkMode"><option value="create">建立：喺呢段日期內，每日同一時間新增呢個任務</option><option value="retime">修改：將呢段日期內同一任務全部改做新時間</option><option value="delete">刪除：將呢段日期內同一任務全部刪除</option></select></div></div><div class="frow" id="bulkNewTimeRow" style="display:none"><div><label>新時間</label><input type="time" id="bulkNewTime" value="10:00"></div></div><div class="modalActs"><button class="btn" id="bulkCancel">取消</button><button class="btn primary" id="bulkGo">執行</button></div></div></div>
@@ -833,9 +880,13 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
       <div class="chatHist" id="chatHist"></div>
       <div class="chatBar">
         <button class="btn" id="chatMic" title="用把口講（Chrome 先支援）">🎤</button>
+        <button class="btn" id="chatPic" title="由相簿揀相（最多 3 張）">🖼</button>
+        <button class="btn" id="chatCam" title="即場影相（只用後置鏡頭）">📷</button>
+        <input type="file" id="chatPicFile" accept="image/*" multiple style="display:none">
         <textarea id="chatInput" placeholder="喺度打你想傾嘅嘢…（Enter 送出，Shift+Enter 換行）"></textarea>
         <button class="btn primary" id="chatSend">↵ 送出</button>
       </div>
+      <div class="chatImgs" id="chatImgs"></div>
       <div class="chatActRow">
         <button class="btn" id="chatTTS" title="AI 覆完自動用廣東話讀出嚟（訪客模式一樣用得）">🔊 自動讀：熄</button>
         <button class="btn" id="chatExport" title="即刻將呢個版面所有問答匯出成檔案">⬇ 匯出呢輪對話</button>
@@ -855,6 +906,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
   <div class="aiRow" style="margin-top:12px"><div><label>供應商（揀完會自動填好下面兩格）</label><select id="aiProv"></select></div></div>
   <div class="aiRow"><div><label>Base URL（網址）</label><input type="text" id="aiBase" placeholder="https://api.openai.com/v1" spellcheck="false"></div></div>
   <div class="aiRow"><div><label>Model（型號名，要同官網一模一樣）</label><input type="text" id="aiModel" placeholder="gpt-4o-mini" spellcheck="false"></div></div>
+  <div class="aiRow"><div><label>睇相用嘅 Model（留空＝唔開睇相功能）</label><input type="text" id="aiVisionModel" placeholder="glm-5v-turbo" spellcheck="false"><div class="subnote" style="margin-top:3px">傾偈嗰度上載相或者影相嗰陣，會改用呢個型號。上面嗰個 Model 多數係純文字，睇唔到相。Z.ai 嘅係 <code>glm-5v-turbo</code>。</div></div></div>
   <div class="aiRow">
     <div><label>API Key（金鑰，唔一定要 <code>sk-</code> 字頭，照供應商俾嗰個原封不動貼落去）</label><input type="password" id="aiKey" placeholder="貼你供應商俾嘅 key（OpenAI 多數 sk- 開頭；GLM／DeepSeek 唔一定）" spellcheck="false"></div>
     <div style="flex:0 0 auto;align-self:flex-end"><button class="btn" id="aiKeyShow">👁 睇下</button></div>
@@ -1326,6 +1378,44 @@ function pad(n){ return String(n).padStart(2,'0'); }
 function fmtDate(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
 function fmtTime(d){ return pad(d.getHours())+':'+pad(d.getMinutes()); }
 function nowStr(){ const d=new Date(); return fmtDate(d)+'T'+fmtTime(d); }
+/* ============ 關鍵字顏色 ============
+   時間表標題入面撞到嘅字，用指定顏色顯示。純粹係顯示層，唔會改到 ev.title。 */
+const KW_PALETTE = ['#d92d20','#e8590c','#f59f00','#2f9e44','#0ca678','#1971c2',
+                    '#3b5bdb','#7048e8','#ae3ec9','#c2255c','#495057','#868e96'];
+const KW_DEFAULT = [
+  {kw:'Charlotte', color:'#d92d20'},
+  {kw:'Jasmine',   color:'#2f9e44'},
+  {kw:'婆婆',      color:'#7048e8'},
+  {kw:'嫲嫲',      color:'#ae3ec9'},
+  {kw:'爸爸',      color:'#e8590c'},
+  {kw:'爹哋',      color:'#e8590c'},
+  {kw:'媽媽',      color:'#1971c2'},
+  {kw:'媽咪',      color:'#1971c2'}
+];
+function kwList(){
+  if(!Array.isArray(state.kwColors)) state.kwColors = KW_DEFAULT.map(function(x){ return {kw:x.kw, color:x.color}; });
+  return state.kwColors;
+}
+/* 由長到短貪心配對：唔咁樣嘅話「媽媽」會俾「媽」食咗一半。全程 esc，唔會俾標題注入 HTML。 */
+function kwHtml(txt){
+  const str = String(txt==null?'':txt);
+  const list = kwList().filter(function(x){ return x && String(x.kw||'').trim(); });
+  if(!list.length) return esc(str);
+  const sorted = list.slice().sort(function(a,b){ return String(b.kw).length - String(a.kw).length; });
+  let out = '', i = 0;
+  while(i < str.length){
+    let hit = null;
+    for(let k=0; k<sorted.length; k++){
+      const w = String(sorted[k].kw);
+      if(str.substr(i, w.length).toLowerCase() === w.toLowerCase()){ hit = {w:w, c:sorted[k].color}; break; }
+    }
+    if(hit){
+      out += '<span style="color:' + esc(hit.c||'') + ';font-weight:700">' + esc(str.substr(i, hit.w.length)) + '</span>';
+      i += hit.w.length;
+    }else{ out += esc(str.charAt(i)); i++; }
+  }
+  return out;
+}
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function minutes(hhmm){ const [h,m]=hhmm.split(':').map(Number); return h*60+m; }
 function durText(mins){
@@ -1867,8 +1957,15 @@ function renderDay(){
     }
     main.appendChild(dur);
 
-    const ttl=document.createElement('span'); ttl.className='evTtl'; ttl.textContent=ev.title;
+    const ttl=document.createElement('span'); ttl.className='evTtl'; ttl.innerHTML=kwHtml(ev.title);
     main.appendChild(ttl);
+
+    /* 小喇叭：讀出標題。要 stopPropagation，唔係就會順手摺埋成格。 */
+    const spk=document.createElement('button');
+    spk.className='evSpk'; spk.textContent='🔊';
+    spk.title='讀出「'+ev.title+'」（再撳一次＝停）';
+    spk.onclick=(e)=>{ e.stopPropagation(); ttsSpeak(ev.title, spk); };
+    main.appendChild(spk);
 
     const tags=document.createElement('span'); tags.className='evTags';
     tags.innerHTML=(isNow? '<span class="badge now">▶ 而家</span> ' : '')+evStatusBadge(ev);
@@ -2009,7 +2106,7 @@ function makeChip(ev, dayEvs){
   const c=document.createElement('div');
   const isNow = dayEvs ? isNowEvent(ev, dayEvs) : false;
   c.className='chip'+(ev.color?' c-'+ev.color:'')+(isOverdue(ev)?' overdue':'')+(isNow?' now':'');
-  c.innerHTML='<b>'+esc(ev.start.slice(11))+'</b>'+esc(ev.title);
+  c.innerHTML='<b>'+esc(ev.start.slice(11))+'</b>'+kwHtml(ev.title);
   c.onclick=()=>{ cursor=new Date(ev.start.slice(0,10)+'T00:00'); expanded.add(ev.id); setView('day'); };
   c.draggable=true;
   c.addEventListener('dragstart',e=>{ e.dataTransfer.setData('text/ev',ev.id); c.classList.add('dragging'); });
@@ -2496,7 +2593,7 @@ async function callAI(messages, opt){
        佢就冇得再寫開場白／思考，一定要由 JSON 內容開始續落去。 */
     if(opt.json){ conv.push({role:'assistant', content:'{'}); prefilled = true; }
     body = {
-      model:c.model, max_tokens:opt.max||4000,
+      model:(opt.model||c.model), max_tokens:opt.max||4000,
       temperature: opt.temp==null ? 0.2 : opt.temp,
       system: sys,
       messages: conv
@@ -2518,7 +2615,7 @@ async function callAI(messages, opt){
     /* GLM 5.2 / DeepSeek-R1 / o1 等推理模型會先消耗大量 token 做內部推理，需要更大 max_tokens */
     const isReasoning = /glm-5|glm-4\.6|deepseek-r|o1|o3-|qwen3|reasoning|qwq/i.test(c.model||'');
     const defMax = isReasoning ? 8000 : 4000;
-    body = {model:c.model, temperature: opt.temp==null?0.2:opt.temp, max_tokens:opt.max||defMax, messages:messages};
+    body = {model:(opt.model||c.model), temperature: opt.temp==null?0.2:opt.temp, max_tokens:opt.max||defMax, messages:messages};
     if(opt.json && c.jsonMode) body.response_format = {type:'json_object'};
     /* 關閉推理模型嘅「內部思考」。唔識呢兩個欄位嘅供應商會直接無視，唔會出事。
        開咗嘅話，GLM 5.2 / Qwen3 就唔會將 max_tokens 燒晒喺 reasoning 度、答案未出就爆額。 */
@@ -5363,6 +5460,7 @@ $('aiMic').onclick = ()=>{
 function readTTSForm(c){
   c.autoFix   = $('aiAutoFix').checked;
   c.noThink   = $('aiNoThink').checked;
+  if($('aiVisionModel')) c.visionModel = $('aiVisionModel').value.trim();
   c.maxTok    = Math.max(0, parseInt($('aiMaxTok').value,10) || 0);
   c.ttsVoice  = $('ttsVoice').value || '';
   c.ttsRate   = $('ttsRate').value || '1';
@@ -5422,6 +5520,7 @@ function openSet(){
   $('aiJson').checked = !!c.jsonMode;
   $('aiAutoFix').checked = (c.autoFix !== false);
   $('aiNoThink').checked = !!c.noThink;
+  if($('aiVisionModel')) $('aiVisionModel').value = c.visionModel || '';
   $('aiMaxTok').value = c.maxTok ? String(c.maxTok) : '';
   $('ttsRate').value = c.ttsRate || '1';
   $('ttsAuto').checked = !!c.ttsAuto;
@@ -5642,6 +5741,91 @@ $('aiSetClear').onclick = async ()=>{
     setStatus('aiSetStatus','清咗喇。');
   }
 };
+/* ---------- 關鍵字顏色設定畫面 ---------- */
+let kwOpenPal = -1;                     /* 而家攤開緊邊一行嘅色盤 */
+function renderKw(){
+  const box = $('kwRows'); if(!box) return;
+  const L = kwList();
+  box.innerHTML = '';
+  if(!L.length){ box.innerHTML = '<p class="subnote">一個關鍵字都冇。撳「＋ 加一個」或者「⚡ 用返預設」。</p>'; }
+  L.forEach(function(item, i){
+    const row = document.createElement('div');
+    const line = document.createElement('div'); line.className = 'kwRow';
+
+    const inp = document.createElement('input');
+    inp.type = 'text'; inp.value = item.kw || ''; inp.placeholder = '例如：Charlotte';
+    inp.oninput = ()=>{ item.kw = inp.value; save(); paintPrev(); try{ renderCal(); }catch(e){} };
+    line.appendChild(inp);
+
+    const sw = document.createElement('button');
+    sw.className = 'kwSw'; sw.style.background = item.color || '#888';
+    sw.title = '撳一下揀顏色';
+    sw.onclick = ()=>{ kwOpenPal = (kwOpenPal === i ? -1 : i); renderKw(); };
+    line.appendChild(sw);
+
+    const custom = document.createElement('input');
+    custom.type = 'color'; custom.value = item.color || '#888888';
+    custom.title = '自己揀一隻色';
+    custom.style.cssText = 'width:34px;height:30px;padding:0;border:1px solid var(--line);border-radius:6px;cursor:pointer;flex:0 0 auto';
+    custom.oninput = ()=>{ item.color = custom.value; sw.style.background = custom.value;
+                           save(); paintPrev(); try{ renderCal(); }catch(e){} };
+    line.appendChild(custom);
+
+    const del = document.createElement('button');
+    del.className = 'btn danger'; del.textContent = '🗑'; del.style.padding = '4px 9px';
+    del.onclick = ()=>{ L.splice(i,1); kwOpenPal = -1; save(); renderKw(); try{ renderCal(); }catch(e){} };
+    line.appendChild(del);
+    row.appendChild(line);
+
+    if(kwOpenPal === i){
+      const pal = document.createElement('div'); pal.className = 'kwPal';
+      KW_PALETTE.forEach(function(col){
+        const b = document.createElement('button');
+        b.style.background = col;
+        if((item.color||'').toLowerCase() === col.toLowerCase()) b.className = 'sel';
+        b.title = col;
+        b.onclick = ()=>{ item.color = col; kwOpenPal = -1; save(); renderKw();
+                          paintPrev(); try{ renderCal(); }catch(e){} };
+        pal.appendChild(b);
+      });
+      row.appendChild(pal);
+    }
+    box.appendChild(row);
+  });
+  paintPrev();
+}
+function paintPrev(){
+  const pv = $('kwPrev'); if(!pv) return;
+  const L = kwList().filter(function(x){ return String(x.kw||'').trim(); });
+  /* 用時間表上面真實嘅標題做預覽，撞唔到就用一句示範句 */
+  const real = (state.events||[]).map(function(e){ return e.title||''; })
+                 .filter(function(t){ return L.some(function(k){ return t.toLowerCase().indexOf(String(k.kw).toLowerCase())>=0; }); })
+                 .slice(0,4);
+  const lines = real.length ? real : ['婆婆帶Charlotte去佐敦', '做功課：Charlotte　大眾中文補充', '爸爸同Jasmine玩'];
+  pv.innerHTML = lines.map(function(t){ return kwHtml(t); }).join('<br>');
+}
+$('chatPic').onclick = ()=> $('chatPicFile').click();
+$('chatPicFile').onchange = async (e)=>{ await addChatImgs(e.target.files); e.target.value = ''; };
+$('chatCam').onclick = ()=> openCam();
+$('camSnap').onclick = ()=> snapCam();
+$('camClose').onclick = ()=> closeCam();
+/* 貼上／拖放都收相 */
+$('chatInput').addEventListener('paste', function(e){
+  const items = (e.clipboardData && e.clipboardData.files) || [];
+  if(items.length){ e.preventDefault(); addChatImgs(items); }
+});
+$('btnKw').onclick = ()=>{ kwOpenPal = -1; renderKw(); show('kwModal'); };
+$('kwClose').onclick = ()=>{ hide('kwModal'); try{ renderCal(); }catch(e){} };
+$('kwAdd').onclick = ()=>{ kwList().push({kw:'', color:KW_PALETTE[kwList().length % KW_PALETTE.length]});
+                           kwOpenPal = kwList().length-1; save(); renderKw(); };
+$('kwSeed').onclick = ()=>{ state.kwColors = KW_DEFAULT.map(function(x){ return {kw:x.kw, color:x.color}; });
+                            kwOpenPal = -1; save(); renderKw(); try{ renderCal(); }catch(e){} };
+$('kwClear').onclick = async ()=>{
+  if(await confirmBox('確定清走全部關鍵字顏色？時間表標題會變返普通黑色。')){
+    state.kwColors = []; kwOpenPal = -1; save(); renderKw(); try{ renderCal(); }catch(e){}
+  }
+};
+
 $('aiTest').onclick = async ()=>{
   const c = cfg();
   c.prov = $('aiProv').value;
@@ -6220,7 +6404,12 @@ function renderChat(){
     bubble.className = 'chatMsg ' + (m.role==='user'?'user':(m.role==='assistant'?'ai':'sys'));
     const isAI = (m.role==='assistant');
     if(m.role==='user'){
-      bubble.textContent = m.content;
+      if(m.imgs && m.imgs.length){
+        const iw = document.createElement('div'); iw.className = 'msgImgs';
+        m.imgs.forEach(function(u){ const im = document.createElement('img'); im.src = u; iw.appendChild(im); });
+        bubble.appendChild(iw);
+      }
+      const tx = document.createElement('div'); tx.textContent = m.content; bubble.appendChild(tx);
     } else if(isAI){
       bubble.innerHTML = mdToHtml(m.content);
     } else {
@@ -6581,18 +6770,139 @@ function searchNote(){
   ].filter(Boolean).join('\n');
 }
 
+/* ============ 傾偈附圖 ============
+   ① 一次最多 3 張。相唔同文字：每張入到 model 度都係幾百到過千個 token，
+      三張已經夠佢睇清楚一版工作紙／一個場景，再多就係燒錢多過幫到手。
+   ② 送出之前一律縮到最長邊 1024px、JPEG 0.8。手機影出嚟隨時 4000px、5MB，
+      直接掟上去係貴幾倍而答案唔會好過。
+   ③ 舊相只保留最近 3 個有相嘅回合，再舊嘅喺送去 API 嗰陣拆走，
+      唔係傾得耐條數會愈滾愈大。 */
+const CHAT_IMG_MAX = 3;          /* 一次最多幾多張 */
+const CHAT_IMG_PX  = 1024;       /* 縮到最長邊幾多 px */
+const CHAT_IMG_KEEP = 3;         /* 送去 API 時，保留最近幾多個有相嘅回合 */
+let chatImgs = [];               /* 而家等緊送出嗰批（dataURL） */
+
+function shrinkImage(file){
+  return new Promise(function(res, rej){
+    const fr = new FileReader();
+    fr.onerror = function(){ rej(new Error('讀唔到個檔')); };
+    fr.onload = function(){
+      const im = new Image();
+      im.onerror = function(){ rej(new Error('唔係一張相嚟')); };
+      im.onload = function(){
+        let w = im.naturalWidth, h = im.naturalHeight;
+        const sc = Math.min(1, CHAT_IMG_PX / Math.max(w, h));
+        w = Math.round(w * sc); h = Math.round(h * sc);
+        const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        cv.getContext('2d').drawImage(im, 0, 0, w, h);
+        res(cv.toDataURL('image/jpeg', 0.8));
+      };
+      im.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+function renderChatImgs(){
+  const box = $('chatImgs'); if(!box) return;
+  box.innerHTML = '';
+  chatImgs.forEach(function(u, i){
+    const d = document.createElement('div'); d.className = 'chatThumb';
+    const im = document.createElement('img'); im.src = u; d.appendChild(im);
+    const x = document.createElement('button'); x.textContent = '✕'; x.title = '唔要呢張';
+    x.onclick = ()=>{ chatImgs.splice(i,1); renderChatImgs(); };
+    d.appendChild(x); box.appendChild(d);
+  });
+  if(chatImgs.length){
+    const n = document.createElement('span');
+    n.className = 'subnote'; n.style.cssText = 'align-self:center;margin-left:4px';
+    n.textContent = chatImgs.length + '／' + CHAT_IMG_MAX + ' 張，送出之後會清走';
+    box.appendChild(n);
+  }
+}
+async function addChatImgs(files){
+  const list = Array.from(files || []);
+  if(!list.length) return;
+  const room = CHAT_IMG_MAX - chatImgs.length;
+  if(room <= 0){ toast('最多 ' + CHAT_IMG_MAX + ' 張，想加就先刪走一張'); return; }
+  const take = list.slice(0, room);
+  if(list.length > room) toast('一次最多 ' + CHAT_IMG_MAX + ' 張，只收咗頭 ' + room + ' 張');
+  for(const f of take){
+    if(!/^image\//.test(f.type||'')){ toast('「' + (f.name||'呢個檔') + '」唔係相'); continue; }
+    try{ chatImgs.push(await shrinkImage(f)); }
+    catch(e){ toast('處理唔到一張相：' + e.message); }
+  }
+  renderChatImgs();
+}
+
+/* ── 相機：夾硬鎖死後置鏡頭 ──
+   用 <input capture> 嘅話，iOS 個相機介面仲有得反轉去自拍。所以自己開 getUserMedia，
+   facingMode 指定 exact:'environment'，個介面就冇得反。 */
+let camStream = null;
+async function openCam(){
+  if(chatImgs.length >= CHAT_IMG_MAX){ toast('已經夠 ' + CHAT_IMG_MAX + ' 張喇'); return; }
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    toast('呢個瀏覽器唔支援影相，用返 🖼 揀相啦'); return;
+  }
+  let st = null;
+  try{ st = await navigator.mediaDevices.getUserMedia({video:{facingMode:{exact:'environment'}}, audio:false}); }
+  catch(e){
+    try{ st = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}, audio:false}); }
+    catch(e2){ toast('開唔到相機：' + (e2.message||e2)); return; }
+    /* 掂到呢度即係搵唔到後置鏡。喺手機／平板就唔好用前鏡（唔想佢玩自拍）；
+       電腦得一個鏡頭，唔封鎖佢就乜都影唔到。 */
+    const fm = (st.getVideoTracks()[0].getSettings()||{}).facingMode;
+    const touch = (navigator.maxTouchPoints||0) > 1;
+    if(touch && fm !== 'environment'){
+      st.getTracks().forEach(function(t){ t.stop(); });
+      toast('呢部機搵唔到後置鏡頭。前置鏡冇開，想加相就用 🖼 揀相。');
+      return;
+    }
+  }
+  camStream = st;
+  const v = $('camVid'); v.srcObject = st;
+  const fm2 = (st.getVideoTracks()[0].getSettings()||{}).facingMode;
+  $('camNote').textContent = (fm2==='environment' ? '用緊後置鏡頭。' : '呢部機得一個鏡頭。')
+                           + '　仲可以影 ' + (CHAT_IMG_MAX - chatImgs.length) + ' 張。';
+  show('camModal');
+  try{ await v.play(); }catch(e){}
+}
+function closeCam(){
+  if(camStream){ camStream.getTracks().forEach(function(t){ t.stop(); }); camStream = null; }
+  const v = $('camVid'); if(v) v.srcObject = null;
+  hide('camModal');
+}
+function snapCam(){
+  const v = $('camVid'); if(!v || !v.videoWidth) return;
+  let w = v.videoWidth, h = v.videoHeight;
+  const sc = Math.min(1, CHAT_IMG_PX / Math.max(w, h));
+  w = Math.round(w*sc); h = Math.round(h*sc);
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  cv.getContext('2d').drawImage(v, 0, 0, w, h);
+  chatImgs.push(cv.toDataURL('image/jpeg', 0.8));
+  renderChatImgs();
+  if(chatImgs.length >= CHAT_IMG_MAX){ toast('夠 ' + CHAT_IMG_MAX + ' 張喇'); closeCam(); }
+  else $('camNote').textContent = '影咗 ' + chatImgs.length + ' 張，仲可以影 ' + (CHAT_IMG_MAX - chatImgs.length) + ' 張。';
+}
+
 async function chatSend(presetText){
   if(chatBusy) return;
-  const text = (presetText!=null ? presetText : chatInput.value).trim();
-  if(!text) return;
+  let text = (presetText!=null ? presetText : chatInput.value).trim();
+  const sendImgs = (presetText==null) ? chatImgs.slice() : [];
+  if(!text && !sendImgs.length) return;
+  if(!text && sendImgs.length) text = '睇下呢' + (sendImgs.length>1 ? sendImgs.length+'張相' : '張相') + '，同我講下入面有咩。';
+  if(sendImgs.length && !String(cfg().visionModel||'').trim()){
+    setStatus('aiStatus','要睇相就要喺「⚙ API 設定」填「睇相用嘅 Model」（例如 glm-5v-turbo）。', true);
+    show('aiSetModal');
+    return;
+  }
   if(!cfgReady()){
     setStatus('aiStatus','仲未設定 API。撳右上角「⚙ API 設定」先。', true);
     show('aiSetModal');
     return;
   }
   /* 加 user message */
-  chatHistory.push({role:'user', content:text, at:nowISO()});
-  if(presetText==null) chatInput.value = '';
+  chatHistory.push({role:'user', content:text, imgs:sendImgs, at:nowISO()});
+  if(presetText==null){ chatInput.value = ''; chatImgs = []; renderChatImgs(); }
   renderChat();
   /* 加一個 loading 訊息 */
   const loadingEl = document.createElement('div');
@@ -6607,13 +6917,39 @@ async function chatSend(presetText){
     /* 組 messages：system + 用戶資料 + 對話歷史 */
     const messages = [
       {role:'system', content: SYS_CHAT + '\n\n' + searchNote() + '\n\n' + personaBlock() + '\n\n' + ctxText()},
-      ...chatHistory.map(m=>({role:m.role, content:m.content}))
+      ...(function(){
+        /* 由後數返，最多保留 CHAT_IMG_KEEP 個有相嘅回合；更舊嘅淨係留返文字，
+           唔係傾得耐，每一 turn 都要重新上載晒所有舊相。 */
+        let budget = CHAT_IMG_KEEP;
+        const keep = {};
+        for(let i = chatHistory.length - 1; i >= 0; i--){
+          if(chatHistory[i].imgs && chatHistory[i].imgs.length){
+            if(budget > 0){ keep[i] = true; budget--; }
+          }
+        }
+        return chatHistory.map(function(m, i){
+          if(m.imgs && m.imgs.length && keep[i]){
+            return {role:m.role, content:[{type:'text', text:m.content||''}].concat(
+              m.imgs.map(function(u){ return {type:'image_url', image_url:{url:u}}; }))};
+          }
+          if(m.imgs && m.imgs.length){
+            return {role:m.role, content:(m.content||'') + '\n（附咗 ' + m.imgs.length + ' 張相，已經傾過，唔再重複上載）'};
+          }
+          return {role:m.role, content:m.content};
+        });
+      })()
     ];
+    /* 呢個 turn 有相要睇 → 轉用睇相 model */
+    const visM = String(cfg().visionModel||'').trim();
+    const useVis = visM && chatHistory.some(function(m,i){
+      return m.imgs && m.imgs.length && i >= chatHistory.length - (CHAT_IMG_KEEP*2);
+    });
     /* 傾偈係最需要「內部思考」嘅場合（要拆問題、諗點示範、揀邊樣講）。
        推理模型嘅思考 token 計入 max_tokens，6000 遠遠唔夠，所以預設 20000。
        講出嚟嘅長度唔係由呢度控制，係由 persona 嗰條「六十至一百八十字」控制。 */
     const _reasons = [];
-    let reply = await callAI(messages, {json:false, temp:0.5, max: (cfg().maxTok || 20000)});
+    let reply = await callAI(messages, {json:false, temp:0.5, max: (cfg().maxTok || 20000),
+                                        model: (useVis ? visM : null)});
     if(AI_LAST_REASON) _reasons.push(AI_LAST_REASON);
     /* 佢出咗 [[SEARCH]] / [[FANDOM]] 標記 → 幫佢查，再攞返個結果問多次 */
     let rounds = 0;
@@ -6633,7 +6969,8 @@ async function chatSend(presetText){
             '或者換過啲更加specific嘅字眼再 [[WEB]] 一次。') +
         '如果查返嚟嘅嘢同你原本記得嘅唔同，以查返嚟嗰份為準。搵唔到嘅部分就照人格設定用邏輯推理答，唔好就咁話唔知。'
       });
-      reply = await callAI(messages, {json:false, temp:0.5, max: (cfg().maxTok || 20000)});
+      reply = await callAI(messages, {json:false, temp:0.5, max: (cfg().maxTok || 20000),
+                                      model: (useVis ? visM : null)});
       if(AI_LAST_REASON) _reasons.push('【查完資料之後嗰轉】\n' + AI_LAST_REASON);
     }
     reply = stripLookup(reply);
@@ -6957,6 +7294,7 @@ $('chatExport').onclick = async ()=>{
     : (r === 'picked') ? '✅ 已經存好。' : '✅ 已經下載（睇下你部機嘅「下載」）。';
 };
 
+$('chatClear').addEventListener('click', ()=>{ chatImgs = []; renderChatImgs(); });
 $('chatClear').onclick = async ()=>{
   if(!chatHistory.length) return;
   if(await confirmBox('確定要清走目前嘅對話？\n（對話本來就唔會儲存，清咗即冇咗。）')){
