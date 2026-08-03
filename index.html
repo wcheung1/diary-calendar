@@ -769,6 +769,9 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
           <div style="flex:0 0 170px"><label>死線點計</label><select id="ncDue"><option value="next">下次同一堂前一日</option><option value="week">上堂之後 7 日內</option><option value="none">唔使跟進</option></select></div>
           <div style="flex:0 0 auto"><button class="btn primary" id="ncGo">開班＋排晒落時間表</button></div>
         </div>
+        <div class="aiRow" style="margin-top:7px">
+          <label class="ttsChk" style="font-size:13px"><input type="checkbox" id="ncNoEvents"> 時間表已經排好，唔使再排（淨係開規矩，唔會整多啲格出嚟）</label>
+        </div>
       </details>
 
       <div class="aiRow" style="gap:8px;align-items:flex-end;margin-top:12px">
@@ -4174,8 +4177,27 @@ $('ncGo').onclick = ()=>{
   const time = $('ncTime').value || '16:00';
   const gap = Math.max(1, parseInt($('ncGap').value,10)||7);
   const due = $('ncDue').value;
-  if(!name || !from || !to){ toast('班別名、由邊日、排到邊日都要填'); return; }
-  if(to < from){ toast('「排到邊日」要遲過「由邊日開始」'); return; }
+  const noEv = !!($('ncNoEvents') && $('ncNoEvents').checked);
+  if(!name){ toast('班別名要填'); return; }
+  if(!noEv){
+    if(!from || !to){ toast('班別名、由邊日、排到邊日都要填'); return; }
+    if(to < from){ toast('「排到邊日」要遲過「由邊日開始」'); return; }
+  }
+  /* 剔咗「時間表已經排好」＝淨係開規矩。規矩係靠標題認返時間表上面已經有嘅格，
+     所以唔使、亦都唔應該再排新格出嚟，否則就會同原本嗰啲撞晒。 */
+  if(noEv){
+    const items0 = $('ncItems').value.split(/[,，]/).map(function(x){ return x.trim(); })
+                     .filter(Boolean).map(function(n){ return {name:n, times:1}; });
+    state.ai.hwRules.push({id:uid(), name:name, match:title, not:HW_DEFAULT_NOT,
+      due:(items0.length ? due : 'none'), on:true, from:from||'', to:'', items:items0});
+    save();
+    $('ncName').value=''; $('ncTitle').value=''; $('ncItems').value='';
+    renderHw();
+    const hit = lessonDays(state.ai.hwRules[state.ai.hwRules.length-1]).length;
+    toast(hit ? '開好規矩「' + name + '」，喺時間表認返到 ' + hit + ' 堂'
+              : '開好規矩「' + name + '」，但一堂都認唔到——去「班別總覽」改「上堂項目要含有」試下');
+    return;
+  }
   /* 由 from 起,搵第一個係指定星期幾嘅日子 */
   let d = new Date(from);
   let guard = 0;
