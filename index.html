@@ -226,6 +226,10 @@ header .spacer{flex:1}
   font-size:12px;color:var(--muted);background:var(--bg);border-radius:6px;padding:6px 9px}
 .hwSlot.on{background:var(--accent-soft);color:var(--accent)}
 .hwSlot input{padding:4px 7px;border:1px solid var(--line);border-radius:5px;font-size:12px}
+.hwTable{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+.hwTable th{text-align:left;padding:6px 8px;border-bottom:2px solid var(--line);color:var(--muted);font-size:11.5px}
+.hwTable td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.hwSub{font-size:10.5px;color:var(--muted);margin-top:2px}
 #hwRules input[type=text],#hwRules input[type=date],#hwRules input[type=number],#hwRules select{
   width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:13px}
 body.readonly .hwOwner,
@@ -697,6 +701,16 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
     </div>
 
     <div class="hwStat" id="hwStat"></div>
+
+    <details class="hwFold hwOwner" open>
+      <summary>🎓 班別總覽：邊啲堂上緊、最近一堂、下一堂</summary>
+      <div id="hwCourses"></div>
+      <div class="aiRow" style="gap:8px;align-items:flex-end;margin-top:10px">
+        <div style="flex:1"><label>由邊日開始計功課（之前嘅一概唔理）</label><input type="date" id="hwSince" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px"></div>
+        <div style="flex:0 0 auto"><button class="btn" id="hwSinceGo">套用</button></div>
+        <div style="flex:0 0 auto"><button class="btn" id="hwSinceClr">清走限制</button></div>
+      </div>
+    </details>
 
     <h4 class="hwH">仲未做完</h4>
     <div id="hwPending"></div>
@@ -2722,13 +2736,41 @@ function pendingItems(days, cap){
    做法：規矩只講一次。「上完 X 堂 → 跟住要做 Y（要做 N 次）→ 幾時之前做完」。
          之後行事曆每出現一次嗰堂，系統自己生成跟進項目，唔使人手輸入。
    ================================================================== */
+const HW_DEFAULT_NOT = '功課,練習,溫習,温習,複習,預習,做卷,工作紙,特訓,補充';
+
 function ensureHw(){
   ensureAI();
   if(!Array.isArray(state.ai.hwRules)) state.ai.hwRules = [];
   if(!state.ai.hwDone || typeof state.ai.hwDone !== 'object') state.ai.hwDone = {};
   if(!state.ai.hwSkip || typeof state.ai.hwSkip !== 'object') state.ai.hwSkip = {};
   if(!Array.isArray(state.ai.hwTasks)) state.ai.hwTasks = [];
+  if(typeof state.ai.hwSince !== 'string') state.ai.hwSince = '';
+  hwMigrate();
   return state.ai;
+}
+
+/* 修返舊版整落嘅規矩。兩個問題：
+   ① 舊版冇「唔可以含有」呢欄，所以「Charlotte 練習大提琴」都會當咗一堂大提琴；
+   ② 舊版嘅「一鍵載入」係 concat，撳兩次就變咗兩套，一個科目派雙份功課。
+   呢個 migrate 靜靜哋補返欄位、同埋將 match+due 一樣嘅規矩合返一條（保留最新嗰條嘅項目）。 */
+function hwMigrate(){
+  let touched = false;
+  const R = state.ai.hwRules;
+  R.forEach(function(r){
+    if(r.not === undefined || r.not === null){ r.not = HW_DEFAULT_NOT; touched = true; }
+    if(r.on  === undefined || r.on  === null){ r.on  = true;           touched = true; }
+    if(!r.name){ r.name = r.match || '（未命名）';                      touched = true; }
+    if(r.from === undefined) r.from = '';
+    if(r.to   === undefined) r.to   = '';
+  });
+  const seen = {}, keep = [];
+  for(let i = R.length - 1; i >= 0; i--){            /* 由後行返前：留返最新嗰條 */
+    const k = (R[i].match||'') + '|' + (R[i].due||'') + '|' + (R[i].not||'');
+    if(seen[k]){ touched = true; continue; }
+    seen[k] = 1; keep.unshift(R[i]);
+  }
+  if(keep.length !== R.length) state.ai.hwRules = keep;
+  if(touched){ try{ save(); }catch(e){} }
 }
 
 /* hwDone 由「一個數字」升級做 {n, at}，因為要知幾時做完先做到「7 日後淡出」。
@@ -2749,7 +2791,7 @@ function hwSetDone(k,n){ ensureHw();
    點解要有 not：純粹靠 match，「Charlotte 做學而思功課」都會當咗係一堂學而思，
    跟住又派多三份功課出嚟。實測爸爸個行事曆，五個班全部中招。 */
 function defaultHwRules(){
-  const NOT = '功課,練習,溫習,温習,複習,預習,做卷,工作紙,特訓,補充';
+  const NOT = HW_DEFAULT_NOT;
   return [
     {id:uid(), name:'大提琴課',   match:'大提琴', not:NOT, due:'week', on:true, from:'', to:'',
       items:[{name:'練習大提琴', times:1}]},
@@ -2853,18 +2895,20 @@ function homeworkBoard(){
     days.forEach(function(ev, idx){
       const d0 = ev.start.slice(0,10);
       if(ev.start > nw || d0 < limS.slice(0,10)) return;   /* 未上嘅堂唔派功課 */
-      let due = '', nextCls = '';
+      if(state.ai.hwSince && d0 < state.ai.hwSince) return; /* 「由呢日開始計」之前嘅唔理 */
+      /* 下一堂：所有模式都要計。
+         舊版淨係喺 due==='next' 嗰度計，所以大提琴、鋼琴（week 模式）
+         永遠顯示「未排下一堂」，明明八月排晒堂都係咁。 */
+      const nxtEv = days.filter(function(x){ return x.start.slice(0,10) > d0; })[0];
+      let nextCls = nxtEv ? nxtEv.start.slice(0,10) : '';
+      if(!nextCls && rule.nextManual && rule.nextManual > d0) nextCls = rule.nextManual;
+      let due = '';
       if(rule.due === 'next'){
-        /* 下一堂一定要係「之後嘅另一日」，唔可以係同一日。 */
-        const nxt = days.filter(function(x){ return x.start.slice(0,10) > d0; })[0];
-        if(nxt){
-          nextCls = nxt.start.slice(0,10);
-          due = fmtDate(new Date(new Date(nextCls).getTime() - 86400000));
-        }else{
-          due = fmtDate(new Date(new Date(d0).getTime() + 6*86400000));
-        }
+        due = nextCls ? fmtDate(new Date(new Date(nextCls).getTime() - 86400000))
+                      : fmtDate(new Date(new Date(d0).getTime() + 6*86400000));
       }else if(rule.due === 'week'){
         due = fmtDate(new Date(new Date(d0).getTime() + 7*86400000));
+        if(nextCls && nextCls < due) due = fmtDate(new Date(new Date(nextCls).getTime() - 86400000));
       }
       if(due < d0) due = d0;                        /* 死線點都唔可以早過上堂嗰日 */
       rule.items.forEach(function(it){
@@ -3113,7 +3157,59 @@ function renderHw(){
     }
   }
 
+  renderHwCourses();
   renderHwRules();
+}
+
+/* 🎓 班別總覽：一眼睇晒邊個班上緊、上到第幾堂、最近同下一堂幾時。
+   行事曆未排下一堂嘅，可以喺呢度自己填一個，死線就會跟返你填嗰個。 */
+function renderHwCourses(){
+  const el = $('hwCourses'); if(!el) return;
+  const today = fmtDate(new Date());
+  el.innerHTML = '';
+  const rules = (state.ai.hwRules||[]).filter(function(r){ return r.on !== false; });
+  if(!rules.length){ el.innerHTML = '<p class="subnote">未有班別。</p>'; return; }
+  const tb = document.createElement('table'); tb.className = 'hwTable';
+  tb.innerHTML = '<thead><tr><th>班別</th><th>已上</th><th>最近一堂</th><th>下一堂</th><th>上完要跟進</th></tr></thead>';
+  const bd = document.createElement('tbody');
+  rules.forEach(function(rule){
+    const ri = state.ai.hwRules.indexOf(rule);
+    const days = lessonDays(rule);
+    const past = days.filter(function(e){ return e.start.slice(0,10) <= today; });
+    const futr = days.filter(function(e){ return e.start.slice(0,10) >  today; });
+    const last = past.length ? past[past.length-1] : null;
+    const next = futr.length ? futr[0] : null;
+    const tr = document.createElement('tr');
+    if(!days.length) tr.style.background = '#fdf3f3';
+    tr.innerHTML =
+      '<td><b>' + esc(rule.name || rule.match || '（未命名）') + '</b>' +
+        '<div class="hwSub">認：' + esc(rule.match||'（空）') +
+        (rule.not ? '　排除：' + esc(short(String(rule.not),20)) : '') + '</div></td>' +
+      '<td>' + (days.length ? past.length + '／' + days.length + ' 堂'
+                            : '<b style="color:var(--overdue)">認唔到堂</b>') + '</td>' +
+      '<td>' + (last ? last.start.slice(0,10) + '<div class="hwSub">' + esc(short(last.title,16)) + '</div>' : '—') + '</td>' +
+      '<td class="nx"></td>' +
+      '<td>' + ((rule.items||[]).length
+                 ? esc((rule.items||[]).map(function(i){ return i.name + (i.times>1?' ×'+i.times:''); }).join('、'))
+                 : '<span style="color:var(--muted)">冇</span>') + '</td>';
+    const nc = tr.querySelector('.nx');
+    if(next){
+      nc.innerHTML = '<b style="color:var(--accent)">' + next.start.slice(0,10) + '</b>' +
+                     '<div class="hwSub">行事曆已經排咗</div>';
+    }else{
+      const inp = document.createElement('input');
+      inp.type = 'date'; inp.value = rule.nextManual || '';
+      inp.style.cssText = 'padding:4px 6px;border:1px solid var(--line);border-radius:5px;font-size:12px;width:140px';
+      inp.onchange = ()=>{ state.ai.hwRules[ri].nextManual = inp.value; save(); renderHw(); };
+      nc.appendChild(inp);
+      const sub = document.createElement('div'); sub.className = 'hwSub';
+      sub.textContent = rule.nextManual ? '你自己填嘅' : '行事曆未排，可以自己填';
+      nc.appendChild(sub);
+    }
+    bd.appendChild(tr);
+  });
+  tb.appendChild(bd); el.appendChild(tb);
+  const si = $('hwSince'); if(si) si.value = state.ai.hwSince || '';
 }
 
 function renderHwRules(){
@@ -3215,6 +3311,15 @@ function renderHwRules(){
   });
 }
 
+$('hwSinceGo').onclick = ()=>{
+  ensureHw();
+  state.ai.hwSince = $('hwSince').value || '';
+  save(); renderHw();
+  toast(state.ai.hwSince ? ('由 ' + state.ai.hwSince + ' 開始計，之前嘅堂唔會再派功課') : '已經清走限制');
+};
+$('hwSinceClr').onclick = ()=>{
+  ensureHw(); state.ai.hwSince = ''; if($('hwSince')) $('hwSince').value=''; save(); renderHw();
+};
 document.querySelectorAll('#hwFilter button').forEach(function(b){
   b.onclick = ()=>{
     hwFilter = b.dataset.f;
@@ -3246,10 +3351,13 @@ $('hwSeed').onclick = async ()=>{
 $('hwWipe').onclick = async ()=>{
   ensureHw();
   if(!(await confirmBox(
-    '清空所有功課記錄，由零開始？\n\n會清走：\n· 所有「做完咗」嘅剔號\n· 所有「今次冇功課」嘅交叉\n· 所有爸爸加嘅練習同派咗嘅工作紙\n\n唔會清走：班別規矩、行事曆。\n呢個動作冇得還原。'))) return;
+    '清空所有功課記錄，由零開始？\n\n會清走：\n· 所有「做完咗」嘅剔號\n· 所有「今次冇功課」嘅交叉\n· 所有爸爸加嘅練習同派咗嘅工作紙\n\n同時會將「由邊日開始計功課」設做今日，\n即係今日之前上過嘅堂唔會再彈啲功課返出嚟。\n\n唔會清走：班別規矩、行事曆。'))) return;
   state.ai.hwDone = {}; state.ai.hwSkip = {}; state.ai.hwTasks = [];
+  /* 關鍵：淨係清記錄係唔夠嘅。啲功課本身係由舊嘅堂推算返出嚟，
+     清咗剔號佢哋即刻又原封不動彈返晒出嚟。所以要同時將「由邊日開始計」推到今日。 */
+  state.ai.hwSince = fmtDate(new Date());
   save(); renderHw();
-  toast('功課記錄已經清空，重新開始');
+  toast('已經清空，而且由今日 (' + state.ai.hwSince + ') 開始重新計');
 };
 $('hwAdd').onclick = ()=>{
   ensureHw();
