@@ -906,7 +906,12 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
   <div class="aiRow" style="margin-top:12px"><div><label>供應商（揀完會自動填好下面兩格）</label><select id="aiProv"></select></div></div>
   <div class="aiRow"><div><label>Base URL（網址）</label><input type="text" id="aiBase" placeholder="https://api.openai.com/v1" spellcheck="false"></div></div>
   <div class="aiRow"><div><label>Model（型號名，要同官網一模一樣）</label><input type="text" id="aiModel" placeholder="gpt-4o-mini" spellcheck="false"></div></div>
-  <div class="aiRow"><div><label>睇相用嘅 Model（留空＝唔開睇相功能）</label><input type="text" id="aiVisionModel" placeholder="glm-5v-turbo" spellcheck="false"><div class="subnote" style="margin-top:3px">傾偈嗰度上載相或者影相嗰陣，會改用呢個型號。上面嗰個 Model 多數係純文字，睇唔到相。Z.ai 嘅係 <code>glm-5v-turbo</code>。</div></div></div>
+  <div class="aiRow"><div><label>睇相用嘅 Model（留空＝唔開睇相功能）</label><input type="text" id="aiVisionModel" placeholder="glm-4.6v-flash" spellcheck="false"><div class="subnote" style="margin-top:3px">傾偈嗰度上載相或者影相嗰陣，會改用呢個型號。上面嗰個 Model 多數係純文字，睇唔到相。<br>Z.ai 免費嗰個係 <code>glm-4.6v-flash</code>（有速率限制，但夠用）；收費嗰個係 <code>glm-5v-turbo</code>（勁好多，但 Coding Plan 唔包，要另外課金）。</div></div></div>
+  <details style="margin-top:6px"><summary class="subnote" style="cursor:pointer">睇相要用另一條線？（例如 Coding Plan 唔包，要改用按量計嘅 API）</summary>
+    <div class="aiRow" style="margin-top:6px"><div><label>睇相專用 Base URL（留空＝同上面一樣）</label><input type="text" id="aiVisionBase" placeholder="https://api.z.ai/api/paas/v4" spellcheck="false"></div></div>
+    <div class="aiRow"><div><label>睇相專用 API Key（留空＝同上面一樣）</label><input type="password" id="aiVisionKey" placeholder="淨係喺睇相嗰陣用" spellcheck="false"></div></div>
+    <p class="subnote">訂閱套餐同按量計費係兩個唔同嘅錢包。如果你個 Coding Plan 唔包睇相模型，就喺呢度填返開放平台嗰條 key，傾偈同排程照舊行套餐，淨係睇相嗰幾次先扣按量計嘅數。</p>
+  </details>
   <div class="aiRow">
     <div><label>API Key（金鑰，唔一定要 <code>sk-</code> 字頭，照供應商俾嗰個原封不動貼落去）</label><input type="password" id="aiKey" placeholder="貼你供應商俾嘅 key（OpenAI 多數 sk- 開頭；GLM／DeepSeek 唔一定）" spellcheck="false"></div>
     <div style="flex:0 0 auto;align-self:flex-end"><button class="btn" id="aiKeyShow">👁 睇下</button></div>
@@ -2576,8 +2581,14 @@ let AI_LAST_REASON = '';
 async function callAI(messages, opt){
   AI_LAST_REASON = '';
   opt = opt || {};
-  const c = cfg();
+  let c = cfg();
   if(!c.base || !c.model) throw new Error('仲未設定 API。撳一下右上角「⚙ API 設定」，填返 Base URL、Model 同 API Key。');
+  /* 睇相可以行另一條線：copy 一份 config 出嚟改，唔好郁到用戶存住嗰份 */
+  if(opt.base || opt.apiKey){
+    c = Object.assign({}, c);
+    if(opt.base)   c.base   = opt.base;
+    if(opt.apiKey) c.apiKey = opt.apiKey;
+  }
   const url = endpoint(c);
   let headers, body, prefilled = false;
   if(c.kind==='anthropic'){
@@ -2644,7 +2655,7 @@ async function callAI(messages, opt){
     try{ const j=JSON.parse(txt); msg=(j.error&&(j.error.message||j.error.type))||txt; }catch(e){}
     const hint = (res.status===401||res.status===403) ? '（多數係 API Key 打錯、或者未儲值／未開通）'
                : res.status===404 ? '（多數係 Base URL 或者 Model 個名錯咗）'
-               : res.status===429 ? '（叫得太密，或者額度用完）'
+               : res.status===429 ? '（叫得太密、額度用完、或者你個訂閱套餐冇開放呢個型號——睇下面原文）'
                : res.status>=500 ? '（供應商伺服器出事，等陣再試）' : '';
     throw new Error('API 回報錯誤 ' + res.status + ' ' + hint + '\n' + short(msg,400));
   }
@@ -5461,6 +5472,8 @@ function readTTSForm(c){
   c.autoFix   = $('aiAutoFix').checked;
   c.noThink   = $('aiNoThink').checked;
   if($('aiVisionModel')) c.visionModel = $('aiVisionModel').value.trim();
+  if($('aiVisionBase'))  c.visionBase  = $('aiVisionBase').value.trim();
+  if($('aiVisionKey'))   c.visionKey   = $('aiVisionKey').value.trim();
   c.maxTok    = Math.max(0, parseInt($('aiMaxTok').value,10) || 0);
   c.ttsVoice  = $('ttsVoice').value || '';
   c.ttsRate   = $('ttsRate').value || '1';
@@ -5521,6 +5534,8 @@ function openSet(){
   $('aiAutoFix').checked = (c.autoFix !== false);
   $('aiNoThink').checked = !!c.noThink;
   if($('aiVisionModel')) $('aiVisionModel').value = c.visionModel || '';
+  if($('aiVisionBase'))  $('aiVisionBase').value  = c.visionBase  || '';
+  if($('aiVisionKey'))   $('aiVisionKey').value   = c.visionKey   || '';
   $('aiMaxTok').value = c.maxTok ? String(c.maxTok) : '';
   $('ttsRate').value = c.ttsRate || '1';
   $('ttsAuto').checked = !!c.ttsAuto;
@@ -6940,7 +6955,9 @@ async function chatSend(presetText){
       })()
     ];
     /* 呢個 turn 有相要睇 → 轉用睇相 model */
-    const visM = String(cfg().visionModel||'').trim();
+    const visM  = String(cfg().visionModel||'').trim();
+    const visB  = String(cfg().visionBase||'').trim();
+    const visK  = String(cfg().visionKey||'').trim();
     const useVis = visM && chatHistory.some(function(m,i){
       return m.imgs && m.imgs.length && i >= chatHistory.length - (CHAT_IMG_KEEP*2);
     });
@@ -6949,7 +6966,9 @@ async function chatSend(presetText){
        講出嚟嘅長度唔係由呢度控制，係由 persona 嗰條「六十至一百八十字」控制。 */
     const _reasons = [];
     let reply = await callAI(messages, {json:false, temp:0.5, max: (cfg().maxTok || 20000),
-                                        model: (useVis ? visM : null)});
+                                        model: (useVis ? visM : null),
+                                        base:  (useVis ? visB : null),
+                                        apiKey:(useVis ? visK : null)});
     if(AI_LAST_REASON) _reasons.push(AI_LAST_REASON);
     /* 佢出咗 [[SEARCH]] / [[FANDOM]] 標記 → 幫佢查，再攞返個結果問多次 */
     let rounds = 0;
@@ -6970,7 +6989,9 @@ async function chatSend(presetText){
         '如果查返嚟嘅嘢同你原本記得嘅唔同，以查返嚟嗰份為準。搵唔到嘅部分就照人格設定用邏輯推理答，唔好就咁話唔知。'
       });
       reply = await callAI(messages, {json:false, temp:0.5, max: (cfg().maxTok || 20000),
-                                      model: (useVis ? visM : null)});
+                                      model: (useVis ? visM : null),
+                                      base:  (useVis ? visB : null),
+                                      apiKey:(useVis ? visK : null)});
       if(AI_LAST_REASON) _reasons.push('【查完資料之後嗰轉】\n' + AI_LAST_REASON);
     }
     reply = stripLookup(reply);
