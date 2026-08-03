@@ -906,10 +906,12 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
   <div class="aiRow" style="margin-top:12px"><div><label>供應商（揀完會自動填好下面兩格）</label><select id="aiProv"></select></div></div>
   <div class="aiRow"><div><label>Base URL（網址）</label><input type="text" id="aiBase" placeholder="https://api.openai.com/v1" spellcheck="false"></div></div>
   <div class="aiRow"><div><label>Model（型號名，要同官網一模一樣）</label><input type="text" id="aiModel" placeholder="gpt-4o-mini" spellcheck="false"></div></div>
-  <div class="aiRow"><div><label>睇相用嘅 Model（留空＝唔開睇相功能）</label><input type="text" id="aiVisionModel" placeholder="glm-4.6v-flash" spellcheck="false"><div class="subnote" style="margin-top:3px">傾偈嗰度上載相或者影相嗰陣，會改用呢個型號。上面嗰個 Model 多數係純文字，睇唔到相。<br>Z.ai 免費嗰個係 <code>glm-4.6v-flash</code>（有速率限制，但夠用）；收費嗰個係 <code>glm-5v-turbo</code>（勁好多，但 Coding Plan 唔包，要另外課金）。</div></div></div>
+  <div class="aiRow"><div><label>睇相用嘅 Model（留空＝唔開睇相功能）</label><input type="text" id="aiVisionModel" placeholder="glm-4.6v-flash" spellcheck="false"><div class="subnote" style="margin-top:3px">傾偈嗰度上載相或者影相嗰陣，會改用呢個型號。上面嗰個 Model 多數係純文字，睇唔到相。<br>Z.ai 免費嗰個係 <code>glm-4.6v-flash</code>（夠用，但成日繁忙）；收費嗰個係 <code>glm-5v-turbo</code>（勁好多，但 Coding Plan 唔包）。<br>撞到「訪問量過大」會自動等陣再試三次。可以用逗號填兩個，例如 <code>glm-4.6v-flash, glm-5v-turbo</code>：免費嗰個試唔到先自動轉收費嗰個。</div></div></div>
   <details style="margin-top:6px"><summary class="subnote" style="cursor:pointer">睇相要用另一條線？（例如 Coding Plan 唔包，要改用按量計嘅 API）</summary>
     <div class="aiRow" style="margin-top:6px"><div><label>睇相專用 Base URL（留空＝同上面一樣）</label><input type="text" id="aiVisionBase" placeholder="https://api.z.ai/api/paas/v4" spellcheck="false"></div></div>
     <div class="aiRow"><div><label>睇相專用 API Key（留空＝同上面一樣）</label><input type="password" id="aiVisionKey" placeholder="淨係喺睇相嗰陣用" spellcheck="false"></div></div>
+    <div class="aiRow"><div style="flex:0 0 200px"><label>每日最多睇幾多次相</label><input type="number" id="aiVisionCap" min="0" step="1" placeholder="20" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px"></div><div style="flex:1;align-self:flex-end"><span class="subnote" id="aiVisionUsed"></span></div></div>
+    <p class="subnote">呢個係喺你部機度數嘅硬上限，同 Z.ai 嗰邊無關。到咗數就唔會再叫 API，所以就算你唔記得咗，都燒唔穿個餘額。填 0 ＝ 唔限。每日凌晨自動歸零。</p>
     <p class="subnote">訂閱套餐同按量計費係兩個唔同嘅錢包。如果你個 Coding Plan 唔包睇相模型，就喺呢度填返開放平台嗰條 key，傾偈同排程照舊行套餐，淨係睇相嗰幾次先扣按量計嘅數。</p>
   </details>
   <div class="aiRow">
@@ -2657,7 +2659,14 @@ async function callAI(messages, opt){
                : res.status===404 ? '（多數係 Base URL 或者 Model 個名錯咗）'
                : res.status===429 ? '（叫得太密、額度用完、或者你個訂閱套餐冇開放呢個型號——睇下面原文）'
                : res.status>=500 ? '（供應商伺服器出事，等陣再試）' : '';
-    throw new Error('API 回報錯誤 ' + res.status + ' ' + hint + '\n' + short(msg,400));
+    const apiErr = new Error('API 回報錯誤 ' + res.status + ' ' + hint + '\n' + short(msg,400));
+    apiErr.status = res.status;
+    apiErr.raw = String(msg||'');
+    /* 「访问量过大 / rate limit / busy」＝ 等陣再試就得；
+       「权限 / not open / permission」＝ 幾多次都唔會得，唔好嘥時間重試。 */
+    apiErr.busy = (res.status===429 || res.status>=500) &&
+                  !/权限|權限|not open|permission|unauthor/i.test(String(msg||''));
+    throw apiErr;
   }
   let data;
   try{ data = JSON.parse(txt); }catch(e){ throw new Error('讀唔明 AI 嘅回覆：' + short(txt,200)); }
@@ -5474,6 +5483,7 @@ function readTTSForm(c){
   if($('aiVisionModel')) c.visionModel = $('aiVisionModel').value.trim();
   if($('aiVisionBase'))  c.visionBase  = $('aiVisionBase').value.trim();
   if($('aiVisionKey'))   c.visionKey   = $('aiVisionKey').value.trim();
+  if($('aiVisionCap'))   c.visionCap   = $('aiVisionCap').value.trim()==='' ? 20 : (parseInt($('aiVisionCap').value,10)||0);
   c.maxTok    = Math.max(0, parseInt($('aiMaxTok').value,10) || 0);
   c.ttsVoice  = $('ttsVoice').value || '';
   c.ttsRate   = $('ttsRate').value || '1';
@@ -5536,6 +5546,11 @@ function openSet(){
   if($('aiVisionModel')) $('aiVisionModel').value = c.visionModel || '';
   if($('aiVisionBase'))  $('aiVisionBase').value  = c.visionBase  || '';
   if($('aiVisionKey'))   $('aiVisionKey').value   = c.visionKey   || '';
+  if($('aiVisionCap'))   $('aiVisionCap').value   = (c.visionCap==null ? 20 : c.visionCap);
+  if($('aiVisionUsed')){
+    const o = visCount(), cap = visCap();
+    $('aiVisionUsed').textContent = '今日用咗 ' + o.n + ' 次' + (cap ? '／上限 ' + cap : '（冇上限）');
+  }
   $('aiMaxTok').value = c.maxTok ? String(c.maxTok) : '';
   $('ttsRate').value = c.ttsRate || '1';
   $('ttsAuto').checked = !!c.ttsAuto;
@@ -6899,6 +6914,60 @@ function snapCam(){
   else $('camNote').textContent = '影咗 ' + chatImgs.length + ' 張，仲可以影 ' + (CHAT_IMG_MAX - chatImgs.length) + ' 張。';
 }
 
+/* 睇相模型（尤其免費嗰啲）成日繁忙。呢度做兩層：
+   ① 同一個型號等陣再試（3 秒 → 8 秒 → 15 秒）；
+   ② 試完仲唔得，就跳去用戶填嘅下一個型號（設定嗰格用逗號分開）。
+   分得清「繁忙」同「冇權限」——後者重試幾多次都係徒勞，即刻掟返出去。 */
+const VIS_WAITS = [3000, 8000, 15000];
+/* 每日睇相次數上限：純粹喺本機數，唔靠供應商。就算你唔記得咗個 app 開住，
+   或者細路狂咁影相，都燒唔穿個預付餘額。 */
+const VIS_CAP_KEY = 'diarycal_vision_count';
+function visCount(){
+  const today = fmtDate(new Date());
+  let o = {d:today, n:0};
+  try{ const raw = localStorage.getItem(VIS_CAP_KEY); if(raw) o = JSON.parse(raw); }catch(e){}
+  if(o.d !== today) o = {d:today, n:0};
+  return o;
+}
+function visCap(){ const v = cfg().visionCap; return (v===0||v==='0') ? 0 : (parseInt(v,10) || 20); }
+function visBump(){
+  const o = visCount(); o.n++;
+  try{ localStorage.setItem(VIS_CAP_KEY, JSON.stringify(o)); }catch(e){}
+}
+function visCheck(){
+  const cap = visCap(); if(!cap) return;
+  const o = visCount();
+  if(o.n >= cap){
+    const e = new Error('今日已經睇咗 ' + o.n + ' 次相，夠咗每日上限（' + cap + ' 次）。\n' +
+      '呢個上限係你自己喺「⚙ API 設定」度設嘅，唔係 Z.ai 攔你。想加就去嗰度改，' +
+      '或者聽日自動歸零。');
+    e.busy = false; throw e;
+  }
+}
+async function callVision(messages, opt, models, onNote){
+  visCheck();
+  let last = null;
+  for(let mi = 0; mi < models.length; mi++){
+    const m = models[mi];
+    for(let a = 0; a <= VIS_WAITS.length; a++){
+      try{
+        const r = await callAI(messages, Object.assign({}, opt, {model:m}));
+        visBump();
+        return r;
+      }catch(err){
+        last = err;
+        if(!err.busy) break;                      /* 冇權限／參數錯 → 換下一個型號 */
+        if(a === VIS_WAITS.length) break;         /* 呢個型號試夠數 */
+        const w = VIS_WAITS[a];
+        if(onNote) onNote(m + ' 而家好多人用，等 ' + Math.round(w/1000) + ' 秒再試…（第 ' + (a+1) + ' 次）');
+        await new Promise(function(r){ setTimeout(r, w); });
+      }
+    }
+    if(mi < models.length - 1 && onNote) onNote('轉用 ' + models[mi+1] + ' 再試…');
+  }
+  throw last || new Error('睇相失敗');
+}
+
 async function chatSend(presetText){
   if(chatBusy) return;
   let text = (presetText!=null ? presetText : chatInput.value).trim();
@@ -6956,6 +7025,7 @@ async function chatSend(presetText){
     ];
     /* 呢個 turn 有相要睇 → 轉用睇相 model */
     const visM  = String(cfg().visionModel||'').trim();
+    const visList = visM.split(/[,，]/).map(function(x){ return x.trim(); }).filter(Boolean);
     const visB  = String(cfg().visionBase||'').trim();
     const visK  = String(cfg().visionKey||'').trim();
     const useVis = visM && chatHistory.some(function(m,i){
@@ -6965,10 +7035,11 @@ async function chatSend(presetText){
        推理模型嘅思考 token 計入 max_tokens，6000 遠遠唔夠，所以預設 20000。
        講出嚟嘅長度唔係由呢度控制，係由 persona 嗰條「六十至一百八十字」控制。 */
     const _reasons = [];
-    let reply = await callAI(messages, {json:false, temp:0.5, max: (cfg().maxTok || 20000),
-                                        model: (useVis ? visM : null),
-                                        base:  (useVis ? visB : null),
-                                        apiKey:(useVis ? visK : null)});
+    const visOpt = {json:false, temp:0.5, max:(cfg().maxTok || 20000), base:visB, apiKey:visK};
+    const note = function(t){ loadingEl.innerHTML = '<span class="aiSpin"></span> ' + esc(t); };
+    let reply = useVis
+      ? await callVision(messages, visOpt, visList, note)
+      : await callAI(messages, {json:false, temp:0.5, max:(cfg().maxTok || 20000)});
     if(AI_LAST_REASON) _reasons.push(AI_LAST_REASON);
     /* 佢出咗 [[SEARCH]] / [[FANDOM]] 標記 → 幫佢查，再攞返個結果問多次 */
     let rounds = 0;
@@ -6988,10 +7059,9 @@ async function chatSend(presetText){
             '或者換過啲更加specific嘅字眼再 [[WEB]] 一次。') +
         '如果查返嚟嘅嘢同你原本記得嘅唔同，以查返嚟嗰份為準。搵唔到嘅部分就照人格設定用邏輯推理答，唔好就咁話唔知。'
       });
-      reply = await callAI(messages, {json:false, temp:0.5, max: (cfg().maxTok || 20000),
-                                      model: (useVis ? visM : null),
-                                      base:  (useVis ? visB : null),
-                                      apiKey:(useVis ? visK : null)});
+      reply = useVis
+        ? await callVision(messages, visOpt, visList, note)
+        : await callAI(messages, {json:false, temp:0.5, max:(cfg().maxTok || 20000)});
       if(AI_LAST_REASON) _reasons.push('【查完資料之後嗰轉】\n' + AI_LAST_REASON);
     }
     reply = stripLookup(reply);
