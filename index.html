@@ -611,8 +611,12 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
     <button class="btn" data-exp-quick="30">最近 30 日</button>
     <button class="btn" data-exp-quick="all">全部</button>
   </div>
+  <label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:13px">
+    <input type="checkbox" id="guestExpThink"> 夾埋 AI 嘅內部推理過程（🧠 思考記錄）
+  </label>
+  <p class="subnote" id="guestExpThinkNote" style="margin-top:4px">推理過程存喺一個同行事曆完全分開嘅位（雲端 <code>diary_calendar_think</code> ＋ 本機 IndexedDB），唔喺行事曆嘅同步路徑入面，所以唔會拖慢個 app。iPad 錄低嘅，喺電腦一樣匯得到。剔咗之後個檔會大好多，但另一個 AI 就睇得到「佢當時點解會咁答」。</p>
   <div class="aiStatus" id="guestExpStatus"></div>
-  <div class="modalActs"><button class="btn" id="guestExpCancel">取消</button><button class="btn primary" id="guestExpGo">⬇ 匯出</button></div>
+  <div class="modalActs"><button class="btn danger" id="guestExpThinkClear" title="清走已經記低嘅推理過程，唔會影響對話記錄">🗑 清思考</button><button class="btn" id="guestExpCancel">取消</button><button class="btn primary" id="guestExpGo">⬇ 匯出</button></div>
 </div></div>
 
 <!-- 訪客模式：設定／更改解鎖密碼 -->
@@ -982,6 +986,175 @@ const LocalStore = {
     try{ localStorage.setItem(this.KEY, JSON.stringify(data)); } catch(e){ }
   }
 };
+
+/* =========================================================
+   思考記錄 ThinkStore（推理模型嘅 reasoning_content）
+   ---------------------------------------------------------
+   點解唔擺落 state.ai.log？因為 save() 係將成個 state object
+   upload 上 Firebase（dbRef.update(payload)），而推理過程通常
+   係答案嘅三至十倍長。擺落 state 等於：每改一次行事曆都要多傳
+   幾十 KB、開機要多 parse 一大嚿、仲會逼爆 LOG_MAX 個 ring buffer。
+   所以另開一個 IndexedDB：非同步、同 localStorage 同 Firebase 完全
+   分離、平時一個字都唔會讀，淨係匯出嗰陣先攞出嚟。寫入係 fire-and-
+   forget，唔 await，所以連傾偈都唔會拖慢。
+========================================================= */
+const ThinkStore = {
+  DB:'diarycal_think', STORE:'think', MAX:400, CAP:20000, _p:null,
+  open(){
+    if(this._p) return this._p;
+    const self = this;
+    this._p = new Promise(function(res, rej){
+      let req;
+      try{ req = indexedDB.open(self.DB, 1); }catch(e){ return rej(e); }
+      req.onupgradeneeded = function(){
+        const db = req.result;
+        if(!db.objectStoreNames.contains(self.STORE)){
+          const os = db.createObjectStore(self.STORE, {keyPath:'id'});
+          os.createIndex('at','at',{unique:false});
+        }
+      };
+      req.onsuccess = function(){ res(req.result); };
+      req.onerror   = function(){ rej(req.error); };
+    });
+    return this._p;
+  },
+  async put(rec){
+    try{
+      if(rec && rec.reason && rec.reason.length > this.CAP){
+        rec.cut = rec.reason.length;
+        rec.reason = rec.reason.slice(0, this.CAP);
+      }
+      const db = await this.open();
+      const STORE = this.STORE;
+      await new Promise(function(res, rej){
+        const tx = db.transaction(STORE,'readwrite');
+        tx.objectStore(STORE).put(rec);
+        tx.oncomplete = res; tx.onerror = function(){ rej(tx.error); };
+      });
+      this.trim();
+    }catch(e){ /* 記唔到就算數，絕對唔可以影響傾偈 */ }
+  },
+  async all(){
+    try{
+      const db = await this.open();
+      const STORE = this.STORE;
+      return await new Promise(function(res, rej){
+        const tx = db.transaction(STORE,'readonly');
+        const rq = tx.objectStore(STORE).getAll();
+        rq.onsuccess = function(){ res(rq.result||[]); };
+        rq.onerror   = function(){ rej(rq.error); };
+      });
+    }catch(e){ return []; }
+  },
+  async map(){
+    const m = {}; (await this.all()).forEach(function(r){ m[r.id] = r; }); return m;
+  },
+  async count(){ return (await this.all()).length; },
+  async trim(){
+    try{
+      const all = await this.all();
+      if(all.length <= this.MAX) return;
+      all.sort(function(a,b){ return String(a.at).localeCompare(String(b.at)); });
+      const kill = all.slice(0, all.length - this.MAX).map(function(x){ return x.id; });
+      const db = await this.open();
+      const tx = db.transaction(this.STORE,'readwrite');
+      const os = tx.objectStore(this.STORE);
+      kill.forEach(function(id){ os.delete(id); });
+    }catch(e){}
+  },
+  async clear(){
+    try{
+      const db = await this.open();
+      const STORE = this.STORE;
+      await new Promise(function(res, rej){
+        const tx = db.transaction(STORE,'readwrite');
+        tx.objectStore(STORE).clear();
+        tx.oncomplete = res; tx.onerror = function(){ rej(tx.error); };
+      });
+    }catch(e){}
+  }
+};
+
+/* =========================================================
+   ThinkCloud：將思考記錄同步去雲，等 iPad 錄低嘅嘢喺電腦匯得到
+   ---------------------------------------------------------
+   路徑係 diary_calendar_think/<uid>，**唔係** diary_calendar_data/<uid>
+   下面。呢個分別好緊要：dbRef.on('value') 係監聽住成個
+   diary_calendar_data/<uid> subtree，只要有嘢喺嗰下面，行事曆每改一次
+   就會將全部推理過程重新下載一次。擺去平行節點就完全避開個監聽器。
+
+   讀寫都係一次性（once / set），冇任何長期監聽。寫入唔 await。
+   Firebase 寫唔到（例如安全規則未開）都唔會出事，本機 IndexedDB 照有。
+========================================================= */
+const ThinkCloud = {
+  ROOT:'diary_calendar_think', lastError:'',
+  ref(){
+    try{
+      if(!currentUser || !currentUser.uid || typeof db === 'undefined') return null;
+      return db.ref(this.ROOT + '/' + currentUser.uid);
+    }catch(e){ return null; }
+  },
+  /* 用時間做 key，等 orderByKey() 就等於順時序，慳返一個 index */
+  key(rec){
+    return String(rec.at||'').replace(/[.:#$\[\]\/]/g,'-') + '__' + String(rec.id||'').replace(/[.:#$\[\]\/]/g,'-');
+  },
+  put(rec){
+    const r = this.ref(); if(!r) return;
+    const self = this;
+    try{
+      r.child(this.key(rec)).set(rec)
+        .then(function(){ self.lastError = ''; })
+        .catch(function(err){ self.lastError = String((err && err.message) || err); });
+    }catch(e){ this.lastError = String(e.message||e); }
+  },
+  async all(){
+    const r = this.ref(); if(!r) return [];
+    try{
+      const snap = await r.once('value');
+      const v = snap.val() || {};
+      const out = [];
+      Object.keys(v).forEach(function(k){ if(v[k]) out.push(Object.assign({_k:k}, v[k])); });
+      this.lastError = '';
+      return out;
+    }catch(err){ this.lastError = String((err && err.message) || err); return []; }
+  },
+  /* 匯出嗰陣本身已經全部讀晒落嚟，順手剷走超額嗰啲，零額外成本 */
+  async trimWith(list, max){
+    const r = this.ref(); if(!r || list.length <= max) return;
+    try{
+      list.sort(function(a,b){ return String(a._k).localeCompare(String(b._k)); });
+      const kill = list.slice(0, list.length - max);
+      const upd = {}; kill.forEach(function(x){ upd[x._k] = null; });
+      await r.update(upd);
+    }catch(e){}
+  },
+  async clear(){
+    const r = this.ref(); if(!r) return;
+    try{ await r.remove(); }catch(e){}
+  }
+};
+
+/* 一次過寫本機同雲：本機一定成功，雲盡力而為 */
+function saveThink(rec){
+  try{ ThinkStore.put(rec); }catch(e){}
+  try{ ThinkCloud.put(rec); }catch(e){}
+}
+/* 匯出用：兩邊夾埋，同一條 id 以有內容嗰份為準 */
+async function thinkMapMerged(){
+  const m = {};
+  const cloud = await ThinkCloud.all();
+  cloud.forEach(function(r){ if(r && r.id) m[r.id] = r; });
+  ThinkCloud.trimWith(cloud, ThinkStore.MAX);
+  const local = await ThinkStore.all();
+  local.forEach(function(r){ if(r && r.id && !m[r.id]) m[r.id] = r; });
+  return m;
+}
+async function thinkCounts(){
+  let loc = 0, cld = 0;
+  try{ loc = await ThinkStore.count(); }catch(e){}
+  try{ cld = (await ThinkCloud.all()).length; }catch(e){}
+  return {local:loc, cloud:cld, err:ThinkCloud.lastError, signed: !!ThinkCloud.ref()};
+}
 
 let loading = false;
 let fbListener = null;
@@ -2281,7 +2454,11 @@ function endpoint(c){
   return b + '/chat/completions';
 }
 
+/* 上一次 callAI 攞到嘅內部推理（reasoning_content）。
+   callAI 本身唔改 return 值——成三十個地方 call 佢，改簽名太傷。 */
+let AI_LAST_REASON = '';
 async function callAI(messages, opt){
+  AI_LAST_REASON = '';
   opt = opt || {};
   const c = cfg();
   if(!c.base || !c.model) throw new Error('仲未設定 API。撳一下右上角「⚙ API 設定」，填返 Base URL、Model 同 API Key。');
@@ -2358,6 +2535,7 @@ async function callAI(messages, opt){
     reason = String((msg && (msg.reasoning_content || msg.reasoning)) || '');
   }
   out = stripThink(out);
+  try{ AI_LAST_REASON = String(reason||''); }catch(e){}
 
   /* ── 修正 ①：爆 token 一定要報，唔可以因為有 reasoning_content 就靜雞雞當佢係答案 ──
      舊寫法係「out 空咗先 check finish_reason」，但推理模型多數會俾到一段 reasoning，
@@ -6310,7 +6488,9 @@ async function chatSend(presetText){
     /* 傾偈係最需要「內部思考」嘅場合（要拆問題、諗點示範、揀邊樣講）。
        推理模型嘅思考 token 計入 max_tokens，6000 遠遠唔夠，所以預設 20000。
        講出嚟嘅長度唔係由呢度控制，係由 persona 嗰條「六十至一百八十字」控制。 */
+    const _reasons = [];
     let reply = await callAI(messages, {json:false, temp:0.5, max: (cfg().maxTok || 20000)});
+    if(AI_LAST_REASON) _reasons.push(AI_LAST_REASON);
     /* 佢出咗 [[SEARCH]] / [[FANDOM]] 標記 → 幫佢查，再攞返個結果問多次 */
     let rounds = 0;
     while(rounds < SEARCH_MAX_ROUNDS && hasLookup(reply)){
@@ -6330,6 +6510,7 @@ async function chatSend(presetText){
         '如果查返嚟嘅嘢同你原本記得嘅唔同，以查返嚟嗰份為準。搵唔到嘅部分就照人格設定用邏輯推理答，唔好就咁話唔知。'
       });
       reply = await callAI(messages, {json:false, temp:0.5, max: (cfg().maxTok || 20000)});
+      if(AI_LAST_REASON) _reasons.push('【查完資料之後嗰轉】\n' + AI_LAST_REASON);
     }
     reply = stripLookup(reply);
     if(!reply) reply = '我頭先想上網查啲嘢，但係查唔到。你可以再問我一次嗎？';
@@ -6340,12 +6521,17 @@ async function chatSend(presetText){
          brief = 精簡版，專門俾 General Rules 提煉用：只留返用戶講嗰句。
          點解淨係留用戶嗰句？General Rules 講嘅係「你哋嘅習慣同偏好」，
          唔係 AI 講過乜。AI 嗰段回覆佔咗成條 log 大約八成字，但對提煉規則貢獻近乎零。 */
-      logPush('feedback', '👤 訪客對話記錄：\n我：'+text+'\n\nAI：'+short(reply,500),
+      const _ent = logPush('feedback', '👤 訪客對話記錄：\n我：'+text+'\n\nAI：'+short(reply,500),
               {kind:'guest-chat', guest:true, brief:'(訪客傾偈) '+short(text,200),
                /* text 嗰度剪到 500 字係為咗 Data Log 個 tab 睇得舒服，
                   但匯出俾人分析嗰陣剪咗就唔完整，所以全文另外擺喺 meta 度。 */
                q: text, a: reply});
       save();
+      /* 思考過程唔入 state：另外掟入 IndexedDB，唔 await，唔阻住畫面 */
+      if(_reasons.length && _ent && _ent.id){
+        saveThink({id:_ent.id, at:_ent.at, model:(cfg().model||''),
+                   q:text, reason:_reasons.join('\n\n─────────\n\n')});
+      }
     }
     renderChat();
     if(cfg().ttsAuto) ttsSpeak(reply, null);
@@ -6458,6 +6644,10 @@ function chatExpHeader(o){
 '> 以及助手邊啲回應係幫到手、邊啲係空泛或者答唔到題。',
 '> 呢份係原始記錄，冇經過篩選或者美化。',
 '',
+o.think ? '> **🧠 關於推理過程：**呢份檔仲夾埋 AI 每次回覆之前嘅內部推理（摺埋咗嗰啲）。\n' +
+          '> 攞嚟睇「佢當時以為自己跟緊邊條規則、佢喺邊兩樣嘢之間揀」，比淨係睇答案準好多。\n' +
+          '> 但要留意：呢啲字係模型自己講出嚟嘅，唔一定係佢真正嘅計算過程，有時係事後補嘅解釋。\n' +
+          '> 當佢係線索，唔好當佢係證據。\n' : '',
 '| | |',
 '|---|---|',
 '| 匯出時間 | ' + fmtStamp(nowISO()) + ' |',
@@ -6469,10 +6659,19 @@ function chatExpHeader(o){
 }
 
 /* 將一問一答排成統一格式 */
-function chatExpTurn(n, stamp, q, a){
+function chatExpTurn(n, stamp, q, a, think){
   const out = ['', '---', '', '### 第 ' + n + ' 輪' + (stamp ? '　·　' + stamp : ''), '',
                '**👤 用戶：**', '', String(q||'（冇內容）').trim(), '',
                '**🤖 AI：**', '', String(a||'（冇回覆）').trim(), ''];
+  if(think && String(think.reason||'').trim()){
+    let r = String(think.reason).trim();
+    const LIM = 6000;
+    let note = think.cut ? '（原文 ' + think.cut + ' 字，儲存時剪到 20000）' : '';
+    if(r.length > LIM){ r = r.slice(0, LIM) + '\n…（下略）'; note = '（呢度只顯示頭 ' + LIM + ' 字）'; }
+    out.push('<details>');
+    out.push('<summary>🧠 AI 內部推理過程' + (think.model ? '　·　' + think.model : '') + note + '</summary>');
+    out.push('', '```text', r, '```', '', '</details>', '');
+  }
   return out.join('\n');
 }
 
@@ -6497,13 +6696,13 @@ function guestChatsInRange(fromD, toD){
       if(i >= 0){ q = t.slice(0, i).replace(/^我：/,''); a = t.slice(i + 4); }
       else { q = t; }
     }
-    out.push({at:x.at, date:d, q:q.trim(), a:a.trim()});
+    out.push({id:x.id, at:x.at, date:d, q:q.trim(), a:a.trim()});
   }
   out.sort((p,q2)=> String(p.at).localeCompare(String(q2.at)));
   return out;
 }
 
-function buildGuestChatMd(rows, fromD, toD){
+function buildGuestChatMd(rows, fromD, toD, tmap){
   const byDay = {};
   rows.forEach(r=>{ (byDay[r.date] = byDay[r.date] || []).push(r); });
   const days = Object.keys(byDay).sort();
@@ -6511,7 +6710,8 @@ function buildGuestChatMd(rows, fromD, toD){
     title:'訪客對話記錄（小朋友 × AI）',
     mode:'訪客模式（小朋友）',
     range: (fromD||'最早') + ' 至 ' + (toD||'最新') + '　共 ' + days.length + ' 日',
-    turns: rows.length
+    turns: rows.length,
+    think: !!tmap
   });
   if(!rows.length){
     return md + '\n_呢個範圍入面冇任何訪客對話記錄。_\n';
@@ -6519,7 +6719,8 @@ function buildGuestChatMd(rows, fromD, toD){
   days.forEach(function(d){
     md += '\n\n## 📅 ' + d + '（' + byDay[d].length + ' 輪）\n';
     byDay[d].forEach(function(r, i){
-      md += chatExpTurn(i+1, fmtStamp(r.at).replace(d,'').trim(), r.q, r.a);
+      md += chatExpTurn(i+1, fmtStamp(r.at).replace(d,'').trim(), r.q, r.a,
+                        tmap ? tmap[r.id] : null);
     });
   });
   md += '\n\n---\n\n_檔案由「屋企行事曆」自動生成。_\n';
@@ -6556,10 +6757,24 @@ $('guestChatExport').onclick = ()=>{
   show('guestExpModal');
   updateGuestExpCount();
 };
-function updateGuestExpCount(){
+async function updateGuestExpCount(){
   const rows = guestChatsInRange($('guestExpFrom').value, $('guestExpTo').value);
+  let tail = '';
+  try{
+    const c = await thinkCounts();
+    if(!c.signed){
+      tail = '　⚠ 未登入 Google，思考記錄淨係存喺呢部機（本機 ' + c.local + ' 段），iPad 嗰邊嘅攞唔到。';
+    }else if(c.err){
+      tail = '　⚠ 雲端存唔到思考記錄（' + short(c.err,60) + '）。多數係 Firebase 安全規則未開 ' +
+             'diary_calendar_think 呢個節點。而家本機得 ' + c.local + ' 段。';
+    }else{
+      const tot = Math.max(c.cloud, c.local);
+      tail = tot ? '　已記低 ' + tot + ' 段推理過程（雲端 ' + c.cloud + '／本機 ' + c.local + '，兩邊會夾埋）。'
+                 : '　（暫時未有推理記錄——要用推理模型，而且唔好剔「關閉 AI 內部思考」。）';
+    }
+  }catch(e){}
   setStatus('guestExpStatus', rows.length
-    ? '呢個範圍搵到 ' + rows.length + ' 輪訪客對話。'
+    ? '呢個範圍搵到 ' + rows.length + ' 輪訪客對話。' + tail
     : '呢個範圍冇訪客對話記錄。（Charlotte 要喺訪客模式之下傾過偈先會有。）', !rows.length);
 }
 $('guestExpFrom').onchange = updateGuestExpCount;
@@ -6578,13 +6793,30 @@ document.querySelectorAll('[data-exp-quick]').forEach(function(b){
   };
 });
 $('guestExpCancel').onclick = ()=> hide('guestExpModal');
+$('guestExpThinkClear').onclick = async ()=>{
+  const c = await thinkCounts();
+  const n = Math.max(c.local, c.cloud);
+  if(!n){ setStatus('guestExpStatus','本身就冇思考記錄。'); return; }
+  if(await confirmBox('確定清走思考記錄？（雲端 ' + c.cloud + ' 段、本機 ' + c.local + ' 段）\n' +
+                      '雲端清咗，全部裝置一齊冇。對話記錄本身唔會受影響。')){
+    await ThinkStore.clear();
+    await ThinkCloud.clear();
+    updateGuestExpCount();
+  }
+};
 $('guestExpGo').onclick = async ()=>{
   const fromD = $('guestExpFrom').value, toD = $('guestExpTo').value;
   const rows = guestChatsInRange(fromD, toD);
   if(!rows.length){ setStatus('guestExpStatus','冇嘢可以匯出。', true); return; }
   const tag = (fromD||'all') + (toD && toD !== fromD ? '_' + toD : '');
-  const r = await saveTextFile('訪客對話_' + tag.replace(/-/g,'') + '.md',
-                               buildGuestChatMd(rows, fromD, toD));
+  const wantThink = !!($('guestExpThink') && $('guestExpThink').checked);
+  let tmap = null;
+  if(wantThink){
+    setStatus('guestExpStatus','讀緊思考記錄…');
+    tmap = await thinkMapMerged();
+  }
+  const r = await saveTextFile('訪客對話_' + tag.replace(/-/g,'') + (wantThink?'_連推理':'') + '.md',
+                               buildGuestChatMd(rows, fromD, toD, tmap));
   if(r === 'cancelled'){ setStatus('guestExpStatus','取消咗。'); return; }
   setStatus('guestExpStatus','✅ 匯出咗 ' + rows.length + ' 輪對話。');
   setTimeout(()=>hide('guestExpModal'), 900);
