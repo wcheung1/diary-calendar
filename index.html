@@ -132,8 +132,16 @@ header .spacer{flex:1}
   background:rgba(0,0,0,.62);color:#fff;font-size:11px;line-height:18px;padding:0;cursor:pointer}
 .chatMsg .msgImgs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
 .chatMsg .msgImgs img{max-width:150px;max-height:150px;border-radius:8px;display:block}
-#camWrap{position:relative;background:#000;border-radius:10px;overflow:hidden}
-#camVid{width:100%;max-height:60vh;display:block;object-fit:contain;background:#000}
+#camWrap{position:relative;background:#000;border-radius:10px;overflow:hidden;
+  touch-action:none;-webkit-user-select:none;user-select:none}
+#camVid{width:100%;max-height:60vh;display:block;object-fit:contain;background:#000;
+  transform-origin:center center;transition:transform .08s linear}
+#camZoomBadge{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;
+  font-size:12px;padding:3px 9px;border-radius:99px;pointer-events:none}
+.camZoomRow{display:flex;align-items:center;gap:8px;margin-top:10px}
+.camZoomRow input[type=range]{flex:1}
+.camZoomRow button{border:1px solid var(--line);background:var(--panel);border-radius:6px;
+  padding:3px 10px;font-size:12.5px;cursor:pointer}
 .camBar{display:flex;gap:10px;justify-content:center;align-items:center;margin-top:12px}
 #camSnap{width:62px;height:62px;border-radius:50%;border:4px solid var(--accent);background:#fff;
   font-size:24px;cursor:pointer}
@@ -671,7 +679,13 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 </div></div>
 
 <div class="overlay" id="camModal"><div class="modal" style="max-width:560px"><h3>📷 影相</h3>
-  <div id="camWrap"><video id="camVid" playsinline autoplay muted></video></div>
+  <div id="camWrap"><video id="camVid" playsinline autoplay muted></video><div id="camZoomBadge">1.0×</div></div>
+  <div class="camZoomRow">
+    <button id="camZoomOut">－</button>
+    <input type="range" id="camZoom" min="10" max="40" value="10" step="1">
+    <button id="camZoomIn">＋</button>
+  </div>
+  <p class="subnote" style="margin-top:4px">兩隻手指喺畫面上面推開／夾埋都可以放大。影字細嘅工作紙，放大到睇得清啲先影。</p>
   <div class="camBar"><button id="camSnap" title="影">⚪</button></div>
   <p class="subnote" id="camNote" style="text-align:center;margin-top:8px">只會用後置鏡頭。</p>
   <div class="modalActs"><button class="btn" id="camClose">收工</button></div>
@@ -888,6 +902,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
         <button class="btn" id="chatPic" title="由相簿揀相（最多 3 張）">🖼</button>
         <button class="btn" id="chatCam" title="即場影相（只用後置鏡頭）">📷</button>
         <input type="file" id="chatPicFile" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/gif,image/bmp" multiple style="display:none">
+        <input type="file" id="chatCamFile" accept="image/*" capture="environment" style="display:none">
         <textarea id="chatInput" placeholder="喺度打你想傾嘅嘢…（Enter 送出，Shift+Enter 換行）"></textarea>
         <button class="btn primary" id="chatSend">↵ 送出</button>
       </div>
@@ -920,6 +935,15 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
       <div style="flex:0 0 210px"><label>影幾多張就鎖相機（0＝唔鎖）</label><input type="number" id="aiCamLock" min="0" step="1" placeholder="4" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px"></div>
       <div style="flex:1;align-self:flex-end"><button class="btn" id="aiCamUnlock" style="display:none">🔓 解鎖相機</button><span class="subnote" id="aiCamState"></span></div>
     </div>
+    <div class="aiRow">
+      <div style="flex:0 0 250px"><label>影相方式</label><select id="aiCamMode" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px">
+        <option value="builtin">App 內置鏡頭（鎖死後置，自拍唔到）</option>
+        <option value="native">iPad／手機原生相機（會對焦，畫質好）</option>
+      </select></div>
+      <div style="flex:0 0 190px"><label>影相解像度（長邊 px）</label><input type="number" id="aiCamPx" min="640" max="2400" step="100" placeholder="1400" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px"></div>
+      <div style="flex:1;align-self:flex-end"><span class="subnote">影工作紙細字，1400 至 1800 會清楚好多，但每張貴啲。</span></div>
+    </div>
+    <p class="subnote"><b>兩種方式嘅分別：</b>內置鏡頭鎖死後置，佢自拍唔到，但 iOS Safari 唔支援對焦控制，字細嘅嘢會矇啲。原生相機有真對焦同光學放大，影工作紙清楚好多，但個相機介面有反轉掣，佢撳得到去自拍——不過就算影咗，AI 都會照第 92、93 條拒絕，同埋張相會留喺記錄度俾你睇。</p>
     <p class="subnote">「功課時段」係由行事曆判斷嘅——嗰一格係「做功課／練習／溫習」就當係。功課時段之內，AI 淨係會讀字同講返條題目問乜，唔會解題。鎖咗之後要喺呢度親手解，唔會過咗一日自動解。</p>
     <div class="aiRow"><div style="flex:0 0 200px"><label>每日最多睇幾多次相</label><input type="number" id="aiVisionCap" min="0" step="1" placeholder="20" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px"></div><div style="flex:1;align-self:flex-end"><span class="subnote" id="aiVisionUsed"></span></div></div>
     <p class="subnote">呢個係喺你部機度數嘅硬上限，同 Z.ai 嗰邊無關。到咗數就唔會再叫 API，所以就算你唔記得咗，都燒唔穿個餘額。填 0 ＝ 唔限。每日凌晨自動歸零。</p>
@@ -3369,7 +3393,11 @@ function homeworkBoard(){
     const days = lessonDays(rule);                 /* 一日當一堂，已經去咗重複 */
     days.forEach(function(ev, idx){
       const d0 = ev.start.slice(0,10);
-      if(ev.start > nw || d0 < limS.slice(0,10)) return;   /* 未上嘅堂唔派功課 */
+      /* 修正：顯示嗰邊（past）係用「日期 <= 今日」，但呢度舊寫法用緊「開始時間 <= 而家」。
+         結果今朝 08:49 睇 09:30 嗰堂：上面列咗佢做「已經上咗嘅堂」，下面又話「未產生功課」，
+         於是家長只揀到上一堂嗰份，時段就掛咗落錯嘅堂度。兩邊一律改用日期比較——
+         今日有堂，今朝就見到嗰份功課，排得到時間。真係甩咗堂就撳「今次冇呢份」。 */
+      if(d0 > today || d0 < limS.slice(0,10)) return;
       if(state.ai.hwSince && d0 < state.ai.hwSince) return; /* 「由呢日開始計」之前嘅唔理 */
       /* 下一堂：所有模式都要計。
          舊版淨係喺 due==='next' 嗰度計，所以大提琴、鋼琴（week 模式）
@@ -3893,7 +3921,9 @@ function renderHwCourses(){
         if(!items.length){
           const n = document.createElement('div'); n.className='hwSub'; n.style.padding='2px 10px 8px';
           n.textContent = (rule.due==='none') ? '呢個班唔使跟進。'
-            : '（呢堂未產生功課——可能喺「由邊日開始計功課」之前）';
+            : (state.ai.hwSince && ev.start.slice(0,10) < state.ai.hwSince)
+              ? '（呢堂喺「由邊日開始計功課」' + state.ai.hwSince + ' 之前，所以唔派功課）'
+              : '（呢堂冇跟進項目——去上面「⚙ 規矩」度加返「上完堂要做」嗰欄）';
           box.appendChild(n);
         }
         items.forEach(function(rec){
@@ -5574,6 +5604,8 @@ function readTTSForm(c){
   if($('aiVisionCap'))   c.visionCap   = $('aiVisionCap').value.trim()==='' ? 20 : (parseInt($('aiVisionCap').value,10)||0);
   if($('aiCamWarn'))     c.camHwWarn   = $('aiCamWarn').value.trim()==='' ? 2 : (parseInt($('aiCamWarn').value,10)||0);
   if($('aiCamLock'))     c.camHwLock   = $('aiCamLock').value.trim()==='' ? 4 : (parseInt($('aiCamLock').value,10)||0);
+  if($('aiCamMode'))     c.camMode     = $('aiCamMode').value;
+  if($('aiCamPx'))       c.camPx       = $('aiCamPx').value.trim()==='' ? 1400 : (parseInt($('aiCamPx').value,10)||1400);
   c.maxTok    = Math.max(0, parseInt($('aiMaxTok').value,10) || 0);
   c.ttsVoice  = $('ttsVoice').value || '';
   c.ttsRate   = $('ttsRate').value || '1';
@@ -5639,6 +5671,8 @@ function openSet(){
   if($('aiVisionCap'))   $('aiVisionCap').value   = (c.visionCap==null ? 20 : c.visionCap);
   if($('aiCamWarn')) $('aiCamWarn').value = (c.camHwWarn==null ? 2 : c.camHwWarn);
   if($('aiCamLock')) $('aiCamLock').value = (c.camHwLock==null ? 4 : c.camHwLock);
+  if($('aiCamMode')) $('aiCamMode').value = (c.camMode==='native' ? 'native' : 'builtin');
+  if($('aiCamPx'))   $('aiCamPx').value   = (c.camPx==null ? 1400 : c.camPx);
   if($('aiCamState')){
     const cs = camState();
     $('aiCamState').textContent = cs.lock
@@ -5935,7 +5969,42 @@ function paintPrev(){
 }
 $('chatPic').onclick = ()=>{ const g = camGate(); if(!g.ok){ toast(g.msg); return; } $('chatPicFile').click(); };
 $('chatPicFile').onchange = async (e)=>{ await addChatImgs(e.target.files); e.target.value = ''; };
-$('chatCam').onclick = ()=> openCam();
+$('chatCam').onclick = ()=>{
+  const g = camGate(); if(!g.ok){ toast(g.msg); return; }
+  if(cfg().camMode === 'native'){ $('chatCamFile').click(); return; }
+  openCam();
+};
+$('chatCamFile').onchange = async (e)=>{ await addChatImgs(e.target.files); e.target.value = ''; };
+/* 放大控制：滑桿、加減掣、同兩指推開 */
+$('camZoom').oninput = (e)=> setCamZoom(parseInt(e.target.value,10)/10);
+$('camZoomIn').onclick = ()=> setCamZoom(camZoom + 0.5);
+$('camZoomOut').onclick = ()=> setCamZoom(camZoom - 0.5);
+(function(){
+  const wrap = $('camWrap'); if(!wrap) return;
+  let base = 0, startZ = 1;
+  const dist = (t)=> Math.hypot(t[0].clientX-t[1].clientX, t[0].clientY-t[1].clientY);
+  wrap.addEventListener('touchstart', function(e){
+    if(e.touches.length === 2){ base = dist(e.touches); startZ = camZoom; e.preventDefault(); }
+  }, {passive:false});
+  wrap.addEventListener('touchmove', function(e){
+    if(e.touches.length === 2 && base){ setCamZoom(startZ * dist(e.touches) / base); e.preventDefault(); }
+  }, {passive:false});
+  wrap.addEventListener('touchend', function(){ base = 0; });
+  /* 篤一下：有得控制對焦就對焦，冇就照樣俾個回應佢，唔好靜英英 */
+  wrap.addEventListener('click', async function(){
+    const trk = camStream && camStream.getVideoTracks()[0]; if(!trk) return;
+    try{
+      const cap = trk.getCapabilities ? trk.getCapabilities() : {};
+      if(cap.focusMode && cap.focusMode.indexOf('single-shot') >= 0){
+        await trk.applyConstraints({advanced:[{focusMode:'single-shot'}]});
+        $('camNote').textContent = '對緊焦…';
+        setTimeout(function(){ try{ trk.applyConstraints({advanced:[{focusMode:'continuous'}]}); }catch(e){} }, 900);
+      }else{
+        toast('呢部機唔俾網頁控制對焦。行遠少少、擰正部機、或者放大再影會清楚啲。');
+      }
+    }catch(e){}
+  });
+})();
 $('aiCamUnlock').onclick = async ()=>{
   if(await confirmBox('解鎖相機？\n建議解鎖之前同 Charlotte 傾一傾，講返點解會鎖咗。')){
     camUnlock(); $('aiCamState').textContent = '相機正常。今日功課時段影咗 0 張。';
@@ -6990,10 +7059,15 @@ async function openCam(){
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
     toast('呢個瀏覽器唔支援影相，用返 🖼 揀相啦'); return;
   }
+  /* 舊寫法一個解像度約束都冇，iOS 就會派 640×480 俾你——影出嚟一定矇，
+     同對焦無關。而家明文要 2560，攞唔到會自動降落去。 */
+  const VC = {facingMode:{exact:'environment'},
+              width:{ideal:2560}, height:{ideal:1440},
+              advanced:[{focusMode:'continuous'}, {focusDistance:0}]};
   let st = null;
-  try{ st = await navigator.mediaDevices.getUserMedia({video:{facingMode:{exact:'environment'}}, audio:false}); }
+  try{ st = await navigator.mediaDevices.getUserMedia({video:VC, audio:false}); }
   catch(e){
-    try{ st = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}}, audio:false}); }
+    try{ st = await navigator.mediaDevices.getUserMedia({video:Object.assign({}, VC, {facingMode:{ideal:'environment'}}), audio:false}); }
     catch(e2){ toast('開唔到相機：' + (e2.message||e2)); return; }
     /* 掂到呢度即係搵唔到後置鏡。喺手機／平板就唔好用前鏡（唔想佢玩自拍）；
        電腦得一個鏡頭，唔封鎖佢就乜都影唔到。 */
@@ -7006,31 +7080,76 @@ async function openCam(){
     }
   }
   camStream = st;
+  const trk = st.getVideoTracks()[0];
+  /* 再試一次逐項套對焦：有啲裝置要開咗 stream 之後先接受。
+     iOS Safari 唔支援，會靜靜雞失敗，唔會出事。 */
+  try{
+    const cap = trk.getCapabilities ? trk.getCapabilities() : {};
+    if(cap.focusMode && cap.focusMode.indexOf('continuous') >= 0){
+      await trk.applyConstraints({advanced:[{focusMode:'continuous'}]});
+      camHasFocus = true;
+    }
+  }catch(e){}
   const v = $('camVid'); v.srcObject = st;
-  const fm2 = (st.getVideoTracks()[0].getSettings()||{}).facingMode;
-  $('camNote').textContent = (fm2==='environment' ? '用緊後置鏡頭。' : '呢部機得一個鏡頭。')
-                           + '　仲可以影 ' + (CHAT_IMG_MAX - chatImgs.length) + ' 張。';
+  camZoom = 1; applyCamZoom();
+  const sset = trk.getSettings ? (trk.getSettings()||{}) : {};
+  $('camNote').textContent = (sset.facingMode==='environment' ? '後置鏡頭' : '呢部機得一個鏡頭')
+    + '　·　' + (sset.width||'?') + '×' + (sset.height||'?')
+    + (camHasFocus ? '　·　自動對焦開咗' : '　·　呢部機唔俾控制對焦，放大再影會清楚啲')
+    + '　·　仲可以影 ' + (CHAT_IMG_MAX - chatImgs.length) + ' 張。';
   show('camModal');
   try{ await v.play(); }catch(e){}
+}
+
+/* ── 數碼放大 ──
+   iOS 唔支援硬件 zoom 約束，所以自己做：預覽用 CSS scale，
+   影嘅時候喺 canvas 度裁中間嗰嚿。感光元件有 2560 闊，放大兩倍裁出嚟
+   仍然有 1280 真實像素，對讀工作紙細字係實質改善，唔係扮嘢。 */
+let camZoom = 1, camHasFocus = false;
+function applyCamZoom(){
+  const v = $('camVid'); if(!v) return;
+  v.style.transform = 'scale(' + camZoom + ')';
+  const b = $('camZoomBadge'); if(b) b.textContent = camZoom.toFixed(1) + '×';
+  const r = $('camZoom'); if(r) r.value = Math.round(camZoom*10);
+}
+function setCamZoom(z){
+  camZoom = Math.max(1, Math.min(4, z));
+  /* 硬件 zoom 有得用就一齊用，畫質好過純裁 */
+  try{
+    const trk = camStream && camStream.getVideoTracks()[0];
+    const cap = trk && trk.getCapabilities ? trk.getCapabilities() : null;
+    if(cap && cap.zoom){
+      const hz = Math.min(cap.zoom.max, Math.max(cap.zoom.min, cap.zoom.min + (camZoom-1)*(cap.zoom.max-cap.zoom.min)/3));
+      trk.applyConstraints({advanced:[{zoom:hz}]});
+    }
+  }catch(e){}
+  applyCamZoom();
 }
 function closeCam(){
   if(camStream){ camStream.getTracks().forEach(function(t){ t.stop(); }); camStream = null; }
   const v = $('camVid'); if(v) v.srcObject = null;
   hide('camModal');
 }
+function camPx(){ const v = parseInt(cfg().camPx,10); return (v>=640 && v<=2400) ? v : 1400; }
 function snapCam(){
   const v = $('camVid'); if(!v || !v.videoWidth) return;
-  let w = v.videoWidth, h = v.videoHeight;
-  const sc = Math.min(1, CHAT_IMG_PX / Math.max(w, h));
-  w = Math.round(w*sc); h = Math.round(h*sc);
+  const VW = v.videoWidth, VH = v.videoHeight;
+  /* 裁中間 1/zoom 嗰嚿，同預覽見到嘅一致 */
+  const sw = VW / camZoom, sh = VH / camZoom;
+  const sx = (VW - sw) / 2, sy = (VH - sh) / 2;
+  const lim = camPx();
+  const sc = Math.min(1, lim / Math.max(sw, sh));
+  const w = Math.round(sw*sc), h = Math.round(sh*sc);
   const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-  cv.getContext('2d').drawImage(v, 0, 0, w, h);
-  chatImgs.push(cv.toDataURL('image/jpeg', 0.8));
+  const cx = cv.getContext('2d');
+  cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = 'high';
+  cx.drawImage(v, sx, sy, sw, sh, 0, 0, w, h);
+  chatImgs.push(cv.toDataURL('image/jpeg', 0.88));
   renderChatImgs();
   /* 影完一張就收工返去傾偈。細路見到相機仲喺度，就會一路影落去；
      想再影就自己撳多次 📷，唔使我哋引導。 */
   closeCam();
-  toast('影咗喇' + (chatImgs.length < CHAT_IMG_MAX ? '，想再影就撳多次 📷' : ''));
+  toast('影咗喇（' + w + '×' + h + '）' + (chatImgs.length < CHAT_IMG_MAX ? '，想再影就撳多次 📷' : ''));
   try{ chatInput.focus(); }catch(e){}
 }
 
