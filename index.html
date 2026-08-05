@@ -408,7 +408,12 @@ mark{background:#ffe9a8;border-radius:2px}
   border-bottom:1px solid var(--line);background:var(--accent-soft);
 }
 .sosHead b{font-size:14px;color:var(--accent)}
-.sosHead .x{margin-left:auto;border:0;background:transparent;font-size:19px;cursor:pointer;color:var(--muted);line-height:1;padding:2px 4px}
+.sosHead .dg{margin-left:auto;border:1px solid var(--line);background:var(--panel);color:var(--muted);border-radius:7px;padding:3px 8px;font-size:11.5px;cursor:pointer;white-space:nowrap}
+.sosHead .dg:hover{color:var(--accent);border-color:var(--accent)}
+.sosMsg.fail{background:#fdf3f3;border-color:#f0c4c4}
+.sosMsg .errline{display:block;margin-top:4px;font-size:11px;color:var(--overdue);word-break:break-word}
+.sosNote{white-space:pre-line}
+.sosHead .x{border:0;background:transparent;font-size:19px;cursor:pointer;color:var(--muted);line-height:1;padding:2px 4px}
 .sosBody{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:9px;-webkit-overflow-scrolling:touch}
 .sosMsg{max-width:86%;border-radius:12px;padding:8px 11px;font-size:14px;line-height:1.6;word-break:break-word}
 .sosMsg .who{display:block;font-size:11px;color:var(--muted);margin-bottom:2px}
@@ -1122,7 +1127,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 <!-- 🆘 搵爹哋 -->
 <button id="sosFab" type="button"><span class="ic">🆘</span><span class="lbl">搵爹哋</span><span class="dot">0</span></button>
 <div id="sosPanel" role="dialog" aria-label="搵爹哋">
-  <div class="sosHead"><b id="sosTitle">🆘 搵爹哋</b><button class="x" id="sosClose" type="button" aria-label="閂">✕</button></div>
+  <div class="sosHead"><span id="sosLamp" title="連線狀態">⚪</span><b id="sosTitle">🆘 搵爹哋</b><button class="dg" id="sosDiag" type="button" title="逐步試：登入 → 連線 → 試寫 → 試讀">🔧 自我檢查</button><button class="x" id="sosClose" type="button" aria-label="閂">✕</button></div>
   <div class="sosBody" id="sosBody"></div>
   <div class="sosFoot">
     <div class="sosChips" id="sosChips"></div>
@@ -8447,81 +8452,122 @@ setInterval(()=>{ if(document.hidden) return; try{ autoArchiveIfOwner(); }catch(
    點解另外開一條 Firebase 路徑，而唔係塞落 diary_calendar_data 度：
    主 state 嗰個 ref 掛住 .on('value')，任何一個仔節點一變，兩邊都會
    重新收成份 state（三十幾萬 bytes）。留言一句就成 360KB 上落，唔值。
-   所以另開 diary_calendar_sos/<uid>，安全規則要加返（見 README 註解）。
+   所以另開 diary_calendar_sos/<uid>，安全規則要加返呢一段。
 
-   兩邊用同一個 Google 帳號，所以 uid 一樣，直接對得上。
+   ── 第二版嘅重點：唔准靜靜雞死 ──
+   上一版一旦 Firebase 寫唔到，個 promise 會永遠吊住：粒「送出」變咗淡色，
+   句嘢唔見咗，用家咩都唔知發生過。而家改成：
+     ① 打完即刻喺畫面出咗嚟（標住「送緊…」），唔使等雲端
+     ② 12 秒仲未成功就當失敗，出紅字 + 一粒「↻ 再試」
+     ③ header 有個燈：🟢 連到 / 🔴 連唔到
+     ④ 有粒 🔧 自我檢查，會逐步試「登入 → 連線 → 試寫 → 試讀」
+        邊一步死就講邊一步，連 error code 都印出嚟
 ================================================================== */
 (function(){
 'use strict';
-const KID_CHIPS = ['我唔識做功課', '我做完功課喇', '屋企有事，快啲返嚟', '我想同你講嘢'];
-const SEEN_KEY  = 'diarycal_sos_seen_v1';
-const MAX_KEEP  = 60;
+const KID_CHIPS   = ['我唔識做功課', '我做完功課喇', '屋企有事，快啲返嚟', '我想同你講嘢'];
+const SEEN_KEY    = 'diarycal_sos_seen_v1';
+const MAX_KEEP    = 60;
+const SEND_MS     = 12000;
+const OUT_KEY     = 'diarycal_sos_outbox_v1';
 
-let sosRef = null, thread = [], panelOpen = false, myRole = 'dad', bound = false;
+let sosRef = null, sosQuery = null, sosCb = null;   /* 收埋個 handle，off() 先至真係甩得到 */
+let connRef = null, connCb = null;
+let thread = [], outbox = [], panelOpen = false, myRole = null, curUid = null;
+let online = null, bound = false, tmpN = 0;
 
-const el = function(id){ return document.getElementById(id); };
-const isGuest = function(){ return document.body.classList.contains('readonly'); };
-const seenAt  = function(){ try{ return parseInt(localStorage.getItem(SEEN_KEY),10) || 0; }catch(e){ return 0; } };
-const markSeen= function(){ try{ localStorage.setItem(SEEN_KEY, String(Date.now())); }catch(e){} };
+const el       = function(id){ return document.getElementById(id); };
+const isGuest  = function(){ return document.body.classList.contains('readonly'); };
+const seenAt   = function(){ try{ return parseInt(localStorage.getItem(SEEN_KEY),10) || 0; }catch(e){ return 0; } };
+const markSeen = function(){ try{ localStorage.setItem(SEEN_KEY, String(Date.now())); }catch(e){} };
+const errTxt   = function(e){ return (e && (e.code || e.message)) || String(e); };
+/* 送唔出嘅留言存返落本機。Charlotte 打咗「屋企有事」但送唔到，
+   refresh 一次就唔見咗嘅話，佢會以為講咗你聽——呢個唔可以發生。 */
+const saveOut  = function(){ try{ localStorage.setItem(OUT_KEY, JSON.stringify(outbox)); }catch(e){} };
+const loadOut  = function(){ try{ return JSON.parse(localStorage.getItem(OUT_KEY)||'[]')||[]; }catch(e){ return []; } };
+
+function note(msg, bad){
+  const n = el('sosNote'); if(!n) return;
+  n.textContent = msg || '';
+  n.style.color = bad ? 'var(--overdue)' : '';
+}
+function withTimeout(p, ms, what){
+  return Promise.race([ p, new Promise(function(_, rej){
+    setTimeout(function(){ rej(new Error((what||'呢一步') + '　等咗 ' + Math.round(ms/1000) + ' 秒都冇回音')); }, ms);
+  })]);
+}
 
 function unreadCount(){
   const s = seenAt();
   return thread.filter(function(m){ return m.who !== myRole && (m.at||0) > s; }).length;
 }
-
 function fmtWhen(ts){
   if(!ts) return '';
   const d = new Date(ts), n = new Date();
   const hm = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
-  if(d.toDateString() === n.toDateString()) return hm;
-  return (d.getMonth()+1) + '/' + d.getDate() + ' ' + hm;
+  return d.toDateString() === n.toDateString() ? hm : ((d.getMonth()+1) + '/' + d.getDate() + ' ' + hm);
 }
 
+/* ── 畫留言。thread = 雲端已確認；outbox = 本機啱啱打、仲未確認 ── */
 function renderThread(){
-  const body = el('sosBody');
-  if(!body) return;
+  const body = el('sosBody'); if(!body) return;
   const stick = body.scrollTop + body.clientHeight >= body.scrollHeight - 40;
   body.innerHTML = '';
-  if(!thread.length){
-    body.innerHTML = '<p class="subnote">' +
-      (myRole === 'kid'
-        ? '打幾隻字，爹哋部機會即刻彈出嚟。'
-        : '仲未有留言。Charlotte 撳「🆘 搵爹哋」你就會即刻見到。') + '</p>';
+  if(!thread.length && !outbox.length){
+    body.innerHTML = '<p class="subnote">' + (myRole === 'kid'
+      ? '打幾隻字，爹哋部機會即刻彈出嚟。'
+      : '仲未有留言。Charlotte 撳「🆘 搵爹哋」你就會即刻見到。') + '</p>';
   }
-  thread.forEach(function(m){
+  const bubble = function(m, state){
     const mine = (m.who === myRole);
     const d = document.createElement('div');
-    d.className = 'sosMsg ' + (mine ? 'me' : 'them');
-    d.innerHTML = '<span class="who">' +
-      (m.who === 'kid' ? 'Charlotte' : '爹哋') + '　' + fmtWhen(m.at) + '</span>' + esc(m.text);
-    if(!mine){
+    d.className = 'sosMsg ' + (mine ? 'me' : 'them') + (state === 'fail' ? ' fail' : '');
+    d.innerHTML = '<span class="who">' + (m.who === 'kid' ? 'Charlotte' : '爹哋') + '　' +
+      (state === 'sending' ? '送緊…' : state === 'fail' ? '⚠ 送唔到' : fmtWhen(m.at)) +
+      '</span>' + esc(m.text);
+    if(state === 'fail'){
+      const rt = document.createElement('button');
+      rt.className = 'say'; rt.type = 'button'; rt.textContent = '↻ 再試';
+      rt.onclick = function(){ retry(m.tmp); };
+      d.appendChild(rt);
+      if(m.err){
+        const w = document.createElement('span');
+        w.className = 'errline'; w.textContent = m.err;
+        d.appendChild(w);
+      }
+    }else if(!mine){
       /* 讀出嚟。Charlotte 好多時撳呢粒聽爹哋覆咗乜。 */
       const say = document.createElement('button');
       say.className = 'say'; say.type = 'button'; say.textContent = '🔊 讀出嚟';
-      say.onclick = function(){
-        if(typeof window.ttsSpeak === 'function') window.ttsSpeak(m.text, say);
-      };
+      say.onclick = function(){ if(typeof window.ttsSpeak === 'function') window.ttsSpeak(m.text, say); };
       d.appendChild(say);
     }
     body.appendChild(d);
-  });
+  };
+  thread.forEach(function(m){ bubble(m, 'ok'); });
+  outbox.forEach(function(m){ bubble(m, m.state); });
   if(stick || panelOpen) body.scrollTop = body.scrollHeight;
 }
 
 function refreshFab(){
-  const fab = el('sosFab');
-  if(!fab) return;
-  const on = !!sosRef;
-  fab.classList.toggle('show', on && !panelOpen);
-  fab.querySelector('.lbl').textContent = (myRole === 'kid') ? '搵爹哋' : 'Charlotte';
-  fab.querySelector('.ic').textContent  = (myRole === 'kid') ? '🆘' : '💬';
+  const fab = el('sosFab'); if(!fab) return;
+  const ready = !!sosRef;
+  fab.classList.toggle('show', ready && !panelOpen);
+  const lbl = fab.querySelector('.lbl'), ic = fab.querySelector('.ic'), dot = fab.querySelector('.dot');
+  if(lbl) lbl.textContent = (myRole === 'kid') ? '搵爹哋' : 'Charlotte';
+  if(ic)  ic.textContent  = (myRole === 'kid') ? '🆘' : '💬';
   const n = unreadCount();
   fab.classList.toggle('unread', n > 0);
-  fab.querySelector('.dot').textContent = n > 9 ? '9+' : String(n);
+  if(dot) dot.textContent = n > 9 ? '9+' : String(n);
+}
+function refreshLamp(){
+  const L = el('sosLamp'); if(!L) return;
+  L.textContent = online === null ? '⚪' : (online ? '🟢' : '🔴');
+  L.title = online === null ? '查緊連線…' : (online ? 'Firebase 連線正常' : 'Firebase 連唔到（送嘅嘢會等到接返先出去）');
 }
 
 function openPanel(){
-  if(!sosRef) return;
+  if(!el('sosPanel')) return;
   panelOpen = true;
   el('sosPanel').classList.add('show');
   markSeen(); refreshFab(); renderThread();
@@ -8529,40 +8575,87 @@ function openPanel(){
 }
 function closePanel(){
   panelOpen = false;
-  el('sosPanel').classList.remove('show');
+  const p = el('sosPanel'); if(p) p.classList.remove('show');
   markSeen(); refreshFab();
 }
 
-async function send(){
-  const ta = el('sosInput');
-  const txt = String(ta.value || '').trim();
-  if(!txt || !sosRef) return;
-  const btn = el('sosSend');
-  btn.disabled = true;
-  try{
-    await sosRef.child('thread').push({ who: myRole, text: txt.slice(0,600), at: Date.now() });
-    ta.value = ''; ta.style.height = 'auto';
-    markSeen();
-    /* 太多就剪走最舊嗰啲，唔好等佢無限咁長 */
-    if(thread.length > MAX_KEEP + 20){
-      const cut = thread.slice(0, thread.length - MAX_KEEP);
-      const upd = {};
-      cut.forEach(function(m){ upd[m.id] = null; });
-      sosRef.child('thread').update(upd).catch(function(){});
-    }
-  }catch(err){
-    const note = el('sosNote');
-    note.textContent = '送唔到：' + (err && err.message || err) +
-      '（多數係 Firebase 安全規則未加 diary_calendar_sos）';
-    note.style.color = 'var(--overdue)';
+/* ── 送嘢。先出畫面，再上雲端；成功就由 outbox 移走，失敗就標紅留返俾你再試 ── */
+function pushOut(item){
+  if(!sosRef){
+    item.state = 'fail';
+    item.err = auth.currentUser ? '仲未接駁到 Firebase' : '未登入 Google';
+    renderThread(); return;
   }
-  btn.disabled = false;
+  item.state = 'sending'; renderThread();
+  withTimeout(
+    sosRef.child('thread').push({ who:item.who, text:item.text, at:item.at }),
+    SEND_MS, '寫入 Firebase'
+  ).then(function(){
+    outbox = outbox.filter(function(x){ return x.tmp !== item.tmp; });
+    markSeen(); saveOut(); renderThread(); note('');
+  }).catch(function(err){
+    item.state = 'fail'; item.err = errTxt(err);
+    saveOut(); renderThread();
+    note('送唔到：' + errTxt(err) + '。撳「🔧 自我檢查」睇下邊一步出事。', true);
+  });
+}
+function retry(tmp){
+  const it = outbox.filter(function(x){ return x.tmp === tmp; })[0];
+  if(it){ it.err = ''; it.at = Date.now(); pushOut(it); }
+}
+function send(){
+  const ta = el('sosInput'); if(!ta) return;
+  const txt = String(ta.value || '').trim();
+  if(!txt) return;
+  const item = { tmp:'t' + (++tmpN), who:myRole || 'dad', text:txt.slice(0,600), at:Date.now(), state:'sending', err:'' };
+  outbox.push(item); saveOut();
+  ta.value = ''; ta.style.height = 'auto';
+  pushOut(item);
+  /* 太多就剪走最舊嗰啲，唔好等佢無限咁長 */
+  if(thread.length > MAX_KEEP + 20 && sosRef){
+    const upd = {};
+    thread.slice(0, thread.length - MAX_KEEP).forEach(function(m){ upd[m.id] = null; });
+    sosRef.child('thread').update(upd).catch(function(){});
+  }
+}
+
+/* ── 🔧 自我檢查：逐步試，邊步死就講邊步 ── */
+async function diagnose(){
+  const out = [];
+  const say = function(){ note(out.join('\n'), out.join('').indexOf('✗') >= 0); };
+  const u = auth.currentUser;
+  out.push(u ? ('✓ 已登入：' + (u.email || u.uid)) : '✗ 未登入 Google —— 一定送唔到。撳返「登入」先。');
+  say(); if(!u) return;
+  out.push('· 路徑 diary_calendar_sos/' + u.uid);
+  out.push(online === null ? '· 連線：查緊…' : (online ? '✓ Firebase 連線正常' : '✗ Firebase 連唔到（網絡／databaseURL）'));
+  out.push('⏳ 試寫緊…'); say();
+  const ping = db.ref('diary_calendar_sos/' + u.uid + '/_ping');
+  try{
+    await withTimeout(ping.set(Date.now()), 10000, '試寫');
+    out[out.length-1] = '✓ 試寫成功（安全規則畀寫）';
+  }catch(e){
+    out[out.length-1] = '✗ 試寫失敗：' + errTxt(e);
+    out.push(/PERMISSION/i.test(errTxt(e))
+      ? '　→ 安全規則未有 diary_calendar_sos，或者改咗未撳「發佈」'
+      : '　→ 唔似規則問題，似係連唔到 Firebase');
+    say(); return;
+  }
+  out.push('⏳ 試讀緊…'); say();
+  try{
+    const snap = await withTimeout(ping.once('value'), 10000, '試讀');
+    out[out.length-1] = snap.exists() ? '✓ 試讀成功' : '✗ 試讀返嚟係空（寫入冇留低）';
+  }catch(e){
+    out[out.length-1] = '✗ 試讀失敗：' + errTxt(e);
+  }
+  out.push('· 而家收到 ' + thread.length + ' 條留言，未送出 ' + outbox.length + ' 條');
+  out.push('· 角色：' + (myRole === 'kid' ? '訪客（Charlotte）' : '主人（爹哋）'));
+  say();
 }
 
 function renderChips(){
-  const c = el('sosChips');
+  const c = el('sosChips'); if(!c) return;
   c.innerHTML = '';
-  if(myRole !== 'kid') return;      /* 快捷句淨係俾 Charlotte */
+  if(myRole !== 'kid') return;              /* 快捷句淨係俾 Charlotte */
   KID_CHIPS.forEach(function(t){
     const b = document.createElement('button');
     b.type = 'button'; b.textContent = t;
@@ -8577,63 +8670,88 @@ function renderChips(){
 
 function bindOnce(){
   if(bound) return; bound = true;
-  el('sosFab').onclick   = openPanel;
-  el('sosClose').onclick = closePanel;
-  el('sosSend').onclick  = send;
-  const ta = el('sosInput');
-  ta.addEventListener('input', function(){
-    ta.style.height = 'auto';
-    ta.style.height = Math.min(ta.scrollHeight, 110) + 'px';
-  });
-  ta.addEventListener('keydown', function(e){
-    /* Enter 送出，Shift+Enter 換行。手機軟鍵盤唔會誤觸。 */
-    if(e.key === 'Enter' && !e.shiftKey && !e.isComposing){ e.preventDefault(); send(); }
-  });
+  const f = el('sosFab'), x = el('sosClose'), s = el('sosSend'), d = el('sosDiag'), ta = el('sosInput');
+  if(f) f.onclick = openPanel;
+  if(x) x.onclick = closePanel;
+  if(s) s.onclick = send;
+  if(d) d.onclick = diagnose;
+  if(ta){
+    ta.addEventListener('input', function(){
+      ta.style.height = 'auto';
+      ta.style.height = Math.min(ta.scrollHeight, 110) + 'px';
+    });
+    ta.addEventListener('keydown', function(e){
+      if(e.key === 'Enter' && !e.shiftKey && !e.isComposing){ e.preventDefault(); send(); }
+    });
+  }
+}
+
+function detach(){
+  if(sosQuery && sosCb){ try{ sosQuery.off('value', sosCb); }catch(e){} }
+  sosQuery = null; sosCb = null; sosRef = null;
 }
 
 function attach(user){
-  if(sosRef){ try{ sosRef.child('thread').off(); }catch(e){} sosRef = null; }
-  thread = [];
-  if(!user){ refreshFab(); return; }
-  myRole = isGuest() ? 'kid' : 'dad';
-  el('sosTitle').textContent = (myRole === 'kid') ? '🆘 搵爹哋' : '💬 Charlotte';
-  el('sosNote').textContent  = (myRole === 'kid')
-    ? '爹哋部機會即刻彈出你嘅留言。佢覆你嘅時候，撳「🔊 讀出嚟」就聽到。'
-    : '你覆嘅嘢，Charlotte 部 iPad 會即刻彈出，佢仲可以撳掣讀出嚟聽。';
-  el('sosNote').style.color = '';
+  const role = isGuest() ? 'kid' : 'dad';
+  const uid  = user ? user.uid : '';
+  /* applyGuestUI() 喺六個地方會叫，唔加呢個閘就每次都 off/on 一次，
+     中間有一剎那 thread 係空嘅，畫面會閃或者當咗「乜都冇」。 */
+  if(uid === curUid && role === myRole && (uid ? !!sosRef : true)) return;
+  myRole = role; curUid = uid;
+  detach(); thread = [];
+  if(!outbox.length) outbox = loadOut().map(function(m){ m.state='fail'; return m; });
+
+  const t = el('sosTitle');
+  if(t) t.textContent = (myRole === 'kid') ? '🆘 搵爹哋' : '💬 Charlotte';
   renderChips();
 
-  sosRef = db.ref('diary_calendar_sos/' + user.uid);
-  sosRef.child('thread').limitToLast(MAX_KEEP).on('value', function(snap){
+  if(!user){
+    note('未登入 Google，送唔到留言。', true);
+    renderThread(); refreshFab(); refreshLamp(); return;
+  }
+  note((myRole === 'kid')
+    ? '爹哋部機會即刻彈出你嘅留言。佢覆你嘅時候，撳「🔊 讀出嚟」就聽到。'
+    : '你覆嘅嘢，Charlotte 部 iPad 會即刻彈出，佢仲可以撳掣讀出嚟聽。');
+
+  /* 連線燈 */
+  if(!connRef){
+    connRef = db.ref('.info/connected');
+    connCb = connRef.on('value', function(s){ online = !!s.val(); refreshLamp(); });
+  }
+
+  sosRef   = db.ref('diary_calendar_sos/' + user.uid);
+  sosQuery = sosRef.child('thread').limitToLast(MAX_KEEP);
+  sosCb = sosQuery.on('value', function(snap){
     const prevLast = thread.length ? thread[thread.length-1].id : '';
-    const out = [];
+    const arr = [];
     snap.forEach(function(c){
       const v = c.val() || {};
-      out.push({ id:c.key, who:(v.who==='kid'?'kid':'dad'), text:String(v.text||''), at:Number(v.at)||0 });
+      arr.push({ id:c.key, who:(v.who === 'kid' ? 'kid' : 'dad'), text:String(v.text || ''), at:Number(v.at) || 0 });
     });
-    out.sort(function(a,b){ return (a.at||0) - (b.at||0); });
-    thread = out;
-
+    arr.sort(function(a,b){ return (a.at||0) - (b.at||0); });
+    thread = arr;
+    /* 已經上到雲端嘅，由 outbox 清走（例如上一次 timeout 但其實寫到咗） */
+    outbox = outbox.filter(function(o){
+      return !thread.some(function(m){ return m.who === o.who && m.text === o.text; });
+    });
+    saveOut();
     const last = thread.length ? thread[thread.length-1] : null;
     const isNew = last && last.id !== prevLast && last.who !== myRole && (last.at||0) > seenAt();
     renderThread(); refreshFab();
     if(isNew && !panelOpen){
-      /* 「浮出嚟」就夠，唔使搶全螢幕 */
-      openPanel();
+      openPanel();                            /* 「浮出嚟」就夠，唔使搶全螢幕 */
       try{ if(navigator.vibrate) navigator.vibrate([60,50,60]); }catch(e){}
     }
   }, function(err){
-    el('sosNote').textContent = 'connect 唔到：' + (err && err.message || err) +
-      '（Firebase 安全規則要加 diary_calendar_sos）';
-    el('sosNote').style.color = 'var(--overdue)';
+    note('讀唔到留言：' + errTxt(err) + '。撳「🔧 自我檢查」睇下邊一步出事。', true);
   });
-  refreshFab();
+  refreshFab(); refreshLamp();
 }
 
 bindOnce();
-auth.onAuthStateChanged(function(u){ attach(u); });
+auth.onAuthStateChanged(function(u){ try{ attach(u); }catch(e){ console.warn('SOS attach', e); } });
 /* 切換訪客模式會改變角色（kid ⇄ dad），要重新掛過 */
-window.__sosRoleChanged = function(){ if(auth.currentUser) attach(auth.currentUser); };
+window.__sosRoleChanged = function(){ try{ attach(auth.currentUser); }catch(e){ console.warn('SOS role', e); } };
 })();
 </script>
 
