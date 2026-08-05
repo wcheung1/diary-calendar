@@ -374,6 +374,74 @@ mark{background:#ffe9a8;border-radius:2px}
 #confirmMsg{line-height:1.7;white-space:pre-line}
 
 
+/* ===== 🆘 搵爹哋：訪客同主人之間嘅即時留言 =====
+   細細個浮出嚟就得，唔使全螢幕搶注意力。 */
+#sosFab{
+  position:fixed;right:16px;bottom:16px;z-index:55;
+  display:none;align-items:center;gap:7px;
+  border:1px solid var(--line);background:var(--panel);color:var(--ink);
+  border-radius:999px;padding:10px 16px;font-size:14px;font-weight:600;
+  box-shadow:var(--shadow);cursor:pointer;
+}
+#sosFab.show{display:flex}
+#sosFab .dot{
+  display:none;min-width:18px;height:18px;border-radius:999px;
+  background:var(--overdue);color:#fff;font-size:11px;line-height:18px;text-align:center;padding:0 5px;
+}
+#sosFab.unread{border-color:var(--overdue);animation:sosPulse 1.6s ease-in-out infinite}
+#sosFab.unread .dot{display:inline-block}
+@keyframes sosPulse{
+  0%,100%{box-shadow:0 4px 18px rgba(32,41,31,.12)}
+  50%{box-shadow:0 4px 22px rgba(198,40,40,.42)}
+}
+@media (prefers-reduced-motion:reduce){#sosFab.unread{animation:none}}
+
+#sosPanel{
+  position:fixed;right:16px;bottom:16px;z-index:95;display:none;
+  width:min(360px,calc(100vw - 24px));max-height:min(66vh,540px);
+  flex-direction:column;background:var(--panel);border:1px solid var(--line);
+  border-radius:14px;box-shadow:0 10px 40px rgba(32,41,31,.26);overflow:hidden;
+}
+#sosPanel.show{display:flex}
+.sosHead{
+  display:flex;align-items:center;gap:8px;padding:11px 14px;
+  border-bottom:1px solid var(--line);background:var(--accent-soft);
+}
+.sosHead b{font-size:14px;color:var(--accent)}
+.sosHead .x{margin-left:auto;border:0;background:transparent;font-size:19px;cursor:pointer;color:var(--muted);line-height:1;padding:2px 4px}
+.sosBody{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:9px;-webkit-overflow-scrolling:touch}
+.sosMsg{max-width:86%;border-radius:12px;padding:8px 11px;font-size:14px;line-height:1.6;word-break:break-word}
+.sosMsg .who{display:block;font-size:11px;color:var(--muted);margin-bottom:2px}
+.sosMsg.me{align-self:flex-end;background:var(--accent-soft);border:1px solid #cfe4d9}
+.sosMsg.them{align-self:flex-start;background:#fff;border:1px solid var(--line)}
+.sosMsg .say{
+  margin-top:5px;border:1px solid var(--line);background:var(--panel);color:var(--muted);
+  border-radius:7px;padding:3px 10px;font-size:12px;cursor:pointer;min-height:32px;
+}
+.sosMsg .say.on{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+.sosFoot{border-top:1px solid var(--line);padding:9px 11px;background:var(--panel)}
+.sosChips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px}
+.sosChips button{
+  border:1px solid var(--line);background:var(--panel);color:var(--muted);
+  border-radius:999px;padding:4px 10px;font-size:12px;cursor:pointer;
+}
+.sosChips button:hover{border-color:var(--accent);color:var(--accent)}
+.sosFoot .row{display:flex;gap:7px;align-items:flex-end}
+.sosFoot textarea{
+  flex:1;resize:none;border:1px solid var(--line);border-radius:9px;padding:8px 10px;
+  font:inherit;font-size:14px;min-height:40px;max-height:110px;background:var(--panel);color:var(--ink);
+}
+.sosFoot .send{
+  border:0;background:var(--accent);color:#fff;border-radius:9px;
+  padding:9px 15px;font-size:14px;font-weight:600;cursor:pointer;min-height:40px;
+}
+.sosFoot .send:disabled{opacity:.45;cursor:default}
+.sosNote{font-size:11.5px;color:var(--muted);padding:6px 14px 0}
+@media (max-width:520px){
+  #sosPanel{right:8px;left:8px;bottom:8px;width:auto;max-height:72vh}
+  #sosFab{right:10px;bottom:10px}
+}
+
 /* 課後功課最頂：開手冊嘅細掣。放喺右上角，唔阻住張清單。
    連去同一個 root 嘅 HW_SOP.html，所以 GitHub Pages 同本機都撳得到。 */
 .hwTop{display:flex;justify-content:flex-end;margin:0 0 6px}
@@ -1051,6 +1119,21 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
   </div>
 </div></div>
 
+<!-- 🆘 搵爹哋 -->
+<button id="sosFab" type="button"><span class="ic">🆘</span><span class="lbl">搵爹哋</span><span class="dot">0</span></button>
+<div id="sosPanel" role="dialog" aria-label="搵爹哋">
+  <div class="sosHead"><b id="sosTitle">🆘 搵爹哋</b><button class="x" id="sosClose" type="button" aria-label="閂">✕</button></div>
+  <div class="sosBody" id="sosBody"></div>
+  <div class="sosFoot">
+    <div class="sosChips" id="sosChips"></div>
+    <div class="row">
+      <textarea id="sosInput" rows="1" placeholder="打字，或者撳鍵盤個咪講嘢…"></textarea>
+      <button class="send" id="sosSend" type="button">送出</button>
+    </div>
+    <div class="sosNote" id="sosNote"></div>
+  </div>
+</div>
+
 <script>
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -1065,9 +1148,13 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
          "diary_calendar_data":  { "$uid": { ".read": "$uid === auth.uid",
                                              ".write": "$uid === auth.uid" } },
          "diary_calendar_think": { "$uid": { ".read": "$uid === auth.uid",
+                                             ".write": "$uid === auth.uid" } },
+         "diary_calendar_sos":   { "$uid": { ".read": "$uid === auth.uid",
                                              ".write": "$uid === auth.uid" } }
        }
      }
+   ⚠ diary_calendar_sos 係「🆘 搵爹哋」用嘅。冇加呢三行，個掣送唔到嘢，
+     會喺面板下面出紅字提你。
 
    即係：淨係本人先讀寫得到自己 uid 下面嗰份資料；root 同其他路徑冇寫
    .read/.write，預設一律拒絕。未登入嗰陣 auth 係 null，條式永遠唔成立。
@@ -3542,6 +3629,15 @@ function isHwSlot(ev){
   return HW_SLOT_WORDS.test(String(ev.title||''));
 }
 /* 搵返一件功課排咗喺邊個時段做 */
+/* 一份功課可以排唔止一格。做唔完想第二日繼續做埋嗰陣就用得着。
+   全部都掛住同一個 hwFor，所以邊格都認得返係邊份功課。 */
+function hwSlotsOf(key, label){
+  const evs = state.events || [];
+  const byKey = evs.filter(function(e){ return e.hwFor === key; });
+  if(byKey.length) return byKey.sort(function(a,b){ return a.start.localeCompare(b.start); });
+  return evs.filter(function(e){ return isHwSlot(e) && String(e.title||'').indexOf(label) >= 0; })
+            .sort(function(a,b){ return a.start.localeCompare(b.start); });
+}
 function hwSlotOf(key, label){
   const evs = state.events || [];
   const byKey = evs.filter(function(e){ return e.hwFor === key; });
@@ -3668,8 +3764,13 @@ let hwFilter = 'all';
 
 /* 建立／改動一件功課嘅「做功課時段」。
    呢個係同 timetable 即時同步嘅位：喺功課卡度改時間，行事曆嗰邊即刻郁。 */
-function hwSchedule(o, dateStr, timeStr){
-  const ex = hwSlotOf(o.key, o.label);
+function hwSchedule(o, dateStr, timeStr, mode){
+  /* mode: 'new' = 另外加多一格（做唔完，第二日繼續）
+           一個 event id  = 指定郁邊一格
+           唔填          = 郁最早嗰格（舊行為，改期／向後褪就係用呢個） */
+  const all = hwSlotsOf(o.key, o.label);
+  const ex = (mode === 'new') ? null
+           : (mode ? all.filter(function(x){ return x.id === mode; })[0] : all[0]);
   const start = dateStr + 'T' + (timeStr || '20:00');
   /* 做功課格一律填返 30 分鐘完結時間。
      唔填嘅話，行事曆會用「下一件事嘅開始時間」推算，就會變成
@@ -3695,8 +3796,9 @@ function hwSchedule(o, dateStr, timeStr){
   save(); try{ renderCal(); }catch(e){}
   renderHw();
 }
-function hwUnschedule(o){
-  const ex = hwSlotOf(o.key, o.label);
+function hwUnschedule(o, evId){
+  const all = hwSlotsOf(o.key, o.label);
+  const ex = evId ? all.filter(function(x){ return x.id === evId; })[0] : all[0];
   if(!ex) return;
   state.events = state.events.filter(function(x){ return x.id !== ex.id; });
   save(); try{ renderCal(); }catch(e){}
@@ -3765,40 +3867,68 @@ function hwCard(o, finished){
     '</div><div class="s">' + (o.src==='class' ? '' : esc(o.sub) + '　·　') + dueTxt + '</div>' + pushTxt + chain +
     (o.need>1 ? '<div class="hwProg"><i style="width:'+Math.round(o.done/o.need*100)+'%"></i></div>' : '');
 
-  /* 排咗喺邊個時段做 */
+  /* 排咗喺邊個時段做。一份功課可以有幾格（做唔完第二日繼續）。 */
   if(!finished){
-    const slot = hwSlotOf(o.key, o.label);
-    const sl = document.createElement('div');
-    sl.className = 'hwSlot' + (slot ? ' on' : '');
+    const slots = hwSlotsOf(o.key, o.label);
     if(guest){
-      sl.innerHTML = slot
-        ? '🗓 排咗 <b>' + slot.start.slice(0,10) + ' ' + slot.start.slice(11) + '</b> 做'
+      const sl = document.createElement('div');
+      sl.className = 'hwSlot' + (slots.length ? ' on' : '');
+      sl.innerHTML = slots.length
+        ? '🗓 排咗 ' + slots.map(function(s){
+            return '<b>' + s.start.slice(0,10) + ' ' + s.start.slice(11) + '</b>';
+          }).join('　同　') + ' 做'
         : '🗓 未排時間';
+      d.appendChild(sl);
     }else{
-      const dv = slot ? slot.start.slice(0,10)
-                      : (o.preAt ? o.preAt.slice(0,10) : (o.due || fmtDate(new Date())));
-      const tv = slot ? slot.start.slice(11)
-                      : (o.preAt ? o.preAt.slice(11) : '20:00');
-      sl.innerHTML = '<span>🗓 ' + (slot ? '排咗喺' : '未排時間 —— 排落') + '</span>' +
-        '<input type="date" value="' + dv + '"><input type="time" value="' + tv + '">';
-      const go = document.createElement('button');
-      go.className = 'btn'; go.style.cssText = 'padding:3px 10px;font-size:12px';
-      go.textContent = slot ? '↻ 更新時間表' : '📅 排落時間表';
-      go.onclick = ()=>{
-        const ins = sl.querySelectorAll('input');
-        hwSchedule(o, ins[0].value, ins[1].value);
-        toast(slot ? '時間表已經更新' : '排咗落時間表');
+      const mkRow = function(slot, idx){
+        const sl = document.createElement('div');
+        sl.className = 'hwSlot' + (slot ? ' on' : '');
+        const dv = slot ? slot.start.slice(0,10)
+                        : (o.preAt ? o.preAt.slice(0,10) : (o.due || fmtDate(new Date())));
+        const tv = slot ? slot.start.slice(11)
+                        : (o.preAt ? o.preAt.slice(11) : '20:00');
+        const lead = !slot ? '未排時間 —— 排落'
+                   : (slots.length > 1 ? ('第 ' + (idx+1) + ' 節排咗喺') : '排咗喺');
+        sl.innerHTML = '<span>🗓 ' + lead + '</span>' +
+          '<input type="date" value="' + dv + '"><input type="time" value="' + tv + '">';
+        const go = document.createElement('button');
+        go.className = 'btn'; go.style.cssText = 'padding:3px 10px;font-size:12px';
+        go.textContent = slot ? '↻ 更新時間表' : '📅 排落時間表';
+        go.onclick = ()=>{
+          const ins = sl.querySelectorAll('input');
+          hwSchedule(o, ins[0].value, ins[1].value, slot ? slot.id : null);
+          toast(slot ? '時間表已經更新' : '排咗落時間表');
+        };
+        sl.appendChild(go);
+        if(slot){
+          const rm = document.createElement('button');
+          rm.className = 'btn'; rm.style.cssText = 'padding:3px 10px;font-size:12px';
+          rm.textContent = '✕ 唔排';
+          rm.onclick = ()=>{ hwUnschedule(o, slot.id); toast('已經由時間表拎走'); };
+          sl.appendChild(rm);
+        }
+        return sl;
       };
-      sl.appendChild(go);
-      if(slot){
-        const rm = document.createElement('button');
-        rm.className = 'btn'; rm.style.cssText = 'padding:3px 10px;font-size:12px';
-        rm.textContent = '✕ 唔排';
-        rm.onclick = ()=>{ hwUnschedule(o); toast('已經由時間表拎走'); };
-        sl.appendChild(rm);
+      if(!slots.length){
+        d.appendChild(mkRow(null, 0));
+      }else{
+        slots.forEach(function(s, i){ d.appendChild(mkRow(s, i)); });
+        /* 做唔完想第二日繼續：加多一格，唔會郁到已經排好嗰格 */
+        const add = document.createElement('div');
+        add.className = 'hwSlot';
+        const ab = document.createElement('button');
+        ab.className = 'btn'; ab.style.cssText = 'padding:3px 10px;font-size:12px';
+        ab.textContent = '➕ 加多一節做埋佢';
+        ab.onclick = ()=>{
+          const last = slots[slots.length-1];
+          const nd = fmtDate(new Date(new Date(last.start.slice(0,10)+'T00:00').getTime() + 86400000));
+          hwSchedule(o, nd, last.start.slice(11), 'new');
+          toast('加咗第 ' + (slots.length+1) + ' 節，日子時間可以喺上面改');
+        };
+        add.appendChild(ab);
+        d.appendChild(add);
       }
     }
-    d.appendChild(sl);
   }
 
   const bar = document.createElement('div'); bar.className = 'hwBar';
@@ -8104,6 +8234,7 @@ function applyGuestUI(){
      單靠 CSS 收埋兩粒掣係唔會閂到個已經開咗嘅視窗，API Key 就會晾喺度。 */
   if(guestMode){ try{ hide('aiSetModal'); }catch(e){} }
   try{ if(window.renderChatTemplates) window.renderChatTemplates(); }catch(e){}
+  try{ if(window.__sosRoleChanged) window.__sosRoleChanged(); }catch(e){}
   if(typeof syncRoNoticeH === 'function') setTimeout(syncRoNoticeH, 0);
   // 只要「已登入 + 唔係訪客模式」就顯示「訪客模式」掣
   // （未設密碼嗰陣，撳落去會自動彈出「設定解鎖密碼」視窗）
@@ -8309,6 +8440,202 @@ function autoArchiveIfOwner(){
 setTimeout(()=>{ try{ autoArchiveIfOwner(); }catch(e){ console.warn('歸檔失敗', e); } }, 2000);
 /* 每日檢查一次（閒置時先做） */
 setInterval(()=>{ if(document.hidden) return; try{ autoArchiveIfOwner(); }catch(e){} }, 24*60*60*1000);
+
+/* ==================================================================
+   🆘 搵爹哋 —— 訪客同主人之間嘅即時留言
+   ------------------------------------------------------------------
+   點解另外開一條 Firebase 路徑，而唔係塞落 diary_calendar_data 度：
+   主 state 嗰個 ref 掛住 .on('value')，任何一個仔節點一變，兩邊都會
+   重新收成份 state（三十幾萬 bytes）。留言一句就成 360KB 上落，唔值。
+   所以另開 diary_calendar_sos/<uid>，安全規則要加返（見 README 註解）。
+
+   兩邊用同一個 Google 帳號，所以 uid 一樣，直接對得上。
+================================================================== */
+(function(){
+'use strict';
+const KID_CHIPS = ['我唔識做功課', '我做完功課喇', '屋企有事，快啲返嚟', '我想同你講嘢'];
+const SEEN_KEY  = 'diarycal_sos_seen_v1';
+const MAX_KEEP  = 60;
+
+let sosRef = null, thread = [], panelOpen = false, myRole = 'dad', bound = false;
+
+const el = function(id){ return document.getElementById(id); };
+const isGuest = function(){ return document.body.classList.contains('readonly'); };
+const seenAt  = function(){ try{ return parseInt(localStorage.getItem(SEEN_KEY),10) || 0; }catch(e){ return 0; } };
+const markSeen= function(){ try{ localStorage.setItem(SEEN_KEY, String(Date.now())); }catch(e){} };
+
+function unreadCount(){
+  const s = seenAt();
+  return thread.filter(function(m){ return m.who !== myRole && (m.at||0) > s; }).length;
+}
+
+function fmtWhen(ts){
+  if(!ts) return '';
+  const d = new Date(ts), n = new Date();
+  const hm = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+  if(d.toDateString() === n.toDateString()) return hm;
+  return (d.getMonth()+1) + '/' + d.getDate() + ' ' + hm;
+}
+
+function renderThread(){
+  const body = el('sosBody');
+  if(!body) return;
+  const stick = body.scrollTop + body.clientHeight >= body.scrollHeight - 40;
+  body.innerHTML = '';
+  if(!thread.length){
+    body.innerHTML = '<p class="subnote">' +
+      (myRole === 'kid'
+        ? '打幾隻字，爹哋部機會即刻彈出嚟。'
+        : '仲未有留言。Charlotte 撳「🆘 搵爹哋」你就會即刻見到。') + '</p>';
+  }
+  thread.forEach(function(m){
+    const mine = (m.who === myRole);
+    const d = document.createElement('div');
+    d.className = 'sosMsg ' + (mine ? 'me' : 'them');
+    d.innerHTML = '<span class="who">' +
+      (m.who === 'kid' ? 'Charlotte' : '爹哋') + '　' + fmtWhen(m.at) + '</span>' + esc(m.text);
+    if(!mine){
+      /* 讀出嚟。Charlotte 好多時撳呢粒聽爹哋覆咗乜。 */
+      const say = document.createElement('button');
+      say.className = 'say'; say.type = 'button'; say.textContent = '🔊 讀出嚟';
+      say.onclick = function(){
+        if(typeof window.ttsSpeak === 'function') window.ttsSpeak(m.text, say);
+      };
+      d.appendChild(say);
+    }
+    body.appendChild(d);
+  });
+  if(stick || panelOpen) body.scrollTop = body.scrollHeight;
+}
+
+function refreshFab(){
+  const fab = el('sosFab');
+  if(!fab) return;
+  const on = !!sosRef;
+  fab.classList.toggle('show', on && !panelOpen);
+  fab.querySelector('.lbl').textContent = (myRole === 'kid') ? '搵爹哋' : 'Charlotte';
+  fab.querySelector('.ic').textContent  = (myRole === 'kid') ? '🆘' : '💬';
+  const n = unreadCount();
+  fab.classList.toggle('unread', n > 0);
+  fab.querySelector('.dot').textContent = n > 9 ? '9+' : String(n);
+}
+
+function openPanel(){
+  if(!sosRef) return;
+  panelOpen = true;
+  el('sosPanel').classList.add('show');
+  markSeen(); refreshFab(); renderThread();
+  setTimeout(function(){ try{ el('sosInput').focus(); }catch(e){} }, 80);
+}
+function closePanel(){
+  panelOpen = false;
+  el('sosPanel').classList.remove('show');
+  markSeen(); refreshFab();
+}
+
+async function send(){
+  const ta = el('sosInput');
+  const txt = String(ta.value || '').trim();
+  if(!txt || !sosRef) return;
+  const btn = el('sosSend');
+  btn.disabled = true;
+  try{
+    await sosRef.child('thread').push({ who: myRole, text: txt.slice(0,600), at: Date.now() });
+    ta.value = ''; ta.style.height = 'auto';
+    markSeen();
+    /* 太多就剪走最舊嗰啲，唔好等佢無限咁長 */
+    if(thread.length > MAX_KEEP + 20){
+      const cut = thread.slice(0, thread.length - MAX_KEEP);
+      const upd = {};
+      cut.forEach(function(m){ upd[m.id] = null; });
+      sosRef.child('thread').update(upd).catch(function(){});
+    }
+  }catch(err){
+    const note = el('sosNote');
+    note.textContent = '送唔到：' + (err && err.message || err) +
+      '（多數係 Firebase 安全規則未加 diary_calendar_sos）';
+    note.style.color = 'var(--overdue)';
+  }
+  btn.disabled = false;
+}
+
+function renderChips(){
+  const c = el('sosChips');
+  c.innerHTML = '';
+  if(myRole !== 'kid') return;      /* 快捷句淨係俾 Charlotte */
+  KID_CHIPS.forEach(function(t){
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = t;
+    b.onclick = function(){
+      const ta = el('sosInput');
+      ta.value = ta.value ? (ta.value + ' ' + t) : t;
+      ta.focus();
+    };
+    c.appendChild(b);
+  });
+}
+
+function bindOnce(){
+  if(bound) return; bound = true;
+  el('sosFab').onclick   = openPanel;
+  el('sosClose').onclick = closePanel;
+  el('sosSend').onclick  = send;
+  const ta = el('sosInput');
+  ta.addEventListener('input', function(){
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 110) + 'px';
+  });
+  ta.addEventListener('keydown', function(e){
+    /* Enter 送出，Shift+Enter 換行。手機軟鍵盤唔會誤觸。 */
+    if(e.key === 'Enter' && !e.shiftKey && !e.isComposing){ e.preventDefault(); send(); }
+  });
+}
+
+function attach(user){
+  if(sosRef){ try{ sosRef.child('thread').off(); }catch(e){} sosRef = null; }
+  thread = [];
+  if(!user){ refreshFab(); return; }
+  myRole = isGuest() ? 'kid' : 'dad';
+  el('sosTitle').textContent = (myRole === 'kid') ? '🆘 搵爹哋' : '💬 Charlotte';
+  el('sosNote').textContent  = (myRole === 'kid')
+    ? '爹哋部機會即刻彈出你嘅留言。佢覆你嘅時候，撳「🔊 讀出嚟」就聽到。'
+    : '你覆嘅嘢，Charlotte 部 iPad 會即刻彈出，佢仲可以撳掣讀出嚟聽。';
+  el('sosNote').style.color = '';
+  renderChips();
+
+  sosRef = db.ref('diary_calendar_sos/' + user.uid);
+  sosRef.child('thread').limitToLast(MAX_KEEP).on('value', function(snap){
+    const prevLast = thread.length ? thread[thread.length-1].id : '';
+    const out = [];
+    snap.forEach(function(c){
+      const v = c.val() || {};
+      out.push({ id:c.key, who:(v.who==='kid'?'kid':'dad'), text:String(v.text||''), at:Number(v.at)||0 });
+    });
+    out.sort(function(a,b){ return (a.at||0) - (b.at||0); });
+    thread = out;
+
+    const last = thread.length ? thread[thread.length-1] : null;
+    const isNew = last && last.id !== prevLast && last.who !== myRole && (last.at||0) > seenAt();
+    renderThread(); refreshFab();
+    if(isNew && !panelOpen){
+      /* 「浮出嚟」就夠，唔使搶全螢幕 */
+      openPanel();
+      try{ if(navigator.vibrate) navigator.vibrate([60,50,60]); }catch(e){}
+    }
+  }, function(err){
+    el('sosNote').textContent = 'connect 唔到：' + (err && err.message || err) +
+      '（Firebase 安全規則要加 diary_calendar_sos）';
+    el('sosNote').style.color = 'var(--overdue)';
+  });
+  refreshFab();
+}
+
+bindOnce();
+auth.onAuthStateChanged(function(u){ attach(u); });
+/* 切換訪客模式會改變角色（kid ⇄ dad），要重新掛過 */
+window.__sosRoleChanged = function(){ if(auth.currentUser) attach(auth.currentUser); };
+})();
 </script>
+
 </body>
 </html>
