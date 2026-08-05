@@ -374,6 +374,21 @@ mark{background:#ffe9a8;border-radius:2px}
 #confirmMsg{line-height:1.7;white-space:pre-line}
 
 
+/* 課後功課最頂：開手冊嘅細掣。放喺右上角，唔阻住張清單。
+   連去同一個 root 嘅 HW_SOP.html，所以 GitHub Pages 同本機都撳得到。 */
+.hwTop{display:flex;justify-content:flex-end;margin:0 0 6px}
+.sopBtn{
+  display:inline-block;text-decoration:none;
+  border:1px solid var(--line);background:var(--panel);color:var(--muted);
+  border-radius:6px;padding:3px 10px;font-size:12px;line-height:1.6;letter-spacing:.5px;
+}
+.sopBtn:hover{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.hwPush{
+  margin-top:6px;font-size:12px;line-height:1.5;color:var(--q-amber);
+  background:#fffbf2;border:1px solid #f0dcb8;border-radius:6px;padding:5px 9px;
+}
+.hwPush.hard{color:var(--overdue);background:#fdf3f3;border-color:#f0c4c4;font-weight:600}
+
 /* ===== 🤖 AI 排程助手（新加）===== */
 #btnAI{border-color:var(--accent);color:var(--accent);font-weight:700}
 #btnAI:hover{background:var(--accent);color:#fff}
@@ -800,6 +815,10 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 
   <!-- Tab 4：課後功課 -->
   <div class="aiPane" id="paneHw">
+    <div class="hwTop hwOwner">
+      <a class="sopBtn" href="HW_SOP.html" target="_blank" rel="noopener"
+         title="開操作手冊：功課同上堂點加、點減、點褪">📘 SOP</a>
+    </div>
     <p class="subnote" id="hwIntro">上完堂 <b>預設就係有功課</b>。行事曆一出現嗰堂，跟進項目自動彈落「未做完」，唔使你打。真係冇功課嗰次，撳嗰件嘢右邊嘅 ✕ 交叉走佢就得。做完嘅嘢會喺「啱啱做完」度留 7 日然後自動淡出，唔會塞住個畫面。</p>
 
     <div class="hwTabs" id="hwFilter">
@@ -3657,6 +3676,12 @@ function hwSchedule(o, dateStr, timeStr){
      「15:00 → 19:30（未定完結時間）」，睇落好似要做四個半鐘。 */
   const endS = hhmm(minutes(start.slice(11)) + 30);
   if(ex){
+    /* 褪期計數：同一格由一日搬去另一日先算一次，同日改鐘數唔算。
+       點解要記：一件功課俾人一路向後褪，每次望落都好合理，但褪到第四第五次
+       其實已經係「做唔到」而唔係「未夠時間」。冇個數字擺喺眼前，就永遠唔會停低做決定。 */
+    if(ex.start && ex.start.slice(0,10) !== dateStr){
+      ex.hwPush = (parseInt(ex.hwPush,10) || 0) + 1;
+    }
     ex.start = start;
     ex.endOverride = ex.endOverride || endS;
     ex.hwFor = o.key;
@@ -3701,9 +3726,43 @@ function hwCard(o, finished){
     ? '做完咗　·　' + (o.doneAt ? fmtStamp(o.doneAt) : '')
     : (o.due ? (o.overdue ? '⚠ 死線 ' + o.due + ' 已經過咗' : '死線 ' + o.due) : '冇死線');
 
+  /* 褪期資訊列。
+     設計立場：向後褪係用戶嘅彈性，個 app 唔會攔、唔會催、唔會叫佢停。
+     呢一行淨係做一件事——將「褪咗幾多次」同「你仲有幾多日空間」擺埋一齊，
+     等佢褪嘅時候有數睇。唯一會出紅色嘅，係嗰個真係會失去資料嘅時限
+     （上堂之後 21 日，過咗就算未做都會由清單度消失），因為嗰個唔提就冇得補救。 */
+  let pushTxt = '';
+  if(!finished){
+    const _sl = hwSlotOf(o.key, o.label);
+    const _p  = _sl ? (parseInt(_sl.hwPush,10) || 0) : 0;
+    if(_p >= 2){
+      const _today = fmtDate(new Date());
+      const _gap = function(a, b){
+        return Math.round((new Date(b+'T00:00') - new Date(a+'T00:00')) / 86400000);
+      };
+      const bits = ['⏭ 褪咗 ' + _p + ' 次'];
+      if(o.due){
+        const g = _gap(_today, o.due);
+        bits.push(g > 0  ? ('褪得到 ' + o.due + '（死線，仲有 ' + g + ' 日）')
+                : g === 0 ? ('死線就係今日')
+                :           ('死線 ' + o.due + ' 過咗 ' + (-g) + ' 日，照褪冇問題'));
+      }
+      let hard = false;
+      if(o.src === 'class' && o.classDate){
+        const gone = fmtDate(new Date(new Date(o.classDate+'T00:00').getTime() + 21*86400000));
+        const g2 = _gap(_today, gone);
+        if(g2 <= 7){
+          hard = true;
+          bits.push('⚠ ' + gone + ' 之後會由清單度消失（仲有 ' + g2 + ' 日）');
+        }
+      }
+      pushTxt = '<div class="hwPush' + (hard ? ' hard' : '') + '">' + esc(bits.join('　·　')) + '</div>';
+    }
+  }
+
   d.innerHTML = '<div class="t">' + tag + esc(o.label) +
       (o.need>1 ? ' <span style="color:var(--muted);font-weight:400">（'+o.done+'／'+o.need+' 轉）</span>' : '') +
-    '</div><div class="s">' + (o.src==='class' ? '' : esc(o.sub) + '　·　') + dueTxt + '</div>' + chain +
+    '</div><div class="s">' + (o.src==='class' ? '' : esc(o.sub) + '　·　') + dueTxt + '</div>' + pushTxt + chain +
     (o.need>1 ? '<div class="hwProg"><i style="width:'+Math.round(o.done/o.need*100)+'%"></i></div>' : '');
 
   /* 排咗喺邊個時段做 */
@@ -4628,7 +4687,11 @@ function ctxText(){
                  : '　←　' + h.sub)
              + (h.due ? '，死線 ' + h.due : '')
              + (h.overdue ? '　⚠ 已經過咗期' : '')
-             + (slot ? '　🗓 已經排咗 ' + slot.start.replace('T',' ') + ' 做' : '　🗓 未排時間');
+             + (slot ? '　🗓 已經排咗 ' + slot.start.replace('T',' ') + ' 做' : '　🗓 未排時間')
+             + (slot && (parseInt(slot.hwPush,10)||0) >= 2
+                 ? '　⏭ 已經褪咗 ' + slot.hwPush + ' 次（用戶有佢自己嘅理由，唔准催、唔准評論佢褪；'
+                   + '不過如果佢叫你幫手排時間，就揀個鬆動啲、成功率高啲嘅時段，唔好又再排喺已經好逼嗰日）'
+                 : '');
       }).join('\n')
     : '（全部跟進都做完咗，唔好作一件出嚟提佢）')
     + '\n註：用戶叫你幫手安排做功課嘅時間嗰陣，就用返上面呢張清單，'
