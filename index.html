@@ -1274,7 +1274,7 @@ auth.onAuthStateChanged(user => {
     btnLogin.textContent = '🔓 登出 (' + user.email + ')';
     
     // 🔥 將資料放喺 DB 裡面一個全新嘅 node 叫 diary_calendar_data
-    // 咁樣就唔會影響你原本 Cabinet 嘅資料
+    // 咁樣就唔會影響你原本嘅資料
     dbRef = db.ref('diary_calendar_data/' + user.uid);
     loadFromFirebase();
   } else {
