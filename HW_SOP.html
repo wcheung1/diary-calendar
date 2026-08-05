@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>功課 × 上堂 排程 SOP · 日程日記</title>
+<style>
+:root{
+  --paper:#f6f7f3;
+  --card:#fffffc;
+  --ink:#171c18;
+  --muted:#6d746c;
+  --rule:#d7ded5;
+  --cal:#2e7d64;          /* 綠 = 時間表 */
+  --cal-bg:#e6f1eb;
+  --hw:#2a5ea8;           /* 藍 = 課後功課 */
+  --hw-bg:#e6edf8;
+  --pen:#b8342a;          /* 紅筆 = 陷阱 */
+  --pen-bg:#fbeceb;
+  --serif:"Noto Serif TC","Songti TC","Source Han Serif TC","STSong",serif;
+  --sans:"PingFang TC","Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+body{
+  background:var(--paper);color:var(--ink);font-family:var(--sans);
+  font-size:15px;line-height:1.75;
+  /* 練習簿嘅橫線：淡到唔搶眼，但一睇就知係本手冊 */
+  background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 31px,#e9ede7 31px,#e9ede7 32px);
+  background-attachment:local;
+}
+.wrap{max-width:880px;margin:0 auto;padding:0 20px 90px}
+
+/* ── 封面 ── */
+header.cover{padding:60px 0 34px;border-bottom:3px double var(--rule);margin-bottom:8px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;color:var(--muted);text-transform:uppercase}
+h1{font-family:var(--serif);font-size:clamp(30px,6vw,46px);font-weight:900;line-height:1.2;margin:10px 0 4px;letter-spacing:-.01em}
+h1 .x{color:var(--muted);font-weight:400;padding:0 .12em}
+.sub{color:var(--muted);font-size:14px;max-width:52ch;margin-top:10px}
+.stamp{
+  display:inline-block;margin-top:20px;border:2px solid var(--pen);color:var(--pen);
+  font-family:var(--mono);font-size:11px;letter-spacing:.14em;padding:5px 11px;border-radius:3px;
+  transform:rotate(-1.4deg);
+}
+
+/* ── 兩軌 hero ── */
+.tracks{display:grid;grid-template-columns:1fr auto 1fr;gap:0;margin:34px 0 12px;align-items:stretch}
+.track{background:var(--card);border:1px solid var(--rule);padding:20px 20px 22px}
+.track.cal{border-top:5px solid var(--cal)}
+.track.hw{border-top:5px solid var(--hw)}
+.track h3{font-family:var(--serif);font-size:19px;font-weight:800;margin-bottom:2px}
+.track.cal h3{color:var(--cal)} .track.hw h3{color:var(--hw)}
+.track .where{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.6}
+.track ul{list-style:none;font-size:14px}
+.track li{padding:4px 0 4px 17px;position:relative}
+.track li::before{content:"";position:absolute;left:0;top:12px;width:7px;height:2px}
+.track.cal li::before{background:var(--cal)} .track.hw li::before{background:var(--hw)}
+.tracks .vs{
+  display:flex;align-items:center;justify-content:center;width:46px;
+  font-family:var(--serif);font-size:13px;color:var(--muted);
+  border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);background:var(--paper);
+}
+.bridge{
+  background:var(--card);border:1px solid var(--rule);border-top:0;padding:14px 20px;
+  font-size:14px;
+}
+.bridge b{font-family:var(--serif)}
+
+/* ── 索引 ── */
+nav.toc{background:var(--card);border:1px solid var(--rule);padding:16px 20px;margin:30px 0 8px}
+nav.toc h4{font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--muted);margin-bottom:10px}
+nav.toc ol{list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:2px 18px}
+nav.toc a{color:var(--ink);text-decoration:none;font-size:13.5px;display:block;padding:3px 0;border-bottom:1px dotted transparent}
+nav.toc a:hover,nav.toc a:focus-visible{border-bottom-color:var(--rule);color:var(--cal)}
+nav.toc .n{font-family:var(--mono);font-size:11px;color:var(--muted);margin-right:7px}
+
+/* ── 章節 ── */
+section{margin-top:52px;scroll-margin-top:16px}
+.secnum{font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--muted)}
+h2{font-family:var(--serif);font-size:26px;font-weight:900;margin:4px 0 6px;letter-spacing:-.01em}
+h2 + .lede{color:var(--muted);font-size:14px;max-width:60ch;margin-bottom:20px}
+h3.sub2{font-family:var(--serif);font-size:18px;font-weight:800;margin:26px 0 8px}
+
+/* ── 標籤 ── */
+.tag{
+  display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;
+  padding:2px 7px;border-radius:3px;vertical-align:1px;white-space:nowrap;font-weight:600;
+}
+.t-cal{background:var(--cal-bg);color:var(--cal);border:1px solid #bcd8ca}
+.t-hw{background:var(--hw-bg);color:var(--hw);border:1px solid #bccbe6}
+.t-both{background:#f0ecdf;color:#7a6524;border:1px solid #ddd2b0}
+.ui{font-family:var(--mono);font-size:12.5px;background:#eef0ec;border:1px solid var(--rule);border-radius:3px;padding:1px 5px;white-space:nowrap}
+
+/* ── 情境卡 ── */
+.case{background:var(--card);border:1px solid var(--rule);margin:14px 0;overflow:hidden}
+.case > summary{
+  list-style:none;cursor:pointer;padding:13px 18px;display:flex;gap:12px;align-items:baseline;
+  font-weight:700;font-size:15.5px;
+}
+.case > summary::-webkit-details-marker{display:none}
+.case > summary::after{content:"＋";margin-left:auto;color:var(--muted);font-weight:400;font-size:17px}
+.case[open] > summary::after{content:"−"}
+.case > summary:hover{background:#f2f4f0}
+.case > summary:focus-visible{outline:2px solid var(--cal);outline-offset:-2px}
+.case .cid{font-family:var(--mono);font-size:11px;color:var(--muted);flex:0 0 auto}
+.case .body{padding:2px 18px 20px;border-top:1px dashed var(--rule);margin-top:0}
+.case .body > *:first-child{margin-top:14px}
+
+ol.steps{list-style:none;counter-reset:s}
+ol.steps > li{
+  counter-increment:s;position:relative;padding:7px 0 7px 40px;font-size:14.5px;
+  border-bottom:1px dotted #e6eae4;
+}
+ol.steps > li:last-child{border-bottom:0}
+ol.steps > li::before{
+  content:counter(s);position:absolute;left:0;top:8px;width:24px;height:24px;
+  border:1px solid var(--rule);border-radius:50%;text-align:center;line-height:22px;
+  font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--paper);
+}
+.why{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+
+/* ── 紅筆批註 ── */
+.pen{
+  border-left:3px solid var(--pen);background:var(--pen-bg);
+  padding:11px 14px;margin:14px 0;font-size:14px;
+}
+.pen b{color:var(--pen);font-family:var(--serif);font-size:15px}
+.ok{border-left:3px solid var(--cal);background:var(--cal-bg);padding:11px 14px;margin:14px 0;font-size:14px}
+.ok b{color:var(--cal);font-family:var(--serif);font-size:15px}
+
+/* ── 黃金規則 ── */
+.golden{counter-reset:g;margin-top:18px}
+.golden li{
+  counter-increment:g;list-style:none;position:relative;background:var(--card);
+  border:1px solid var(--rule);border-left:4px solid var(--pen);
+  padding:14px 18px 14px 62px;margin-bottom:10px;font-size:15px;
+}
+.golden li::before{
+  content:counter(g);position:absolute;left:18px;top:11px;
+  font-family:var(--serif);font-size:26px;font-weight:900;color:var(--pen);opacity:.35;line-height:1;
+}
+.golden b{font-weight:800}
+
+/* ── 表 ── */
+.tbl{width:100%;border-collapse:collapse;margin-top:14px;background:var(--card);font-size:14px}
+.tbl th,.tbl td{border:1px solid var(--rule);padding:9px 12px;text-align:left;vertical-align:top}
+.tbl th{background:#eef1ec;font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.tbl td:first-child{font-weight:700;width:27%}
+.tbl code{font-family:var(--mono);font-size:12.5px}
+
+/* ── 檢查清單 ── */
+.check{background:var(--card);border:2px solid var(--ink);padding:20px 22px;margin-top:20px}
+.check h3{font-family:var(--serif);font-size:19px;font-weight:900;margin-bottom:4px}
+.check label{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px dotted #e6eae4;cursor:pointer;font-size:14.5px}
+.check label:last-of-type{border-bottom:0}
+.check input{margin-top:5px;accent-color:var(--cal);width:15px;height:15px;flex:0 0 auto}
+.check input:checked + span{color:var(--muted);text-decoration:line-through}
+
+footer{margin-top:60px;padding-top:18px;border-top:3px double var(--rule);color:var(--muted);font-size:12.5px}
+
+@media (max-width:720px){
+  body{background-image:none}
+  .tracks{grid-template-columns:1fr}
+  .tracks .vs{width:auto;padding:6px 0;border-left:1px solid var(--rule);border-right:1px solid var(--rule)}
+  .bridge{border-top:0}
+  h1{font-size:29px}
+}
+@media print{
+  body{background:#fff;background-image:none;font-size:11pt}
+  .wrap{max-width:none;padding:0}
+  nav.toc{display:none}
+  .case{break-inside:avoid;border:1px solid #bbb}
+  .case .body{display:block!important}
+  .case > summary::after{content:""}
+  section{break-inside:auto}
+  .stamp{transform:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="cover">
+  <div class="eyebrow">日程日記 · 操作手冊</div>
+  <h1>功課<span class="x">×</span>上堂<br>加減嘢嘅正確做法</h1>
+  <p class="sub">功課唔係你打上去嘅，係個 app 由「上堂」推算出嚟嘅。所以改錯位就會亂。呢份手冊講清楚：邊件事應該喺邊個位改、次序點行、同埋邊幾個動作會靜靜雞整爛啲記錄。</p>
+  <div class="stamp">改動之前，先睇第 2 節「五條金科玉律」</div>
+</header>
+
+<!-- ══════════ HERO：兩個 update 位 ══════════ -->
+<div class="tracks">
+  <div class="track cal">
+    <h3>🟢 時間表</h3>
+    <p class="where">頭版行事曆<br>日／週／月 任何一個 view</p>
+    <ul>
+      <li>幾時上堂（開一格堂）</li>
+      <li>堂改時間、改名、刪堂</li>
+      <li>接送格（去程 / 返程）</li>
+      <li>幾時做功課（嗰格幾點）</li>
+    </ul>
+  </div>
+  <div class="vs">管<br>咩</div>
+  <div class="track hw">
+    <h3>🔵 課後功課</h3>
+    <p class="where">🤖 AI 排程 → 📚 課後功課</p>
+    <ul>
+      <li>上完呢個班要跟進乜（規矩）</li>
+      <li>功課做咗未、做咗幾轉</li>
+      <li>今次冇功課（打交叉）</li>
+      <li>額外練習、實體工作紙</li>
+      <li>續排下幾堂、開新班</li>
+    </ul>
+  </div>
+</div>
+<div class="bridge">
+  <b>兩者點樣接返埋一齊：</b>你喺<span class="tag t-cal">時間表</span>加一格「Charlotte 鋼琴課」，個 app 見到標題有「鋼琴」，就會去<span class="tag t-hw">課後功課</span>嗰邊搵有冇一條規矩叫「鋼琴課」。搵到，就自動派出「練習鋼琴」呢件功課。
+  <b>你由頭到尾都唔使打「功課」兩隻字</b>——你只要負責排啱堂，同埋維護好嗰條規矩。
+</div>
+
+<!-- ══════════ 索引 ══════════ -->
+<nav class="toc">
+  <h4>索引</h4>
+  <ol>
+    <li><a href="#s1"><span class="n">1</span>個 app 點樣認出「一堂」</a></li>
+    <li><a href="#s2"><span class="n">2</span>五條金科玉律</a></li>
+    <li><a href="#s3"><span class="n">3</span>上堂編排：加、改、減</a></li>
+    <li><a href="#s4"><span class="n">4</span>功課：加、減、打勾</a></li>
+    <li><a href="#s5"><span class="n">5</span>排功課時間</a></li>
+    <li><a href="#s6"><span class="n">6</span>出咗事點查</a></li>
+    <li><a href="#s7"><span class="n">7</span>唔好亂撳嘅掣</a></li>
+    <li><a href="#s8"><span class="n">8</span>每次改完，30 秒檢查</a></li>
+  </ol>
+</nav>
+
+<!-- ══════════ 1 ══════════ -->
+<section id="s1">
+  <div class="secnum">第 1 節</div>
+  <h2>個 app 點樣認出「一堂」</h2>
+  <p class="lede">明白呢四步，之後所有古靈精怪嘅情況你都解釋得返。</p>
+
+  <ol class="steps">
+    <li><b>睇標題有冇「要含有」嗰幾隻字</b><span class="why">例：鋼琴課規矩嘅「要含有」係<span class="ui">鋼琴</span>。標題入面冇「鋼琴」就唔關佢事。填幾個字（逗號分開）就係<b>全部都要中</b>，唔係中一個就算。</span></li>
+    <li><b>再睇有冇撞「唔好含有」</b><span class="why">預設係<span class="ui">功課,練習,溫習,温習,複習,預習,做卷,工作紙,特訓,補充</span>。中咗任何一隻，即刻剔走。呢個就係點解「Charlotte 練習鋼琴」<b>唔會</b>被當成一堂鋼琴。</span></li>
+    <li><b>同一日有幾格都中？揀最長嗰格做正堂</b><span class="why">「婆婆帶Charlotte去佐敦」10 分鐘，「Charlotte DGJS 數學課」60 分鐘 → 正堂係後者。認錯嘅話，去<span class="tag t-hw">課後功課</span> → 班別總覽，喺嗰張班別卡度親手指定。</span></li>
+    <li><b>時間窗</b><span class="why">只計<b>最近 21 日</b>嘅堂；再舊嘅唔會再派功課。另外「由邊日開始計功課」（hwSince）之前嘅，一律唔理。</span></li>
+  </ol>
+
+  <div class="pen">
+    <b>⚑ 記住呢句</b><br>
+    每一份功課，都係<b>綁死喺「嗰一堂嗰一格」</b>嘅。個 app 內部用「嗰格嘅編號＋功課個名」做標籤。
+    <b>改時間、改名、拖去第二日 → 編號唔變，打過嘅勾唔會甩。</b>
+    但係<b>刪咗嗰格再重新開一格 → 係一個全新編號</b>，舊嘅勾即刻作廢，成堆功課會彈返出嚟。
+  </div>
+</section>
+
+<!-- ══════════ 2 ══════════ -->
+<section id="s2">
+  <div class="secnum">第 2 節</div>
+  <h2>五條金科玉律</h2>
+  <p class="lede">十次混亂入面有九次，都係違反咗下面其中一條。</p>
+
+  <ol class="golden">
+    <li><b>要改一堂 → 直接改，唔好「刪咗再加」。</b>喺行事曆度雙擊改時間，或者開「✎ 編輯」改。刪完再加會斷晒功課記錄（見第 1 節紅字）。</li>
+    <li><b>「上堂格」同「做功課格」要分得清清楚楚。</b>做功課嗰格，標題一定要有「功課／練習／溫習／預習／工作紙」呢類字，個 app 見到先唔會當佢係一堂而再派多一份出嚟。</li>
+    <li><b>排功課時間，一定要喺功課卡撳「排時間」，唔好自己去時間表開格。</b>用個掣開嘅格會綁死條線；自己開嘅格淨係靠個名夾，好易夾錯或者夾唔到。</li>
+    <li><b>加咗／改咗規矩之後，即刻返去睇「仲未做完」。</b>規矩一改，過去 21 日所有堂都會即時重新計一次。爆咗量或者少咗嘢，嗰一刻就睇得出。</li>
+    <li><b>唔肯定就唔好撳紅色嘅掣。</b>「💥 超級清除」同「⚡ 重設做預設規矩」冇得還原（Ctrl+Z 都救唔到 hwDone）。撳之前先撳「⬇ 匯出 JSON」。</li>
+  </ol>
+</section>
+
+<!-- ══════════ 3 ══════════ -->
+<section id="s3">
+  <div class="secnum">第 3 節</div>
+  <h2>上堂編排：加、改、減</h2>
+  <p class="lede">全部都由<span class="tag t-cal">時間表</span>或者<span class="tag t-hw">班別總覽</span>入手。</p>
+
+  <details class="case" open>
+    <summary><span class="cid">3.1</span>加一堂補堂／一次性嘅堂</summary>
+    <div class="body">
+      <ol class="steps">
+        <li><span class="tag t-cal">時間表</span> 揀日子 → <span class="ui">＋ 喺 X 新增項目</span></li>
+        <li>標題<b>照抄返平時嗰堂嘅寫法</b>，唔好改字眼<span class="why">例：一直用「Charlotte 鋼琴課」，補堂就照打「Charlotte 鋼琴課」。改咗做「鋼琴補堂」就冇咗「鋼琴」以外嘅問題……其實仲有「補」字唔喺排除名單度，所以呢個例子仲 OK；但如果你打「鋼琴補充練習」，就會中咗「補充」同「練習」兩個排除字，個 app 會當佢係做功課，唔會派功課出嚟。</span></li>
+        <li>填「指定完結時間」<span class="why">唔填就當 60 分鐘。填咗，同日有接送格嗰陣先分得出邊格係正堂。</span></li>
+        <li>唔好剔「呢個係做功課／練習嘅時段」</li>
+        <li>儲存 → 去<span class="tag t-hw">課後功課</span>睇「仲未做完」有冇多咗嗰份功課</li>
+      </ol>
+      <div class="ok"><b>✓ 成功嘅樣</b> 「仲未做完」多咗一件，後面寫住「← <em>今日</em> 上咗『Charlotte 鋼琴課』」。</div>
+    </div>
+  </details>
+
+  <details class="case">
+    <summary><span class="cid">3.2</span>續排一個現有班（例如再排兩個月）</summary>
+    <div class="body">
+      <ol class="steps">
+        <li><span class="tag t-hw">課後功課</span> → <span class="ui">🎓 班別總覽</span> → 攤開嗰個班</li>
+        <li>撳 <span class="ui">推算多一堂</span>，或者填個日期撳「排到嗰日為止」<span class="why">佢會由過往幾堂反推「逢星期幾、幾點、隔幾多日」。同時會連<b>接送格</b>一齊出——條件係最近一堂嗰啲接送格要<b>貼實</b>正堂（前一格完結時間＝正堂開始時間）而且<b>唔長過 30 分鐘</b>。</span></li>
+        <li><b>睇清楚草稿</b>：日期、時間、幾多格</li>
+        <li>撳 <span class="ui">同步落時間表</span> 先至真係寫入</li>
+      </ol>
+      <div class="pen"><b>⚑ 草稿唔會儲存</b> 未撳「同步落時間表」之前，refresh 或者閂咗個 app，啲草稿就冇晒。</div>
+    </div>
+  </details>
+
+  <details class="case">
+    <summary><span class="cid">3.3</span>開一個全新班別（例如九月開學嘅常識科）</summary>
+    <div class="body">
+      <p><b>情況 A — 堂仲未排：</b></p>
+      <ol class="steps">
+        <li><span class="tag t-hw">課後功課</span> → 班別總覽 → <span class="ui">＋ 開一個新班別</span></li>
+        <li>填：班別個名、時間表用嘅標題、逢星期幾、幾點、由邊日到邊日</li>
+        <li>要接送就填「邊個接送／去邊／去程幾耐／返程幾耐」<span class="why">留 0 就唔會排接送格。</span></li>
+        <li>「上完要跟進乜」逗號分開，例如 <span class="ui">常識工作紙,溫習課文</span></li>
+        <li>揀死線點計 → 撳 <span class="ui">開班＋排晒落時間表</span></li>
+      </ol>
+      <p style="margin-top:14px"><b>情況 B — 堂已經喺時間表度排好咗：</b></p>
+      <ol class="steps">
+        <li>同上，但<b>一定要剔</b><span class="ui">時間表已經排好，唔使再排</span></li>
+        <li>撳落去只會開規矩，唔會再整多啲格出嚟</li>
+      </ol>
+      <div class="pen"><b>⚑ 唔剔嗰個掣</b> 個 app 會照排一次，你就會見到每堂都變咗兩格，跟住功課亦會出雙份。</div>
+      <div class="ok"><b>✓ 開完即刻驗</b> 個提示會話「喺時間表認返到 N 堂」。如果係「一堂都認唔到」，即係「上堂項目要含有」填錯咗——去班別卡改。</div>
+    </div>
+  </details>
+
+  <details class="case">
+    <summary><span class="cid">3.4</span>改一堂嘅時間</summary>
+    <div class="body">
+      <ol class="steps">
+        <li><span class="tag t-cal">時間表</span> 揀返嗰格</li>
+        <li>雙擊個時間直接改，或者攤開個項目撳 <span class="ui">✎ 編輯</span></li>
+        <li>有接送格嘅話，接送格要<b>自己手動跟住搬</b><span class="why">個 app 唔會自動搬接送。冇搬嘅話，下次「推算多一堂」就會用錯咗嘅偏移。</span></li>
+      </ol>
+      <div class="ok"><b>✓ 完全唔使擔心功課</b> 改時間唔會影響任何打過嘅勾。連死線都會自動重新計。</div>
+    </div>
+  </details>
+
+  <details class="case">
+    <summary><span class="cid">3.5</span>甩咗一堂／今次冇上到</summary>
+    <div class="body">
+      <p><b>如果嗰堂根本冇發生過：</b></p>
+      <ol class="steps">
+        <li><span class="tag t-cal">時間表</span> 攤開嗰格 → <span class="ui">🗑 刪除</span></li>
+        <li>跟住去<span class="tag t-hw">課後功課</span>確認嗰份功課消失咗</li>
+      </ol>
+      <div class="pen"><b>⚑ 如果你已經幫嗰堂嘅功課打過勾</b> 刪咗嗰格，張打勾記錄就變成孤兒（無害，開機會自動清走），但係如果你之後又重新開返一格同一堂，功課會由零開始計。</div>
+      <p style="margin-top:14px"><b>如果堂上咗，但係老師話今次冇功課：</b>唔好刪堂——去 4.3。</p>
+    </div>
+  </details>
+
+  <details class="case">
+    <summary><span class="cid">3.6</span>一個班停咗／完咗</summary>
+    <div class="body">
+      <ol class="steps">
+        <li><span class="tag t-cal">時間表</span> 將將來嗰啲堂刪走<span class="why">用「📅 批量計劃」→ 動作揀「刪除」，一次過搞掂。</span></li>
+        <li><span class="tag t-hw">課後功課</span> → <span class="ui">⚙ 規矩</span> → 搵返嗰條 → 熄咗個開關<span class="why">熄咗好過刪咗：過去嗰啲打勾記錄仲喺度，第日再開返都得。</span></li>
+        <li>或者喺規矩度填「到邊日為止」，過咗就自動唔再派</li>
+      </ol>
+      <div class="pen"><b>⚑ 唔好淨係刪堂而唔熄規矩</b> 規矩仲開住，過去 21 日入面淨低嗰幾堂會繼續彈功課出嚟。</div>
+    </div>
+  </details>
+</section>
+
+<!-- ══════════ 4 ══════════ -->
+<section id="s4">
+  <div class="secnum">第 4 節</div>
+  <h2>功課：加、減、打勾</h2>
+  <p class="lede">全部都喺 <span class="tag t-hw">🤖 AI 排程 → 📚 課後功課</span>。時間表嗰邊一格都唔使郁。</p>
+
+  <details class="case">
+    <summary><span class="cid">4.1</span>一個班要多加／減少一份功課（長期）</summary>
+    <div class="body">
+      <ol class="steps">
+        <li><span class="ui">⚙ 規矩：上完邊堂 ➜ 要跟進乜</span> → 攤開</li>
+        <li>搵返嗰條規矩 → 喺「跟進項目」度加多一行，或者刪走一行</li>
+        <li>「要做幾轉」可以填 2、3<span class="why">例：練習鋼琴一星期要練兩次，就填 2。功課卡會顯示「做咗 1／2 轉」。</span></li>
+        <li>返去「仲未做完」核對條數</li>
+      </ol>
+      <div class="pen"><b>⚑ 改功課個名 = 開一件新功課</b> 打勾記錄用個名做標籤嘅一部分。將「大眾中文補充練習」改做「中文補充」，舊嗰件會即刻由清單消失（記錄留住），新嗰件由零開始。<b>所以改名之前，最好等呢一輪功課做完先。</b></div>
+    </div>
+  </details>
+
+  <details class="case">
+    <summary><span class="cid">4.2</span>加一件一次性練習（只做今次）</summary>
+    <div class="body">
+      <ol class="steps">
+        <li><span class="ui">➕ 加練習俾佢（爸爸專用）</span> → 攤開</li>
+        <li>打練習個名、要做幾轉、幾時之前做完、邊個做</li>
+        <li>撳 <span class="ui">加落去</span></li>
+      </ol>
+      <div class="ok"><b>✓ 幾時用呢個而唔用規矩</b> 「今次先要做」用呢個；「以後每次上完呢個班都要做」先用規矩。</div>
+      <p style="margin-top:12px"><b>要刪走：</b>喺張功課卡右邊撳 <span class="ui">✕</span>，即刻消失（呢類唔會入「交叉咗」名單）。</p>
+    </div>
+  </details>
+
+  <details class="case">
+    <summary><span class="cid">4.3</span>今次真係冇功課</summary>
+    <div class="body">
+      <ol class="steps">
+        <li>喺「仲未做完」搵返嗰件</li>
+        <li>撳右邊個 <span class="ui">✕</span></li>
+        <li>佢會搬去 <span class="ui">🚫 交叉咗嘅</span> 名單</li>
+      </ol>
+      <div class="ok"><b>✓ 撳錯咗都救得返</b> 攤開「🚫 交叉咗嘅」，撳返轉頭就會返去「仲未做完」。</div>
+      <div class="pen"><b>⚑ 唔好用「刪堂」嚟代替打交叉</b> 刪堂會連埋接送格同記錄一齊亂。堂上咗就要留住嗰格。</div>
+    </div>
+  </details>
+
+  <details class="case">
+    <summary><span class="cid">4.4</span>實體工作紙（風琴 folder）</summary>
+    <div class="body">
+      <ol class="steps">
+        <li><span class="ui">➕ 加練習俾佢</span> → 落面「🗂 風琴 folder 工作紙」</li>
+        <li>喺「呢格叫咩名」打個名（留空就叫「工作紙 #N」）→ 揀邊個做</li>
+        <li>撳一個<b>空格</b>＝派呢格出去</li>
+        <li>撳一個<b>已經派咗</b>嘅格：上面有打名就係改名，冇打名就係收返</li>
+      </ol>
+    </div>
+  </details>
+
+  <details class="case">
+    <summary><span class="cid">4.5</span>打勾／撳錯咗</summary>
+    <div class="body">
+      <ol class="steps">
+        <li>做完撳 <span class="ui">✓</span>，做完一轉加一格</li>
+        <li>撳錯就撳 <span class="ui">−</span> 減返</li>
+        <li>做完嘅嘢會喺「✅ 啱啱做完」留 <b>7 日</b> 然後自動淡出<span class="why">唔係消失咗，係唔再阻住個畫面。</span></li>
+      </ol>
+    </div>
+  </details>
+
+  <details class="case">
+    <summary><span class="cid">4.6</span>想由某日開始重新計</summary>
+    <div class="body">
+      <ol class="steps">
+        <li>班別總覽最底 → <span class="ui">由邊日開始計功課</span> 填個日期 → <span class="ui">套用</span></li>
+        <li>嗰日之前上過嘅堂，一律唔會再彈功課</li>
+      </ol>
+      <div class="ok"><b>✓ 幾時用</b> 例如新學期開始、或者你啱啱大改咗一堆規矩，唔想幾個禮拜前嘅舊堂突然湧一堆功課出嚟。<b>呢個係最溫和嘅「重新嚟過」，唔會刪任何嘢</b>，撳「清走限制」就恢復原狀。</div>
+    </div>
+  </details>
+</section>
+
+<!-- ══════════ 5 ══════════ -->
+<section id="s5">
+  <div class="secnum">第 5 節</div>
+  <h2>排功課時間</h2>
+  <p class="lede">呢個係<b>兩個位交界</b>嘅地方，最容易搞亂，所以獨立一節。</p>
+
+  <details class="case" open>
+    <summary><span class="cid">5.1</span>正確做法</summary>
+    <div class="body">
+      <ol class="steps">
+        <li><span class="tag t-hw">課後功課</span> → 喺張功課卡撳 <span class="ui">排時間</span></li>
+        <li>自己揀日子時間，或者撳「幫我搵個位」<span class="why">佢會由今日行到死線，逐日試 16:00 / 17:00 / 19:00 / 20:00 / 20:30 / 10:30 / 14:30 / 15:30，撞到嘢就跳過。</span></li>
+        <li>時間表嗰邊即刻會多咗一格 <span class="ui">做功課：XXX</span>（琥珀色、30 分鐘）</li>
+      </ol>
+      <div class="ok"><b>✓ 兩邊即時同步</b> 之後喺功課卡改時間，時間表嗰格會跟住郁；反過來喺時間表拖嗰格，功課卡都會顯示新時間。</div>
+    </div>
+  </details>
+
+  <details class="case">
+    <summary><span class="cid">5.2</span>取消一個功課時段</summary>
+    <div class="body">
+      <p>喺功課卡撳 <span class="ui">取消時段</span>。件功課會返去「未排時間」，但<b>唔會</b>當成做完或者冇功課。</p>
+      <div class="pen"><b>⚑ 唔好去時間表度直接刪嗰格</b> 咁做張功課卡仲會以為排咗時間（因為佢會靠個名再夾一次）。用返個掣最穩陣。</div>
+    </div>
+  </details>
+
+  <details class="case">
+    <summary><span class="cid">5.3</span>喺時間表度編輯「做功課」格</summary>
+    <div class="body">
+      <div class="pen">
+        <b>⚑ 呢個係最隱蔽嘅陷阱</b><br>
+        如果你喺時間表攤開一格「做功課：XXX」，撳「✎ 編輯」，跟住<b>手動剔走</b>「呢個係做功課／練習嘅時段」再儲存 ——
+        個 app 就會當佢係<b>一堂</b>。跟住如果個名撞到某條規矩，就會派多一份功課出嚟，越滾越多。
+        <br><br>
+        <b>做法：</b>編輯呢類格嗰陣，個剔一定要留住。改時間嘅話，直接雙擊個時間改就得，唔使入編輯視窗。
+      </div>
+    </div>
+  </details>
+</section>
+
+<!-- ══════════ 6 ══════════ -->
+<section id="s6">
+  <div class="secnum">第 6 節</div>
+  <h2>出咗事點查</h2>
+  <p class="lede">見到咩症狀 → 多數係咩原因 → 點解決。</p>
+
+  <table class="tbl">
+    <thead><tr><th>症狀</th><th>多數係因為</th><th>點解決</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>同一份功課出咗兩件</td>
+        <td>同一日有兩格都認得做「一堂」，或者你開新班嗰陣冇剔「時間表已經排好」，堂變咗雙份</td>
+        <td>時間表睇返嗰日有冇重複嘅格，刪走多餘嗰格。或者去班別卡指定邊格先係正堂</td>
+      </tr>
+      <tr>
+        <td>一個班派咗兩套唔同嘅功課</td>
+        <td>有兩條規矩都認得同一堂（例如「普通話堂」同「普通話 Zoom 堂」）</td>
+        <td>去⚙ 規矩，喺其中一條嘅「唔好含有」加返個分辨字（例如 <code>Zoom</code>）</td>
+      </tr>
+      <tr>
+        <td>上咗堂，但功課冇出</td>
+        <td>① 標題唔夠「要含有」嘅字<br>② 標題撞咗「唔好含有」（最常見：堂名入面有「補充」「練習」）<br>③ 嗰堂早過「由邊日開始計功課」<br>④ 嗰堂超過 21 日前<br>⑤ 條規矩熄咗，或者過咗「到邊日為止」</td>
+        <td>逐項查。②嘅話，去⚙ 規矩將嗰隻字由「唔好含有」度剷走</td>
+      </tr>
+      <tr>
+        <td>打過勾，過幾日又彈返出嚟</td>
+        <td>你刪咗嗰堂再重新開過（新編號），或者你改咗功課個名</td>
+        <td>重新打返勾。以後改時間用「改」唔用「刪咗再加」</td>
+      </tr>
+      <tr>
+        <td>死線唔啱</td>
+        <td>死線係由「下次同一堂」推算：<br><code>next</code>＝下堂前一日（冇下堂就上堂後 6 日）<br><code>week</code>＝上堂後 7 日，但唔會遲過下堂前一日<br><code>none</code>＝唔跟進</td>
+        <td>將來嗰啲堂未排好，就會計錯。去班別總覽續排多幾堂，死線即刻自動啱返</td>
+      </tr>
+      <tr>
+        <td>「做功課」格被當成上堂</td>
+        <td>喺編輯視窗剔走咗「呢個係做功課／練習嘅時段」</td>
+        <td>開返嗰格，剔返個掣，儲存（見 5.3）</td>
+      </tr>
+      <tr>
+        <td>續排嘅堂冇帶埋接送格</td>
+        <td>最近一堂嘅接送格冇貼實正堂，或者長過 30 分鐘</td>
+        <td>去最近一堂嗰日，將接送格嘅完結時間調到啱啱等於正堂開始時間，再推算多一堂</td>
+      </tr>
+      <tr>
+        <td>功課清單突然爆量</td>
+        <td>多數係啱啱撳咗「⚡ 重設做預設規矩」，或者一次過續排咗好多堂落過去嘅日期</td>
+        <td>用「由邊日開始計功課」設做今日，即刻收乾淨，而且唔會刪任何嘢</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ══════════ 7 ══════════ -->
+<section id="s7">
+  <div class="secnum">第 7 節</div>
+  <h2>唔好亂撳嘅掣</h2>
+
+  <table class="tbl">
+    <thead><tr><th>粒掣</th><th>真正會做啲乜</th><th>撳之前</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>💥 超級清除</td>
+        <td>清光所有功課記錄：未做完、過咗期、做完咗、交叉咗、爸爸加嘅練習、派咗嘅工作紙。同時將「由邊日開始計」設做今日。<b>唔會</b>郁規矩、行事曆、Data Log</td>
+        <td>先撳「⬇ 匯出 JSON」。冇得還原</td>
+      </tr>
+      <tr>
+        <td>⚡ 重設做預設規矩</td>
+        <td>用預設嗰 8 條，<b>換走</b>你現有全部規矩（包括你加過嘅班、接送組合、指定咗嘅正堂）</td>
+        <td>先匯出。你而家有 9 條，其中好幾條係自己改過</td>
+      </tr>
+      <tr>
+        <td>🗑 全部清走（Data Log）</td>
+        <td>清走成個 Data Log。General Rules 之後就冇材料重新提煉</td>
+        <td>先撳「⬇ 備份」</td>
+      </tr>
+      <tr>
+        <td>📅 批量計劃 → 刪除</td>
+        <td>將指定日期範圍內、同一個任務嘅項目<b>全部刪走</b></td>
+        <td>日期範圍打清楚。刪堂會斷咗嗰啲堂嘅功課記錄</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="ok"><b>✓ 最穩陣嘅習慣</b> 每個禮拜撳一次「⬇ 匯出 JSON」，個檔擺埋去雲端硬碟。一分鐘嘅事，換返所有後悔藥。</div>
+</section>
+
+<!-- ══════════ 8 ══════════ -->
+<section id="s8">
+  <div class="secnum">第 8 節</div>
+  <h2>每次改完，30 秒檢查</h2>
+  <p class="lede">改完上堂編排或者功課規矩，行一次呢張清單，基本上冇得亂。</p>
+
+  <div class="check">
+    <h3>改完之後</h3>
+    <label><input type="checkbox"><span><b>「仲未做完」條數啱唔啱？</b>多咗、少咗，都即刻查，唔好等一個禮拜</span></label>
+    <label><input type="checkbox"><span><b>有冇兩件一模一樣嘅？</b>有＝同一日有兩格被當成堂，或者兩條規矩撞咗</span></label>
+    <label><input type="checkbox"><span><b>班別總覽入面，每個班嘅「最近一堂」係咪真係最近嗰堂？</b>唔係＝正堂認錯咗</span></label>
+    <label><input type="checkbox"><span><b>每個班有冇「下一堂」？</b>冇＝將來未排堂，死線會計錯</span></label>
+    <label><input type="checkbox"><span><b>時間表嗰日望一眼</b>：接送格、上堂格、做功課格，數目啱唔啱、有冇重複</span></label>
+    <label><input type="checkbox"><span><b>做咗大改動？</b>撳「⬇ 匯出 JSON」</span></label>
+  </div>
+</section>
+
+<footer>
+  日程日記 · 功課 × 上堂 排程 SOP　·　配合 index.html 使用<br>
+  綠 = 喺時間表做　·　藍 = 喺「AI 排程 → 課後功課」做　·　紅 = 會整爛記錄嘅動作
+</footer>
+
+</div>
+
+<script>
+/* 索引撳落去，順手攤開對應嘅情境卡（打印嗰陣全部一定攤開） */
+document.querySelectorAll('a[href^="#"]').forEach(function(a){
+  a.addEventListener('click', function(){
+    var t = document.querySelector(a.getAttribute('href'));
+    if(t) t.querySelectorAll('details.case').forEach(function(d){ d.open = true; });
+  });
+});
+window.addEventListener('beforeprint', function(){
+  document.querySelectorAll('details').forEach(function(d){ d.open = true; });
+});
+</script>
+</body>
+</html>
