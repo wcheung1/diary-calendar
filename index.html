@@ -1214,7 +1214,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-06a";
+const BUILD = "2026-08-06b";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -6726,9 +6726,18 @@ function selfCheck(){
     let host = '';
     try{ host = c.base ? new URL(c.base).host : '（未填）'; }catch(_e){ host = String(c.base||'').slice(0,40); }
     L.push('【傾偈】' + host + '　·　' + (c.model || '（未填 model）') + '　·　key ' + (c.apiKey ? '有' : '✗ 冇'));
-    L.push('【睇相】' + (c.visBase ? (function(){ try{ return new URL(c.visBase).host; }catch(_e){ return '(自訂)'; } })() : '同上')
-           + '　·　' + (c.visModel || '（未填）') + '　·　key ' + (c.visKey ? '另有' : '同上'));
-    L.push('【回覆上限】' + (c.maxTok || '自動'));
+    /* ⚠ 呢度嘅欄位名一定要同 cfgSave() 對得返。第一版寫錯咗做 visModel／visBase／visKey，
+       結果永遠報「（未填）」，嚇死人。真正嘅名係 visionModel／visionBase／visionKey。 */
+    const vm = String(c.visionModel||'').trim();
+    L.push('【睇相】' + (c.visionBase ? (function(){ try{ return new URL(c.visionBase).host; }catch(_e){ return '(自訂)'; } })() : '同上')
+           + '　·　' + (vm || '⚠ 未填——影相會用返傾偈嗰個型號，多數會失敗')
+           + '　·　key ' + (c.visionKey ? '另有' : '同上')
+           + '　·　每日上限 ' + (c.visionCap==null ? 20 : c.visionCap) + ' 次');
+    try{
+      const vs = visCount();
+      L.push('【睇相今日用咗】' + vs.n + '／' + (visCap() || '無限') + ' 次');
+    }catch(e){}
+    L.push('【回覆上限】' + (c.maxTok || '自動') + '（實際傾偈用 ' + (c.maxTok || CHAT_MAX_DEFAULT) + '）');
   }catch(e){ L.push('【設定】查唔到：' + e.message); }
   /* 阻唔阻住熄屏 */
   L.push('── 熄屏相關 ──');
