@@ -432,6 +432,7 @@ mark{background:#ffe9a8;border-radius:2px}
   border-radius:7px;padding:3px 10px;font-size:12px;cursor:pointer;min-height:32px;
 }
 .sosMsg .say.on{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+.sosMsg .seenTag{display:block;margin-top:3px;font-size:10.5px;color:var(--muted);text-align:right}
 /* 自己嘅氣泡貼右，入面粒喇叭都要貼右先睇得順 */
 .sosMsg.me .say{display:block;margin-left:auto;width:fit-content}
 .sosMsg.me .say + .say{margin-top:4px}
@@ -536,7 +537,10 @@ mark{background:#ffe9a8;border-radius:2px}
 .micOn{background:var(--overdue)!important;color:#fff!important;border-color:var(--overdue)!important}
 
 /* ===== 💬 傾偈（Chat）模式 ===== */
-.chatWrap{display:flex;flex-direction:column;height:min(58vh,500px)}
+/* 舊值 min(58vh,500px)：iPad 打直（820×1180）58vh 本來有 684px，
+   但俾 500px 個上限截住咗，所以成個傾偈區縮晒上去，下面吉一大截。
+   改用 dvh（iOS Safari 個工具列縮上縮落都跟得到），上限亦都放寬。 */
+.chatWrap{display:flex;flex-direction:column;height:min(62vh,720px);height:min(62dvh,720px)}
 .chatHist{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:10px;border:1px solid var(--line);border-radius:8px;background:#fbfcfb;min-height:160px}
 .chatMsg{max-width:88%;padding:8px 12px;border-radius:12px;font-size:13px;line-height:1.75;word-break:break-word}
 .chatMsg.user{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px;white-space:pre-wrap}
@@ -653,6 +657,12 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 /* 斷點由 700 拉到 834：iPad 直度係 768px，舊值等於俾 Charlotte 部 iPad 用桌面版
    —— 左邊有個 300px 嘅空 panel，頂欄 10 粒掣要 wrap 兩三行。 */
 @media (max-width:834px){
+  /* 手機／iPad 打直：個 overlay 留少啲邊，傾偈區食盡屏幕高度 */
+  .overlay{padding:10px 8px}
+  .chatWrap{height:min(72vh,1000px);height:min(72dvh,1000px)}
+  .chatHist{min-height:220px}
+  #aiModal .modal{padding:12px 12px 14px}
+  #aiTabs{position:sticky;top:0;background:var(--panel);z-index:2}
   /* 解除所有 freeze，變成可自由 scroll 嘅單欄版面 */
   html,body{height:auto!important;min-height:100%;overflow:auto!important}
   body{display:block!important}
@@ -5114,7 +5124,7 @@ const PERSONA_KID = [
 '· 二，唔准描述佢個樣同身型；相入面有人冇著衫或者影住私隱部位，即刻停低、叫佢搵爹哋媽咪（第 109、110 條）。',
 '· 三，唔准批准，亦唔准反對。幾點瞓、睇幾耐、做唔做，係爹哋媽咪嘅決定（第 79 條）。',
 '· 四，唔准代爹哋媽咪應承任何嘢（第 81 條）。',
-'· 五，功課時段唔准俾答案，用問題一級一級行（第 117 條）。',
+'· 五，教功課：你自己要先解得出（117i），然後講返考緊乜 ➜ 攤開範圍 ➜ 教點揀 ➜ 示範 ➜ 先至叫佢試（117a-117n）。唔准俾答案，但一定要教嘢。',
 '· 六，唔准作佢嘅生活細節；佢當場講嘅同你記得嘅唔夾，以佢講嗰句為準（第 18、19 條）。',
 '· 七，真危險嘅嘢要講到佢唔敢試；佢喺度用自己個身體試緊，就一定要補一句「唔好試」（第 90、91 條）。',
 '· 八，唔准讚對佢冇益嘅事——瞓得夜、睇好耐屏幕、跳咗功課（第 80 條）。',
@@ -5290,6 +5300,12 @@ const PERSONA_KID = [
 '117f) 每一個回合都一定要留低一件佢之前唔知嘅嘢：一個規則、一個分類、一個問法、或者一個例子。淨係重複佢啱啱讀嘅嘢再拋返條題目俾佢，係違規。「你覺得呢句講緊邊個？」——如果你之前冇教過「點分邊個」，呢句就係空問題，等於冇問。',
 '117g) 佢讀晒成段嘢俾你聽之後，你第一個回應唔准係「空格喺邊度呀」。你手上有張相，你自己數得到。要講返你見到幾多個空格、每個空格考緊咩，然後由第一個開始拆。',
 '117h) 佢問「係綠色褲嗰個 brother 定紅色褲嗰個」呢類問題，即係佢用緊一個錯嘅框去諗。要即刻指出個框錯咗：「呢題唔係要你認邊一個人，係要你決定用『一個人』嘅字定『幾個人』嘅字。」糾正個框，重要過答佢嗰條問題。',
+'117i) 【開口之前一定要做，但唔准講出嚟】你自己要先解得出條題目。喺你嘅思考入面睇清楚張相、計掂佢、確認正確答案係乜、同埋每個錯嘅選擇錯喺邊。做唔到呢一步，你之後啲「引導問題」就會離地兜圈，問十條都落唔到地——你自己都唔知終點喺邊，點帶佢行？答案唔准出街，但你心入面一定要有。',
+'117j) 你嘅思考方式，就係佢要學嘅嘢。唔好淨係俾結論，要俾佢睇到一個識做嘅人係點睇呢條題目：我見到題目有呢樣，所以我知佢考緊嗰樣，所以我會先睇邊度。呢串推理先係你要傳俾佢嘅嘢，唔係個答案。答案佢聽日就唔記得，呢串嘢會跟一世。',
+'117k) 教「點認題型」重要過教「呢題點做」。要教到佢下次自己認得出：空格前面係 my／her 呢類字、後面係名詞 ➜ 考緊「邊個嘅嘢」。句尾有問號又有 do／does ➜ 考緊問句。中文題目寫住「用自己嘅話講返」➜ 考緊理解，唔係考抄書。數學題出現「一共」「剩返」➜ 考緊加定減。呢啲叫「見到咩，即係考緊咩」，係一世用得着嘅考試技巧。',
+'117l) 呢套次序唔係英文專用。中文（部首、量詞、近義詞、閱讀理解）、數學、常識、普通話拼音，一律一樣：先講考緊乜 ➜ 再攤開個範圍 ➜ 再教點揀 ➜ 先至叫佢試。',
+'117m) 「攤開個範圍」可以係幾個選擇，亦都可以係一個範圍。例：「呢個空格一定係以下六個字其中一個」／「答案一定喺 10 同 20 之間」／「呢個部首同水有關，你估係講緊咩」。有咗範圍，佢就由亂估變成有得諗——呢個先叫引導。冇範圍嘅提問，對佢嚟講同冇問過一樣。',
+'117n) 唔准喺佢完全唔知考緊乜嘅時候，就問佢「你覺得應該填咩」。呢個唔係引導，係叫佢撞彩。次序永遠係：先俾佢知道自己喺度做緊咩，先至叫佢做。',
 '118) 呢條淨係管「最後嗰個揀」，唔管教規則。講規則、講選項有邊幾個、講點分——全部都要照講（第 117b 條）。但你唔可以幫佢排剩一個答案，就算你最後加個問號都一樣。（例：「A、B、C、G 會滾，所以剩返 D、E、F、H；D 疊得穩，E 同 H 都有平底——你估係邊個？」——呢個唔係提問，係報答案。）留返最少兩個佢真係要自己試過先知嘅可能，先好問。',
 '119) 一律用繁體字。「块」要寫「塊」，「滚」要寫「滾」，「圆」要寫「圓」，「个」要寫「個」。佢喺香港學緊寫字，你出一隻簡體字，佢就可能照抄落功課度。呢條冇例外。',
 '120) 唔准用粗體、斜體、星號（** 或者 *）、井號、橫線分隔、任何 Markdown 記號（第 1 條）。你係喺度講嘢，唔係喺度排版。想強調就用語氣，例如「最緊要嗰樣係……」。',
@@ -8887,12 +8903,23 @@ const OUT_KEY     = 'diarycal_sos_outbox_v1';
 let sosRef = null, sosQuery = null, sosCb = null;   /* 收埋個 handle，off() 先至真係甩得到 */
 let connRef = null, connCb = null;
 let thread = [], outbox = [], panelOpen = false, myRole = null, curUid = null;
+let seenOther = 0;                                  /* 對面最後一次睇嘅時間 */
 let online = null, bound = false, tmpN = 0;
 
 const el       = function(id){ return document.getElementById(id); };
 const isGuest  = function(){ return document.body.classList.contains('readonly'); };
 const seenAt   = function(){ try{ return parseInt(localStorage.getItem(SEEN_KEY),10) || 0; }catch(e){ return 0; } };
-const markSeen = function(){ try{ localStorage.setItem(SEEN_KEY, String(Date.now())); }catch(e){} };
+/* 除咗記喺本機，仲要寫上雲端，等對面知你睇咗未。
+   節流 15 秒，唔好每次開合面板都寫一次。 */
+let lastSeenPush = 0;
+const markSeen = function(){
+  const t = Date.now();
+  try{ localStorage.setItem(SEEN_KEY, String(t)); }catch(e){}
+  if(sosRef && myRole && t - lastSeenPush > 15000){
+    lastSeenPush = t;
+    try{ sosRef.child('seen/' + myRole).set(t); }catch(e){}
+  }
+};
 const errTxt   = function(e){ return (e && (e.code || e.message)) || String(e); };
 /* 送唔出嘅留言存返落本機。Charlotte 打咗「屋企有事」但送唔到，
    refresh 一次就唔見咗嘅話，佢會以為講咗你聽——呢個唔可以發生。 */
@@ -8953,6 +8980,27 @@ function renderThread(){
     say.setAttribute('aria-label', (mine ? '讀返自己講嘅：' : '讀出：') + m.text);
     say.onclick = function(){ if(typeof window.ttsSpeak === 'function') window.ttsSpeak(m.text, say); };
     d.appendChild(say);
+    /* 主人可以收回自己嘅留言，對面會靜靜雞消失，唔留痕。
+       訪客冇呢粒掣——Charlotte 講咗「屋企有事」再自己刪走，
+       你就永遠唔會知佢曾經搵過你。呢個訊號唔可以由佢自己抹走。 */
+    if(mine && state === 'ok' && myRole === 'dad' && m.id){
+      const un = document.createElement('button');
+      un.className = 'say'; un.type = 'button'; un.textContent = '↩ 收回';
+      un.onclick = async function(){
+        const seen = seenOther >= (m.at || 0);
+        const ask = seen
+          ? 'Charlotte 應該已經睇咗呢句。收回咗佢嗰邊會即刻消失，佢唔會收到任何通知。照收回？'
+          : '收回呢句？Charlotte 未睇過，收咗就當冇講過。';
+        if(!(await confirmBox(ask))) return;
+        try{ await sosRef.child('thread/' + m.id).remove(); }
+        catch(err){ note('收唔返：' + errTxt(err), true); }
+      };
+      d.appendChild(un);
+      const st = document.createElement('span');
+      st.className = 'seenTag';
+      st.textContent = (seenOther >= (m.at||0)) ? '✓ Charlotte 睇咗' : '· 未睇';
+      d.appendChild(st);
+    }
     if(state === 'fail' && m.err){
       const w = document.createElement('span');
       w.className = 'errline'; w.textContent = m.err;
@@ -9104,7 +9152,8 @@ function bindOnce(){
 
 function detach(){
   if(sosQuery && sosCb){ try{ sosQuery.off('value', sosCb); }catch(e){} }
-  sosQuery = null; sosCb = null; sosRef = null;
+  if(sosRef){ try{ sosRef.child('seen').off(); }catch(e){} }
+  sosQuery = null; sosCb = null; sosRef = null; seenOther = 0;
 }
 
 function attach(user){
@@ -9136,6 +9185,13 @@ function attach(user){
   }
 
   sosRef   = db.ref('diary_calendar_sos/' + user.uid);
+  const otherRole = (myRole === 'dad') ? 'kid' : 'dad';
+  try{
+    sosRef.child('seen/' + otherRole).on('value', function(sn){
+      seenOther = Number(sn.val()) || 0;
+      if(panelOpen) renderThread();
+    });
+  }catch(e){}
   sosQuery = sosRef.child('thread').limitToLast(MAX_KEEP);
   sosCb = sosQuery.on('value', function(snap){
     const prevLast = thread.length ? thread[thread.length-1].id : '';
