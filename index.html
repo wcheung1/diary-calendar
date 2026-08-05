@@ -1074,7 +1074,12 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
     <p class="subnote">訂閱套餐同按量計費係兩個唔同嘅錢包。如果你個 Coding Plan 唔包睇相模型，就喺呢度填返開放平台嗰條 key，傾偈同排程照舊行套餐，淨係睇相嗰幾次先扣按量計嘅數。</p>
   </details>
 
-  <p class="subnote" id="buildTag" style="margin:0 0 10px;font-family:ui-monospace,monospace"></p>
+  <p class="subnote" id="buildTag" style="margin:0 0 6px;font-family:ui-monospace,monospace"></p>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px">
+    <button class="btn" id="btnSelfCheck">🩺 機器自我檢查</button>
+    <button class="btn" id="btnSelfCopy" style="display:none">📋 複製結果</button>
+  </div>
+  <pre id="selfCheckOut" style="display:none;white-space:pre-wrap;word-break:break-word;font-size:12px;line-height:1.6;background:#f7f8f6;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:0 0 12px;max-height:320px;overflow:auto;user-select:text;-webkit-user-select:text"></pre>
   <div class="ttsBox" id="costBox">
     <h4>💰 用量同餘額（按量計費嗰條線）</h4>
     <div id="costBody" class="costBody"></div>
@@ -6703,6 +6708,81 @@ $('camZoomOut').onclick = ()=> setCamZoom(camZoom - 0.5);
     }catch(e){}
   });
 })();
+/* ===== 🩺 機器自我檢查 =====
+   iPad 冇 Mac 就開唔到 Safari console。所有診斷結果直接印落畫面，
+   仲可以一撳複製，方便貼返出嚟俾人睇。 */
+function selfCheck(){
+  const L = [];
+  const yn = function(b, bad){ return b ? (bad ? '⚠ 有' : '✓ 有') : (bad ? '✓ 冇' : '冇'); };
+  L.push('【版本】build ' + (typeof BUILD !== 'undefined' ? BUILD : '（搵唔到——即係仲攞緊舊檔）'));
+  L.push('【時間】' + new Date().toString().slice(0,24));
+  L.push('【模式】' + (document.body.classList.contains('readonly') ? '訪客（Charlotte）' : '主人'));
+  try{
+    const u = auth.currentUser;
+    L.push('【Google 登入】' + (u ? ('✓ ' + (u.email || u.uid.slice(0,8) + '…')) : '✗ 未登入'));
+  }catch(e){ L.push('【Google 登入】查唔到：' + e.message); }
+  try{
+    const c = cfg();
+    let host = '';
+    try{ host = c.base ? new URL(c.base).host : '（未填）'; }catch(_e){ host = String(c.base||'').slice(0,40); }
+    L.push('【傾偈】' + host + '　·　' + (c.model || '（未填 model）') + '　·　key ' + (c.apiKey ? '有' : '✗ 冇'));
+    L.push('【睇相】' + (c.visBase ? (function(){ try{ return new URL(c.visBase).host; }catch(_e){ return '(自訂)'; } })() : '同上')
+           + '　·　' + (c.visModel || '（未填）') + '　·　key ' + (c.visKey ? '另有' : '同上'));
+    L.push('【回覆上限】' + (c.maxTok || '自動'));
+  }catch(e){ L.push('【設定】查唔到：' + e.message); }
+  /* 阻唔阻住熄屏 */
+  L.push('── 熄屏相關 ──');
+  try{ L.push('相機 stream：' + yn(typeof camStream !== 'undefined' && !!camStream, true)); }catch(e){}
+  try{ const v = document.getElementById('camVid');
+       L.push('camVid 駁住 stream：' + yn(!!(v && v.srcObject), true)); }catch(e){}
+  try{ L.push('語音讀緊嘢：' + yn(!!(window.speechSynthesis && window.speechSynthesis.speaking), true)); }catch(e){}
+  try{ L.push('TTS 計時器：' + yn(!!(typeof TTSV !== 'undefined' && TTSV && TTSV.keep), true)); }catch(e){}
+  try{ L.push('TTS audio：' + yn(!!(typeof TTSV !== 'undefined' && TTSV && TTSV.audio), true)); }catch(e){}
+  try{
+    const ms = Array.prototype.slice.call(document.querySelectorAll('video,audio'))
+      .filter(function(m){ return !m.paused || m.srcObject; });
+    L.push('播緊嘅 video/audio：' + (ms.length ? ('⚠ ' + ms.length + ' 個') : '✓ 冇'));
+  }catch(e){}
+  L.push('Wake Lock API：呢個 app 完全冇用');
+  /* 畫面 */
+  L.push('── 畫面 ──');
+  L.push('視窗 ' + window.innerWidth + '×' + window.innerHeight + '　·　dvh ' +
+    (function(){ try{ return CSS.supports('height','1dvh') ? '支援' : '唔支援'; }catch(e){ return '?'; } })());
+  L.push('斷點：' + (window.innerWidth <= 834 ? '手機／iPad 直度版' : '桌面版'));
+  L.push('主畫面 App 模式：' + (window.navigator.standalone ? '⚠ 係（會另外 cache 一份）' : '唔係'));
+  /* 儲存 */
+  L.push('── 儲存 ──');
+  try{ localStorage.setItem('_t','1'); localStorage.removeItem('_t'); L.push('localStorage：✓ 用得'); }
+  catch(e){ L.push('localStorage：✗ 用唔到（' + e.message + '）'); }
+  try{ L.push('行事曆項目：' + ((state.events||[]).length) + ' 條　·　Data Log：' + ((state.ai && state.ai.log || []).length) + ' 條'); }catch(e){}
+  try{
+    if(AI_LAST_USAGE){
+      L.push('最近一次 API：入 ' + (AI_LAST_USAGE.prompt_tokens||0) +
+        '（cache ' + ((AI_LAST_USAGE.prompt_tokens_details && AI_LAST_USAGE.prompt_tokens_details.cached_tokens)||0) +
+        '）· 出 ' + (AI_LAST_USAGE.completion_tokens||0) + '　·　' + (AI_LAST_MODEL||''));
+    }else L.push('最近一次 API：仲未 call 過');
+  }catch(e){}
+  L.push('【網址】' + location.href);
+  return L.join('\n');
+}
+$('btnSelfCheck').onclick = ()=>{
+  const box = $('selfCheckOut');
+  box.textContent = selfCheck();
+  box.style.display = '';
+  $('btnSelfCopy').style.display = '';
+};
+$('btnSelfCopy').onclick = async ()=>{
+  const t = $('selfCheckOut').textContent || '';
+  try{ await navigator.clipboard.writeText(t); toast('複製咗，貼去邊度都得'); }
+  catch(e){
+    /* iPad Safari 有時唔准 clipboard，退返去「幫你揀晒佢」 */
+    try{
+      const r = document.createRange(); r.selectNodeContents($('selfCheckOut'));
+      const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      toast('揀晒喇，長撳→拷貝');
+    }catch(_e){ toast('複製唔到，請自己揀返'); }
+  }
+};
 $('aiCamUnlock').onclick = async ()=>{
   if(await confirmBox('解鎖相機？\n建議解鎖之前同 Charlotte 傾一傾，講返點解會鎖咗。')){
     camUnlock(); $('aiCamState').textContent = '相機正常。今日功課時段影咗 0 張。';
@@ -8385,7 +8465,18 @@ function renderChatTemplates(){
   (isGuestNow() ? CHAT_TPL_KID : CHAT_TPL_PARENT).forEach(t=>{
     const b = document.createElement('button');
     b.className = 'chatTpl'; b.textContent = t;
-    b.onclick = ()=>chatSend(t);
+    /* 舊版撳一下就即刻送出。兩個問題：
+       ① Charlotte 要先夾張相入去先撳，撳錯次序就白白送一次（睇相線係按量收費，真金白銀）
+       ② 誤撳咗完全冇得反悔
+       改成填入輸入格＋自動 focus，佢睇一眼再撳「送出」。 */
+    b.onclick = ()=>{
+      const ta = $('chatInput');
+      if(!ta){ chatSend(t); return; }
+      ta.value = ta.value.trim() ? (ta.value.trim() + ' ' + t) : t;
+      try{ ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }catch(e){}
+      try{ ta.style.height='auto'; ta.style.height=Math.min(ta.scrollHeight,160)+'px'; }catch(e){}
+      toast('填好咗，撳「↵ 送出」就得');
+    };
     box.appendChild(b);
   });
 }
