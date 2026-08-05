@@ -374,6 +374,14 @@ mark{background:#ffe9a8;border-radius:2px}
 #confirmMsg{line-height:1.7;white-space:pre-line}
 
 
+.chatThink{
+  font-size:11.5px;line-height:1.55;color:var(--muted);background:#f7f8f6;
+  border-left:2px solid var(--line);border-radius:4px;
+  padding:6px 9px;margin:0 0 7px;max-height:150px;overflow:hidden;white-space:pre-wrap;
+}
+.chatThink.done{max-height:34px;opacity:.45;font-size:10.5px}
+.chatStream{white-space:pre-wrap;word-break:break-word}
+
 /* ===== 🆘 搵爹哋：訪客同主人之間嘅即時留言 =====
    細細個浮出嚟就得，唔使全螢幕搶注意力。 */
 #sosFab{
@@ -1062,8 +1070,8 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
   <label class="ttsChk"><input type="checkbox" id="aiAutoFix" checked> JSON 讀唔到時自動修補＋重試（強烈建議開住）</label>
   <label class="ttsChk"><input type="checkbox" id="aiNoThink"> 關閉 AI 內部思考 reasoning（想 AI 答得快同慳 token 就開；但傾偈嘅深度會跌，建議留空唔剔）</label>
   <div class="aiRow" style="margin-top:6px">
-    <div style="flex:0 0 210px"><label>回覆上限 max_tokens（留空＝自動）</label><input type="text" id="aiMaxTok" placeholder="自動（傾偈 20000）" spellcheck="false"></div>
-    <div style="align-self:flex-end"><p class="ttsNote" style="margin:0 0 7px">推理模型嘅「內部思考」都要計入呢個上限。開住思考嘅話建議 20000–32000。呢個係上限唔係目標，用唔晒就唔會扣。</p></div>
+    <div style="flex:0 0 210px"><label>回覆上限 max_tokens（留空＝自動）</label><input type="text" id="aiMaxTok" placeholder="自動（傾偈 32000）" spellcheck="false"></div>
+    <div style="align-self:flex-end"><p class="ttsNote" style="margin:0 0 7px"><b>呢個唔係 context 上限</b>——context 係「你送幾多字入去」（GLM-5.2 有 1M，睇相嗰個 200K，用唔晒㗎）。呢個係「佢可以寫幾多字出嚟」，而推理模型嘅<b>內部思考都要喺呢個額度入面扣</b>。開住思考建議 32000–48000。上限唔係目標，用唔晒唔會扣。爆咗嘅話，個 app 而家會自動加大額度＋叫佢唔好諗咁耐，再試多一次。</p></div>
   </div>
 
   <div class="ttsBox">
@@ -2845,6 +2853,61 @@ let AI_LAST_REASON = '';
    會轉到天光，用戶亦冇得撳停。而家預設 90 秒 timeout，另外開返一個
    window.aiCancel() 俾 UI 隨時叫停。 */
 let AI_CTRL = null;
+/* 最近一次 call 嘅 usage。GLM 會喺 prompt_tokens_details.cached_tokens 話返
+   你聽有幾多 token 命中咗 cache——冇呢個數字，你根本唔知 cache 有冇行緊。 */
+let AI_LAST_USAGE = null;
+function cacheNote(){
+  const u = AI_LAST_USAGE; if(!u) return '';
+  const cached = (u.prompt_tokens_details && u.prompt_tokens_details.cached_tokens) || 0;
+  const pt = u.prompt_tokens || 0;
+  if(!pt) return '';
+  const n = function(x){ return String(x).replace(/\B(?=(\d{3})+(?!\d))/g, ','); };
+  return cached
+    ? '⚡ 送咗 ' + n(pt) + ' token，其中 ' + n(cached) + ' 個中咗 cache（唔使重新計）'
+    : '· 送咗 ' + n(pt) + ' token，今次冇中 cache（第一次、或者隔咗太耐）';
+}
+
+/* 讀 SSE 串流。OpenAI 相容格式：一行一句 "data: {…}"，最後一句係 "data: [DONE]"。
+   onDelta({think:…}) = 內部思考嗰段；onDelta({text:…, all:…}) = 真正答案。
+   仲有個 stall watchdog：45 秒收唔到新嘢就當佢死咗，唔會永遠吊住。 */
+async function readAIStream(res, onDelta, ctrl){
+  const reader = res.body.getReader();
+  const dec = new TextDecoder('utf-8');
+  let buf = '', out = '', reason = '', finish = '', usage = null, stall = null;
+  const arm = function(){
+    if(stall) clearTimeout(stall);
+    stall = setTimeout(function(){ try{ if(ctrl) ctrl.abort(); }catch(e){} }, 45000);
+  };
+  arm();
+  try{
+    for(;;){
+      const r = await reader.read();
+      if(r.done) break;
+      arm();
+      buf += dec.decode(r.value, {stream:true});
+      let i;
+      while((i = buf.indexOf('\n')) >= 0){
+        const line = buf.slice(0, i).replace(/\r$/, ''); buf = buf.slice(i+1);
+        if(!line || line.charAt(0) === ':') continue;
+        if(line.slice(0,5) !== 'data:') continue;
+        const pay = line.slice(5).trim();
+        if(pay === '[DONE]') continue;
+        let j; try{ j = JSON.parse(pay); }catch(e){ continue; }
+        if(j.usage) usage = j.usage;
+        const ch = (j.choices || [])[0];
+        if(!ch) continue;
+        if(ch.finish_reason) finish = ch.finish_reason;
+        const d = ch.delta || ch.message || {};
+        const rc = d.reasoning_content || d.reasoning || '';
+        if(rc){ reason += rc; if(onDelta) try{ onDelta({think:rc}); }catch(e){} }
+        let ct = d.content;
+        if(Array.isArray(ct)) ct = ct.map(function(x){ return x.text || ''; }).join('');
+        if(ct){ out += ct; if(onDelta) try{ onDelta({text:ct, all:out}); }catch(e){} }
+      }
+    }
+  } finally { if(stall) clearTimeout(stall); }
+  return {out:out, reason:reason, finish:finish, usage:usage};
+}
 const AI_TIMEOUT_MS = 90000;
 function aiCancel(){ try{ if(AI_CTRL) AI_CTRL.abort(); }catch(e){} }
 async function callAI(messages, opt){
@@ -2904,6 +2967,12 @@ async function callAI(messages, opt){
        係唔思考嘅，唔明文叫佢開，就永遠攞唔到 reasoning_content。唔識呢兩個欄位
        嘅供應商會直接無視，唔會出事。 */
     else if(isReasoning){ body.thinking = {type:'enabled'}; body.enable_thinking = true; }
+    /* 串流：淨係喺傾偈（有 onDelta、唔要 JSON）先開。
+       排程果條要完整 JSON，逐粒字收返嚟冇好處，反而複雜咗。 */
+    if(opt.onDelta && !opt.json){
+      body.stream = true;
+      body.stream_options = {include_usage:true};   /* 唔識呢個欄位嘅供應商會無視 */
+    }
   }
   let res;
   const _ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
@@ -2935,7 +3004,10 @@ async function callAI(messages, opt){
       '\n③ API Key 打錯、未儲值、或者未開通。' +
       '\n技術訊息：' + err.message);
   }
-  const txt = await res.text();
+  const isStream = !!body.stream;
+  /* 串流成功嗰陣唔可以行 res.text()（會等到成個 stream 完），
+     所以要分開：出錯先讀 text 攞返個錯誤訊息。 */
+  const txt = (res.ok && isStream) ? '' : await res.text();
   if(!res.ok){
     let msg = txt;
     try{ const j=JSON.parse(txt); msg=(j.error&&(j.error.message||j.error.type))||txt; }catch(e){}
@@ -2952,10 +3024,24 @@ async function callAI(messages, opt){
                   !/权限|權限|not open|permission|unauthor/i.test(String(msg||''));
     throw apiErr;
   }
-  let data;
-  try{ data = JSON.parse(txt); }catch(e){ throw new Error('讀唔明 AI 嘅回覆：' + short(txt,200)); }
+  let data = null, sm = null;
+  if(isStream){
+    try{ sm = await readAIStream(res, opt.onDelta, _ctrl); }
+    catch(err){
+      if(err && err.name === 'AbortError'){
+        const e2 = new Error(_timedOut ? '等咗太耐都冇回應。' : '串流中途斷咗（或者你撳咗停）。');
+        e2.busy = true; e2.aborted = true; throw e2;
+      }
+      throw new Error('讀串流出錯：' + (err.message || err));
+    }
+  }else{
+    try{ data = JSON.parse(txt); }catch(e){ throw new Error('讀唔明 AI 嘅回覆：' + short(txt,200)); }
+  }
+  try{ AI_LAST_USAGE = (sm && sm.usage) || (data && data.usage) || null; }catch(e){}
   let out = '', reason = '', finish = '';
-  if(c.kind==='anthropic'){
+  if(sm){
+    out = sm.out; reason = sm.reason; finish = sm.finish;
+  }else if(c.kind==='anthropic'){
     out = (data.content||[]).filter(b=>b && b.type==='text').map(b=>b.text).join('\n');
     reason = (data.content||[]).filter(b=>b && (b.type==='thinking'||b.type==='redacted_thinking')).map(b=>b.thinking||'').join('\n');
     finish = data.stop_reason || '';
@@ -7401,6 +7487,11 @@ function searchNote(){
 const CHAT_IMG_MAX = 3;          /* 一次最多幾多張 */
 const CHAT_IMG_PX  = 1024;       /* 縮到最長邊幾多 px */
 const CHAT_IMG_KEEP = 3;         /* 送去 API 時，保留最近幾多個有相嘅回合 */
+/* 傾偈嘅輸出上限。呢個唔係 context（入面可以塞幾多），係「佢可以寫幾多字出嚟」，
+   而推理模型嘅內部思考都要喺呢個額度入面扣。
+   由 20000 調高到 32000：相 + 人格設定 + context 之後，20000 唔夠佢諗完再答。
+   佢係上限唔係目標，用唔晒唔會扣錢。 */
+const CHAT_MAX_DEFAULT = 32000;
 let chatImgs = [];               /* 而家等緊送出嗰批（dataURL） */
 
 function shrinkImage(file){
@@ -7680,6 +7771,123 @@ async function callVision(messages, opt, models, onNote){
   throw last || new Error('睇相失敗');
 }
 
+/* 串流畫面。
+   主人（B 模式）：思考過程用灰色細字流出嚟，答案一出就摺埋，等你由第一秒就見到有嘢郁。
+   訪客（A 模式）：Charlotte 只見到「諗緊…」同答案本身，唔會見到一堆睇唔明嘅思考。
+   兩邊共通：AI 出緊 [[SEARCH]] 呢類工具標記嗰陣唔准顯示——嗰啲唔係俾人睇嘅。 */
+/* 將技術性嘅 error 翻譯做一個六歲人睇得明嘅講法。
+   Charlotte 撞到嘅唔係「個 app 壞咗」，係「佢見到一堆字但唔知咩事、又冇得讀出嚟」。
+   對細路嚟講，睇唔明嘅錯誤 = 冇錯誤訊息。 */
+function kidError(err){
+  const m = String((err && (err.message || err)) || '');
+  if(/length|token 上限|思考過程/.test(m))
+    return {say:'我頭先諗得太耐，講唔切出嚟。你再問我一次好嗎？問短啲少少會快好多。', tip:'（可以試下一次問一樣嘢）'};
+  if(/429|好多人|busy|rate|访问量|訪問量/.test(m))
+    return {say:'而家好多人同時搵緊我，我覆唔切。等一兩分鐘再問我啦。', tip:''};
+  if(/連唔到|網絡|network|fetch|Failed to fetch|連線/.test(m))
+    return {say:'我而家連唔到上網，所以聽唔到你講嘢。等陣再試多次啦。', tip:'（可以叫大人幫你睇下 WiFi）'};
+  if(/睇相|vision|image|多模態|视觉/.test(m))
+    return {say:'我睇唔到你張相。你可以打字同我講，張相入面有咩？', tip:''};
+  if(/401|403|API Key|權限|权限|未開通|未开通/.test(m))
+    return {say:'我張入場券好似過咗期，要爹哋幫手先得。', tip:''};
+  return {say:'我頭先卡住咗，冇覆到你。你再問我一次好嗎？', tip:''};
+}
+
+function chatError(host, err, guest){
+  host.className = 'chatMsg sys';
+  host.innerHTML = '';
+  if(!guest){
+    host.textContent = '❌ 出錯：' + (err && err.message || err);
+    return;
+  }
+  const line = document.createElement('div');
+  const k = kidError(err);
+  line.textContent = '😖 ' + k.say + (k.tip ? '　' + k.tip : '');
+  host.appendChild(line);
+
+  const bar = document.createElement('div');
+  bar.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin-top:7px';
+
+  /* ① 讀出嚟——之前呢度冇，所以佢連「發生咗咩事」都聽唔到 */
+  const say = document.createElement('button');
+  say.className = 'btn'; say.type = 'button';
+  say.style.cssText = 'padding:4px 11px;font-size:12px';
+  say.textContent = '🔊 讀出嚟';
+  say.onclick = function(){ if(typeof window.ttsSpeak === 'function') window.ttsSpeak(k.say, say); };
+  bar.appendChild(say);
+
+  /* ② 再試一次 */
+  const again = document.createElement('button');
+  again.className = 'btn'; again.type = 'button';
+  again.style.cssText = 'padding:4px 11px;font-size:12px';
+  again.textContent = '↻ 再問一次';
+  again.onclick = function(){
+    const last = chatHistory.filter(function(m){ return m.role === 'user'; }).slice(-1)[0];
+    if(last) chatSend(last.content);
+  };
+  bar.appendChild(again);
+
+  /* ③ 一撳就送埋技術細節俾爹哋，唔使佢自己形容 */
+  const tell = document.createElement('button');
+  tell.className = 'btn'; tell.type = 'button';
+  tell.style.cssText = 'padding:4px 11px;font-size:12px';
+  tell.textContent = '🆘 話俾爹哋知';
+  tell.onclick = function(){
+    const detail = '（AI 傾偈出咗錯）' + short(String(err && err.message || err), 300);
+    if(typeof window.__sosPrefill === 'function') window.__sosPrefill(detail);
+  };
+  bar.appendChild(tell);
+
+  host.appendChild(bar);
+}
+
+function makeStreamView(host, guest){
+  let txt = '', think = '', queued = false;
+  host.innerHTML = '';
+  const head = document.createElement('div');
+  head.innerHTML = '<span class="aiSpin"></span> 諗緊…';
+  host.appendChild(head);
+  const box = document.createElement('div');
+  box.className = 'chatThink';
+  box.style.display = 'none';
+  if(!guest) host.appendChild(box);
+  const body = document.createElement('div');
+  body.className = 'chatStream';
+  host.appendChild(body);
+
+  const paint = function(){
+    queued = false;
+    if(!guest && think){
+      box.style.display = '';
+      box.textContent = think.length > 900 ? ('…' + think.slice(-900)) : think;
+      box.scrollTop = box.scrollHeight;
+    }
+    const t = txt.trim();
+    const tool = t.slice(0,2) === '[[';     /* 工具標記，唔好流俾人睇 */
+    if(t && !tool){
+      head.style.display = 'none';
+      box.classList.add('done');            /* 思考縮細、變淡 */
+      body.textContent = t;                 /* 串流中用純文字，收尾 renderChat 先排版 */
+    }
+    try{ chatHist.scrollTop = chatHist.scrollHeight; }catch(e){}
+  };
+  const view = function(d){
+    if(d.think) think += d.think;
+    if(d.text)  txt   += d.text;
+    if(!queued){
+      queued = true;
+      (window.requestAnimationFrame || setTimeout)(paint, 16);
+    }
+  };
+  view.reset = function(msg){
+    txt = ''; think = '';
+    head.style.display = ''; head.innerHTML = '<span class="aiSpin"></span> ' + esc(msg || '諗緊…');
+    box.style.display = 'none'; box.classList.remove('done'); box.textContent = '';
+    body.textContent = '';
+  };
+  return view;
+}
+
 async function chatSend(presetText){
   if(chatBusy) return;
   let text = (presetText!=null ? presetText : chatInput.value).trim();
@@ -7747,17 +7955,36 @@ async function chatSend(presetText){
        推理模型嘅思考 token 計入 max_tokens，6000 遠遠唔夠，所以預設 20000。
        講出嚟嘅長度唔係由呢度控制，係由 persona 嗰條「六十至一百八十字」控制。 */
     const _reasons = [];
-    const visOpt = {json:false, temp:0.5, max:(cfg().maxTok || 20000), base:visB, apiKey:visK};
-    const note = function(t){ loadingEl.innerHTML = '<span class="aiSpin"></span> ' + esc(t); };
-    let reply = useVis
-      ? await callVision(messages, visOpt, visList, note)
-      : await callAI(messages, {json:false, temp:0.5, max:(cfg().maxTok || 20000)});
+    const _guest = document.body.classList.contains('readonly');
+    const view = makeStreamView(loadingEl, _guest);
+    const CHAT_MAX = cfg().maxTok || CHAT_MAX_DEFAULT;
+    const visOpt = {json:false, temp:0.5, max:CHAT_MAX, base:visB, apiKey:visK, onDelta:view};
+    const note = function(t){ view.reset(t); };
+    /* 推理模型會將「內部思考」都計入 max_tokens。相 + 16,000 字人格設定 + context
+       擺埋一齊，佢好易諗到一半就爆額，content 一個字都出唔到 → 舊版就直接掟 error
+       俾 Charlotte 睇。而家改成自動再試一次：額度加大，同時叫佢唔好諗咁耐。
+       注意呢個係「輸出上限」，唔係 context 上限——context 佢有 200K，遠遠未用得晒。 */
+    const askAI = async function(msgs){
+      const base = {json:false, temp:0.5, max:CHAT_MAX, onDelta:view};
+      try{
+        return useVis ? await callVision(msgs, visOpt, visList, note)
+                      : await callAI(msgs, base);
+      }catch(err){
+        if(!err || !err.retryable) throw err;
+        view.reset('頭先諗得太耐，等我快啲再試一次…');
+        const big = Math.max(CHAT_MAX * 2, 48000);
+        return useVis
+          ? await callVision(msgs, Object.assign({}, visOpt, {max:big, noThink:true}), visList, note)
+          : await callAI(msgs, Object.assign({}, base, {max:big, noThink:true}));
+      }
+    };
+    let reply = await askAI(messages);
     if(AI_LAST_REASON) _reasons.push(AI_LAST_REASON);
     /* 佢出咗 [[SEARCH]] / [[FANDOM]] 標記 → 幫佢查，再攞返個結果問多次 */
     let rounds = 0;
     while(rounds < SEARCH_MAX_ROUNDS && hasLookup(reply)){
       rounds++;
-      loadingEl.innerHTML = '<span class="aiSpin"></span> 🔍 上網搵緊資料…';
+      view.reset('🔍 上網搵緊資料…');
       chatHist.scrollTop = chatHist.scrollHeight;
       const found = await runLookups(reply);
       messages.push({role:'assistant', content:reply});
@@ -7771,9 +7998,8 @@ async function chatSend(presetText){
             '或者換過啲更加specific嘅字眼再 [[WEB]] 一次。') +
         '如果查返嚟嘅嘢同你原本記得嘅唔同，以查返嚟嗰份為準。搵唔到嘅部分就照人格設定用邏輯推理答，唔好就咁話唔知。'
       });
-      reply = useVis
-        ? await callVision(messages, visOpt, visList, note)
-        : await callAI(messages, {json:false, temp:0.5, max:(cfg().maxTok || 20000)});
+      view.reset('攞到資料，砌緊答案…');
+      reply = await askAI(messages);
       if(AI_LAST_REASON) _reasons.push('【查完資料之後嗰轉】\n' + AI_LAST_REASON);
     }
     reply = stripLookup(reply);
@@ -7798,10 +8024,11 @@ async function chatSend(presetText){
       }
     }
     renderChat();
+    /* 俾你親眼睇到 cache 有冇行緊。訪客模式唔使見呢啲技術數字。 */
+    try{ if(!_guest) $('chatHint').textContent = cacheNote(); }catch(e){}
     if(cfg().ttsAuto) ttsSpeak(reply, null);
   }catch(err){
-    loadingEl.classList.remove('ai'); loadingEl.classList.add('sys');
-    loadingEl.textContent = '❌ 出錯：' + (err.message || err);
+    chatError(loadingEl, err, document.body.classList.contains('readonly'));
   }finally{
     chatBusy = false;
     $('chatSend').disabled = false;
@@ -8758,6 +8985,15 @@ bindOnce();
 auth.onAuthStateChanged(function(u){ try{ attach(u); }catch(e){ console.warn('SOS attach', e); } });
 /* 切換訪客模式會改變角色（kid ⇄ dad），要重新掛過 */
 window.__sosRoleChanged = function(){ try{ attach(auth.currentUser); }catch(e){ console.warn('SOS role', e); } };
+/* 俾其他地方（例如傾偈出錯嗰陣）一撳就開面板、順手幫佢填好句嘢。
+   Charlotte 唔使自己諗點形容個 error，撳一下就送咗俾爹哋。 */
+window.__sosPrefill = function(text){
+  try{
+    const ta = el('sosInput');
+    if(ta){ ta.value = String(text||''); ta.style.height='auto'; }
+    openPanel();
+  }catch(e){ console.warn('SOS prefill', e); }
+};
 })();
 </script>
 
