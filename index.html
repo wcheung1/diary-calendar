@@ -1218,7 +1218,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-06e";
+const BUILD = "2026-08-06f";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -5205,7 +5205,8 @@ const PERSONA_KID = [
 '▓ 你面前嘅人',
 '· Charlotte，六至七歲，好聰明、好有好奇心，自己攞住 iPad 同你傾偈。',
 '· 佢好多時撳「語音播放」聽你把聲。你寫嘅嘢等於你講嘅嘢，要順口、讀得出。',
-'· 屋企有爹哋、媽咪（都返工，夜晚六七點返到）、妹妹 Jasmine（兩歲半）、嫲嫲、工人姐姐。',
+'· 屋企有爹哋、媽咪（都返工，夜晚六七點返到）、妹妹 Jasmine（兩歲半）、婆婆、工人姐姐。',
+'· 日常湊 Charlotte、帶佢出入上堂嘅係「婆婆」（媽咪嘅媽媽）。嫲嫲幾個月先嚟探一次，日常唔喺度。唔准講錯——行事曆入面成日出現嘅係婆婆，唔係嫲嫲。',
 '· 工人姐姐日頭照顧兩姊妹、督促功課，有事會錄音或者影片 send 俾爹哋媽咪，佢哋再打電話或者用 CCTV 廣播同 Charlotte 傾。呢個係屋企正常運作，唔係有人害佢。',
 '· 佢返緊唔止一個數學班，內容有時重疊，會遇到「呢樣我已經學過」嘅堂。唔准評邊間學校好邊間唔好。',
 '',
@@ -6762,13 +6763,13 @@ $('camReset').onclick = async ()=>{
   const c = camState();
   c.hw = 0; c.warn = 0; c.lock = false; c.freezeUntil = 0; c.lockAt = ''; c.lockWhy = '';
   save();
-  try{ fillSet(); }catch(e){}
+  try{ openSet(); }catch(e){}
   toast('相機額度歸零咗，今日可以重新影 ' + camDailyN() + ' 張');
 };
 $('visReset').onclick = async ()=>{
   if(!(await confirmBox('將「每日最多睇幾多次相」嘅計數歸零？\n（呢個係每部機自己計嘅，只影響你而家部機）'))) return;
   try{ localStorage.removeItem(VIS_CAP_KEY); }catch(e){}
-  try{ fillSet(); }catch(e){}
+  try{ openSet(); }catch(e){}
   toast('睇相次數歸零咗（呢部機）');
 };
 $('aiCamUnlock').onclick = async ()=>{
@@ -8026,10 +8027,12 @@ function camUnlock(){
 function camGate(){
   if(!isGuestNow()) return {ok:true};
   const c = camState(), q = camQuota();
-  if(q.locked) return {ok:false, msg:'📷 相機今日收咗喇——今日做功課嗰陣已經影夠 ' + q.daily +
+  if(q.locked) return {ok:false, msg:'📷 相機今日收咗喇——今日已經影夠 ' + q.daily +
     ' 張。等爹哋或者媽咪解鎖先用得返。你照樣可以打字問我，或者讀返條題目俾我聽㗎。'};
   const hw = hwSlotNow();
-  if(hw){
+  /* 額度計晒所有相，唔係淨係功課時段——爹哋要嘅係「一日最多 20 張」。
+     功課時段仍然有用：AI 嗰邊會知而家係咪做緊功課，語氣同做法唔同。 */
+  {
     if(q.leftDay <= 0){
       camLock('今日喺功課時段影夠 ' + q.daily + ' 張');
       return {ok:false, msg:'📷 今日影夠 ' + q.daily + ' 張喇，相機要收返先。聽日會重新計過。' +
@@ -8039,11 +8042,11 @@ function camGate(){
       '仲有 ' + fmtLeftMin(q.freezeLeft) + '就可以再影，到時會再俾多 ' +
       Math.min(q.batch, q.leftDay) + ' 張你。呢段時間讀返條題目俾我聽都得㗎。'};
   }
-  return {ok:true, hw:hw, left:q.left, leftMsg:(hw ? camLeftMsg() : '')};
+  return {ok:true, hw:hw, left:q.left, leftMsg:camLeftMsg()};
 }
 /* 影完一張之後行呢個：加數、夠一輪就凍、夠全日就鎖，順手俾返句提示。 */
 function camAfterShot(){
-  if(!isGuestNow() || !hwSlotNow()) return '';
+  if(!isGuestNow()) return '';          /* 訪客影嘅每一張都計，唔理係咪功課時段 */
   const c = camState();
   c.hw++;
   const B = camBatchN(), D = camDailyN();
@@ -8349,9 +8352,16 @@ async function chatSend(presetText){
               : (_lastErr && _lastErr.retryable)
                 ? {max:Math.max(CHAT_MAX * 2, 48000), noThink:true}
                 : {};
-          return useVis
+          const _r = useVis
             ? await callVision(msgs, fix ? Object.assign({}, visOpt, fix) : visOpt, visList, note)
             : await callAI(msgs, fix ? Object.assign({}, base, fix) : base);
+          /* 實測見過連續六轉淨係回一個「?」，冇推理、冇內容。
+             呢種等於冇覆，唔可以當成功——要當失敗行重試。 */
+          if(typeof window.isJunkReply === 'function' && window.isJunkReply(_r)){
+            const e = new Error('AI 覆咗等於冇覆（' + JSON.stringify(String(_r||'').slice(0,20)) + '）。');
+            e.retryable = true; e.junk = true; throw e;
+          }
+          return _r;
         }catch(err){
           _lastErr = err;
           if(attempt >= 2) throw err;                 /* 兩次都唔得，先至真係出錯 */
@@ -8389,6 +8399,11 @@ async function chatSend(presetText){
     }
     reply = stripLookup(reply);
     if(!reply) reply = '我頭先想上網查啲嘢，但係查唔到。你可以再問我一次嗎？';
+    /* Persona 講咗唔准 Markdown、唔准簡體、唔准斜線，但實測佢照出。
+       規則守唔守由佢，洗唔洗由我哋——訪客見到嘅嘢一律洗一次。 */
+    if(_guest && typeof window.kidClean === 'function'){
+      try{ reply = window.kidClean(reply); }catch(e){}
+    }
     chatHistory.push({role:'assistant', content:reply, at:nowISO(),
                       think:(_reasons.length ? _reasons.join('\n\n─────────\n\n') : ''),
                       tries:_tries});
@@ -9415,6 +9430,93 @@ window.costLine   = costLine;
 window.renderCost = renderCost;
 window.fillCost   = fillCost;
 bindCost();
+})();
+
+/* ==================================================================
+   🧹 訪客模式輸出清洗
+   ------------------------------------------------------------------
+   Persona 第 11、12、13 條寫得好清楚：唔准 Markdown、唔准斜線、一律繁體。
+   但實測（38 輪）佢仍然出咗 **brothers'**、蓝色、輕轻、温度。
+   同一條規則有時守有時唔守——再加規則係冇用嘅，唯一穩陣嘅做法係
+   喺輸出嗰刻自己洗一次。呢個唔會失敗。
+
+   只喺訪客模式行。主人模式照舊可以用 Markdown 排版。
+================================================================== */
+(function(){
+'use strict';
+
+/* 常見簡體 → 繁體。只放咗實際會撞到嘅字（AI 講廣東話時最易漏出嚟嗰批），
+   唔係一份完整對照表——寧願少，唔好錯。 */
+const S2T = {
+'蓝':'藍','轻':'輕','温':'溫','说':'說','这':'這','没':'沒','会':'會','个':'個','们':'們',
+'时':'時','间':'間','对':'對','错':'錯','问':'問','题':'題','实':'實','际':'際','应':'應',
+'该':'該','样':'樣','东':'東','西':'西','为':'為','么':'麼','点':'點','边':'邊','里':'裡',
+'过':'過','还':'還','来':'來','开':'開','关':'關','听':'聽','讲':'講','读':'讀','写':'寫',
+'语':'語','词':'詞','课':'課','学':'學','习':'習','书':'書','纸':'紙','笔':'筆','画':'畫',
+'图':'圖','线':'線','圆':'圓','块':'塊','滚':'滾','转':'轉','动':'動','静':'靜','变':'變',
+'长':'長','短':'短','头':'頭','脸':'臉','脚':'腳','体':'體','医':'醫','药':'藥','病':'病',
+'气':'氣','热':'熱','冻':'凍','冷':'冷','风':'風','云':'雲','电':'電','灯':'燈','车':'車',
+'门':'門','窗':'窗','厅':'廳','厨':'廚','厕':'廁','买':'買','卖':'賣','钱':'錢','贵':'貴',
+'饭':'飯','面':'麵','汤':'湯','鸡':'雞','鱼':'魚','虾':'蝦','菜':'菜','药':'藥','号':'號',
+'万':'萬','亿':'億','数':'數','计':'計','算':'算','几':'幾','岁':'歲','两':'兩','双':'雙',
+'与':'與','并':'並','将':'將','当':'當','让':'讓','给':'給','带':'帶','拿':'拿','换':'換',
+'选':'選','决':'決','定':'定','确':'確','认':'認','记':'記','忆':'憶','忘':'忘','梦':'夢',
+'觉':'覺','爱':'愛','欢':'歡','乐':'樂','笑':'笑','哭':'哭','惊':'驚','怕':'怕','担':'擔',
+'张':'張','纸':'紙','贴':'貼','摆':'擺','运':'運','动':'動','游':'游','戏':'戲','玩':'玩',
+'胜':'勝','负':'負','赢':'贏','输':'輸','队':'隊','组':'組','团':'團','众':'眾','别':'別',
+'类':'類','种':'種','样':'樣','丽':'麗','净':'淨','脏':'髒','旧':'舊','实':'實','验':'驗',
+'现':'現','象':'象','质':'質','层':'層','结':'結','构':'構','态':'態','状':'狀','况':'況',
+'环':'環','境':'境','纪':'紀','录':'錄','历':'歷','传':'傳','统':'統','继':'繼','续':'續',
+'进':'進','远':'遠','近':'近','离':'離','归':'歸','达':'達','约':'約','请':'請','谢':'謝',
+'难':'難','单':'單','简':'簡','复':'複','杂':'雜','总':'總','结':'結','论':'論','证':'證',
+'释':'釋','义':'義','号':'號','标':'標','准':'準','则':'則','规':'規','律':'律','则':'則',
+'系':'系','联':'聯','关':'關','连':'連','断':'斷','续':'續','终':'終','极':'極','限':'限'
+};
+
+function s2t(str){
+  let out = '';
+  for(let i = 0; i < str.length; i++){
+    const c = str.charAt(i);
+    out += (S2T[c] || c);
+  }
+  return out;
+}
+
+/* Markdown 記號洗走。要保留內容，只係脫掉個殼。 */
+function stripMd(s){
+  let t = String(s || '');
+  t = t.replace(/```[\s\S]*?```/g, function(m){ return m.replace(/```\w*\n?/g, ''); });
+  t = t.replace(/`([^`\n]+)`/g, '$1');
+  t = t.replace(/\*\*\*([^*\n]+)\*\*\*/g, '$1');
+  t = t.replace(/\*\*([^*\n]+)\*\*/g, '$1');
+  t = t.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1$2');
+  t = t.replace(/~~([^~\n]+)~~/g, '$1');
+  t = t.replace(/__([^_\n]+)__/g, '$1');
+  t = t.replace(/^\s{0,3}#{1,6}\s*/gm, '');          /* 標題 */
+  t = t.replace(/^\s{0,3}>\s?/gm, '');               /* 引用 */
+  t = t.replace(/^\s{0,3}[-*+]\s+/gm, '');           /* 列點 */
+  t = t.replace(/^\s{0,3}\d+[.)]\s+/gm, '');         /* 數字列點 */
+  t = t.replace(/^\s*([-*_]\s*){3,}$/gm, '');        /* 橫線分隔 */
+  t = t.replace(/\|/g, '、');                        /* 表格 */
+  t = t.replace(/[*#]/g, '');                        /* 漏網嘅單個記號 */
+  /* 字同字之間嘅斜線 → 頓號（讀出嚟唔好變「斜線」） */
+  for(let k = 0; k < 3; k++){
+    t = t.replace(/([A-Za-z\u4e00-\u9fff])\s*\/\s*([A-Za-z\u4e00-\u9fff])/g, '$1、$2');
+  }
+  t = t.replace(/\n{3,}/g, '\n\n');
+  return t.trim();
+}
+
+/* 俾訪客睇嘅嘢，一律行呢個。主人唔郁。 */
+window.kidClean = function(s){
+  try{ return s2t(stripMd(s)); }catch(e){ return String(s || ''); }
+};
+/* 判斷 AI 覆咗等於冇覆（實測見過連續六轉淨係回一個「?」）。 */
+window.isJunkReply = function(s){
+  const t = String(s || '').replace(/\s/g, '');
+  if(t.length < 2) return true;
+  return /^[?？。．，,.…\-—~～!！]+$/.test(t);
+};
 })();
 
 /* ==================================================================
