@@ -1074,6 +1074,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
     <p class="subnote">訂閱套餐同按量計費係兩個唔同嘅錢包。如果你個 Coding Plan 唔包睇相模型，就喺呢度填返開放平台嗰條 key，傾偈同排程照舊行套餐，淨係睇相嗰幾次先扣按量計嘅數。</p>
   </details>
 
+  <p class="subnote" id="buildTag" style="margin:0 0 10px;font-family:ui-monospace,monospace"></p>
   <div class="ttsBox" id="costBox">
     <h4>💰 用量同餘額（按量計費嗰條線）</h4>
     <div id="costBody" class="costBody"></div>
@@ -1207,6 +1208,9 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 </div>
 
 <script>
+/* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
+const BUILD = "2026-08-06a";
+console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
    請將下面嘅 config 替換為你嘅 Firebase 設定
@@ -6340,6 +6344,7 @@ function openSet(){
   if($('aiCamDaily'))  $('aiCamDaily').value  = (c.camDaily==null ? 20 : c.camDaily);
   if($('aiCamMode')) $('aiCamMode').value = (c.camMode==='native' ? 'native' : 'builtin');
   if($('aiCamPx'))   $('aiCamPx').value   = (c.camPx==null ? 1400 : c.camPx);
+  try{ if($('buildTag')) $('buildTag').textContent = '版本 build ' + BUILD + '　（唔啱數就代表部機仲攞緊舊檔）'; }catch(e){}
   try{ if(typeof window.fillCost === 'function') window.fillCost(); }catch(e){}
   if($('camQuotaNow')){
     const q = camQuota();
@@ -9038,6 +9043,7 @@ window.mediaCheck = function(){
     .filter(function(m){ return !m.paused || m.srcObject; });
   out.push('播緊嘅 video/audio 元素：' + (ms.length ? ('⚠ ' + ms.length + ' 個') : '冇'));
   out.push('Wake Lock API：呢個 app 完全冇用');
+  out.push('版本 build：' + BUILD);
   const t = out.join('\n');
   console.log(t);
   try{ toast(ms.length || (typeof camStream !== 'undefined' && camStream) ? '⚠ 有媒體開住，睇 console' : '✓ 冇嘢阻住熄屏'); }catch(e){}
@@ -9062,7 +9068,11 @@ window.mediaCheck = function(){
 'use strict';
 
 function ensureCost(){
-  ensureAI();
+  /* 唔准喺呢度叫 ensureAI()／fmtStamp()——嗰兩個住喺另一個 IIFE 入面，
+     呢度靜態上睇落好似 call 得，實際行起上嚟係 ReferenceError。
+     （撳「報數」出 "ensureAI is not defined" 就係咁嚟。）
+     所以呢個模組只可以用頂層真係有嘅嘢，其餘自己搞掂。 */
+  if(!state.ai || typeof state.ai !== 'object') state.ai = {};
   const a = state.ai;
   if(!a.cost || typeof a.cost !== 'object') a.cost = {};
   const c = a.cost;
@@ -9122,6 +9132,13 @@ const fmtUSD = function(v){
   return 'US$' + (a < 0.01 ? v.toFixed(5) : a < 1 ? v.toFixed(4) : v.toFixed(2));
 };
 const fmtN = function(n){ return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); };
+/* 同上：fmtStamp 攞唔到，自己寫一個細嘅。 */
+const stamp = function(ms){
+  try{
+    const d = new Date(ms), p = function(x){ return String(x).padStart(2,'0'); };
+    return (d.getMonth()+1) + '/' + d.getDate() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }catch(e){ return ''; }
+};
 
 /* ---------- 報數 ---------- */
 function lastMark(){
@@ -9204,7 +9221,7 @@ function renderCost(){
     const d = daysLeft();
     const b = burnPerDay(7);
     L.push('<div class="costRow"><b>估計而家餘額</b>　' + fmtUSD(e.now)
-           + '　<span class="subnote">（' + fmtStamp(new Date(e.base.at).toISOString()) + ' 報咗 '
+           + '　<span class="subnote">（' + stamp(e.base.at) + ' 報咗 '
            + fmtUSD(e.base.balance) + '，之後估計用咗 ' + fmtUSD(e.spent) + '）</span></div>');
     if(b > 0){
       L.push('<div class="costRow"><b>燒錢速度</b>　約 ' + fmtUSD(b) + ' / 日'
@@ -9224,7 +9241,7 @@ function renderCost(){
   if(ms.length){
     L.push('<div class="costRow"><b>報數記錄</b></div>');
     ms.forEach(function(m){
-      L.push('<div class="costRow subnote">· ' + fmtStamp(new Date(m.at).toISOString()) + '　'
+      L.push('<div class="costRow subnote">· ' + stamp(m.at) + '　'
              + (m.type === 'topup' ? ('入咗 ' + fmtUSD(m.amount) + ' → ') : '餘額 ')
              + fmtUSD(m.balance) + (m.note ? ('　' + esc(m.note)) : '') + '</div>');
     });
