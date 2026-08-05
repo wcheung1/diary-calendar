@@ -2867,6 +2867,31 @@ function cacheNote(){
     : '· 送咗 ' + n(pt) + ' token，今次冇中 cache（第一次、或者隔咗太耐）';
 }
 
+/* 偵測「兜圈」：推理模型有時會卡死喺度，一路重複同一小段字
+   （實際見過：「等下，等下，等下，等下…」出咗成千次），
+   直到燒晒 max_tokens，content 一個字都出唔到。
+
+   調高 max_tokens 係救唔到呢個情況嘅 —— 只會令佢兜耐啲、貴啲、等耐啲。
+   唯一嘅解法係「一發現就即刻剪線」，然後叫佢唔好諗，直接答。
+
+   兩把尺，中任何一把就算：
+   ① 尾段係一小節字（2–24 個字）連續重複 ≥8 次、而且霸咗 ≥150 個字
+   ② 尾 400 字入面得 12 種以下唔同嘅字（正常中文句子遠遠唔止） */
+function isDegenerate(str){
+  const tail = String(str||'').slice(-400);
+  if(tail.length < 240) return false;
+  for(let n = 2; n <= 24; n++){
+    const unit = tail.slice(-n);
+    if(!unit.trim()) continue;
+    let k = 0, p = tail.length;
+    while(p >= n && tail.slice(p-n, p) === unit){ k++; p -= n; }
+    if(k >= 8 && k*n >= 150) return true;
+  }
+  const uniq = {};
+  for(let i = 0; i < tail.length; i++) uniq[tail.charAt(i)] = 1;
+  return Object.keys(uniq).length <= 12;
+}
+
 /* 讀 SSE 串流。OpenAI 相容格式：一行一句 "data: {…}"，最後一句係 "data: [DONE]"。
    onDelta({think:…}) = 內部思考嗰段；onDelta({text:…, all:…}) = 真正答案。
    仲有個 stall watchdog：45 秒收唔到新嘢就當佢死咗，唔會永遠吊住。 */
@@ -2874,6 +2899,21 @@ async function readAIStream(res, onDelta, ctrl){
   const reader = res.body.getReader();
   const dec = new TextDecoder('utf-8');
   let buf = '', out = '', reason = '', finish = '', usage = null, stall = null;
+  let lastScan = 0;
+  /* 每多 200 個字就掃一次。掃得太密浪費，太疏就已經燒咗好多 token。 */
+  const scan = function(){
+    const n = reason.length + out.length;
+    if(n < 700 || n - lastScan < 200) return;
+    lastScan = n;
+    if(isDegenerate(reason) || isDegenerate(out)){
+      try{ if(ctrl) ctrl.abort(); }catch(e){}
+      const e = new Error('AI 卡咗喺度兜圈：佢喺內部思考度一路重複同一句嘢，'
+        + '再等落去只會燒晒額度都答唔到。已經即刻剪線。');
+      e.loop = true; e.retryable = true;
+      e.sample = (isDegenerate(reason) ? reason : out).slice(-80);
+      throw e;
+    }
+  };
   const arm = function(){
     if(stall) clearTimeout(stall);
     stall = setTimeout(function(){ try{ if(ctrl) ctrl.abort(); }catch(e){} }, 45000);
@@ -2903,6 +2943,7 @@ async function readAIStream(res, onDelta, ctrl){
         let ct = d.content;
         if(Array.isArray(ct)) ct = ct.map(function(x){ return x.text || ''; }).join('');
         if(ct){ out += ct; if(onDelta) try{ onDelta({text:ct, all:out}); }catch(e){} }
+        if(rc || ct) scan();
       }
     }
   } finally { if(stall) clearTimeout(stall); }
@@ -2969,6 +3010,8 @@ async function callAI(messages, opt){
     else if(isReasoning){ body.thinking = {type:'enabled'}; body.enable_thinking = true; }
     /* 串流：淨係喺傾偈（有 onDelta、唔要 JSON）先開。
        排程果條要完整 JSON，逐粒字收返嚟冇好處，反而複雜咗。 */
+    /* 重複懲罰：兜圈嗰陣重試會用。0 就唔好放呢個欄位，等預設行為完全唔變。 */
+    if(opt.freqPen){ body.frequency_penalty = opt.freqPen; body.presence_penalty = Math.min(0.4, opt.freqPen); }
     if(opt.onDelta && !opt.json){
       body.stream = true;
       body.stream_options = {include_usage:true};   /* 唔識呢個欄位嘅供應商會無視 */
@@ -3028,6 +3071,7 @@ async function callAI(messages, opt){
   if(isStream){
     try{ sm = await readAIStream(res, opt.onDelta, _ctrl); }
     catch(err){
+      if(err && err.loop) throw err;          /* 兜圈：原封不動掟返出去，外面要靠 .loop 分辨 */
       if(err && err.name === 'AbortError'){
         const e2 = new Error(_timedOut ? '等咗太耐都冇回應。' : '串流中途斷咗（或者你撳咗停）。');
         e2.busy = true; e2.aborted = true; throw e2;
@@ -3059,6 +3103,12 @@ async function callAI(messages, opt){
   out = _sp.text;
   if(!reason && _sp.think) reason = _sp.think;   /* 冇 reasoning_content 就用 inline 嗰段 */
   try{ AI_LAST_REASON = String(reason||''); }catch(e){}
+  /* 排程果條唔行串流，剪唔到線，但起碼要講返真正死因，唔好報成「JSON 格式錯」。 */
+  if(!String(out||'').trim() && reason && isDegenerate(reason)){
+    const e = new Error('AI 卡咗喺度兜圈：內部思考一路重複同一句嘢，燒晒額度都冇答案出。');
+    e.loop = true; e.retryable = true; e.sample = reason.slice(-80);
+    throw e;
+  }
 
   /* ── 修正 ①：爆 token 一定要報，唔可以因為有 reasoning_content 就靜雞雞當佢係答案 ──
      舊寫法係「out 空咗先 check finish_reason」，但推理模型多數會俾到一段 reasoning，
@@ -7780,6 +7830,8 @@ async function callVision(messages, opt, models, onNote){
    對細路嚟講，睇唔明嘅錯誤 = 冇錯誤訊息。 */
 function kidError(err){
   const m = String((err && (err.message || err)) || '');
+  if(/兜圈|重複同一句/.test(m))
+    return {say:'我頭先諗諗下卡咗喺度，同一句嘢諗極都出唔到聲。已經重新試緊，你等我一陣。', tip:''};
   if(/length|token 上限|思考過程/.test(m))
     return {say:'我頭先諗得太耐，講唔切出嚟。你再問我一次好嗎？問短啲少少會快好多。', tip:'（可以試下一次問一樣嘢）'};
   if(/429|好多人|busy|rate|访问量|訪問量/.test(m))
@@ -7971,11 +8023,17 @@ async function chatSend(presetText){
                       : await callAI(msgs, base);
       }catch(err){
         if(!err || !err.retryable) throw err;
-        view.reset('頭先諗得太耐，等我快啲再試一次…');
-        const big = Math.max(CHAT_MAX * 2, 48000);
+        /* 兩種死法，補救方向相反：
+           · 兜圈 → 加大額度只會兜耐啲。要熄咗思考、加返 frequency_penalty 逼佢唔好重複。
+           · 純粹諗得耐但冇兜圈 → 額度加大先答得完。 */
+        const fix = err.loop
+          ? {max:Math.min(CHAT_MAX, 16000), noThink:true, freqPen:0.4}
+          : {max:Math.max(CHAT_MAX * 2, 48000), noThink:true};
+        view.reset(err.loop ? '佢頭先諗到兜咗圈，等我叫佢唔好諗咁多，直接答…'
+                            : '頭先諗得太耐，等我快啲再試一次…');
         return useVis
-          ? await callVision(msgs, Object.assign({}, visOpt, {max:big, noThink:true}), visList, note)
-          : await callAI(msgs, Object.assign({}, base, {max:big, noThink:true}));
+          ? await callVision(msgs, Object.assign({}, visOpt, fix), visList, note)
+          : await callAI(msgs, Object.assign({}, base, fix));
       }
     };
     let reply = await askAI(messages);
