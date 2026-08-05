@@ -424,6 +424,9 @@ mark{background:#ffe9a8;border-radius:2px}
   border-radius:7px;padding:3px 10px;font-size:12px;cursor:pointer;min-height:32px;
 }
 .sosMsg .say.on{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+/* 自己嘅氣泡貼右，入面粒喇叭都要貼右先睇得順 */
+.sosMsg.me .say{display:block;margin-left:auto;width:fit-content}
+.sosMsg.me .say + .say{margin-top:4px}
 .sosFoot{border-top:1px solid var(--line);padding:9px 11px;background:var(--panel)}
 .sosChips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px}
 .sosChips button{
@@ -8530,17 +8533,20 @@ function renderThread(){
       rt.className = 'say'; rt.type = 'button'; rt.textContent = '↻ 再試';
       rt.onclick = function(){ retry(m.tmp); };
       d.appendChild(rt);
-      if(m.err){
-        const w = document.createElement('span');
-        w.className = 'errline'; w.textContent = m.err;
-        d.appendChild(w);
-      }
-    }else if(!mine){
-      /* 讀出嚟。Charlotte 好多時撳呢粒聽爹哋覆咗乜。 */
-      const say = document.createElement('button');
-      say.className = 'say'; say.type = 'button'; say.textContent = '🔊 讀出嚟';
-      say.onclick = function(){ if(typeof window.ttsSpeak === 'function') window.ttsSpeak(m.text, say); };
-      d.appendChild(say);
+    }
+    /* 每一句都可以讀出嚟——包括自己啱啱打嗰句。
+       Charlotte 除咗想聽爹哋覆咗乜，好多時都想聽返自己講咗啲乜。
+       自己嗰邊嘅氣泡係貼右嘅，所以粒掣都要跟住貼右（CSS .sosMsg.me .say）。 */
+    const say = document.createElement('button');
+    say.className = 'say'; say.type = 'button';
+    say.textContent = mine ? '🔊 聽返' : '🔊 讀出嚟';
+    say.setAttribute('aria-label', (mine ? '讀返自己講嘅：' : '讀出：') + m.text);
+    say.onclick = function(){ if(typeof window.ttsSpeak === 'function') window.ttsSpeak(m.text, say); };
+    d.appendChild(say);
+    if(state === 'fail' && m.err){
+      const w = document.createElement('span');
+      w.className = 'errline'; w.textContent = m.err;
+      d.appendChild(w);
     }
     body.appendChild(d);
   };
