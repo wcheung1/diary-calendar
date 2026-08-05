@@ -392,6 +392,12 @@ mark{background:#ffe9a8;border-radius:2px}
   box-shadow:var(--shadow);cursor:pointer;
 }
 #sosFab.show{display:flex}
+#sosFab.leftSide{right:auto;left:16px}
+#sosPanel.leftSide{right:auto;left:16px}
+#sosFab{touch-action:none;user-select:none;-webkit-user-select:none}
+.costBody{font-size:13px;line-height:1.7}
+.costRow{padding:2px 0}
+.costRow.costWarn{color:var(--overdue);font-weight:600}
 #sosFab .dot{
   display:none;min-width:18px;height:18px;border-radius:999px;
   background:var(--overdue);color:#fff;font-size:11px;line-height:18px;text-align:center;padding:0 5px;
@@ -457,6 +463,7 @@ mark{background:#ffe9a8;border-radius:2px}
 @media (max-width:520px){
   #sosPanel{right:8px;left:8px;bottom:8px;width:auto;max-height:72vh}
   #sosFab{right:10px;bottom:10px}
+  #sosFab.leftSide{right:auto;left:10px}
 }
 
 /* 課後功課最頂：開手冊嘅細掣。放喺右上角，唔阻住張清單。
@@ -1067,6 +1074,31 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
     <p class="subnote">訂閱套餐同按量計費係兩個唔同嘅錢包。如果你個 Coding Plan 唔包睇相模型，就喺呢度填返開放平台嗰條 key，傾偈同排程照舊行套餐，淨係睇相嗰幾次先扣按量計嘅數。</p>
   </details>
 
+  <div class="ttsBox" id="costBox">
+    <h4>💰 用量同餘額（按量計費嗰條線）</h4>
+    <div id="costBody" class="costBody"></div>
+    <div class="aiRow" style="margin-top:9px">
+      <div style="flex:0 0 240px">
+        <label>而家戶口剩幾多（US$）</label>
+        <div style="display:flex;gap:6px"><input type="number" id="costBalance" step="0.01" min="0" placeholder="例如 8.42" style="flex:1;padding:7px 9px;border:1px solid var(--line);border-radius:6px"><button class="btn" id="costReport">報數</button></div>
+      </div>
+      <div style="flex:0 0 240px">
+        <label>啱啱加咗幾多錢（US$）</label>
+        <div style="display:flex;gap:6px"><input type="number" id="costAmount" step="0.01" min="0" placeholder="例如 10" style="flex:1;padding:7px 9px;border:1px solid var(--line);border-radius:6px"><button class="btn" id="costTopup">加咗錢</button></div>
+      </div>
+    </div>
+    <p class="subnote" style="margin-top:8px"><b>官方標價（US$ 每 100 萬 token）</b>——去 Z.ai 個 Pricing 頁抄落嚟。填錯咗都唔緊要，你每次報數佢都會自動校正。</p>
+    <div class="aiRow">
+      <div style="flex:0 0 150px"><label>睇相 · 入</label><input type="number" id="rate_visIn" step="0.01" min="0" placeholder="1.2" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px"></div>
+      <div style="flex:0 0 150px"><label>睇相 · 入(cache)</label><input type="number" id="rate_visCin" step="0.01" min="0" placeholder="0.24" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px"></div>
+      <div style="flex:0 0 150px"><label>睇相 · 出</label><input type="number" id="rate_visOut" step="0.01" min="0" placeholder="4" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px"></div>
+      <div style="flex:0 0 150px"><label>傾偈 · 入</label><input type="number" id="rate_chatIn" step="0.01" min="0" placeholder="0＝包月" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px"></div>
+      <div style="flex:0 0 150px"><label>傾偈 · 入(cache)</label><input type="number" id="rate_chatCin" step="0.01" min="0" placeholder="0" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px"></div>
+      <div style="flex:0 0 150px"><label>傾偈 · 出</label><input type="number" id="rate_chatOut" step="0.01" min="0" placeholder="0" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px"></div>
+    </div>
+    <p class="subnote">傾偈嗰條行緊 Coding Plan（包月），所以標價留 0 就唔會計入去。睇相嗰條係另一個錢包，按量計，所以先要盯住。</p>
+  </div>
+
   <div class="ttsBox" id="camBox">
     <h4>📷 功課時段嘅相機額度</h4>
     <div id="camLockBar" style="display:none;background:#fdf3f3;border:1px solid #f0c4c4;border-radius:8px;padding:10px 12px;margin-bottom:9px">
@@ -1160,7 +1192,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 </div></div>
 
 <!-- 🆘 搵爹哋 -->
-<button id="sosFab" type="button"><span class="ic">🆘</span><span class="lbl">搵爹哋</span><span class="dot">0</span></button>
+<button id="sosFab" type="button" title="撳＝開；拖去另一邊＝搬位"><span class="ic">🆘</span><span class="lbl">搵爹哋</span><span class="dot">0</span></button>
 <div id="sosPanel" role="dialog" aria-label="搵爹哋">
   <div class="sosHead"><span id="sosLamp" title="連線狀態">⚪</span><b id="sosTitle">🆘 搵爹哋</b><button class="dg" id="sosDiag" type="button" title="逐步試：登入 → 連線 → 試寫 → 試讀">🔧 自我檢查</button><button class="x" id="sosClose" type="button" aria-label="閂">✕</button></div>
   <div class="sosBody" id="sosBody"></div>
@@ -2119,7 +2151,18 @@ rightPane.addEventListener('touchend', e=>{
   /* 向上搵最接近嘅可橫向 scroll 容器（例如 monthGrid / weekGrid） */
   let el = touchStartEl, scrollContainer = null;
   while(el && el !== document.body){
-    if(el.scrollWidth > el.clientWidth && el.clientWidth > 0){ scrollContainer = el; break; }
+    /* 舊版：淨係 scrollWidth > clientWidth 就當佢係可以橫向 scroll 嘅容器。
+       但版面上面成日有一兩 px 嘅溢出（padding、border、sub-pixel），
+       於是 atRightEdge 永遠係 false → 向左掃（去下一日）永遠俾人擋住，
+       向右掃（去上一日）就冇事。呢個就係「前進 swipe 唔 work」嘅成因。
+       而家兩個條件都要中：真係設定咗可以 scroll，而且溢出多過 12px。 */
+    try{
+      const ovx = getComputedStyle(el).overflowX;
+      const canScroll = (ovx === 'auto' || ovx === 'scroll');
+      if(canScroll && el.clientWidth > 0 && (el.scrollWidth - el.clientWidth) > 12){
+        scrollContainer = el; break;
+      }
+    }catch(_e){}
     el = el.parentElement;
   }
   if(scrollContainer){
@@ -2880,12 +2923,20 @@ let AI_CTRL = null;
 /* 最近一次 call 嘅 usage。GLM 會喺 prompt_tokens_details.cached_tokens 話返
    你聽有幾多 token 命中咗 cache——冇呢個數字，你根本唔知 cache 有冇行緊。 */
 let AI_LAST_USAGE = null;
+let AI_LAST_MODEL = '';
 function cacheNote(){
   const u = AI_LAST_USAGE; if(!u) return '';
   const cached = (u.prompt_tokens_details && u.prompt_tokens_details.cached_tokens) || 0;
   const pt = u.prompt_tokens || 0;
   if(!pt) return '';
   const n = function(x){ return String(x).replace(/\B(?=(\d{3})+(?!\d))/g, ','); };
+  /* 有錢計就用 costLine（連 output 同美金），冇就退返去講 cache。 */
+  try{
+    if(typeof window.costLine === 'function'){
+      const line = window.costLine(u, AI_LAST_MODEL);
+      if(line) return (cached ? '⚡ ' : '· ') + line;
+    }
+  }catch(e){}
   return cached
     ? '⚡ 送咗 ' + n(pt) + ' token，其中 ' + n(cached) + ' 個中咗 cache（唔使重新計）'
     : '· 送咗 ' + n(pt) + ' token，今次冇中 cache（第一次、或者隔咗太耐）';
@@ -3105,7 +3156,11 @@ async function callAI(messages, opt){
   }else{
     try{ data = JSON.parse(txt); }catch(e){ throw new Error('讀唔明 AI 嘅回覆：' + short(txt,200)); }
   }
-  try{ AI_LAST_USAGE = (sm && sm.usage) || (data && data.usage) || null; }catch(e){}
+  try{
+    AI_LAST_USAGE = (sm && sm.usage) || (data && data.usage) || null;
+    AI_LAST_MODEL = String(body.model || '');
+    if(AI_LAST_USAGE && typeof window.costRecord === 'function') window.costRecord(AI_LAST_MODEL, AI_LAST_USAGE);
+  }catch(e){}
   let out = '', reason = '', finish = '';
   if(sm){
     out = sm.out; reason = sm.reason; finish = sm.finish;
@@ -5306,6 +5361,16 @@ const PERSONA_KID = [
 '117l) 呢套次序唔係英文專用。中文（部首、量詞、近義詞、閱讀理解）、數學、常識、普通話拼音，一律一樣：先講考緊乜 ➜ 再攤開個範圍 ➜ 再教點揀 ➜ 先至叫佢試。',
 '117m) 「攤開個範圍」可以係幾個選擇，亦都可以係一個範圍。例：「呢個空格一定係以下六個字其中一個」／「答案一定喺 10 同 20 之間」／「呢個部首同水有關，你估係講緊咩」。有咗範圍，佢就由亂估變成有得諗——呢個先叫引導。冇範圍嘅提問，對佢嚟講同冇問過一樣。',
 '117n) 唔准喺佢完全唔知考緊乜嘅時候，就問佢「你覺得應該填咩」。呢個唔係引導，係叫佢撞彩。次序永遠係：先俾佢知道自己喺度做緊咩，先至叫佢做。',
+'117o) 【字數有限，要用得抵】佢係六歲，一次接收得到嘅字好少，而且一分鐘之後就會扭計。你嘅回覆唔可以又長又空。每一句都要問自己：呢句拎走咗，佢會唔會少學咗一樣嘢？會，就留；唔會，就刪。開場白、客套、鋪陳、「好啦我哋一齊睇下」——全部係浪費咗嘅額度。',
+'117p) 你嗰段內部推理入面，最值錢嘅唔係結論，係「我點解知道呢一題係考呢樣」。要將嗰一句挖出嚟講返俾佢聽，用佢聽得明嘅講法。呢個就係你能夠俾到佢、而答案俾唔到嘅嘢。每一個回合至少要有一句係屬於呢一類。',
+'117q) 講得明就唔好講深。唔准用「possessive adjective」、「主語」、「詞性」呢類術語，除非你即刻用一句人話解埋。可以講「講『邊個嘅嘢』嗰啲字」。句子要短，一句講一件事，唔好用「然而」「因此」「基於」。佢六歲。',
+'117r) 唔准用談話技巧填數。「你好叻呀」「你諗得好好」「我哋一齊努力啦」——呢啲字冇資訊，佢好快就聽得出係例牌嘢，跟住就唔會再信你講嘅嘢。要讚就要講返佢做啱咗邊一個動作（第 126 條）。除此之外，寧願少講兩句。',
+'117t) 【你講出口嘅答案，一定要用返你自己教嘅嗰條問法驗一次】你教佢「問自己兩件事：係邊個嘅嘢、一個定幾個人」，咁你自己講「呢格填 My」之前，就一定要行足呢兩步。實際出過事：「My sister and I are tall. ___ eyes are green.」你答咗 My，仲講咗個錯規則「關鍵係邊個講嘢」——正確係 Our，因為 sister and I 係兩個人。你教嘅嗰條問法第二步就係「一個定幾個」，你自己跳咗。跳咗，就會教錯佢。',
+'117u) 特別提防呢幾類：「A and I」「A and B」呢種複合主語（係幾個人，唔係一個）；睇落似但實情唔同嘅字（brother\u2019s 對 brothers\u2019）；同埋你「一眼睇落好肯定」嗰啲。愈肯定，愈要驗多一次先講。',
+'117v) 唔准用斜線列舉。「my/her/their」讀出嚟會變成「my 斜線 her 斜線 their」，佢完全唔知你講乜。要寫「my、her、their」，或者索性逐個講。同樣道理：唔准用星號、井號、括號夾註、箭嘴。佢好多時係撳「🔊 讀出嚟」聽你講嘢，唔係用眼睇——所有符號都會俾人一隻隻讀出嚟。',
+'117w) 幫佢對答案／教緊一題嘅時候，唔准中途跳去講第二啲功課或者提醒佢第二樣嘢。做完一件事先講下一件。實際出過事：對緊成版英文答案，最後突然插一句「順帶一提，你嘅普通話拼音功課同數學速算工作紙都仲未確認做咗」——嗰一刻佢正在改緊卷，呢句淨係令佢分心。',
+'117x) 錯咗就要爽快認，同時要講返「點解會錯」同埋「以後點避免」。第 19 輪你做得啱：你答錯咗 My，佢話爸爸講係 Our，你即刻認、重新拆一次、仲提煉咗一條通用規則出嚟。呢個做法照跟。認錯唔會令佢唔信你，講咗錯嘢又死撐先會。',
+'117s) 佢每次同你傾完，都應該實實在在攞走咗一樣嘢：一個規則、一個分類方法、一個下次都用得着嘅問法，或者一個講得出口嘅發現。如果你回完一轉，佢乜都冇多學到——就算佢覺得幾開心——嗰一轉都係失敗嘅。佢嘅時間好矜貴，你要佢覺得搵你係值得嘅。',
 '118) 呢條淨係管「最後嗰個揀」，唔管教規則。講規則、講選項有邊幾個、講點分——全部都要照講（第 117b 條）。但你唔可以幫佢排剩一個答案，就算你最後加個問號都一樣。（例：「A、B、C、G 會滾，所以剩返 D、E、F、H；D 疊得穩，E 同 H 都有平底——你估係邊個？」——呢個唔係提問，係報答案。）留返最少兩個佢真係要自己試過先知嘅可能，先好問。',
 '119) 一律用繁體字。「块」要寫「塊」，「滚」要寫「滾」，「圆」要寫「圓」，「个」要寫「個」。佢喺香港學緊寫字，你出一隻簡體字，佢就可能照抄落功課度。呢條冇例外。',
 '120) 唔准用粗體、斜體、星號（** 或者 *）、井號、橫線分隔、任何 Markdown 記號（第 1 條）。你係喺度講嘢，唔係喺度排版。想強調就用語氣，例如「最緊要嗰樣係……」。',
@@ -6275,6 +6340,7 @@ function openSet(){
   if($('aiCamDaily'))  $('aiCamDaily').value  = (c.camDaily==null ? 20 : c.camDaily);
   if($('aiCamMode')) $('aiCamMode').value = (c.camMode==='native' ? 'native' : 'builtin');
   if($('aiCamPx'))   $('aiCamPx').value   = (c.camPx==null ? 1400 : c.camPx);
+  try{ if(typeof window.fillCost === 'function') window.fillCost(); }catch(e){}
   if($('camQuotaNow')){
     const q = camQuota();
     $('camQuotaNow').textContent = '而家：今日功課時段影咗 ' + q.used + '／' + q.daily + ' 張'
@@ -6900,6 +6966,12 @@ function mdToPlain(md){
   s = s.replace(/\|/g,'、');
   s = s.replace(/\*\*([^*]+)\*\*/g,'$1').replace(/\*([^*]+)\*/g,'$1').replace(/~~([^~]+)~~/g,'$1');
   s = s.replace(/[*_#>]/g,' ');
+  /* 「my/her/their」讀出嚟會變成「my 斜線 her 斜線 their」，細路完全唔知你講乜。
+     字同字之間嘅斜線一律轉做頓號。行三次係為咗 a/b/c 呢類連環斜線。
+     https:// 唔會中，因為斜線前面係冒號，唔喺個字元類入面。 */
+  for(let _k = 0; _k < 3; _k++){
+    s = s.replace(/([A-Za-z\u4e00-\u9fff])\s*\/\s*([A-Za-z\u4e00-\u9fff])/g, '$1、$2');
+  }
   try{ s = s.replace(/[\u{1F300}-\u{1FAFF}\u{2190}-\u{27BF}\u{FE0F}\u{2B00}-\u{2BFF}]/gu,''); }catch(e){}
   s = s.replace(/\n{2,}/g,'\n').replace(/[ \t]{2,}/g,' ');
   return s.trim();
@@ -7241,6 +7313,11 @@ function renderChat(){
         bubble.appendChild(iw);
       }
       const tx = document.createElement('div'); tx.textContent = m.content; bubble.appendChild(tx);
+    } else if(isAI && m.error){
+      /* 出錯嗰個回合。留返喺畫面度，等匯出嗰陣有得倒。 */
+      row.className = 'chatRow sys';
+      bubble.className = 'chatMsg sys errSlot';
+      bubble.textContent = '⚠ 呢一轉出咗錯：' + m.error;
     } else if(isAI){
       bubble.innerHTML = mdToHtml(m.content);
     } else {
@@ -8124,7 +8201,7 @@ async function chatSend(presetText){
             if(budget > 0){ keep[i] = true; budget--; }
           }
         }
-        return chatHistory.map(function(m, i){
+        return chatHistory.filter(function(m){ return !m.error; }).map(function(m, i){
           if(m.imgs && m.imgs.length && keep[i]){
             return {role:m.role, content:[{type:'text', text:m.content||''}].concat(
               m.imgs.map(function(u){ return {type:'image_url', image_url:{url:u}}; }))};
@@ -8151,30 +8228,41 @@ async function chatSend(presetText){
     const _guest = document.body.classList.contains('readonly');
     const view = makeStreamView(loadingEl, _guest);
     const CHAT_MAX = cfg().maxTok || CHAT_MAX_DEFAULT;
+    let _tries = 0, _lastErr = null;   /* 試咗幾多次、對上一次點死 —— 兩樣都要入記錄 */
     const visOpt = {json:false, temp:0.5, max:CHAT_MAX, base:visB, apiKey:visK, onDelta:view};
     const note = function(t){ view.reset(t); };
     /* 推理模型會將「內部思考」都計入 max_tokens。相 + 16,000 字人格設定 + context
        擺埋一齊，佢好易諗到一半就爆額，content 一個字都出唔到 → 舊版就直接掟 error
        俾 Charlotte 睇。而家改成自動再試一次：額度加大，同時叫佢唔好諗咁耐。
        注意呢個係「輸出上限」，唔係 context 上限——context 佢有 200K，遠遠未用得晒。 */
+    /* 一律俾兩次機會：第一次唔得就自動再試，兩次都唔得先至出錯誤訊息。
+       第二次會換打法，唔會原封不動再撞一次牆：
+         · 兜圈       → 額度收細 + 熄思考 + frequency_penalty（加大額度只會兜耐啲）
+         · 爆額冇兜圈 → 額度加大 + 熄思考
+         · 其他（斷網、502、供應商繁忙）→ 原樣重試一次就夠 */
     const askAI = async function(msgs){
       const base = {json:false, temp:0.5, max:CHAT_MAX, onDelta:view};
-      try{
-        return useVis ? await callVision(msgs, visOpt, visList, note)
-                      : await callAI(msgs, base);
-      }catch(err){
-        if(!err || !err.retryable) throw err;
-        /* 兩種死法，補救方向相反：
-           · 兜圈 → 加大額度只會兜耐啲。要熄咗思考、加返 frequency_penalty 逼佢唔好重複。
-           · 純粹諗得耐但冇兜圈 → 額度加大先答得完。 */
-        const fix = err.loop
-          ? {max:Math.min(CHAT_MAX, 16000), noThink:true, freqPen:0.4}
-          : {max:Math.max(CHAT_MAX * 2, 48000), noThink:true};
-        view.reset(err.loop ? '佢頭先諗到兜咗圈，等我叫佢唔好諗咁多，直接答…'
-                            : '頭先諗得太耐，等我快啲再試一次…');
-        return useVis
-          ? await callVision(msgs, Object.assign({}, visOpt, fix), visList, note)
-          : await callAI(msgs, Object.assign({}, base, fix));
+      for(let attempt = 1; attempt <= 2; attempt++){
+        _tries = attempt;
+        try{
+          const fix = (attempt === 1) ? null
+            : (_lastErr && _lastErr.loop)
+              ? {max:Math.min(CHAT_MAX, 16000), noThink:true, freqPen:0.4}
+              : (_lastErr && _lastErr.retryable)
+                ? {max:Math.max(CHAT_MAX * 2, 48000), noThink:true}
+                : {};
+          return useVis
+            ? await callVision(msgs, fix ? Object.assign({}, visOpt, fix) : visOpt, visList, note)
+            : await callAI(msgs, fix ? Object.assign({}, base, fix) : base);
+        }catch(err){
+          _lastErr = err;
+          if(attempt >= 2) throw err;                 /* 兩次都唔得，先至真係出錯 */
+          if(err && err.aborted && !err.busy) throw err;   /* 用戶自己撳停，唔好扮聰明重試 */
+          view.reset(err && err.loop ? '佢頭先諗到兜咗圈，等我叫佢唔好諗咁多，直接答…'
+                   : err && err.retryable ? '頭先諗得太耐，等我再試一次…'
+                   : '頭先接唔通，等我再試多一次…');
+          await new Promise(function(r){ setTimeout(r, 700); });
+        }
       }
     };
     let reply = await askAI(messages);
@@ -8203,7 +8291,9 @@ async function chatSend(presetText){
     }
     reply = stripLookup(reply);
     if(!reply) reply = '我頭先想上網查啲嘢，但係查唔到。你可以再問我一次嗎？';
-    chatHistory.push({role:'assistant', content:reply, at:nowISO()});
+    chatHistory.push({role:'assistant', content:reply, at:nowISO(),
+                      think:(_reasons.length ? _reasons.join('\n\n─────────\n\n') : ''),
+                      tries:_tries});
     /* 訪客模式：記錄對話落 Data Log，等主人可以 check 返 */
     if(document.body.classList.contains('readonly')){
       /* text = 完整版，Data Log 個 tab 照樣睇到晒。
@@ -8227,7 +8317,32 @@ async function chatSend(presetText){
     try{ if(!_guest) $('chatHint').textContent = cacheNote(); }catch(e){}
     if(cfg().ttsAuto) ttsSpeak(reply, null);
   }catch(err){
-    chatError(loadingEl, err, document.body.classList.contains('readonly'));
+    /* 出錯都要入返記錄。舊版個錯誤氣泡係臨時嘅，renderChat 一行就冚咗，
+       所以「炒粉嗰次」永遠匯唔出嚟——而炒粉嗰次先至係你最想 debug 嗰次。 */
+    const _guestNow = document.body.classList.contains('readonly');
+    try{
+      chatHistory.push({role:'assistant', content:'', at:nowISO(), error:String(err && err.message || err),
+                        loop:!!(err && err.loop), tries:_tries,
+                        think:(_reasons.length ? _reasons.join('\n\n─────────\n\n') : (AI_LAST_REASON||'')),
+                        sample:(err && err.sample) || ''});
+    }catch(_e){}
+    /* 訪客模式：連錯誤一齊入 Data Log，等「匯出訪客對話記錄」倒得返出嚟 */
+    if(_guestNow){
+      try{
+        const _e2 = logPush('feedback', '👤 訪客對話記錄：\n我：' + text +
+                  '\n\nAI：⚠ 出錯，冇覆到——' + String(err && err.message || err),
+                  {kind:'guest-chat-error', guest:true, err:true,
+                   brief:'(訪客傾偈·出錯) ' + short(text,200),
+                   q:text, a:'⚠ 出錯：' + String(err && err.message || err)});
+        save();
+        const _rr = _reasons.length ? _reasons.join('\n\n─────────\n\n') : (AI_LAST_REASON||'');
+        if(_rr && _e2 && _e2.id){
+          saveThink({id:_e2.id, at:_e2.at, model:(cfg().model||''), q:text, reason:_rr});
+        }
+      }catch(_e){}
+    }
+    renderChat();
+    chatError(document.querySelector('#chatHist .chatMsg.errSlot') || loadingEl, err, _guestNow);
   }finally{
     chatBusy = false;
     $('chatSend').disabled = false;
@@ -8250,6 +8365,9 @@ const CHAT_TPL_PARENT = [
   '我覺得最近太忙，可以點樣減壓？'
 ];
 const CHAT_TPL_KID = [
+  /* 影晒成版相之後一撳就得。寫得咁長係特登嘅——一次過講清楚成個要求，
+     慳返佢五六轉 clarify，而佢每一轉都要打字。 */
+  '請你幫我對功課、對答案。如果有錯或者漏空咗嘅話，就請你逐題教我點做。如果啱嘅就唔使講。唔好用斜線同啲符號，用正常人講嘢咁講。',
   '幫我睇下我今日要做啲咩',
   '我做功課做極都做唔完，點算好？',
   '我想問你一個好奇怪嘅問題',
@@ -8423,17 +8541,29 @@ function buildCurrentChatMd(){
   for(let i = 0; i < h.length; i++){
     if(h[i].role !== 'user') continue;
     const nxt = (h[i+1] && h[i+1].role === 'assistant') ? h[i+1] : null;
-    pairs.push({at:h[i].at, q:h[i].content, a: nxt ? nxt.content : ''});
+    pairs.push({at:h[i].at, q:h[i].content,
+                a: nxt ? (nxt.error ? ('⚠ 出錯，冇覆到——' + nxt.error) : nxt.content) : '',
+                think: nxt ? (nxt.think||'') : '',
+                tries: nxt ? (nxt.tries||0) : 0,
+                err: nxt ? !!nxt.error : false});
   }
   const guest = document.body.classList.contains('readonly');
   let md = chatExpHeader({
-    title:'即時對話記錄',
+    title:'即時對話記錄（連推理過程）',
     mode: guest ? '訪客模式（小朋友）' : '主人模式（家長）',
     range:'呢一輪對話（由開咗個版面計起）',
     turns: pairs.length
   });
   if(!pairs.length) return md + '\n_呢個版面而家冇對話。_\n';
-  pairs.forEach(function(p, i){ md += chatExpTurn(i+1, p.at ? fmtStamp(p.at) : '', p.q, p.a); });
+  pairs.forEach(function(p, i){
+    md += chatExpTurn(i+1, p.at ? fmtStamp(p.at) : '', p.q, p.a);
+    if(p.tries > 1) md += '\n> ⚠ 呢一轉試咗 ' + p.tries + ' 次先至' + (p.err ? '放棄' : '成功') + '。\n';
+    if(p.think){
+      md += '\n<details>\n<summary>🧠 AI 內部推理過程' + (p.err ? '（出錯嗰次）' : '') +
+            '　·　' + (cfg().model||'') + '</summary>\n\n```text\n' +
+            p.think.replace(/```/g, '`​``') + '\n```\n\n</details>\n';
+    }
+  });
   md += '\n\n---\n\n_檔案由「屋企行事曆」自動生成。_\n';
   return md;
 }
@@ -8875,6 +9005,287 @@ setTimeout(()=>{ try{ autoArchiveIfOwner(); }catch(e){ console.warn('歸檔失�
 /* 每日檢查一次（閒置時先做） */
 setInterval(()=>{ if(document.hidden) return; try{ autoArchiveIfOwner(); }catch(e){} }, 24*60*60*1000);
 
+/* ===== 螢幕唔識自己熄嘅保險 =====
+   iPad 唔會因為 JS 計時器而唔瞓，但係只要有一條 getUserMedia stream 開住、
+   或者有段 audio／video 播緊，iOS 就會當你睇緊嘢，一直唔熄屏。
+   所以：一畫面唔見咗（切 app、熄屏、轉 tab），即刻收晒所有媒體。 */
+function stopAllMedia(why){
+  try{ if(typeof camStream !== 'undefined' && camStream){
+        camStream.getTracks().forEach(function(t){ try{ t.stop(); }catch(e){} }); camStream = null; } }catch(e){}
+  try{ const v = document.getElementById('camVid');
+       if(v){ try{ v.pause(); }catch(e){} v.srcObject = null; v.removeAttribute('src'); v.load && v.load(); } }catch(e){}
+  try{ if(window.speechSynthesis) window.speechSynthesis.cancel(); }catch(e){}
+  try{ if(typeof TTSV !== 'undefined' && TTSV){
+        if(TTSV.keep){ clearInterval(TTSV.keep); TTSV.keep = null; }
+        if(TTSV.audio){ try{ TTSV.audio.pause(); }catch(e){} TTSV.audio.src = ''; TTSV.audio = null; } } }catch(e){}
+  if(why) console.info('🔇 停晒媒體：' + why);
+}
+document.addEventListener('visibilitychange', function(){
+  if(document.hidden) stopAllMedia('畫面收埋咗');
+});
+window.addEventListener('pagehide', function(){ stopAllMedia('離開頁面'); });
+
+/* 診斷：想知係咪呢個 app 阻住個 iPad 瞓，喺 console 打 mediaCheck() */
+window.mediaCheck = function(){
+  const out = [];
+  try{ out.push('相機 stream：' + ((typeof camStream !== 'undefined' && camStream) ? '⚠ 開住' : '冇')); }catch(e){}
+  try{ const v = document.getElementById('camVid');
+       out.push('camVid：' + (v && v.srcObject ? '⚠ 仲駁住 stream' : '冇') + (v && !v.paused ? '（播緊）' : '')); }catch(e){}
+  try{ out.push('speechSynthesis：' + (window.speechSynthesis && window.speechSynthesis.speaking ? '⚠ 讀緊' : '冇')); }catch(e){}
+  try{ out.push('TTS keep-alive timer：' + ((typeof TTSV !== 'undefined' && TTSV && TTSV.keep) ? '⚠ 仲行緊' : '冇')); }catch(e){}
+  try{ out.push('TTS audio：' + ((typeof TTSV !== 'undefined' && TTSV && TTSV.audio) ? '⚠ 仲喺度' : '冇')); }catch(e){}
+  const ms = Array.prototype.slice.call(document.querySelectorAll('video,audio'))
+    .filter(function(m){ return !m.paused || m.srcObject; });
+  out.push('播緊嘅 video/audio 元素：' + (ms.length ? ('⚠ ' + ms.length + ' 個') : '冇'));
+  out.push('Wake Lock API：呢個 app 完全冇用');
+  const t = out.join('\n');
+  console.log(t);
+  try{ toast(ms.length || (typeof camStream !== 'undefined' && camStream) ? '⚠ 有媒體開住，睇 console' : '✓ 冇嘢阻住熄屏'); }catch(e){}
+  return t;
+};
+
+/* ==================================================================
+   💰 用量同餘額 —— 睇住啲錢去邊
+   ------------------------------------------------------------------
+   Coding Plan 係包月，唔使理。但睇相嗰條線（glm-5v-turbo）係按量收費，
+   燒得幾快你完全睇唔到，直到有一日突然覆唔到。
+
+   做法：
+     · 每次 call 完，由 API 個 usage 攞返 input／cached input／output token
+     · 用你自己填嘅官方標價（US$ / 1M token）算返個估價
+     · 你隨時「報數」——話俾佢知而家餘額仲有幾多美金
+     · 兩次報數之間，佢用實際跌幅同自己個估價對數，得出一個校正倍數
+       （估價唔可能百分百準，但有咗校正倍數，之後嘅預測就會愈嚟愈貼）
+     · 由最近嘅燒錢速度推算仲用得幾多日，唔夠就出聲叫你入錢
+================================================================== */
+(function(){
+'use strict';
+
+function ensureCost(){
+  ensureAI();
+  const a = state.ai;
+  if(!a.cost || typeof a.cost !== 'object') a.cost = {};
+  const c = a.cost;
+  if(!c.rates || typeof c.rates !== 'object') c.rates = {};
+  /* 預設用 Z.ai 官方標價（US$/1M）。glm-5v-turbo：入 1.2、cache 0.24、出 4 */
+  const R = c.rates;
+  ['chat','vis'].forEach(function(k){
+    if(!R[k] || typeof R[k] !== 'object') R[k] = {};
+  });
+  if(R.vis.in   == null) R.vis.in   = 1.2;
+  if(R.vis.cin  == null) R.vis.cin  = 0.24;
+  if(R.vis.out  == null) R.vis.out  = 4;
+  if(R.chat.in  == null) R.chat.in  = 0;      /* 包月：預設 0，唔想計就留返 0 */
+  if(R.chat.cin == null) R.chat.cin = 0;
+  if(R.chat.out == null) R.chat.out = 0;
+  if(!Array.isArray(c.calls)) c.calls = [];   /* 每次 call 一條，只留最近 N 條 */
+  if(!Array.isArray(c.marks)) c.marks = [];   /* 報數／入錢 */
+  if(typeof c.factor !== 'number' || !isFinite(c.factor) || c.factor <= 0) c.factor = 1;
+  return c;
+}
+
+const COST_MAX_CALLS = 800;    /* 夠計一兩個月，太多會谷大 state */
+
+/* 邊一條線？睇相嗰個 model 唔同就當 vis。 */
+function costKind(model){
+  const m = String(model||'').toLowerCase();
+  return /(-v|v-|vision|ocr|4\.6v|5v)/.test(m) ? 'vis' : 'chat';
+}
+
+function costRecord(model, usage){
+  try{
+    if(!usage) return;
+    const c = ensureCost();
+    const pt = Number(usage.prompt_tokens) || 0;
+    const ct = Number(usage.completion_tokens) || 0;
+    const cached = Number((usage.prompt_tokens_details && usage.prompt_tokens_details.cached_tokens) || 0);
+    if(!pt && !ct) return;
+    c.calls.push({at:Date.now(), m:String(model||''), k:costKind(model),
+                  i:Math.max(0, pt - cached), c:cached, o:ct});
+    if(c.calls.length > COST_MAX_CALLS) c.calls = c.calls.slice(-COST_MAX_CALLS);
+    if(typeof saveSoon === 'function') saveSoon(); else save();
+  }catch(e){ console.warn('costRecord', e); }
+}
+
+/* 一次 call 值幾多錢（美金，未校正） */
+function costOf(rec){
+  const R = ensureCost().rates[rec.k] || {};
+  return ((rec.i||0) * (R.in||0) + (rec.c||0) * (R.cin||0) + (rec.o||0) * (R.out||0)) / 1e6;
+}
+function costSum(list){
+  let usd = 0, i = 0, cc = 0, o = 0;
+  list.forEach(function(r){ usd += costOf(r); i += r.i||0; cc += r.c||0; o += r.o||0; });
+  return {usd:usd, in:i, cached:cc, out:o, calls:list.length};
+}
+const fmtUSD = function(v){
+  const a = Math.abs(v);
+  return 'US$' + (a < 0.01 ? v.toFixed(5) : a < 1 ? v.toFixed(4) : v.toFixed(2));
+};
+const fmtN = function(n){ return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); };
+
+/* ---------- 報數 ---------- */
+function lastMark(){
+  const c = ensureCost();
+  const ms = c.marks.slice().sort(function(a,b){ return a.at - b.at; });
+  return ms.length ? ms[ms.length-1] : null;
+}
+function callsSince(ts){
+  return ensureCost().calls.filter(function(r){ return r.at > ts; });
+}
+/* 由最近一次報數計起，估算而家仲剩幾多 */
+function estBalance(){
+  const c = ensureCost(), m = lastMark();
+  if(!m) return null;
+  const spent = costSum(callsSince(m.at)).usd * (c.factor || 1);
+  return {base:m, spent:spent, now:Math.max(0, m.balance - spent)};
+}
+/* 校正：上一次報數之後，實際跌咗幾多 vs 我估咗幾多 */
+function recalibrate(newBalance, at){
+  const c = ensureCost(), m = lastMark();
+  if(!m) return null;
+  const est = costSum(c.calls.filter(function(r){ return r.at > m.at && r.at <= at; })).usd;
+  const real = m.balance - newBalance;
+  if(est > 0.0005 && real > 0){
+    const f = real / est;
+    /* 唔好一次過跳晒，取平均，避免一次異常就搞亂晒 */
+    c.factor = Math.min(5, Math.max(0.2, (c.factor + f) / 2));
+    return {est:est, real:real, f:f, factor:c.factor};
+  }
+  return null;
+}
+/* 每日燒幾多（用最近 N 日實際紀錄） */
+function burnPerDay(days){
+  const c = ensureCost();
+  days = days || 7;
+  const from = Date.now() - days*86400000;
+  const list = c.calls.filter(function(r){ return r.at >= from; });
+  if(!list.length) return 0;
+  const span = Math.max(1, (Date.now() - Math.min.apply(null, list.map(function(r){ return r.at; }))) / 86400000);
+  return costSum(list).usd * (c.factor||1) / span;
+}
+function daysLeft(){
+  const e = estBalance(); if(!e) return null;
+  const b = burnPerDay(7);
+  if(b <= 0) return null;
+  return e.now / b;
+}
+
+/* ---------- 畫面 ---------- */
+function costLine(usage, model){
+  if(!usage) return '';
+  const pt = Number(usage.prompt_tokens)||0, ct = Number(usage.completion_tokens)||0;
+  const cached = Number((usage.prompt_tokens_details && usage.prompt_tokens_details.cached_tokens)||0);
+  if(!pt && !ct) return '';
+  const rec = {k:costKind(model), i:Math.max(0,pt-cached), c:cached, o:ct};
+  const usd = costOf(rec) * (ensureCost().factor||1);
+  return '入 ' + fmtN(pt) + (cached ? '（' + fmtN(cached) + ' 中 cache）' : '')
+       + '　·　出 ' + fmtN(ct)
+       + (usd > 0 ? ('　·　約 ' + fmtUSD(usd)) : '')
+       + (rec.k === 'vis' ? '　·　睇相線（按量計費）' : '');
+}
+
+function renderCost(){
+  const box = document.getElementById('costBody');
+  if(!box) return;
+  const c = ensureCost();
+  const L = [];
+  const today = costSum(callsSince(Date.now() - 86400000));
+  const week  = costSum(callsSince(Date.now() - 7*86400000));
+  const visT  = costSum(callsSince(Date.now() - 86400000).filter(function(r){ return r.k==='vis'; }));
+  L.push('<div class="costRow"><b>過去 24 鐘</b>　' + today.calls + ' 次　·　入 ' + fmtN(today.in+today.cached)
+         + '　·　出 ' + fmtN(today.out) + '　·　約 ' + fmtUSD(today.usd*(c.factor||1))
+         + (visT.calls ? ('　（其中睇相 ' + visT.calls + ' 次，約 ' + fmtUSD(visT.usd*(c.factor||1)) + '）') : '') + '</div>');
+  L.push('<div class="costRow"><b>過去 7 日</b>　' + week.calls + ' 次　·　約 ' + fmtUSD(week.usd*(c.factor||1)) + '</div>');
+
+  const e = estBalance();
+  if(!e){
+    L.push('<div class="costRow costWarn">仲未報過數。喺下面填返你 Z.ai 戶口而家剩幾多美金，撳「報數」，之後就計到。</div>');
+  }else{
+    const d = daysLeft();
+    const b = burnPerDay(7);
+    L.push('<div class="costRow"><b>估計而家餘額</b>　' + fmtUSD(e.now)
+           + '　<span class="subnote">（' + fmtStamp(new Date(e.base.at).toISOString()) + ' 報咗 '
+           + fmtUSD(e.base.balance) + '，之後估計用咗 ' + fmtUSD(e.spent) + '）</span></div>');
+    if(b > 0){
+      L.push('<div class="costRow"><b>燒錢速度</b>　約 ' + fmtUSD(b) + ' / 日'
+             + (d != null ? ('　·　照呢個速度仲用得 <b>' + Math.floor(d) + ' 日</b>') : '') + '</div>');
+      if(d != null && d < 7){
+        L.push('<div class="costRow costWarn">⚠ 少過 7 日，準備入錢。</div>');
+      }else if(e.now < 1){
+        L.push('<div class="costRow costWarn">⚠ 餘額少過 US$1。</div>');
+      }
+    }
+    if(Math.abs((c.factor||1) - 1) > 0.05){
+      L.push('<div class="costRow subnote">校正倍數 ×' + (c.factor||1).toFixed(2)
+             + '（用你報過嘅數同我嘅估價對出嚟。唔係 1 就代表標價填得唔啱，或者有啲收費我數唔到。）</div>');
+    }
+  }
+  const ms = c.marks.slice().sort(function(a,b){ return b.at - a.at; }).slice(0,6);
+  if(ms.length){
+    L.push('<div class="costRow"><b>報數記錄</b></div>');
+    ms.forEach(function(m){
+      L.push('<div class="costRow subnote">· ' + fmtStamp(new Date(m.at).toISOString()) + '　'
+             + (m.type === 'topup' ? ('入咗 ' + fmtUSD(m.amount) + ' → ') : '餘額 ')
+             + fmtUSD(m.balance) + (m.note ? ('　' + esc(m.note)) : '') + '</div>');
+    });
+  }
+  box.innerHTML = L.join('');
+}
+
+/* ---------- 掛去畫面 ---------- */
+function bindCost(){
+  const $$ = function(id){ return document.getElementById(id); };
+  if($$('costReport')) $$('costReport').onclick = function(){
+    const v = parseFloat(($$('costBalance').value||'').trim());
+    if(!isFinite(v) || v < 0){ toast('填返個數字（美金）'); return; }
+    const c = ensureCost(), at = Date.now();
+    const cal = recalibrate(v, at);
+    c.marks.push({at:at, balance:v, type:'report', amount:0, note:''});
+    if(c.marks.length > 60) c.marks = c.marks.slice(-60);
+    save(); renderCost();
+    $$('costBalance').value = '';
+    toast(cal ? ('記低咗。我估用咗 ' + fmtUSD(cal.est) + '，實際用咗 ' + fmtUSD(cal.real)
+                 + '，校正倍數調做 ×' + cal.factor.toFixed(2))
+              : '記低咗餘額 ' + fmtUSD(v));
+  };
+  if($$('costTopup')) $$('costTopup').onclick = function(){
+    const amt = parseFloat(($$('costAmount').value||'').trim());
+    if(!isFinite(amt) || amt <= 0){ toast('填返你加咗幾多錢（美金）'); return; }
+    const c = ensureCost(), e = estBalance();
+    const before = e ? e.now : 0;
+    c.marks.push({at:Date.now(), balance:before + amt, type:'topup', amount:amt, note:'加錢'});
+    if(c.marks.length > 60) c.marks = c.marks.slice(-60);
+    save(); renderCost();
+    $$('costAmount').value = '';
+    toast('記低咗。而家估計餘額 ' + fmtUSD(before + amt));
+  };
+  ['visIn','visCin','visOut','chatIn','chatCin','chatOut'].forEach(function(id){
+    const n = $$('rate_' + id);
+    if(!n) return;
+    n.onchange = function(){
+      const c = ensureCost();
+      const kind = id.slice(0,3) === 'vis' ? 'vis' : 'chat';
+      const key  = /In$/.test(id) ? 'in' : /Cin$/.test(id) ? 'cin' : 'out';
+      c.rates[kind][key] = Math.max(0, parseFloat(n.value) || 0);
+      save(); renderCost();
+    };
+  });
+}
+function fillCost(){
+  const c = ensureCost(), $$ = function(id){ return document.getElementById(id); };
+  const put = function(id, v){ if($$(id)) $$(id).value = (v == null ? '' : String(v)); };
+  put('rate_visIn',  c.rates.vis.in);  put('rate_visCin', c.rates.vis.cin);  put('rate_visOut', c.rates.vis.out);
+  put('rate_chatIn', c.rates.chat.in); put('rate_chatCin',c.rates.chat.cin); put('rate_chatOut',c.rates.chat.out);
+  renderCost();
+}
+
+window.costRecord = costRecord;
+window.costLine   = costLine;
+window.renderCost = renderCost;
+window.fillCost   = fillCost;
+bindCost();
+})();
+
 /* ==================================================================
    🆘 搵爹哋 —— 訪客同主人之間嘅即時留言
    ------------------------------------------------------------------
@@ -9132,9 +9543,50 @@ function renderChips(){
   });
 }
 
+/* 粒掣可以喺左下角同右下角之間拖。有陣時佢會阻住嘢，臨時搬走就得。
+   只認兩個角（唔係自由擺位）——咁樣點拖都唔會擺到一個好核突或者出咗界嘅位。 */
+const SIDE_KEY = 'diarycal_sos_side_v1';
+function applySide(){
+  const side = (function(){ try{ return localStorage.getItem(SIDE_KEY) || 'right'; }catch(e){ return 'right'; } })();
+  ['sosFab','sosPanel'].forEach(function(id){
+    const n = el(id); if(!n) return;
+    n.classList.toggle('leftSide', side === 'left');
+  });
+  return side;
+}
+function bindDrag(f){
+  if(!f) return;
+  let sx = 0, sy = 0, moved = false, id = null;
+  f.addEventListener('pointerdown', function(e){
+    id = e.pointerId; sx = e.clientX; sy = e.clientY; moved = false;
+    try{ f.setPointerCapture(id); }catch(_e){}
+  });
+  f.addEventListener('pointermove', function(e){
+    if(id === null || e.pointerId !== id) return;
+    if(Math.abs(e.clientX - sx) > 8 || Math.abs(e.clientY - sy) > 8){
+      moved = true;
+      f.style.opacity = '.6';
+    }
+  });
+  const done = function(e){
+    if(id === null) return;
+    try{ f.releasePointerCapture(id); }catch(_e){}
+    id = null; f.style.opacity = '';
+    if(!moved) return;                       /* 當普通撳，交返俾 onclick */
+    const side = (e.clientX < window.innerWidth / 2) ? 'left' : 'right';
+    try{ localStorage.setItem(SIDE_KEY, side); }catch(_e){}
+    applySide();
+  };
+  f.addEventListener('pointerup', done);
+  f.addEventListener('pointercancel', function(){ id = null; f.style.opacity = ''; });
+  /* 拖完嗰下唔好當撳 */
+  f.addEventListener('click', function(e){ if(moved){ e.stopImmediatePropagation(); e.preventDefault(); moved = false; } }, true);
+}
+
 function bindOnce(){
   if(bound) return; bound = true;
   const f = el('sosFab'), x = el('sosClose'), s = el('sosSend'), d = el('sosDiag'), ta = el('sosInput');
+  applySide(); bindDrag(f);
   if(f) f.onclick = openPanel;
   if(x) x.onclick = closePanel;
   if(s) s.onclick = send;
