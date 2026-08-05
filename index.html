@@ -551,7 +551,9 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 #leftPane.collapsed #btnNewTask{display:none}
 #divider.collapsed{display:none}
 
-@media (max-width:700px){
+/* 斷點由 700 拉到 834：iPad 直度係 768px，舊值等於俾 Charlotte 部 iPad 用桌面版
+   —— 左邊有個 300px 嘅空 panel，頂欄 10 粒掣要 wrap 兩三行。 */
+@media (max-width:834px){
   /* 解除所有 freeze，變成可自由 scroll 嘅單欄版面 */
   html,body{height:auto!important;min-height:100%;overflow:auto!important}
   body{display:block!important}
@@ -606,8 +608,8 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
   </div>
   <span id="rangeLabel"></span>
   <div class="spacer"></div>
-  <button class="hbtn" id="btnUndo" disabled title="復原上一步（Ctrl+Z）" style="display:none">↩ 復原</button>
-  <button class="hbtn" id="btnRedo" disabled title="重做（Ctrl+Y）" style="display:none">↪ 重做</button>
+  <button class="hbtn" id="btnUndo" disabled title="復原上一步（Ctrl+Z）">↩ 復原</button>
+  <button class="hbtn" id="btnRedo" disabled title="重做（Ctrl+Y）">↪ 重做</button>
   <button class="hbtn" id="btnAI">🤖 AI 排程 (Ctrl+K)</button>
   <button class="hbtn" id="btnAISet">⚙ AI 設定</button>
   <button class="hbtn" id="btnKw">🎨 關鍵字顏色</button>
@@ -1034,6 +1036,24 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
    請將下面嘅 config 替換為你嘅 Firebase 設定
+   ---------------------------------------------------------
+   ⚠ 下面個 apiKey 係公開嘅，冇問題 —— Firebase 個 apiKey 淨係識別
+   邊個 project，唔係密碼。真正擋人嘅係 Realtime Database 嘅安全規則。
+   截至 2026-08 已部署嘅規則（同 repo 入面 database.rules.json 一樣）：
+
+     {
+       "rules": {
+         "diary_calendar_data":  { "$uid": { ".read": "$uid === auth.uid",
+                                             ".write": "$uid === auth.uid" } },
+         "diary_calendar_think": { "$uid": { ".read": "$uid === auth.uid",
+                                             ".write": "$uid === auth.uid" } }
+       }
+     }
+
+   即係：淨係本人先讀寫得到自己 uid 下面嗰份資料；root 同其他路徑冇寫
+   .read/.write，預設一律拒絕。未登入嗰陣 auth 係 null，條式永遠唔成立。
+   ⚠ 呢段淨係「文件」，唔會生效。改咗 Firebase Console 嘅規則之後，
+   記得順手改返呢度同 database.rules.json，唔好等佢過時。
 ========================================================= */
 const firebaseConfig = {
   // 👇 填返你嗰堆資料落去 👇
@@ -1392,6 +1412,11 @@ function blankState(){
 const ARCHIVE_DAYS = 365;
 function archiveOldEvents(){
   if(!Array.isArray(state.events) || !Array.isArray(state.eventsArchive)) return 0;
+  /* ARCHIVE_MAX／warnCap 住喺 AI IIFE 入面，呢度直接寫個名會掟 ReferenceError，
+     而且係喺搬完 events 之後先掟 —— 即係搬咗但唔會 save，警告亦永遠唔出。
+     改用 window 版本 + fallback，就算 export 冇行到都唔會炸。 */
+  const ARCHIVE_MAX = (typeof window.ARCHIVE_MAX==='number') ? window.ARCHIVE_MAX : 6000;
+  const warnCap = (typeof window.warnCap==='function') ? window.warnCap : function(){};
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - ARCHIVE_DAYS);
   const cutoffStr = fmtDate(cutoff);
@@ -1415,6 +1440,50 @@ function archiveOldEvents(){
   if(moved > 0) save();
   return moved;
 }
+/* ============ 🧹 清走功課記錄嘅「孤兒」============
+   個 app 記「呢份功課做咗未」，用嘅標籤係「<嗰堂嘅編號>::<功課名>」。
+   一旦嗰堂喺行事曆度俾人刪咗，張記錄就冇嘢對得返，會永遠留喺資料入面。
+   同樣道理：一格「做功課：X」嘅 hwFor 指住一件已經冇咗嘅練習，都係孤兒。
+
+   安全措施（好緊要，唔好刪走呢幾行）：
+   ① state.events 空嘅時候一律唔做 —— 開機頭嗰一兩秒 Firebase 未載完，
+      嗰陣做等於將全部記錄當成孤兒剷晒。
+   ② 一堂就算已經歸檔（搬咗去 eventsArchive）都仍然算「存在」。
+   ③ 只清 state.ai.hwDone／hwSkip 同 event.hwFor 呢三樣，唔會刪任何一格行事曆。 */
+function hwGcOrphans(){
+  if(!state || !state.ai) return 0;
+  const evs = Array.isArray(state.events) ? state.events : [];
+  if(!evs.length) return 0;                       /* ① 未載完就唔好郁 */
+  const alive = new Set();
+  evs.forEach(function(e){ if(e && e.id) alive.add(e.id); });
+  (state.eventsArchive||[]).forEach(function(e){ if(e && e.id) alive.add(e.id); }); /* ② */
+  const taskIds = new Set((state.ai.hwTasks||[]).map(function(t){ return t && t.id; }));
+  let n = 0;
+  const sweep = function(bag){
+    if(!bag || typeof bag !== 'object') return;
+    Object.keys(bag).forEach(function(k){
+      const i = k.indexOf('::');
+      if(i < 0){ delete bag[k]; n++; return; }    /* 格式都唔啱，實係垃圾 */
+      const head = k.slice(0, i);
+      const ok = (head === 'task') ? taskIds.has(k.slice(i+2)) : alive.has(head);
+      if(!ok){ delete bag[k]; n++; }
+    });
+  };
+  sweep(state.ai.hwDone);
+  sweep(state.ai.hwSkip);
+  /* 行事曆嗰格唔刪，淨係抹走條斷咗嘅 hwFor，等佢跌返落「靠個名夾」嗰條路 */
+  evs.forEach(function(e){
+    if(!e || !e.hwFor) return;
+    const i = String(e.hwFor).indexOf('::');
+    if(i < 0){ delete e.hwFor; n++; return; }
+    const head = String(e.hwFor).slice(0, i);
+    const ok = (head === 'task') ? taskIds.has(String(e.hwFor).slice(i+2)) : alive.has(head);
+    if(!ok){ delete e.hwFor; n++; }
+  });
+  if(n > 0){ console.info('🧹 清走咗 ' + n + ' 條冇嘢對得返嘅功課記錄'); save(); }
+  return n;
+}
+
 let state = sanitizeState(LocalStore.load());
 if(!state.archive) state.archive = blankState().archive;
 if(!Array.isArray(state.eventsArchive)) state.eventsArchive = [];
@@ -1811,7 +1880,9 @@ function computeEnd(ev, dayEvs){
   }
   return next || '23:59';
 }
-function isOverdue(ev){ return ev.planned && !ev.done && ev.start <= nowStr(); }
+/* isNow 為真（即係而家正正做緊呢件事）就唔算逾期。
+   舊寫法一夠鐘就當逾期，於是同一行會同時見到「▶ 而家」同「逾期未確認」。 */
+function isOverdue(ev, isNow){ return !isNow && ev.planned && !ev.done && ev.start <= nowStr(); }
 
 /* ===== ⏱ 而家進行緊邊件事 =====
    定義：今日、而且當刻時間喺 [開始, 結束) 之內。結束時間用返 computeEnd()，
@@ -1854,13 +1925,13 @@ function scrollAnchor(rows, idx, key){
     }catch(e){}
   });
 }
-function evStatusBadge(ev){
+function evStatusBadge(ev, isNow){
   if(ev.guestPending) return '<span class="badge guest">' + (ev.guestDel ? '👤 訪客想刪走·待確認' : '👤 訪客·待確認') + '</span>';
   if(ev.endOverride) {
-    if(ev.planned && !ev.done && isOverdue(ev)) return '<span class="badge late">逾期未確認</span> <span class="badge bg">背景任務 → '+esc(ev.endOverride)+'</span>';
+    if(ev.planned && !ev.done && isOverdue(ev, isNow)) return '<span class="badge late">逾期未確認</span> <span class="badge bg">背景任務 → '+esc(ev.endOverride)+'</span>';
     return '<span class="badge bg">背景任務 → '+esc(ev.endOverride)+'</span>' + (ev.planned? (ev.done?' <span class="badge done">已完成</span>':' <span class="badge plan">已計劃</span>') : '');
   }
-  if(ev.planned && !ev.done) return isOverdue(ev)? '<span class="badge late">逾期未確認</span>' : '<span class="badge plan">已計劃</span>';
+  if(ev.planned && !ev.done) return isOverdue(ev, isNow)? '<span class="badge late">逾期未確認</span>' : '<span class="badge plan">已計劃</span>';
   if(ev.planned && ev.done) return '<span class="badge done">已完成 ✓</span>';
   return '';
 }
@@ -1979,7 +2050,7 @@ function renderDay(){
     const isNow = isNowEvent(ev, evs);
     if(isNow) nowIdx = i;
     const row=document.createElement('div');
-    row.className='evRow'+(ev.color?' c-'+ev.color:'')+(isOverdue(ev)?' overdue':'')+(ev.guestPending?' guestPending':'')+(ev.guestDel?' guestDel':'')+(isNow?' now':'');
+    row.className='evRow'+(ev.color?' c-'+ev.color:'')+(isOverdue(ev, isNow)?' overdue':'')+(ev.guestPending?' guestPending':'')+(ev.guestDel?' guestDel':'')+(isNow?' now':'');
     const main=document.createElement('div'); main.className='evMain';
 
     const tEl=document.createElement('span');
@@ -2021,14 +2092,15 @@ function renderDay(){
       if(t - spkFired < 400) return;          /* touchend 之後個 click 唔好再行多次 */
       spkFired = t;
       e.stopPropagation(); e.preventDefault();
-      ttsSpeak(ev.title, spk);
+      if(typeof window.ttsSpeak==='function') window.ttsSpeak(ev.title, spk);
+      else console.warn('ttsSpeak 未載入');
     };
     spk.addEventListener('touchend', doSpeak, {passive:false});
     spk.addEventListener('click', doSpeak);
     main.appendChild(spk);
 
     const tags=document.createElement('span'); tags.className='evTags';
-    tags.innerHTML=(isNow? '<span class="badge now">▶ 而家</span> ' : '')+evStatusBadge(ev);
+    tags.innerHTML=(isNow? '<span class="badge now">▶ 而家</span> ' : '')+evStatusBadge(ev, isNow);
     main.appendChild(tags);
 
     main.onclick=()=>{ expanded.has(ev.id)? expanded.delete(ev.id):expanded.add(ev.id); renderCal(); };
@@ -2052,15 +2124,32 @@ function renderDay(){
           }
         });
         gYes.classList.add('danger');
-        actBtn(acts,'✋ 唔刪，保留返',()=>{ ev.guestPending=false; ev.guestDel=false; save(); renderCal(); });
+        actBtn(acts,'✋ 唔刪，保留返',()=>{ ev.guestPending=false; ev.guestDel=false; delete ev.guestPrev; save(); renderCal(); });
       } else if(ev.guestPending){
-        actBtn(acts,'✓ 確認接受',()=>{ ev.guestPending=false; save(); renderCal(); });
-        const gDel=actBtn(acts,'↩ 還原（刪除）',async()=>{
-          if(await confirmBox('確定要還原（刪除）呢個訪客排嘅「'+ev.title+'」？')){
-            state.events=state.events.filter(x=>x.id!==ev.id); save(); renderCal();
-          }
-        });
-        gDel.classList.add('danger');
+        actBtn(acts,'✓ 確認接受',()=>{ ev.guestPending=false; delete ev.guestPrev; save(); renderCal(); });
+        if(ev.guestPrev){
+          /* 訪客係「改咗時間」，唔係「新加咗一件」。呢個情況一定要改返原本時間；
+             舊版一律用「還原（刪除）」，即係主人撳「唔要」就會連自己本身
+             嗰個行程一齊剷埋，而且冇得返轉頭。 */
+          const gBack=actBtn(acts,'↩ 改返原本時間',async()=>{
+            const p=ev.guestPrev||{};
+            if(await confirmBox('將「'+ev.title+'」改返做 '+String(p.start||'').replace('T',' ')+'？')){
+              if(p.title) ev.title=p.title;
+              if(p.start) ev.start=p.start;
+              ev.endOverride=p.endOverride||'';
+              ev.color=p.color||'';
+              ev.guestPending=false; delete ev.guestPrev; save(); renderCal();
+            }
+          });
+          gBack.classList.add('danger');
+        } else {
+          const gDel=actBtn(acts,'↩ 還原（刪除）',async()=>{
+            if(await confirmBox('確定要還原（刪除）呢個訪客排嘅「'+ev.title+'」？')){
+              state.events=state.events.filter(x=>x.id!==ev.id); save(); renderCal();
+            }
+          });
+          gDel.classList.add('danger');
+        }
       }
       actBtn(acts,'✎ 編輯',()=>openEvent(ev));
       const del=actBtn(acts,'🗑 刪除',async()=>{
@@ -2091,7 +2180,7 @@ function actBtn(parent,label,fn){
     try{ await fn(e); }
     catch(err){
       console.error('按鈕出錯：'+label, err);
-      try{ toast('⚠ 「'+label+'」出錯：'+String(err && err.message || err).slice(0,70)); }catch(e2){}
+      try{ window.toast('⚠ 「'+label+'」出錯：'+String(err && err.message || err).slice(0,70)); }catch(e2){}
     }
   };
   parent.appendChild(b); return b;
@@ -2099,10 +2188,10 @@ function actBtn(parent,label,fn){
 
 /* 任何未捕捉嘅錯誤都彈個 toast。冇呢個，一個 typo 就會令某粒掣永遠死寂。 */
 window.addEventListener('error', function(e){
-  try{ toast('⚠ 程式出錯：' + String(e.message||'').slice(0,70)); }catch(x){}
+  try{ window.toast('⚠ 程式出錯：' + String(e.message||'').slice(0,70)); }catch(x){}
 });
 window.addEventListener('unhandledrejection', function(e){
-  try{ toast('⚠ 未處理嘅錯誤：' + String((e.reason && e.reason.message) || e.reason || '').slice(0,70)); }catch(x){}
+  try{ window.toast('⚠ 未處理嘅錯誤：' + String((e.reason && e.reason.message) || e.reason || '').slice(0,70)); }catch(x){}
 });
 
 /* 每分鐘 check 一次「而家進行緊」有冇轉咗件事；轉咗先重畫，
@@ -2165,7 +2254,7 @@ function renderWeek(){
 function makeChip(ev, dayEvs){
   const c=document.createElement('div');
   const isNow = dayEvs ? isNowEvent(ev, dayEvs) : false;
-  c.className='chip'+(ev.color?' c-'+ev.color:'')+(isOverdue(ev)?' overdue':'')+(isNow?' now':'');
+  c.className='chip'+(ev.color?' c-'+ev.color:'')+(isOverdue(ev, isNow)?' overdue':'')+(isNow?' now':'');
   c.innerHTML='<b>'+esc(ev.start.slice(11))+'</b>'+kwHtml(ev.title);
   c.onclick=()=>{ cursor=new Date(ev.start.slice(0,10)+'T00:00'); expanded.add(ev.id); setView('day'); };
   c.draggable=true;
@@ -2343,7 +2432,8 @@ document.getElementById('evSave').onclick=()=>{
   }
   save(); hide('eventModal');
   cursor=new Date(date+'T00:00'); renderCal();
-  try{ if($('paneHw').classList.contains('on')) renderHw(); }catch(e){}
+  try{ const _ph=document.getElementById('paneHw');
+       if(_ph && _ph.classList.contains('on') && window.renderHw) window.renderHw(); }catch(e){}
 };
 document.getElementById('evDelete').onclick=async()=>{
   if(!editingEv) return;
@@ -2493,7 +2583,7 @@ document.addEventListener('keydown',e=>{
     /* 相機要特別處理：淨係 remove('show') 只係收埋咗個畫面，
        個 MediaStream 仲開住，鏡頭燈會一路著。 */
     const cam=document.getElementById('camModal');
-    if(cam && cam.classList.contains('show') && typeof closeCam==='function'){ try{ closeCam(); }catch(_e){} }
+    if(cam && cam.classList.contains('show') && typeof window.closeCam==='function'){ try{ window.closeCam(); }catch(_e){} }
     document.querySelectorAll('.overlay.show').forEach(o=>o.classList.remove('show'));
   }
 });
@@ -2637,6 +2727,12 @@ function endpoint(c){
 /* 上一次 callAI 攞到嘅內部推理（reasoning_content）。
    callAI 本身唔改 return 值——成三十個地方 call 佢，改簽名太傷。 */
 let AI_LAST_REASON = '';
+/* 舊寫法個 fetch 冇 AbortController：供應商繁忙吊住唔覆，個「諗緊…」
+   會轉到天光，用戶亦冇得撳停。而家預設 90 秒 timeout，另外開返一個
+   window.aiCancel() 俾 UI 隨時叫停。 */
+let AI_CTRL = null;
+const AI_TIMEOUT_MS = 90000;
+function aiCancel(){ try{ if(AI_CTRL) AI_CTRL.abort(); }catch(e){} }
 async function callAI(messages, opt){
   AI_LAST_REASON = '';
   opt = opt || {};
@@ -2696,9 +2792,26 @@ async function callAI(messages, opt){
     else if(isReasoning){ body.thinking = {type:'enabled'}; body.enable_thinking = true; }
   }
   let res;
+  const _ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
+  const _ms = opt.timeout || AI_TIMEOUT_MS;
+  let _timedOut = false;
+  const _timer = _ctrl ? setTimeout(function(){ _timedOut = true; try{ _ctrl.abort(); }catch(e){} }, _ms) : null;
+  AI_CTRL = _ctrl;
   try{
-    res = await fetch(url, {method:'POST', headers:headers, body:JSON.stringify(body)});
+    const _init = {method:'POST', headers:headers, body:JSON.stringify(body)};
+    if(_ctrl) _init.signal = _ctrl.signal;
+    res = await fetch(url, _init);
+    if(_timer) clearTimeout(_timer);
   }catch(err){
+    if(_timer) clearTimeout(_timer);
+    if(err && err.name === 'AbortError'){
+      const e2 = new Error(_timedOut
+        ? ('等咗 ' + Math.round(_ms/1000) + ' 秒都仲未有回應，暫時當佢唔覆。'
+           + '\n多數係供應商繁忙（GLM 免費線最常見）。再試多次，或者喺「⚙ API 設定」轉個型號。')
+        : '你撳咗停。');
+      e2.busy = _timedOut; e2.aborted = true;
+      throw e2;
+    }
     const viaFile = /^file:/i.test(location.protocol);
     throw new Error('連唔到個 API：' + url +
       '\n常見原因：' +
@@ -3019,6 +3132,26 @@ let lastSnapshot = null;  /* 對上一個已記錄嘅狀態，用嚟比對係咪
 const MAX_UNDO = 50;
 let undoBtn = null, redoBtn = null;
 
+/* ===== undo 只影「行事曆本身」，唔影 state.ai =====
+   兩個原因：
+   ① state.ai.log 係 append-only，佔咗成份 state 八成體積（~288KB／470 條）。
+      成份 stringify 落 undoStack，50 層就係十幾 MB 字串長駐，iPad 會頓。
+   ② 更嚴重：每次 logPush() 都會令 state 變咗樣，於是「傾一句偈」都會產生
+      一格 undo；跟住撳 Ctrl+Z，就會連 Data Log 嘅新記錄一齊還原走。
+   而家只快照行事曆嗰幾個 key，還原嗰陣用 Object.assign 蓋返上去，state.ai 原封不動。 */
+const UNDO_KEYS = ['version','tree','archive','events','eventsArchive','leftW'];
+function snapStr(){
+  try{
+    const o = {};
+    UNDO_KEYS.forEach(function(k){ if(state[k]!==undefined) o[k] = state[k]; });
+    return JSON.stringify(o);
+  }catch(e){ return null; }
+}
+function applySnap(str){
+  const o = JSON.parse(str);
+  UNDO_KEYS.forEach(function(k){ if(k in o) state[k] = o[k]; });
+}
+
 /* 輕量 toast 反饋，話返俾用戶聽復原／重做咗啲乜 */
 function undoToast(msg, kind){
   const n = document.createElement('div');
@@ -3060,7 +3193,7 @@ function describeDiff(fromStr, toStr){
 /* 重置 undo 歷史；useCurrent=true 會用目前 state 做基準（啟動用），false 會清空等下次 save 先建立基準（登入切換用） */
 function resetUndoHistory(useCurrent){
   undoStack = []; redoStack = [];
-  lastSnapshot = useCurrent ? (function(){ try{ return JSON.stringify(state); }catch(e){ return null; } })() : null;
+  lastSnapshot = useCurrent ? snapStr() : null;
   updateUndoBtns();
 }
 
@@ -3072,7 +3205,7 @@ save = function(){
   }catch(e){ console.warn('AI log diff 出錯', e); }
   if(!skipUndo && !loading){
     try{
-      const cur = JSON.stringify(state);
+      const cur = snapStr();
       /* 淨係當現狀同對上一次記錄唔同，先算係一次改動 */
       if(lastSnapshot!==null && cur!==lastSnapshot){
         undoStack.push(lastSnapshot);          /* 記低嘅係「改動前」狀態 */
@@ -3090,10 +3223,10 @@ function doUndo(){
   if(!undoStack.length){ undoToast('冇嘢可以復原喇', 'undo'); return; }
   try{
     skipUndo = true;
-    const curStr = JSON.stringify(state);       /* 目前狀態（要被還原走） */
+    const curStr = snapStr();                   /* 目前狀態（要被還原走） */
     const prevStr = undoStack.pop();            /* 改動前嘅狀態 */
     redoStack.push(curStr);                     /* 依家嘅狀態入 redo stack，等可以重做翻轉頭 */
-    state = JSON.parse(prevStr);
+    applySnap(prevStr);                         /* 只蓋行事曆嗰幾個 key，state.ai 唔郁 */
     lastSnapshot = prevStr;
     takeSnap();
     save();   /* 用 save() 唔用 _save()：_save() 係最原始嗰個，會繞過訪客模式嘅寫入封鎖 */
@@ -3108,10 +3241,10 @@ function doRedo(){
   if(!redoStack.length){ undoToast('冇嘢可以重做喇', 'redo'); return; }
   try{
     skipUndo = true;
-    const curStr = JSON.stringify(state);
+    const curStr = snapStr();
     const nextStr = redoStack.pop();            /* 之前被復原走嘅狀態 */
     undoStack.push(curStr);                     /* 目前狀態返入 undo stack */
-    state = JSON.parse(nextStr);
+    applySnap(nextStr);                         /* 同上：唔郁 state.ai */
     lastSnapshot = nextStr;
     takeSnap();
     save();   /* 同上：唔好繞過訪客模式封鎖 */
@@ -3199,13 +3332,18 @@ function pendingItems(days, cap){
   const out = evs.filter(function(e){
     return e && e.start <= nw && e.start >= limS && e.planned && !e.done;
   }).sort(function(a,b){ return a.start.localeCompare(b.start); });
-  /* 每件嘢配返「下次同名嘅安排」做死線 */
-  out.forEach(function(e){
+  /* 每件嘢配返「下次同名嘅安排」做死線。
+     舊寫法直接 e._nextSame = ... 寫落 state.events 個 object 上面，
+     等於每次叫 AI（ctxText 會行呢度）都改到 state：之後隨便一次 save
+     都會當成一次真改動入 undo stack，仲要成份 state 重新上傳。
+     而家改成派返 shallow copy，原本嘅 event object 一個字都唔郁。 */
+  const nextOf = function(e){
     const nxt = evs.filter(function(x){ return x.start > nw && x.title === e.title; })
                    .sort(function(a,b){ return a.start.localeCompare(b.start); })[0];
-    e._nextSame = nxt ? nxt.start : '';
-  });
-  return out.slice(-(cap||20));
+    return nxt ? nxt.start : '';
+  };
+  return out.slice(-(cap||20))
+            .map(function(e){ return Object.assign({}, e, {_nextSame: nextOf(e)}); });
 }
 
 /* ==================================================================
@@ -5048,10 +5186,33 @@ function setStatus(el, msg, bad, spin){
   e.className = 'aiStatus' + (msg? ' show':'') + (bad? ' bad':'');
   e.innerHTML = (spin? '<span class="aiSpin"></span>':'') + esc(msg||'');
 }
+/* 「夠 3 次糾正就自動更新」原本淨係喺「✓ 加入行事曆」嗰粒掣度 check。
+   但 sinceRule 係喺「我教佢一句」、喺行事曆度改 AI 排嘅嘢、訪客傾偈……
+   好多個位都會加。結果你剔咗個掣，數字一路升到十幾廿，佢一次都冇 trigger 過。
+   而家一開 AI 視窗就 check 多一次。淨係主人先做，唔會喺 Charlotte 傾偈嗰陣
+   突然燒 API，亦唔會靜靜雞跑——status bar 會講返俾你聽。 */
+let _autoRuleRunning = false;
+function maybeAutoRules(){
+  try{
+    if(_autoRuleRunning) return;
+    if(isGuestNow()) return;
+    if(!cfgReady()) return;
+    if(!cfg().autoRule) return;
+    if((state.ai.sinceRule||0) < 3) return;
+    _autoRuleRunning = true;
+    setStatus('aiStatus','累積咗 '+state.ai.sinceRule+' 次糾正，自動更新緊 General Rules…', false, true);
+    genRules(true)
+      .then(function(){ setStatus('aiStatus','✅ General Rules 已經自動更新好（去「🧠 General Rules」睇下）。'); })
+      .catch(function(err){ setStatus('aiStatus','自動更新規則失敗：'+err.message, true); })
+      .then(function(){ _autoRuleRunning = false; });
+  }catch(e){ _autoRuleRunning = false; }
+}
+
 function openAI(tab){
   ensureAI();
   show('aiModal');
   switchTab(tab||'ask');
+  setTimeout(maybeAutoRules, 400);
   if(!cfgReady()) setStatus('aiStatus','仲未設定 API。撳右上角「⚙ API 設定」先。', true);
   else $('aiHint').textContent = '而家用緊：' + (cfg().model||'');
   setTimeout(()=>{ if((tab||'ask')==='ask') $('aiInput').focus(); }, 60);
@@ -5259,8 +5420,18 @@ $('aiApply').onclick = ()=>{
           ev.title = title; ev.start = start; ev.endOverride = end;
           if(color) ev.color = color;
           ev.ai = true;
-          /* 訪客改時間都要俾主人 review，唔可以靜靜雞改咗就算 */
-          if(document.body.classList.contains('readonly')) ev.guestPending = true;
+          /* 訪客改時間都要俾主人 review，唔可以靜靜雞改咗就算。
+             同時要記低「改之前係點」，因為主人喺行事曆度撳「唔要」嗰陣，
+             正確做法係改返原本時間，唔係將件事刪走 —— 呢個本身係主人
+             自己嘅行程，唔係訪客新加嘅。 */
+          if(document.body.classList.contains('readonly')){
+            ev.guestPending = true;
+            if(!ev.guestPrev){
+              const _b = revertData.moved[revertData.moved.length-1].before;
+              ev.guestPrev = {title:String(_b.title||''), start:String(_b.start||''),
+                              endOverride:String(_b.endOverride||''), color:String(_b.color||'')};
+            }
+          }
           added.push('🕒 改時間：'+title+' → '+date+'（星期'+wdOf(date)+'）'+time);
           if(!firstDate) firstDate = date;
           return;
@@ -7802,7 +7973,21 @@ document.querySelectorAll('#aiTabs button').forEach(b=> b.onclick = ()=>switchTa
 
 renderChat();
 
-/* ---------- 11. 啟動 ---------- */
+/* ---------- 11. 對外 export ----------
+   呢個 IIFE 入面用 const／function 宣告嘅嘢，外層 scope 係完全攞唔到嘅。
+   以下幾個外層真係會 call，統一掛上 window，唔好再靠 scope 穿窿。
+   （之前 renderDay 撳 🔊、Esc 閂相機、儲存後 refresh 功課板，全部都係死喺呢度） */
+Object.assign(window, {
+  ttsSpeak: ttsSpeak,
+  closeCam: closeCam,
+  renderHw: renderHw,
+  renderChatTemplates: renderChatTemplates,
+  warnCap: warnCap,
+  ARCHIVE_MAX: ARCHIVE_MAX,
+  aiCancel: aiCancel
+});
+
+/* ---------- 12. 啟動 ---------- */
 ensureAI();
 takeSnap();
 if(!cfg().base) { /* 第一次用：靜靜地等佢自己開設定 */ }
@@ -7845,6 +8030,9 @@ function toast(msg){
   setTimeout(()=>{ n.style.transition='opacity .4s'; n.style.opacity='0'; }, 1500);
   setTimeout(()=>n.remove(), 2000);
 }
+/* 外層同 AI IIFE 都有 44 處 call toast()，但佢哋 scope 上面睇唔到呢個 function。
+   掛上 window 之後，window.onerror / actBtn 個 catch 先至真係彈到嘢出嚟。 */
+window.toast = toast;
 
 /* ---------- 訪客模式 UI 同步 ---------- */
 function applyGuestUI(){
@@ -7852,7 +8040,7 @@ function applyGuestUI(){
   /* 一入訪客模式就即刻閂咗 API 設定視窗：如果爸爸開住個視窗嗰陣切去訪客模式，
      單靠 CSS 收埋兩粒掣係唔會閂到個已經開咗嘅視窗，API Key 就會晾喺度。 */
   if(guestMode){ try{ hide('aiSetModal'); }catch(e){} }
-  try{ renderChatTemplates(); }catch(e){}
+  try{ if(window.renderChatTemplates) window.renderChatTemplates(); }catch(e){}
   if(typeof syncRoNoticeH === 'function') setTimeout(syncRoNoticeH, 0);
   // 只要「已登入 + 唔係訪客模式」就顯示「訪客模式」掣
   // （未設密碼嗰陣，撳落去會自動彈出「設定解鎖密碼」視窗）
@@ -8020,12 +8208,13 @@ $('guestPwNew2').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.prevent
   const btn = $('btnToggleLeft'), pane = $('leftPane'), div = $('divider');
   function syncBtn(){ btn.textContent = pane.classList.contains('collapsed') ? '▶' : '◀'; }
   function syncDivider(){ div.classList.toggle('collapsed', pane.classList.contains('collapsed')); }
-  /* 讀取記憶（淨係桌面會記） */
+  /* 預設收埋。呢個 panel 淨係喺「返工嗰個 Google 帳號」先用得着，
+     日常（同埋 Charlotte 部 iPad）打開就係一嚿 300px 嘅白位。
+     '0' = 用戶親手撳開過，先至保持打開；未撳過（null）或者 '1' 就收埋。
+     手機／iPad 一樣照做，唔再淨係桌面先記。 */
   try{
-    if(localStorage.getItem(LEFT_KEY)==='1' && window.innerWidth > 700){
-      pane.classList.add('collapsed');
-    }
-  }catch(e){}
+    if(localStorage.getItem(LEFT_KEY) !== '0') pane.classList.add('collapsed');
+  }catch(e){ pane.classList.add('collapsed'); }
   syncBtn(); syncDivider();
 
   btn.onclick = (e)=>{
@@ -8048,7 +8237,11 @@ renderTree(); setView('day');
    Charlotte 見到會一頭霧水，而且歸檔本來就唔係佢要做嘅嘢，留返爸爸開機嗰陣做就得。 */
 function autoArchiveIfOwner(){
   if(document.body.classList.contains('readonly')) return 0;
-  return archiveOldEvents();
+  const n = archiveOldEvents();
+  /* 歸檔之後先清孤兒：歸檔會將舊 event 由 events 搬去 eventsArchive，
+     而 hwGcOrphans 兩邊都當「存在」，所以次序點都唔會誤刪。 */
+  try{ hwGcOrphans(); }catch(e){ console.warn('清孤兒失敗', e); }
+  return n;
 }
 setTimeout(()=>{ try{ autoArchiveIfOwner(); }catch(e){ console.warn('歸檔失敗', e); } }, 2000);
 /* 每日檢查一次（閒置時先做） */
