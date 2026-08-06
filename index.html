@@ -380,6 +380,24 @@ mark{background:#ffe9a8;border-radius:2px}
   padding:6px 9px;margin:0 0 7px;max-height:150px;overflow:hidden;white-space:pre-wrap;
 }
 .chatThink.done{max-height:34px;opacity:.45;font-size:10.5px}
+/* 訪客模式：思考中嘅「走馬燈」——單行、淡色，等佢知道 AI 諗緊嘢；一開口答就會消失 */
+.chatThink.guestTicker{
+  max-height:none;overflow:hidden;white-space:nowrap;text-overflow:clip;
+  font-size:11px;opacity:.75;
+}
+.chatThink.guestTicker::before{content:"🧠 "}
+/* 主人模式：答完之後保留返嘅推理過程（摺埋，撳開先睇到） */
+.chatThinkKeep{margin:0 0 8px}
+.chatThinkKeep summary{cursor:pointer;font-size:11.5px;color:var(--muted);user-select:none;list-style-position:inside}
+.chatThinkKeep[open] summary{margin-bottom:4px}
+.chatThinkKeep .tk{
+  font-size:11.5px;line-height:1.55;color:var(--muted);background:#f7f8f6;
+  border-left:2px solid var(--line);border-radius:4px;
+  padding:6px 9px;white-space:pre-wrap;max-height:340px;overflow:auto;
+}
+body.readonly .chatThinkKeep{display:none!important}
+/* 朗讀中：段字可以撳——撳邊隻字就由嗰隻字讀起 */
+.ttsSeek{cursor:pointer;outline:1.5px dashed var(--accent);outline-offset:3px;border-radius:4px}
 .chatStream{white-space:pre-wrap;word-break:break-word}
 
 /* ===== 🆘 搵爹哋：訪客同主人之間嘅即時留言 =====
@@ -5782,7 +5800,9 @@ function ctxText(){
   const _all = (state.ai.log||[]);
   const _fresh = _all.filter(x=>x && !x.digested);
   const lg = (_fresh.length ? _fresh : _all).slice(-14);
-  L.push('\n【最近嘅對話同糾正（要學返嚟）】\n' + (lg.length
+  L.push('\n【最近嘅對話同糾正（要學返嚟）——注意：呢度只係 Data Log 最近 ' + lg.length
+    + ' 條嘅節錄（每條剪剩 220 字），全份 Data Log 共 ' + _all.length
+    + ' 條，入面有家長寫低嘅背景資料】\n' + (lg.length
     ? lg.map(x=>'- ('+(TYPE_NAME[x.type]||x.type)+') '+short(x.text,220)).join('\n')
     : '（冇）'));
 
@@ -7770,7 +7790,8 @@ function mdToWhatsApp(md){
    註：Edge 嗰啲 Natural 語音喺 Edge 瀏覽器度本身就攞得到，唔使駁 server；
        想喺 Chrome 都用到微軟語音，就要行渠道 2（官方 Azure）。
 ========================================================= */
-const TTSV = {list:[], btn:null, audio:null, keep:0, seq:0};
+const TTSV = {list:[], btn:null, audio:null, keep:0, seq:0,
+              paused:false, pause:null, resume:null, pauseBtn:null, srcEl:null};
 
 function ttsSupported(){ return (typeof window!=='undefined') && ('speechSynthesis' in window); }
 function ttsLoadVoices(){
@@ -7847,11 +7868,114 @@ function ttsBtnReset(btn){
   btn.classList.remove('speaking');
   btn.textContent = btn.dataset.lab || '🔊 讀';
 }
+/* ── ⏸ 暫停／▶ 繼續 ──
+   兩個引擎各自將自己嘅暫停方法掛上 TTSV.pause／TTSV.resume：
+   · Azure：<audio> 原生 pause()/play()，位置一格都唔會走。
+   · 瀏覽器內置：speechSynthesis.pause() 喺 Chrome 出晒名唔可靠（成日當咗 stop、resume 冇反應），
+     所以改用「記住讀到邊一句 → cancel → 繼續嗰陣由嗰句重新讀起」，粒粒平台都食得開。 */
+function ttsKillPauseBtn(){
+  if(TTSV.pauseBtn){ try{ TTSV.pauseBtn.remove(); }catch(e){} TTSV.pauseBtn = null; }
+  TTSV.paused = false; TTSV.pause = null; TTSV.resume = null;
+}
+function ttsAddPauseBtn(btn){
+  if(!btn || !btn.parentNode) return;
+  const p = document.createElement('button');
+  /* 跟返隔籬粒掣嘅樣（chatCopyBtn／say／btn），擺喺邊度都唔會突兀 */
+  p.className = btn.className.replace(/\bspeaking\b/,'').trim() || 'chatCopyBtn';
+  p.type = 'button';
+  p.textContent = '⏸ 暫停';
+  p.title = '暫停朗讀；再撳一次由暫停嗰度繼續，唔使由頭聽過';
+  p.onclick = function(e){
+    e.stopPropagation(); e.preventDefault();
+    if(TTSV.paused){
+      TTSV.paused = false;
+      if(TTSV.resume) TTSV.resume();
+      p.textContent = '⏸ 暫停';
+    } else {
+      TTSV.paused = true;
+      if(TTSV.pause) TTSV.pause();
+      p.textContent = '▶ 繼續';
+    }
+  };
+  btn.insertAdjacentElement('afterend', p);
+  TTSV.pauseBtn = p;
+}
+
+/* ── 撳邊隻字就由嗰隻字讀起 ──
+   讀緊嗰陣成段字變成可以撳：用 caretRangeFromPoint 搵返你撳嗰一點對應住邊個字，
+   再將「由嗰個字到結尾」嘅文字重新掟去讀。 */
+function ttsTextFromPoint(el, x, y){
+  let node = null, off = 0;
+  try{
+    if(document.caretRangeFromPoint){
+      const r = document.caretRangeFromPoint(x, y);
+      if(r){ node = r.startContainer; off = r.startOffset; }
+    } else if(document.caretPositionFromPoint){
+      const p = document.caretPositionFromPoint(x, y);
+      if(p){ node = p.offsetNode; off = p.offset; }
+    }
+  }catch(e){}
+  if(!node || !el.contains(node)) return '';
+  if(node.nodeType === 1){ node = node.childNodes[off] || node; off = 0; }
+  if(!node) return '';
+  let started = false, out = '';
+  const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+  while(w.nextNode()){
+    const n = w.currentNode;
+    /* 摺埋嘅推理過程唔係答案嘅一部分，跳位嗰陣唔好讀埋佢 */
+    if(n.parentNode && n.parentNode.closest && n.parentNode.closest('.chatThinkKeep')) continue;
+    if(started){ out += n.nodeValue; continue; }
+    if(n === node){ started = true; out += String(n.nodeValue||'').slice(off); }
+    else if(node.nodeType !== 3){
+      const cmp = node.compareDocumentPosition(n);
+      if(cmp & (Node.DOCUMENT_POSITION_CONTAINED_BY | Node.DOCUMENT_POSITION_FOLLOWING)){
+        started = true; out += n.nodeValue;
+      }
+    }
+  }
+  return out;
+}
+let _ttsSeekHinted = false;
+function ttsSeekClick(ev){
+  const el = TTSV.srcEl;
+  if(!el) return;
+  /* 連結、掣、推理摺頁——呢啲照原本嘅功能行，唔好搶咗嚟做跳位 */
+  if(ev.target && ev.target.closest && ev.target.closest('a,button,summary,.chatThinkKeep,img')) return;
+  const rest = ttsTextFromPoint(el, ev.clientX, ev.clientY);
+  if(!rest || !rest.trim()) return;
+  ev.preventDefault(); ev.stopPropagation();
+  const btn = TTSV.btn;
+  ttsStop();
+  ttsStart(mdToPlain(rest), btn, el);
+}
+function ttsAttachSeek(el){
+  ttsDetachSeek();
+  if(!el) return;
+  TTSV.srcEl = el;
+  el.classList.add('ttsSeek');
+  el.addEventListener('click', ttsSeekClick, true);
+  if(!_ttsSeekHinted){
+    _ttsSeekHinted = true;
+    try{ toast('💡 讀緊嘅時候，撳段字入面任何一隻字，就會由嗰隻字讀起'); }catch(e){}
+  }
+}
+function ttsDetachSeek(){
+  if(TTSV.srcEl){
+    try{
+      TTSV.srcEl.classList.remove('ttsSeek');
+      TTSV.srcEl.removeEventListener('click', ttsSeekClick, true);
+    }catch(e){}
+  }
+  TTSV.srcEl = null;
+}
+
 function ttsStop(){
   TTSV.seq++;
   if(ttsSupported()){ try{ window.speechSynthesis.cancel(); }catch(e){} }
   if(TTSV.audio){ try{ TTSV.audio.pause(); }catch(e){} TTSV.audio = null; }
   if(TTSV.keep){ clearInterval(TTSV.keep); TTSV.keep = 0; }
+  ttsKillPauseBtn();
+  ttsDetachSeek();
   ttsBtnReset(TTSV.btn);
   TTSV.btn = null;
 }
@@ -7860,6 +7984,7 @@ function webSpeak(plain, btn, mySeq){
   if(!ttsSupported()){
     alert('你部機／個瀏覽器唔支援語音朗讀。試下用 Chrome、Edge 或者 Safari，或者喺設定入面填 Azure key。');
     ttsBtnReset(btn); if(TTSV.btn===btn) TTSV.btn=null;
+    ttsKillPauseBtn(); ttsDetachSeek();
     return;
   }
   const c = cfg();
@@ -7873,11 +7998,14 @@ function webSpeak(plain, btn, mySeq){
     clearWatch();
     ttsBtnReset(btn);
     if(TTSV.btn===btn) TTSV.btn = null;
+    ttsKillPauseBtn();
+    ttsDetachSeek();
   };
 
   const next = function(){
     clearWatch();
     if(mySeq !== TTSV.seq) return;                  /* 已經撳咗停 */
+    if(TTSV.paused) return;                         /* 暫停緊：企喺度等 resume */
     if(i >= chunks.length){ finish(); return; }
 
     const text = chunks[i++];
@@ -7908,7 +8036,7 @@ function webSpeak(plain, btn, mySeq){
        ③ 真係卡死（speaking 一直 true）→ 夠鐘就 cancel 咗佢再讀下一句。 */
     let saw = false;
     TTSV.keep = setInterval(function(){
-      if(mySeq !== TTSV.seq){ clearWatch(); return; }
+      if(mySeq !== TTSV.seq || TTSV.paused){ clearWatch(); return; }
       const el = Date.now() - t0;
       let speaking = false, pending = false;
       try{ speaking = !!window.speechSynthesis.speaking; pending = !!window.speechSynthesis.pending; }catch(e){}
@@ -7920,6 +8048,14 @@ function webSpeak(plain, btn, mySeq){
       if(el > est){ go(true); return; }                              /* 卡死，硬過下一句 */
     }, 200);
   };
+
+  /* 暫停＝記住而家讀緊第幾句，cancel 咗佢；繼續＝由嗰句重新讀起 */
+  TTSV.pause = function(){
+    clearWatch();
+    try{ window.speechSynthesis.cancel(); }catch(e){}
+    i = Math.max(0, i - 1);
+  };
+  TTSV.resume = function(){ next(); };
 
   setTimeout(next, 60);
 }
@@ -7971,9 +8107,16 @@ async function azureSpeak(plain, btn, mySeq){
   if(mySeq !== TTSV.seq){ URL.revokeObjectURL(url); return; }
   const a = new Audio(url);
   TTSV.audio = a;
-  const fin = function(){ URL.revokeObjectURL(url); ttsBtnReset(btn); if(TTSV.btn===btn) TTSV.btn=null; };
+  /* Azure 行 <audio>：暫停／繼續用原生嘅，位置一格都唔會走 */
+  TTSV.pause  = function(){ try{ a.pause(); }catch(e){} };
+  TTSV.resume = function(){ const p = a.play(); if(p && p.catch) p.catch(function(){}); };
+  const fin = function(){
+    URL.revokeObjectURL(url); ttsBtnReset(btn);
+    if(TTSV.btn===btn) TTSV.btn=null;
+    ttsKillPauseBtn(); ttsDetachSeek();
+  };
   a.onended = fin; a.onerror = fin;
-  await a.play();
+  if(!TTSV.paused) await a.play();   /* 上緊網嗰陣已經撳咗暫停？就唔好自己開聲住 */
 }
 
 /* iOS / iPadOS Safari 唔准網頁喺冇 user gesture 之下出聲。
@@ -8003,20 +8146,28 @@ function ttsPrime(){
 document.addEventListener('touchend', ttsPrime, {once:true, passive:true});
 document.addEventListener('click', ttsPrime, {once:true});
 
-async function ttsSpeak(text, btn){
+async function ttsSpeak(text, btn, srcEl){
   ttsPrimed = true;                       /* 用戶親手撳掣，唔使再熱身 */
   const same = !!btn && (TTSV.btn === btn);
   ttsStop();
   if(same) return;                       /* 再撳一次＝停 */
   const plain = mdToPlain(typeof text==='function' ? text() : text);
   if(!plain) return;
+  await ttsStart(plain, btn, srcEl);
+}
+
+/* ttsSpeak 拆咗出嚟嘅「真正開波」部分。
+   「撳字跳去嗰度讀」要重新開始播，但唔想觸發「再撳＝停」嘅邏輯，就直接叫呢個。 */
+async function ttsStart(plain, btn, srcEl){
   const mySeq = TTSV.seq;
   if(btn){
     TTSV.btn = btn;
     if(!btn.dataset.lab) btn.dataset.lab = btn.textContent;
     btn.classList.add('speaking');
     btn.textContent = '⏹ 停';
+    ttsAddPauseBtn(btn);
   }
+  if(srcEl) ttsAttachSeek(srcEl);
   const c = cfg();
   /* 只要有 key 就行 Azure。Region 交俾 azRegion() 補（留空＝eastasia）。 */
   if(c.ttsAzKey){
@@ -8031,14 +8182,15 @@ async function ttsSpeak(text, btn){
   webSpeak(plain, btn, mySeq);
 }
 
-/* 朗讀掣 */
-function makeTTSBtn(getText, label){
+/* 朗讀掣。srcEl（可以唔俾）＝呢段字喺畫面上嗰個元素——
+   有俾嘅話，讀緊嗰陣段字會變成撳得，撳邊隻字就由嗰隻字讀起。 */
+function makeTTSBtn(getText, label, srcEl){
   const b = document.createElement('button');
   b.className = 'chatCopyBtn';
   b.textContent = label || '🔊 讀';
   b.dataset.lab = b.textContent;
-  b.title = '用語音讀出呢段字（再撳一次＝停）';
-  b.onclick = function(e){ e.stopPropagation(); ttsSpeak(getText, b); };
+  b.title = '用語音讀出呢段字（再撳一次＝停；讀緊嗰陣可以撳段字跳位）';
+  b.onclick = function(e){ e.stopPropagation(); ttsSpeak(getText, b, srcEl || null); };
   return b;
 }
 
@@ -8169,6 +8321,19 @@ function renderChat(){
       bubble.textContent = '⚠ 呢一轉出咗錯：' + m.error;
     } else if(isAI){
       bubble.innerHTML = mdToHtml(m.content);
+      /* 主人模式：答完之後推理過程唔會消失——摺埋喺答案上面，撳開就睇返到成個思考流程。
+         訪客模式唔顯示（CSS body.readonly 嗰邊仲有多一重保險）。 */
+      if(m.think && !document.body.classList.contains('readonly')){
+        const det = document.createElement('details');
+        det.className = 'chatThinkKeep';
+        const sum = document.createElement('summary');
+        sum.textContent = '🧠 推理過程（撳開睇返佢當時點諗）';
+        const tk = document.createElement('div');
+        tk.className = 'tk';
+        tk.textContent = m.think;
+        det.appendChild(sum); det.appendChild(tk);
+        bubble.insertBefore(det, bubble.firstChild);
+      }
     } else {
       bubble.textContent = m.content;
     }
@@ -8178,11 +8343,11 @@ function renderChat(){
     bar.className = 'chatCopyBar';
     if(m.role==='user'){
       /* 用戶訊息：一個複製掣（純文字） */
-      bar.appendChild(makeTTSBtn(m.content, '🔊 讀'));
+      bar.appendChild(makeTTSBtn(m.content, '🔊 讀', bubble));
       bar.appendChild(makeCopyBtn('📋 複製', '複製純文字', ()=>copyPlainText(m.content)));
     } else if(isAI){
       /* AI 訊息：三個掣 —— 純文字、Word 格式、WhatsApp 格式 */
-      bar.appendChild(makeTTSBtn(m.content, '🔊 讀'));
+      bar.appendChild(makeTTSBtn(m.content, '🔊 讀', bubble));
       bar.appendChild(makeCopyBtn('📋 文字', '複製純文字（Markdown 原文）', ()=>copyPlainText(m.content)));
       bar.appendChild(makeCopyBtn('📝 Word', '複製成富格式，貼上 Microsoft Word 保留表格、粗體等格式', ()=>copyRichForWord(mdToWordHtml(m.content), m.content)));
       bar.appendChild(makeCopyBtn('💬 WhatsApp', '轉做 WhatsApp 格式（*粗體*、_斜體_ 等）再複製', ()=>copyPlainText(mdToWhatsApp(m.content))));
@@ -8431,12 +8596,54 @@ async function lookupRead(url){
   }
 }
 
+/* ===== [[LOG]]：查自己個 Data Log =====
+   家長會將背景資料（例如「星期六個 camp 要帶乜」）直接寫入 Data Log，
+   但傾偈嘅 context 平時只夾最近 14 條、每條剪剩 220 字——問到細節嘢根本唔夠用。
+   所以開多個 [[LOG: 關鍵字]] 工具俾 AI，要用先攞，唔使每一轉都搬成個 log 入去燒 token。
+   訪客模式唔開放：Data Log 個 tab 本身就係特登收埋唔俾訪客睇嘅，工具都要跟呢條線。 */
+async function lookupLog(q){
+  if(typeof isGuestNow === 'function' && isGuestNow()){
+    return ['◆ Data Log 訪客模式睇唔到，你冇呢個工具。照用你手上其他資料答。'];
+  }
+  try{ ensureAI(); }catch(e){}
+  /* 記憶體平時只揸住最近嗰批，查之前將雲端成份 log 攞埋落嚟（未登入就本機嗰份已經係全份） */
+  try{ if(typeof LogCloud !== 'undefined' && LogCloud && LogCloud.fetchAll) await LogCloud.fetchAll(); }catch(e){}
+  const all = (typeof state !== 'undefined' && state && state.ai && Array.isArray(state.ai.log)) ? state.ai.log : [];
+  if(!all.length) return ['◆ Data Log 而家係空嘅，一條記錄都未有。'];
+  const raw = String(q||'').trim();
+  const wantAll = !raw || /^(all|全部|最近|recent)$/i.test(raw);
+  const terms = wantAll ? [] : raw.split(/[\s,，、;；|｜/／]+/).filter(Boolean);
+  const hitOf = function(x){
+    if(!x) return false;
+    const s = ((x.text||'') + ' ' + (x.brief||'') + ' ' + (x.q||'') + ' ' + (x.a||'')).toLowerCase();
+    return terms.some(function(t){ return s.indexOf(t.toLowerCase()) >= 0; });
+  };
+  let rows = wantAll ? all.slice() : all.filter(hitOf);
+  let note = '';
+  if(!rows.length){
+    rows = all.slice(-20);
+    note = '（成個 Data Log 都搵唔到夾「' + raw + '」嘅記錄。下面係最近 20 條，睇下幫唔幫到手；'
+         + '你仲可以換過啲關鍵字——例如件事嘅中文名、英文名、簡稱——再 [[LOG]] 多一次。）\n\n';
+  }
+  rows = rows.slice(-30);        /* 淨係要最新嗰 30 條相關記錄，唔好一次過搬成本簿 */
+  const lines = rows.map(function(x){
+    const when = String(x.at||'').replace('T',' ').slice(0,16);
+    const typ = (typeof TYPE_NAME !== 'undefined' && TYPE_NAME[x.type]) || x.type || '';
+    /* 訪客傾偈嗰啲記錄，text 入面 AI 嗰段剪咗 500 字，但全文其實另外收埋喺 q／a 度 */
+    const body = (x.q || x.a) ? ('我：' + (x.q||'') + '\n  AI：' + (x.a||'')) : (x.text||'');
+    return '- ' + when + '（' + typ + '）' + short(body, 800);
+  });
+  return [short(note + '◆ Data Log 記錄（全份共 ' + all.length + ' 條，以下係同「'
+    + (wantAll ? '最近' : raw) + '」相關嘅 ' + rows.length + ' 條）：\n' + lines.join('\n'), 14000)];
+}
+
 function reSearch(){ return /\[\[\s*SEARCH\s*:\s*([^\]|]+?)\s*\]\]/gi; }
 function reFandom(){ return /\[\[\s*FANDOM\s*:\s*([^|\]]+?)\s*\|\s*([^\]]+?)\s*\]\]/gi; }
 function reWeb(){ return /\[\[\s*WEB\s*:\s*([^\]|]+?)\s*\]\]/gi; }
 function reRead(){ return /\[\[\s*READ\s*:\s*([^\]|]+?)\s*\]\]/gi; }
-function hasLookup(s){ s=String(s||''); return reSearch().test(s) || reFandom().test(s) || reWeb().test(s) || reRead().test(s); }
-function stripLookup(s){ return String(s||'').replace(reSearch(),'').replace(reFandom(),'').replace(reWeb(),'').replace(reRead(),'').replace(/\n{3,}/g,'\n\n').trim(); }
+function reLog(){ return /\[\[\s*LOG(?:\s*:\s*([^\]|]*?))?\s*\]\]/gi; }
+function hasLookup(s){ s=String(s||''); return reSearch().test(s) || reFandom().test(s) || reWeb().test(s) || reRead().test(s) || reLog().test(s); }
+function stripLookup(s){ return String(s||'').replace(reSearch(),'').replace(reFandom(),'').replace(reWeb(),'').replace(reRead(),'').replace(reLog(),'').replace(/\n{3,}/g,'\n\n').trim(); }
 
 async function runLookups(text){
   const jobs = []; let m;
@@ -8444,6 +8651,7 @@ async function runLookups(text){
   const r2 = reFandom(); while((m = r2.exec(text))) jobs.push({t:'fandom', sub:m[1].trim(), q:m[2].trim()});
   const r3 = reWeb();    while((m = r3.exec(text))) jobs.push({t:'web', q:m[1].trim()});
   const r4 = reRead();   while((m = r4.exec(text))) jobs.push({t:'read', q:m[1].trim()});
+  const r5 = reLog();    while((m = r5.exec(text))) jobs.push({t:'log',  q:String(m[1]||'').trim() || '最近'});
   const out = [];
   for(let i = 0; i < Math.min(jobs.length, SEARCH_MAX_JOBS); i++){
     const j = jobs[i];
@@ -8452,6 +8660,7 @@ async function runLookups(text){
       res = (j.t === 'wiki')   ? await lookupWiki(j.q)
           : (j.t === 'fandom') ? await lookupFandom(j.sub, j.q)
           : (j.t === 'read')   ? await lookupRead(j.q)
+          : (j.t === 'log')    ? await lookupLog(j.q)
           :                      await lookupWeb(j.q);
     }
     catch(err){ res = ['◆ 查嘅時候出錯：'+(err.message||err)]; }
@@ -8473,6 +8682,7 @@ function searchNote(){
 '· 想查嘅時候，成個回應淨係輸出標記，唔好寫任何其他字：',
 '    [[SEARCH: 查詢詞]]                  ← 查維基百科（會自動查中文同英文）',
 '    [[FANDOM: 網站代號 | 查詢詞]]        ← 查 Fandom，代號例如 disney、aliceinwonderland、wicked、pokemon、marvel',
+(guest ? '' : '    [[LOG: 關鍵字]]                    ← 查你哋屋企個 Data Log（家長寫低嘅背景資料、糾正、過往對話記錄）'),
 (hasWeb
   ? '    [[WEB: 查詢詞]]                     ← 上網搜尋，會攞返頭三個結果嘅正文'
   : '    （上網搜尋而家冇開：所以你冇 [[WEB]] 呢個工具。）'),
@@ -8483,6 +8693,9 @@ function searchNote(){
 '· 系統查完會將資料交返俾你，你先至用返平時嘅語氣答佢。',
 '',
 '【揀邊個工具 —— 由上而下行，啱咗就唔好再落去】',
+(guest ? '' : '⓪ 「你哋屋企自己嘅嘢」——某個活動要帶乜／準備乜、報咗咩班、邊個負責、屋企人之前交代過嘅背景——上網一定查唔到，要用 [[LOG: 關鍵字]] 查 Data Log。'
+  + '家長會將背景資料直接寫入 Data Log，所以答呢類細節之前必須先查一次，唔准淨係望住行事曆個時間表靠估作答。'
+  + '關鍵字用返件事個名（例如 camp、露營、泳班），中英文都試埋。查完真係冇，先可以話 Data Log 冇記錄，然後問返用戶攞資料，唔好自己作。'),
 '① 電影、動畫、卡通、遊戲、童話嘅劇情、角色、設定細節 → [[FANDOM]]。呢啲嘢 Fandom 寫得最深最齊。',
 '② 人物、地方、歷史、科學、書、已經定型嘅事實 → [[SEARCH]]（維基百科）。',
 (hasWeb
@@ -8969,26 +9182,35 @@ function makeStreamView(host, guest){
   head.innerHTML = '<span class="aiSpin"></span> 諗緊…';
   host.appendChild(head);
   const box = document.createElement('div');
-  box.className = 'chatThink';
+  /* 訪客都有得睇：不過係一條單行「走馬燈」，淨係俾佢知道 AI 諗緊嘢 */
+  box.className = 'chatThink' + (guest ? ' guestTicker' : '');
   box.style.display = 'none';
-  if(!guest) host.appendChild(box);
+  host.appendChild(box);
   const body = document.createElement('div');
   body.className = 'chatStream';
   host.appendChild(body);
 
   const paint = function(){
     queued = false;
-    if(!guest && think){
-      box.style.display = '';
-      box.textContent = think.length > 900 ? ('…' + think.slice(-900)) : think;
-      box.scrollTop = box.scrollHeight;
+    if(think){
+      if(guest){
+        /* 訪客：思考文字剪剩條尾，一路串流一路向左「走」，似走馬燈 */
+        box.style.display = '';
+        const tail = think.replace(/\s+/g,' ').slice(-46);
+        box.textContent = (think.length > 46 ? '…' : '') + tail;
+      } else {
+        box.style.display = '';
+        box.textContent = think.length > 900 ? ('…' + think.slice(-900)) : think;
+        box.scrollTop = box.scrollHeight;
+      }
     }
     const t = txt.trim();
     const tool = t.slice(0,2) === '[[';     /* 工具標記，唔好流俾人睇 */
     if(t && !tool){
       head.style.display = 'none';
-      box.classList.add('done');            /* 思考縮細、變淡 */
-      body.textContent = t;                 /* 串流中用純文字，收尾 renderChat 先排版 */
+      if(guest) box.style.display = 'none';  /* 訪客：一開口答，思考走馬燈即刻消失 */
+      else box.classList.add('done');        /* 主人：思考縮細、變淡 */
+      body.textContent = t;                  /* 串流中用純文字，收尾 renderChat 先排版 */
     }
     try{ chatHist.scrollTop = chatHist.scrollHeight; }catch(e){}
   };
@@ -10424,6 +10646,25 @@ function renderThread(){
     say.setAttribute('aria-label', (mine ? '讀返自己講嘅：' : '讀出：') + m.text);
     say.onclick = function(){ if(typeof window.ttsSpeak === 'function') window.ttsSpeak(m.text, say); };
     d.appendChild(say);
+    /* 每句都有得成句 copy 走：撳一粒掣，成段 message 入晒 clipboard */
+    const cp = document.createElement('button');
+    cp.className = 'say'; cp.type = 'button'; cp.textContent = '📋 複製';
+    cp.setAttribute('aria-label', '複製呢句留言');
+    cp.title = '複製成句留言';
+    cp.onclick = async function(){
+      if(cp.disabled) return;
+      const orig = cp.textContent; cp.disabled = true;
+      let ok = false;
+      try{
+        if(typeof copyPlainText === 'function'){ ok = await copyPlainText(m.text); }
+        else if(navigator.clipboard && navigator.clipboard.writeText){
+          await navigator.clipboard.writeText(m.text); ok = true;
+        }
+      }catch(e){ ok = false; }
+      cp.textContent = ok ? '✓ 已複製' : '❌ 複製唔到';
+      setTimeout(function(){ cp.textContent = orig; cp.disabled = false; }, 1400);
+    };
+    d.appendChild(cp);
     /* 主人可以收回自己嘅留言，對面會靜靜雞消失，唔留痕。
        訪客冇呢粒掣——Charlotte 講咗「屋企有事」再自己刪走，
        你就永遠唔會知佢曾經搵過你。呢個訊號唔可以由佢自己抹走。 */
