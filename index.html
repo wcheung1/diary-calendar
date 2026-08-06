@@ -1219,7 +1219,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-06f";
+const BUILD = "2026-08-06g";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -1288,7 +1288,7 @@ auth.onAuthStateChanged(user => {
     btnLogin.textContent = '🔓 登出 (' + user.email + ')';
     
     // 🔥 將資料放喺 DB 裡面一個全新嘅 node 叫 diary_calendar_data
-    // 咁樣就唔會影響你原本 Cabinet 嘅資料
+    // 咁樣就唔會影響你原本嘅資料
     dbRef = db.ref('diary_calendar_data/' + user.uid);
     loadFromFirebase();
   } else {
@@ -1297,6 +1297,8 @@ auth.onAuthStateChanged(user => {
     dbRef = null;
     LogCloud.stop();        /* 登出：熄咗 Data Log 監聽，免得下一個帳號撈亂資料 */
     aiLogLegacy = false;
+    CostCloud.stop();       /* 同上：用量單據監聽都要熄埋 */
+    aiCostLegacy = false;
     
     // 登出後讀取 LocalStorage (離線版)
     state = sanitizeState(LocalStore.load());
@@ -1802,6 +1804,266 @@ async function aiLogBoot(cloudData){
   if(typeof window.__aiLogReady === 'function'){ try{ window.__aiLogReady(); }catch(e){} }
 }
 
+/* =========================================================
+   CostCloud：AI 用量單據嘅獨立雲端儲存（diary_calendar_cost/<uid>）
+   =========================================================
+   點解要有佢：「用量同餘額」每個 AI call 記一張單（~90 byte）落
+   state.ai.cost.calls，跟手即刻 save()——即係每傾一句偈都上傳成份
+   state（~89KB；單據滿 COST_MAX_CALLS＝800 條嗰陣會去到 ~153KB）。
+   主 state 又掛住 on('value')，每次 save 每部在線機仲要回音下載一次。
+   （順帶一提：舊 costRecord 想搵 saveSoon 慳返啲，但成份檔根本冇定義過
+   saveSoon 呢個 function，所以以前實際上係每個 AI call 即刻 save 一次。）
+   而家：
+     · 單據有自己嘅平行節點 diary_calendar_cost/<uid>，主 state 唔再包佢
+     · 每張新單逐條寫（~90 byte），AI call 唔再拖住成份 state 陪跑
+     · 開機唔係拉成個節點——淨係拉「計數真係要用嗰橛」：
+       「7 日前」同「最近一次報數」兩者較早嗰個時間點之後嘅單。
+       點解係較早者：24 小時／7 日窗口要 7 日 raw；餘額估算要
+       「上次報數之後」全部單——兩樣都冚得住，先冇一條數會計錯。
+       更舊嘅單留喺雲端做歷史（一年先兩三 MB，唔使剪），唔阻手。
+   套路照抄 LogCloud（同一款「時間__id」key、同一款「寫唔到就算數」作風）。
+
+   記憶體嗰邊：state.ai.cost.calls 呢個名照樣存在，內容係「已載入窗口
+   ＋今個 session 新增嘅」。呢個係刻意嘅——estBalance／recalibrate／
+   burnPerDay／renderCost 全部讀緊佢；保留呢個名，嗰啲計數 function
+   一行都唔使改。marks（報數）、rates（標價）、factor（校正倍數）
+   又細又少改，照舊住喺主 state，一隻字冇郁過。
+
+   ⚠ 呢個 module 係頂層 code：唔准喺度叫 toast()／ensureAI()／
+   ensureCost()——嗰啲住喺各自嘅 IIFE 入面，喺度叫會 ReferenceError
+   （之前「報數」個 bug 就係咁嚟）。要出提示一律行 window.__aiLogNotify。 */
+const CostCloud = {
+  ROOT:'diary_calendar_cost',
+  WINDOW_DAYS:7,      /* 開機窗口起碼 7 日：冚住「過去 24 鐘」「過去 7 日」兩個顯示窗同燒錢速度 */
+  lastError:'',
+  started:false,
+  newestKey:null,     /* 已載入最新嗰條嘅 key：live 監聽由呢度之後開始收 */
+  onChange:null,      /* 收到新單之後要做嘅嘢（下面塞咗 renderCost 嘅接線位入去） */
+  _q:null,            /* live 監聽緊嗰條 query，登出要 off() 佢 */
+  ref(){
+    try{
+      if(!currentUser || !currentUser.uid || typeof db === 'undefined') return null;
+      return db.ref(this.ROOT + '/' + currentUser.uid);
+    }catch(e){ return null; }
+  },
+  /* at 係 13 位毫秒數：orderByKey() 嘅字典序＝時間序（去到 2286 年都仲係
+     13 位，唔會蝕位）。後面拖住 id：① 同一毫秒兩張單都唔會撞 key
+     ② key 係由條資料自己算出嚟——同一張單寫幾多次都係蓋返同一個位，
+     所以遷移／匯入意外行多次，天生都唔會變兩條 */
+  key(rec){
+    return String(rec.at||0) + '__' + String(rec.id||'').replace(/[.:#$\[\]\/]/g,'-');
+  },
+  /* 逐張寫上雲。fire-and-forget：同 LogCloud.put 一樣，雲端寫唔到（例如
+     安全規則未加）都絕對唔可以影響傾偈——單據係統計，唔係正經資料 */
+  put(rec){
+    const r = this.ref(); if(!r || !rec || !rec.id) return;
+    const self = this;
+    try{
+      r.child(this.key(rec)).set(rec)
+        .then(function(){ self.lastError = ''; })
+        .catch(function(err){ self.lastError = String((err && err.message) || err); });
+    }catch(e){ this.lastError = String(e.message||e); }
+  },
+  /* 批量寫（遷移／匯入用）。一次 200 條起一個 update，唔好一嚿嘢掟上去阻塞部 iPad */
+  async putMany(list){
+    const r = this.ref(); if(!r || !list || !list.length) return;
+    for(let i = 0; i < list.length; i += 200){
+      const upd = {};
+      list.slice(i, i+200).forEach((x)=>{ if(x && x.id) upd[this.key(x)] = x; });
+      await r.update(upd);
+    }
+  },
+  /* 唔可以叫 ensureCost()（佢喺 cost 嗰個 IIFE 入面）——結構自己補 */
+  _ensure(){
+    if(!state || typeof state !== 'object') return null;
+    if(!state.ai || typeof state.ai !== 'object') state.ai = {};
+    if(!state.ai.cost || typeof state.ai.cost !== 'object') state.ai.cost = {};
+    const c = state.ai.cost;
+    if(!Array.isArray(c.calls)) c.calls = [];
+    return c;
+  },
+  /* 將一張單放入 state.ai.cost.calls（記憶體）：同一個 id 已經有就唔郁
+     （多數係自己啱啱寫嗰張嘅回音），未有就按時間序插入返啱位。
+     回傳 true＝真係新單（另一部機傾偈產生嘅） */
+  _ingest(rec){
+    if(!rec || !rec.id) return false;
+    const c = this._ensure(); if(!c) return false;
+    const L = c.calls;
+    for(let i = 0; i < L.length; i++){
+      if(L[i] && L[i].id === rec.id){ return false; }
+    }
+    const k = this.key(rec);
+    let j = L.length;
+    while(j > 0 && this.key(L[j-1]) > k) j--;
+    L.splice(j, 0, rec);
+    return true;
+  },
+  /* 開機要載到幾遠：「7 日前」同「最近一次報數」兩者較早嗰個，再讓一分鐘水位。
+     marks 可能俾 Firebase 交返嚟做 object（array 有窿嗰陣），兩種都要食得落 */
+  _windowStartKey(){
+    let t = Date.now() - this.WINDOW_DAYS*86400000;
+    try{
+      const c = state && state.ai && state.ai.cost;
+      let marks = (c && c.marks) || [];
+      if(!Array.isArray(marks)) marks = Object.values(marks);
+      let last = 0;
+      for(let i = 0; i < marks.length; i++){
+        if(marks[i] && Number(marks[i].at) > last) last = Number(marks[i].at);
+      }
+      if(last) t = Math.min(t, last - 60000);
+    }catch(e){}
+    return String(Math.max(0, Math.floor(t)));
+  },
+  /* 開機：載窗口，然後掛 live 監聽。
+     opt.fromMemory＝true：記憶體嗰份已經係想要嗰份（遷移／匯入啱啱做完），唔使再落雲攞 */
+  async start(opt){
+    opt = opt || {};
+    this.stop();
+    const r = this.ref(); if(!r) return;
+    this.started = true;
+    try{
+      if(opt.fromMemory){
+        const c = this._ensure();
+        const L = (c && c.calls) || [];
+        this.newestKey = L.length ? this.key(L[L.length-1]) : null;
+      }else{
+        const snap = await r.orderByKey().startAt(this._windowStartKey()).once('value');
+        const v = snap.val() || {};
+        const keys = Object.keys(v).sort();
+        for(const k of keys){ if(v[k]) this._ingest(v[k]); }
+        if(keys.length) this.newestKey = keys[keys.length-1];
+      }
+      this.lastError = '';
+    }catch(err){ this.lastError = String((err && err.message) || err); }
+    /* live 監聽：由「已載入最新嗰條」開始向後收（startAt 係包含式，重疊嗰條
+       _ingest 會用 id 擋走）。刻意唔掛喺成個節點度——RTDB 任何監聽都會將
+       query 範圍內嘅資料全份同步落嚟，掛全節點就等於開機拉晒成個歷史，
+       本末倒置。效果：A 機傾偈，B 機開住「用量同餘額」會見到條數即時郁 */
+    try{
+      const q = r.orderByKey().startAt(this.newestKey || this._windowStartKey());
+      const self = this;
+      q.on('child_added', function(s){
+        const rec = s.val(); if(!rec) return;
+        const isNew = self._ingest(rec);
+        if(isNew){
+          if(!self.newestKey || s.key > self.newestKey) self.newestKey = s.key;
+          if(typeof self.onChange === 'function'){ try{ self.onChange(); }catch(e){} }
+        }
+      });
+      this._q = q;
+    }catch(e){}
+  },
+  stop(){
+    try{ if(this._q) this._q.off(); }catch(e){}
+    this._q = null; this.started = false; this.newestKey = null;
+  }
+};
+/* 有新單到（多數係另一部機傾偈）就重畫「用量同餘額」。renderCost 喺 cost
+   IIFE 度掛咗上 window，呢度只可以行 window 呢條橋；面板未開佢會自己彈走 */
+CostCloud.onChange = function(){ try{ if(typeof window.renderCost === 'function') window.renderCost(); }catch(e){} };
+
+/* aiCostLegacy＝true 表示雲端主 state 仲揸住舊式 ai.cost.calls（遷移未完成
+   ／失敗）。呢段期間 save() 同 costRecord 都要維持 100% 舊行為——道理同
+   aiLogLegacy 一模一樣：update() 係成個 ai 節點換走，未搬完就剝 calls，
+   一 save 就會剷咗雲端嗰批舊單，等於未搬屋先燒屋。 */
+let aiCostLegacy = false;
+
+/* ============ 一次性遷移：舊 state.ai.cost.calls 搬去 diary_calendar_cost ============
+   次序照抄 migrateAiLog，一隻字唔改：①分批寫過去新屋 → ②點人頭核對，
+   一張都唔可以少 → ③先至「剷走舊 calls＋落 callsMigrated 旗標」（同一個
+   update，一齊成功或一齊失敗）。任何一步失敗：舊嘢一定唔剷，成個 app
+   維持舊行為，下次開機自動再試。 */
+async function migrateCostCalls(rawCalls){
+  const r = CostCloud.ref();
+  if(!r || !dbRef) return false;
+  /* Firebase 有時會將 array 交返嚟做 object（中間有窿嗰陣），兩種都要食得落 */
+  const arr = Array.isArray(rawCalls) ? rawCalls.slice() : Object.values(rawCalls || {});
+  /* 舊單冇 id：用「m＋位置」補返。calls 係淨係喺尾度加嘅，位置唔會郁，
+     所以就算遷移行到一半斷咗、下次再嚟，同一張單都係同一個位置→同一個
+     id→同一個 key，蓋返同一個窿，天生唔會變兩條 */
+  const list = [];
+  for(let i = 0; i < arr.length; i++){
+    const x = arr[i];
+    if(!x || !x.at) continue;
+    list.push(x.id ? x : Object.assign({}, x, {id:'m'+i}));
+  }
+  try{
+    await CostCloud.putMany(list);
+    /* 點人頭：新屋嗰邊成份讀返嚟逐條 key 核對（幾百條先幾十 KB，
+       一次性成本），一張都唔可以少，先准剷舊屋 */
+    const snap = await r.once('value');
+    const have = snap.val() || {};
+    const missing = list.filter(function(x){ return !have[CostCloud.key(x)]; });
+    if(missing.length) throw new Error('點人頭少咗 ' + missing.length + ' 條');
+    /* 過晒關：一個 update 同時「剷走舊 calls＋落旗標」，兩件事一齊成功或
+       一齊失敗。用 child('ai/cost') 淨係郁呢兩個 key——marks／rates／factor
+       原封不動 */
+    await dbRef.child('ai/cost').update({ calls:null, callsMigrated:new Date().toISOString() });
+    /* 記憶體嗰邊：將頭嗰批（本來冇 id 嘅）換做有 id 嘅版本，key 先計得啱；
+       遷移期間今個 session 新記嘅單（本身有 id）一張都唔郁 */
+    if(state && state.ai && state.ai.cost){
+      const cur = Array.isArray(state.ai.cost.calls) ? state.ai.cost.calls : [];
+      for(let i = 0; i < list.length && i < cur.length; i++){
+        if(cur[i] && !cur[i].id && Number(cur[i].at) === Number(list[i].at)) cur[i] = list[i];
+      }
+      /* 保險掃尾：遷移嗰幾秒入面如果有新單行咗舊路（跟 state 上咗雲），
+         佢哋唔喺 list 入面，頭先個 update 會將佢哋連舊 calls 一齊剷走——
+         見到記憶體有 id 而新屋未有嘅，逐張補寫返落新屋 */
+      for(let i = 0; i < cur.length; i++){
+        const x = cur[i];
+        if(x && x.id && !have[CostCloud.key(x)]) CostCloud.put(x);
+      }
+      state.ai.cost.callsMigrated = new Date().toISOString();
+    }
+    aiCostLegacy = false;
+    await CostCloud.start({fromMemory:true});
+    if(typeof window.__aiLogNotify === 'function') window.__aiLogNotify('✅ 用量單據已經搬咗去獨立儲存（' + list.length + ' 條）。以後傾偈儲嘢會輕好多。');
+    return true;
+  }catch(err){
+    console.warn('用量單據遷移未完成，維持舊模式，下次開機再試', err);
+    if(typeof window.__aiLogNotify === 'function') window.__aiLogNotify('⚠ 用量單據搬遷未完成，一切照舊運作，下次開機會自動再試。');
+    return false;
+  }
+}
+
+/* 開機（登入後）用量單據點樣起步：睇下使唔使搬屋，唔使就直接開監聽。
+   同 aiLogBoot 一齊喺 firstLoad 嗰度入閘，行事曆畫完先做，唔阻開機 */
+async function costBoot(cloudData){
+  try{
+    if(!currentUser) return;
+    const cc = cloudData && cloudData.ai && cloudData.ai.cost && cloudData.ai.cost.calls;
+    const legacy = cc && (Array.isArray(cc) ? cc.length : Object.keys(cc).length);
+    if(legacy){
+      aiCostLegacy = true;                /* 未搬完之前，save()／costRecord 照舊行為 */
+      await migrateCostCalls(cc);
+    }else{
+      const c = state && state.ai && state.ai.cost;
+      const mem = (c && Array.isArray(c.calls)) ? c.calls : [];
+      if(mem.length){
+        /* 行到呢度＝雲端 state 冇 calls 但記憶體有：多數係「上傳本地資料」
+           嗰條路（一路未登入用開，啱啱先登入）。當一次細遷移咁上返雲。
+           保險起見先 probe 下新屋係咪真係空，唔好冒失蓋過人哋 */
+        const r = CostCloud.ref();
+        const probe = r ? await r.orderByKey().limitToLast(1).once('value') : null;
+        if(probe && !probe.exists()){
+          for(let i = 0; i < mem.length; i++){
+            if(mem[i] && !mem[i].id) mem[i] = Object.assign({}, mem[i], {id:'m'+i});
+          }
+          await CostCloud.putMany(mem);
+          await CostCloud.start({fromMemory:true});
+        }else{
+          await CostCloud.start();        /* 新屋有嘢：正常開機，_ingest 會用 id 夾埋兩邊 */
+        }
+      }else{
+        await CostCloud.start();
+      }
+    }
+  }catch(e){
+    console.warn('用量單據啟動出錯', e);
+    try{ await CostCloud.start(); }catch(e2){}
+  }
+}
+
 let loading = false;
 let fbListener = null;
 
@@ -1822,6 +2084,17 @@ function save(){
       const aiLite = Object.assign({}, payload.ai);
       delete aiLite.log;
       payload.ai = aiLite;
+    }
+    /* 用量單據（ai.cost.calls）都搬咗去獨立節點（CostCloud／diary_calendar_cost）：
+       同一道理，上傳前剝走佢。特登另起一段、另用一支旗（aiCostLegacy），
+       唔同上面 log 嗰段撈埋——邊個遷移出事都唔會拖冧另一個。淺複製 ai 同
+       cost，正本一定唔可以掂：記憶體嗰份 calls 仲要留返俾「用量同餘額」
+       面板計 24 小時／7 日／餘額估算。marks／rates／factor 就照舊跟 state 上傳 */
+    if(!aiCostLegacy && payload.ai && payload.ai.cost && typeof payload.ai.cost === 'object'){
+      const aiLite2 = Object.assign({}, payload.ai);
+      aiLite2.cost = Object.assign({}, payload.ai.cost);
+      delete aiLite2.cost.calls;
+      payload.ai = aiLite2;
     }
     dbRef.update(payload).catch(err => console.error("Firebase 儲存失敗", err));
   } else {
@@ -1892,6 +2165,7 @@ function loadFromFirebase() {
       /* Data Log 起步（詳見 LogCloud 註解）：擺喺行事曆畫完之後先做——
          log 遲少少到都唔會影響開機速度；有需要搬屋（遷移）都係喺呢度入閘 */
       aiLogBoot(data);
+      costBoot(data);   /* 用量單據起步（詳見 CostCloud 註解）：同一個入閘位、同一個時機，遷移都係喺度入閘 */
     } else {
       if(!data) return;
       loading = true;
@@ -1905,6 +2179,16 @@ function loadFromFirebase() {
               殺死你雙擊改緊嘅嘢——正正係佢本來要守護嘅嘢 */
         if(next.ai && state && state.ai && Array.isArray(state.ai.log) && !Array.isArray(next.ai.log)){
           next.ai.log = state.ai.log;
+        }
+        /* 同一道理（cost.calls 搬咗去 CostCloud）：遷移後雲端份 state 係冇
+           calls 嘅，要將記憶體嗰份接返落 next 度先好比較／換入去，唔係：
+           ① save 個回音一到，成份用量單據就會由記憶體抹走
+           ② 下面個「一樣就唔重畫」比較會永遠判「唔一樣」，逢 save 必重畫，
+              一樣會殺死你雙擊改緊嘅嘢 */
+        if(next.ai && next.ai.cost && typeof next.ai.cost === 'object' &&
+           state && state.ai && state.ai.cost && Array.isArray(state.ai.cost.calls) &&
+           !Array.isArray(next.ai.cost.calls)){
+          next.ai.cost.calls = state.ai.cost.calls;
         }
         /* 自己啱啱 save 上去嘅資料會即刻回音返嚟。如果內容一模一樣就唔好重畫，
            唔係每次 save 都會殺死用戶做緊嘅 inline 編輯（雙擊改時間／改名）。 */
@@ -3995,6 +4279,22 @@ try{
     }else if(keep.log.length){
       state.ai = keep; snap=null; save();   /* 原有保護：檔冇 log 就唔好整走現有嗰份 */
     }
+    /* cost.calls 又係搬咗去獨立節點：份檔有單就一齊上返雲，唔係其他機
+       （同下次開機）載唔到呢批。用 putMany「淨加唔剷」——key 係「時間__id」
+       天生防重複：撳多次匯入唔會變兩條，亦唔會剷走雲端本身仲有嘅更舊單據。
+       舊備份檔嘅單冇 id：照遷移嗰條規矩用「m＋位置」補——同一份檔嘅同一張
+       單永遠算出同一個 key，就算佢哋之前已經俾遷移搬咗上去，都係蓋返同
+       一個位，唔會出現孖單 */
+    try{
+      const cc = state.ai && state.ai.cost && state.ai.cost.calls;
+      if(currentUser && Array.isArray(cc) && cc.length){
+        for(let i = 0; i < cc.length; i++){
+          if(cc[i] && !cc[i].id) cc[i] = Object.assign({}, cc[i], {id:'m'+i});
+        }
+        await CostCloud.putMany(cc);
+        await CostCloud.start({fromMemory:true});
+      }
+    }catch(e){}
     renderLog();
   };
 }catch(e){}
@@ -6463,7 +6763,15 @@ $('aiLogImport').onchange = async function(){
     const ai = j.ai || j;
     if(!Array.isArray(ai.log)) throw new Error('唔似係備份檔');
     if(await confirmBox('要用呢個備份覆蓋而家嘅 Data Log 同 Rules？')){
-      state.ai = {log:ai.log, rules:String(ai.rules||''), rulesAt:String(ai.rulesAt||''), sinceRule:Number(ai.sinceRule||0)};
+      /* 以前呢度係成個 state.ai 換走——即係 hwDone（功課記錄）、hwRules
+         （班別規矩）、hwTasks、hwSkip、cost（用量）、cam（相機設定）全部
+         陪葬。呢個檔案本身淨係 Data Log 同 Rules 嘅備份，理應淨係換呢
+         四樣，其他欄位原封不動 */
+      if(!state.ai || typeof state.ai !== 'object') state.ai = {};
+      state.ai.log = ai.log;
+      state.ai.rules = String(ai.rules||'');
+      state.ai.rulesAt = String(ai.rulesAt||'');
+      state.ai.sinceRule = Number(ai.sinceRule||0);
       save();
       /* log 唔再住喺主 state：要同時將雲端 diary_calendar_log 換晒做備份
          嗰份，唔係其他機（同下次開機）睇到嘅仲係舊嗰批 */
@@ -9707,10 +10015,28 @@ function costRecord(model, usage){
     const ct = Number(usage.completion_tokens) || 0;
     const cached = Number((usage.prompt_tokens_details && usage.prompt_tokens_details.cached_tokens) || 0);
     if(!pt && !ct) return;
-    c.calls.push({at:Date.now(), m:String(model||''), k:costKind(model),
-                  i:Math.max(0, pt - cached), c:cached, o:ct});
-    if(c.calls.length > COST_MAX_CALLS) c.calls = c.calls.slice(-COST_MAX_CALLS);
-    if(typeof saveSoon === 'function') saveSoon(); else save();
+    /* 張單要有 id：CostCloud 個 key 係「時間__id」——同一毫秒兩張單先唔會
+       撞位；監聽收到自己嗰張嘅回音，都靠 id 認得返「呢張我有咗」唔會落兩次數 */
+    const rec = {at:Date.now(), id:Math.random().toString(36).slice(2,8),
+                 m:String(model||''), k:costKind(model),
+                 i:Math.max(0, pt - cached), c:cached, o:ct};
+    c.calls.push(rec);
+    if(currentUser && !aiCostLegacy){
+      /* 已登入＋搬完屋：張單自己寫落獨立節點（~90 byte），主 state 一啲
+         都唔使郁。以前呢度係即刻 save()——每個 AI call 上傳成份 state
+         （~89KB，滿 800 條會去到 ~153KB），每部在線機仲要回音下載一次；
+         搬走 calls 就係為咗斬斷呢下。CostCloud／currentUser／aiCostLegacy
+         都係頂層嘢，喺呢個 IIFE 望出去見到，作用域安全。
+         唔剪 800 上限：個 cap 本來係為咗慳 state 大細，搬咗屋已經冇呢個
+         需要；照剪反而會重演「好耐冇報數→舊單被剪→餘額靜靜雞計錯」嘅暗病 */
+      CostCloud.put(rec);
+    }else{
+      /* 未登入（本機模式）／遷移未完成：100% 舊行為——連 calls 全份
+         save()（本機落 localStorage；遷移期間跟 state 上雲，等遷移收尾
+         執返）。800 上限淨係喺呢邊先剪，保護 localStorage 唔好脹爆 */
+      if(c.calls.length > COST_MAX_CALLS) c.calls = c.calls.slice(-COST_MAX_CALLS);
+      save();
+    }
   }catch(e){ console.warn('costRecord', e); }
 }
 
