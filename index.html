@@ -890,6 +890,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
       <button class="btn" id="aiLogImportBtn">⬆ 還原</button>
       <input type="file" id="aiLogImport" accept=".json,application/json" style="display:none">
       <button class="btn danger" id="aiLogClear">🗑 全部清走</button>
+      <button class="btn" id="aiLogMore" style="display:none" title="Data Log 開機只載最近 300 條，撳呢度向前多攞一頁">📥 載入更舊</button>
       <span class="aiHint" id="aiLogCount"></span>
     </div>
     <div class="aiRow">
@@ -1294,6 +1295,8 @@ auth.onAuthStateChanged(user => {
     currentUser = null;
     btnLogin.textContent = '👤 Google 登入';
     dbRef = null;
+    LogCloud.stop();        /* 登出：熄咗 Data Log 監聽，免得下一個帳號撈亂資料 */
+    aiLogLegacy = false;
     
     // 登出後讀取 LocalStorage (離線版)
     state = sanitizeState(LocalStore.load());
@@ -1485,6 +1488,320 @@ async function thinkCounts(){
   return {local:loc, cloud:cld, err:ThinkCloud.lastError, signed: !!ThinkCloud.ref()};
 }
 
+/* =========================================================
+   LogCloud：Data Log 嘅獨立雲端儲存（diary_calendar_log/<uid>）
+   =========================================================
+   點解要有佢：以前成份 Data Log 塞喺 state.ai.log，save() 每次將成個
+   state 上傳（實測 469KB，其中 81% 係 log）——撳一個功課剔、拖一格
+   時間，都要陪跑成份 log。而家：
+     · log 有自己嘅平行節點 diary_calendar_log/<uid>，主 state 唔再包佢
+     · 新記錄逐條寫（每條幾百 byte），唔會成份重傳
+     · 開機只載最近 PAGE 條，之後靠監聽逐條收新嘢；想睇更舊撳「載入更舊」
+   套路照抄 ThinkCloud（同一款 key、同一款「寫唔到就算數」作風）。
+   同 ThinkCloud 唯一唔同：呢度有裝監聽器——因為 Data Log 要即時顯示
+   （訪客傾偈，主人另一部機要見到），思考記錄就唔使即時。
+
+   記憶體嗰邊：state.ai.log 呢個名照樣存在，內容係「已載入嗰批＋今個
+   session 新增嘅」。呢個係刻意嘅——成份 code 有十幾處讀緊
+   state.ai.log（AI 排程攞最近 14 條、提煉規則最多攞 90 條、版面顯示
+   ……全部都係攞「最近嗰批」），保留呢個名，嗰十幾處一行都唔使改。
+
+   ⚠ 呢個 module 係頂層 code：唔准喺度叫 toast()／ensureAI()／short()
+   ——佢哋住喺 AI 嗰個 IIFE 入面，喺度叫會 ReferenceError（之前「報數」
+   個 bug 就係咁嚟）。要同 UI 溝通一律行 window.__aiLog* 呢啲接線位。 */
+const LogCloud = {
+  ROOT:'diary_calendar_log',
+  PAGE:300,           /* 開機載入／每撳一次「載入更舊」嘅條數：夠冚版面顯示同提煉規則（最多用 90 條）有突 */
+  lastError:'',
+  total:null,         /* 雲端總條數（開機「點人頭」攞返嚟；點唔到就 null，UI 會轉做「已載入 X 條」） */
+  oldestKey:null,     /* 已載入嗰批入面最舊嘅 key：「載入更舊」由呢度再向前揭 */
+  newestKey:null,     /* 已載入最新嘅 key：live 監聽由呢度之後開始收 */
+  allLoaded:false,    /* true＝雲端成份 log 已經喺記憶體（匯出／訪客匯出靠佢判斷齊唔齊） */
+  started:false,
+  onChange:null,      /* 收到新記錄之後要做嘅嘢（AI 嗰邊會塞 renderLog 入嚟） */
+  _q:null,            /* live 監聽緊嗰條 query，登出／重啟要 off() 佢 */
+  _keys:null,         /* 點人頭攞返嚟嘅 key 清單，順便俾 trimTo() 精準剪舊嘢 */
+  ref(){
+    try{
+      if(!currentUser || !currentUser.uid || typeof db === 'undefined') return null;
+      return db.ref(this.ROOT + '/' + currentUser.uid);
+    }catch(e){ return null; }
+  },
+  /* key 同 ThinkCloud 一樣用「時間__id」：
+     ① orderByKey() 就等於順時序，唔使開 index
+     ② key 係由條資料自己算出嚟——同一條寫幾多次都係蓋返同一個位，
+        所以遷移／匯入就算意外行多次，天生都唔會出現重複 */
+  key(rec){
+    return String(rec.at||'').replace(/[.:#$\[\]\/]/g,'-') + '__' + String(rec.id||'').replace(/[.:#$\[\]\/]/g,'-');
+  },
+  /* 逐條寫上雲。fire-and-forget：同 saveThink 一樣，雲端寫唔到都絕對唔可以影響傾偈 */
+  put(rec){
+    const r = this.ref(); if(!r || !rec || !rec.id) return;
+    const self = this;
+    try{
+      r.child(this.key(rec)).set(rec)
+        .then(function(){ self.lastError = ''; })
+        .catch(function(err){ self.lastError = String((err && err.message) || err); });
+    }catch(e){ this.lastError = String(e.message||e); }
+  },
+  /* 批量寫（遷移／匯入用）。一次 200 條起一個 update，唔好一嚿幾百 KB 掟上去阻塞部 iPad */
+  async putMany(list){
+    const r = this.ref(); if(!r || !list || !list.length) return;
+    for(let i = 0; i < list.length; i += 200){
+      const upd = {};
+      list.slice(i, i+200).forEach((x)=>{ if(x && x.id) upd[this.key(x)] = x; });
+      await r.update(upd);
+    }
+  },
+  remove(rec){
+    const r = this.ref(); if(!r || !rec) return;
+    try{
+      r.child(this.key(rec)).remove().catch(function(){});
+      if(this.total != null && this.total > 0) this.total--;
+    }catch(e){}
+  },
+  /* 將一條記錄放入 state.ai.log（記憶體）：同一個 id 已經有就成條蓋過去
+     （代表另一邊改咗旗，例如「已還原」），未有就按時間序插入返啱位。
+     回傳 true＝真係新記錄。唔可以叫 ensureAI()（佢喺 IIFE 入面），所以自己補結構 */
+  _ingest(rec){
+    if(!rec || !rec.id) return false;
+    if(!state || typeof state !== 'object') return false;
+    if(!state.ai || typeof state.ai !== 'object') state.ai = {};
+    if(!Array.isArray(state.ai.log)) state.ai.log = [];
+    const L = state.ai.log;
+    for(let i = 0; i < L.length; i++){
+      if(L[i] && L[i].id === rec.id){ L[i] = rec; return false; }
+    }
+    const k = this.key(rec);
+    let j = L.length;
+    while(j > 0 && this.key(L[j-1]) > k) j--;
+    L.splice(j, 0, rec);
+    return true;
+  },
+  /* 開機：載最近一頁，然後掛 live 監聽。
+     opt.fromMemory＝true：記憶體嗰份已經係全份（遷移／匯入啱啱做完），唔使再落雲攞 */
+  async start(opt){
+    opt = opt || {};
+    this.stop();
+    const r = this.ref(); if(!r) return;
+    this.started = true;
+    try{
+      if(opt.fromMemory){
+        const L = (state && state.ai && Array.isArray(state.ai.log)) ? state.ai.log : [];
+        this.allLoaded = true;
+        this.total = L.length;
+        this.oldestKey = L.length ? this.key(L[0]) : null;
+        this.newestKey = L.length ? this.key(L[L.length-1]) : null;
+      }else{
+        const snap = await r.orderByKey().limitToLast(this.PAGE).once('value');
+        const v = snap.val() || {};
+        const keys = Object.keys(v).sort();
+        for(const k of keys){ if(v[k]) this._ingest(v[k]); }
+        this.oldestKey = keys.length ? keys[0] : null;
+        this.newestKey = keys.length ? keys[keys.length-1] : null;
+        this.allLoaded = keys.length < this.PAGE;   /* 一頁都裝唔滿＝已經係全部 */
+        if(this.allLoaded) this.total = keys.length;
+      }
+      this.lastError = '';
+    }catch(err){ this.lastError = String((err && err.message) || err); }
+    /* live 監聽：由「已載入最新嗰條」開始向後收（startAt 係包含式，
+       重疊嗰一條 _ingest 會用 id 擋走）。刻意唔掛喺成個節點度——
+       RTDB 任何監聽都會將 query 範圍內嘅資料全份同步落嚟，掛全節點
+       就等於開機拉晒幾千條，本末倒置。代價：另一部機「改舊記錄嘅旗」
+       唔會即時推過嚟（refresh 先見）；新記錄就一定即時到——驗收要求嘅係後者 */
+    try{
+      const q = this.newestKey ? r.orderByKey().startAt(this.newestKey) : r.orderByKey();
+      const self = this;
+      q.on('child_added', function(s){
+        const rec = s.val(); if(!rec) return;
+        const isNew = self._ingest(rec);
+        if(isNew){
+          if(!self.newestKey || s.key > self.newestKey) self.newestKey = s.key;
+          if(self.total != null) self.total++;
+        }
+        if(typeof self.onChange === 'function'){ try{ self.onChange(); }catch(e){} }
+      });
+      this._q = q;
+    }catch(e){}
+    if(typeof this.onChange === 'function'){ try{ this.onChange(); }catch(e){} }
+  },
+  stop(){
+    try{ if(this._q) this._q.off(); }catch(e){}
+    this._q = null; this.started = false;
+    this.total = null; this.oldestKey = null; this.newestKey = null;
+    this.allLoaded = false; this._keys = null;
+  },
+  /* 「載入更舊」：由 oldestKey 再向前揭一頁。攞唔到會 throw，交返俾個掣話俾用戶知 */
+  async loadOlder(){
+    const r = this.ref(); if(!r || this.allLoaded) return 0;
+    const want = this.oldestKey ? this.PAGE + 1 : this.PAGE;   /* +1 因為 endAt 連自己嗰條都計埋 */
+    const q = this.oldestKey
+      ? r.orderByKey().endAt(this.oldestKey).limitToLast(want)
+      : r.orderByKey().limitToLast(want);
+    const snap = await q.once('value');
+    const v = snap.val() || {};
+    const keys = Object.keys(v).sort();
+    let added = 0;
+    for(const k of keys){ if(v[k] && this._ingest(v[k])) added++; }
+    if(keys.length) this.oldestKey = keys[0];
+    if(keys.length < want) this.allLoaded = true;
+    if(this.allLoaded && state && state.ai && Array.isArray(state.ai.log)) this.total = state.ai.log.length;
+    return added;
+  },
+  /* 匯出／備份／訪客對話匯出之前叫呢個：將雲端成份 log 攞晒落記憶體。
+     回傳 true＝記憶體而家係齊嘅；false＝攞唔到（caller 要問用戶點算） */
+  async fetchAll(){
+    if(!currentUser) return true;            /* 未登入：本機嗰份本身就係全份 */
+    if(this.allLoaded) return true;
+    const r = this.ref(); if(!r) return true;
+    try{
+      const snap = await r.once('value');
+      const v = snap.val() || {};
+      const keys = Object.keys(v).sort();
+      for(const k of keys){ if(v[k]) this._ingest(v[k]); }
+      if(keys.length) this.oldestKey = keys[0];
+      if(keys.length && (!this.newestKey || keys[keys.length-1] > this.newestKey)) this.newestKey = keys[keys.length-1];
+      this.allLoaded = true;
+      this.total = (state && state.ai && Array.isArray(state.ai.log)) ? state.ai.log.length : keys.length;
+      this.lastError = '';
+      return true;
+    }catch(err){ this.lastError = String((err && err.message) || err); return false; }
+  },
+  async clear(){
+    const r = this.ref(); if(!r) return true;   /* 未登入：冇雲端嘢要清 */
+    try{
+      await r.remove();
+      this.total = 0; this.oldestKey = null; this.newestKey = null; this.allLoaded = true; this._keys = [];
+      return true;
+    }catch(err){ this.lastError = String((err && err.message) || err); return false; }
+  },
+  /* 成份換走（匯入備份用）：先清雲端，再分批寫入，最後由記憶體重啟監聽。
+     caller 要先將 state.ai.log 設做想要嗰份先好叫 */
+  async replaceAll(list){
+    const r = this.ref(); if(!r) return false;
+    try{
+      await r.remove();
+      await this.putMany(list);
+      await this.start({fromMemory:true});
+      this.lastError = '';
+      return true;
+    }catch(err){ this.lastError = String((err && err.message) || err); return false; }
+  },
+  /* 「點人頭」：用 RTDB REST 嘅 shallow 模式淨係攞 key 清單（唔攞內容），
+     1000 條先廿零 KB。SDK 冇呢招，所以呢度係成個 app 唯一直接打 REST 嘅位。
+     打唔通（防火牆／離線）唔會出事——照樣運作，只係總數轉做「已載入 X 條」 */
+  async fetchCount(){
+    try{
+      const r = this.ref(); if(!r || !currentUser) return null;
+      const tok = await currentUser.getIdToken();
+      const res = await fetch(r.toString() + '.json?shallow=true&auth=' + encodeURIComponent(tok));
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const j = await res.json();
+      const keys = j ? Object.keys(j).sort() : [];
+      this._keys = keys;
+      this.total = keys.length;
+      return this.total;
+    }catch(e){ return null; }
+  },
+  /* 雲端多過 max 條就剷走最舊嗰啲。用點人頭嗰份 key 清單嚟剪，唔使下載
+     內容都剪得準；冇清單（REST 打唔通）就唔郁，下次開機再算 */
+  async trimTo(max){
+    const r = this.ref(); if(!r) return;
+    try{
+      if(!Array.isArray(this._keys) || this._keys.length <= max) return;
+      const kill = this._keys.slice(0, this._keys.length - max);
+      for(let i = 0; i < kill.length; i += 200){
+        const upd = {};
+        kill.slice(i, i+200).forEach(function(k){ upd[k] = null; });
+        await r.update(upd);
+      }
+      this._keys = this._keys.slice(kill.length);
+      this.total = this._keys.length;
+    }catch(e){}
+  }
+};
+
+/* aiLogLegacy＝true 表示雲端主 state 仲揸住舊式 ai.log（遷移未完成／失敗）。
+   呢段期間 save() 要維持 100% 舊行為（連 log 上傳）——因為 update() 係
+   成個 ai 節點換走，如果遷移未做完 save() 就剝走 log，第一下 save 就會
+   將雲端嗰份舊 log 剷咗，等於未搬屋先燒屋。 */
+let aiLogLegacy = false;
+
+/* ============ 一次性遷移：舊 state.ai.log 搬去 diary_calendar_log ============
+   次序好緊要：①分批寫過去新屋 → ②點人頭核對，一條都唔可以少 → ③先至
+   「剷走舊嘢＋落 logMigrated 旗標」（同一個 update，一齊成功或一齊失敗）。
+   任何一步失敗：舊嘢一定唔剷，成個 app 維持舊行為，下次開機自動再試。
+   意外行兩次都唔怕：每條嘅雲端 key 由「時間+id」算出嚟，重寫只係蓋返
+   同一個位，唔會變兩條。 */
+async function migrateAiLog(rawLog){
+  const r = LogCloud.ref();
+  if(!r || !dbRef) return false;
+  /* Firebase 有時會將 array 交返嚟做 object（中間有窿嗰陣），兩種都要食得落 */
+  const arr = Array.isArray(rawLog) ? rawLog.slice() : Object.values(rawLog || {});
+  const list = arr.filter(function(x){ return x && x.id && x.at; });
+  try{
+    await LogCloud.putMany(list);
+    /* 核對：新屋嗰邊逐條 key 點齊人，先准剷舊屋 */
+    const need = list.map(function(x){ return LogCloud.key(x); });
+    let have = null;
+    if((await LogCloud.fetchCount()) != null){
+      have = {};
+      LogCloud._keys.forEach(function(k){ have[k] = 1; });
+    }else{
+      const snap = await r.once('value');   /* 點人頭打唔通就焗住成份讀返嚟核對（一次過，唔係日常成本） */
+      have = snap.val() || {};
+    }
+    const missing = need.filter(function(k){ return !have[k]; });
+    if(missing.length) throw new Error('點人頭少咗 ' + missing.length + ' 條');
+    /* 過晒關：一個 update 同時「剷走舊 log＋落旗標」，兩件事一齊成功或一齊失敗 */
+    await dbRef.child('ai').update({ log:null, logMigrated:new Date().toISOString() });
+    if(state && state.ai && !state.ai.logMigrated) state.ai.logMigrated = new Date().toISOString();
+    aiLogLegacy = false;
+    await LogCloud.start({fromMemory:true});
+    if(typeof window.__aiLogNotify === 'function') window.__aiLogNotify('✅ Data Log 已經搬咗去獨立儲存（' + list.length + ' 條）。以後儲嘢會輕好多。');
+    if(arr.length !== list.length) console.warn('有 ' + (arr.length - list.length) + ' 條舊 log 冇 id／at，搬唔到（你張 BEFORE 備份檔有底）');
+    return true;
+  }catch(err){
+    console.warn('Data Log 遷移未完成，維持舊模式，下次開機再試', err);
+    if(typeof window.__aiLogNotify === 'function') window.__aiLogNotify('⚠ Data Log 搬遷未完成，一切照舊運作，下次開機會自動再試。');
+    return false;
+  }
+}
+
+/* 開機（登入後）Data Log 點樣起步：睇下使唔使搬屋，唔使就直接開監聽 */
+async function aiLogBoot(cloudData){
+  try{
+    if(!currentUser) return;
+    const legacy = cloudData && cloudData.ai && cloudData.ai.log &&
+      (Array.isArray(cloudData.ai.log) ? cloudData.ai.log.length : Object.keys(cloudData.ai.log).length);
+    if(legacy){
+      aiLogLegacy = true;                 /* 未搬完之前，save() 照舊連 log 上傳 */
+      await migrateAiLog(cloudData.ai.log);
+    }else{
+      const memLog = (state && state.ai && Array.isArray(state.ai.log)) ? state.ai.log : [];
+      if(memLog.length){
+        /* 行到呢度＝雲端 state 冇 log 但記憶體有：多數係「上傳本地資料」
+           嗰條路（一路未登入用開，啱啱先登入）。當一次細遷移咁上返雲。
+           保險起見先 probe 下新屋係咪真係空，唔好冒失蓋過人哋 */
+        const r = LogCloud.ref();
+        const probe = r ? await r.orderByKey().limitToLast(1).once('value') : null;
+        if(probe && !probe.exists()){
+          await LogCloud.putMany(memLog);
+          await LogCloud.start({fromMemory:true});
+        }else{
+          await LogCloud.start();         /* 新屋有嘢：正常開機，_ingest 會用 id 夾埋兩邊 */
+        }
+      }else{
+        await LogCloud.start();
+      }
+    }
+  }catch(e){
+    console.warn('Data Log 啟動出錯', e);
+    try{ await LogCloud.start(); }catch(e2){}
+  }
+  if(typeof window.__aiLogReady === 'function'){ try{ window.__aiLogReady(); }catch(e){} }
+}
+
 let loading = false;
 let fbListener = null;
 
@@ -1495,9 +1812,20 @@ function save(){
        令訪客模式永遠解鎖唔到。update 只會逐個 top-level key 換，唔關事嘅 key 保持原狀。 */
     const payload = Object.assign({}, state);
     delete payload.guestUnlockHash;
+    /* Data Log 搬咗去獨立節點（LogCloud／diary_calendar_log）：淺複製 ai
+       再剝走 log 先上傳——正本 state.ai.log 一定唔可以掂，佢仲要留喺
+       記憶體俾版面同 AI 讀。就係呢一下，令每次 save 由 ~469KB 跌到 ~88KB。
+       aiLogLegacy＝true 即係遷移仲未完成：嗰陣要維持 100% 舊行為連 log
+       上傳，因為 update() 係成個 ai 節點換走，未搬完就剝 log 等於一 save
+       就剷咗雲端嗰份舊 log。 */
+    if(!aiLogLegacy && payload.ai && typeof payload.ai === 'object'){
+      const aiLite = Object.assign({}, payload.ai);
+      delete aiLite.log;
+      payload.ai = aiLite;
+    }
     dbRef.update(payload).catch(err => console.error("Firebase 儲存失敗", err));
   } else {
-    LocalStore.save(state);
+    LocalStore.save(state);   /* 未登入照舊：連 log 全份落 localStorage（本機模式冇雲端幫手） */
   }
 }
 
@@ -1561,12 +1889,23 @@ function loadFromFirebase() {
       renderTree();
       renderCal();
       if(typeof window.__onStateLoaded==='function') window.__onStateLoaded();
+      /* Data Log 起步（詳見 LogCloud 註解）：擺喺行事曆畫完之後先做——
+         log 遲少少到都唔會影響開機速度；有需要搬屋（遷移）都係喺呢度入閘 */
+      aiLogBoot(data);
     } else {
       if(!data) return;
       loading = true;
       let same = false;
       try {
         const next = sanitizeState(data);
+        /* 遷移之後，雲端份 state 係冇 ai.log 嘅（搬咗去 LogCloud）。
+           要將記憶體嗰份 log 接枝返落 next 度先好比較／換入去，唔係：
+           ① 呢一下就會將成份 Data Log 由記憶體抹走
+           ② 下面個「一樣就唔重畫」比較會永遠判「唔一樣」，逢 save 必重畫，
+              殺死你雙擊改緊嘅嘢——正正係佢本來要守護嘅嘢 */
+        if(next.ai && state && state.ai && Array.isArray(state.ai.log) && !Array.isArray(next.ai.log)){
+          next.ai.log = state.ai.log;
+        }
         /* 自己啱啱 save 上去嘅資料會即刻回音返嚟。如果內容一模一樣就唔好重畫，
            唔係每次 save 都會殺死用戶做緊嘅 inline 編輯（雙擊改時間／改名）。 */
         same = JSON.stringify(next) === JSON.stringify(state);
@@ -2735,12 +3074,20 @@ document.getElementById('bulkGo').onclick=async()=>{
 
 document.getElementById('btnExport').onclick=()=>{ document.getElementById('expFrom').value=''; document.getElementById('expTo').value=''; show('exportModal'); };
 document.getElementById('expCancel').onclick=()=>hide('exportModal');
-document.getElementById('expGo').onclick=()=>{
+document.getElementById('expGo').onclick=async ()=>{
   const from=document.getElementById('expFrom').value, to=document.getElementById('expTo').value;
   let evs=state.events, tag='all';
   if(from||to){
     evs=evs.filter(e=>{ const ds=e.start.slice(0,10); return (!from||ds>=from)&&(!to||ds<=to); });
     tag=(from||'start').replace(/-/g,'')+'-'+(to||'now').replace(/-/g,'');
+  }
+  /* Data Log 搬咗去獨立節點（LogCloud），開機只載咗最近一頁：
+     匯出係成份資料嘅後悔藥，出檔之前一定要問雲端攞齊全份 log，
+     唔係份備份會走漏舊記錄。攞唔到會問你照唔照出（會講明份檔唔齊）。
+     注意：呢段係頂層 code，唔可以叫 IIFE 入面嘅 short()／toast()。 */
+  if(currentUser && !LogCloud.allLoaded){
+    const okAll = await LogCloud.fetchAll();
+    if(!okAll && !(await confirmBox('⚠ 攞唔齊雲端 Data Log（' + String(LogCloud.lastError||'').slice(0,60) + '）。\n照匯出嘅話，份檔只包已載入嗰 ' + ((state.ai && state.ai.log || []).length) + ' 條 log。要照出？'))) return;
   }
   const aiBackup = state.ai ? JSON.parse(JSON.stringify(state.ai)) : {};
   const data={version:1,exportedAt:new Date().toISOString(),range:{from:from||null,to:to||null},tree:state.tree,archive:state.archive,events:evs,eventsArchive:(Array.isArray(state.eventsArchive)?state.eventsArchive:[]),leftW:state.leftW,ai:aiBackup};
@@ -3405,7 +3752,10 @@ const TYPE_NAME = {request:'我講嘅嘢', plan:'AI 嘅安排', correction:'我�
 /* ===== 兩個上限 =====
    原本 300／2000 係硬上限，超咗就 slice() 靜靜雞剷走最舊嗰啲，用戶完全冇提示。
    而家：拉高上限，同埋夠九成滿就出一次 toast（每個 session 每種只嘈一次，唔會煩）。 */
-const LOG_MAX     = 1000;   /* Data Log 條數 */
+const LOG_MAX     = 4000;   /* Data Log 條數上限（而家只係「雲端修剪門檻」）。
+   由 1000 拉高到 4000：log 搬咗去獨立儲存（LogCloud）之後，佢嘅大細唔會
+   再拖慢每次 save()；4000 條大約 2.7MB 雲端空間（免費額 1GB，好鬆動），
+   照而家日均約 49 條計夠用兩個幾月，唔使咁快剷走人哋嘅「還原」資料。 */
 const ARCHIVE_MAX = 6000;   /* 歸檔事件條數 */
 const _capWarned = {};
 function warnCap(kind, msg){
@@ -3427,13 +3777,21 @@ function logPush(type, text, extra){
   ensureAI();
   const e = clean(Object.assign({id:uid(), at:nowISO(), type:type, text:String(text||'')}, extra||{}));
   state.ai.log.push(e);
+  /* 逐條即時上雲（fire-and-forget，同 saveThink 一套作風：寫唔到就算數，
+     絕對唔阻礙傾偈）。以前呢條記錄要坐低等下一次 save() 陪成份 state
+     上去；而家佢自己幾百 byte 自己搞掂。 */
+  LogCloud.put(e);
+  if(LogCloud.total != null) LogCloud.total++;   /* 開機點嗰個人頭數跟住行 */
   if(type==='correction' || type==='feedback') state.ai.sinceRule = (state.ai.sinceRule||0) + 1;
-  /* 上限由 300 拉高到 1000。
-     點解要提示：俾人剷走嘅唔淨止係一行字，連嗰條記錄入面嘅 revert 還原資料都會一齊冇，
-     即係嗰次 AI 排程之後永遠都撤銷唔返。所以夠九成滿就開始嘈，唔好靜靜雞。 */
-  if(state.ai.log.length > LOG_MAX * 0.9) warnCap('log',
-    '⚠ Data Log 已經去到 ' + state.ai.log.length + '／' + LOG_MAX + ' 條。爆咗之後最舊嗰啲會被移走（連「還原」資料一齊冇），建議撳「⬇ 匯出 JSON」備份。');
-  if(state.ai.log.length > LOG_MAX) state.ai.log = state.ai.log.slice(-LOG_MAX);
+  /* 上限而家係「雲端總數」嘅事：真正修剪喺開機點完人頭先做（LogCloud.trimTo），
+     呢度只負責出聲提醒。點解要提示：俾人剷走嘅唔淨止係一行字，連嗰條記錄
+     入面嘅 revert 還原資料都會一齊冇，即係嗰次 AI 排程永遠撤銷唔返。
+     記憶體嗰份唔使 slice——佢本身只揸住最近嗰批。 */
+  const _tot = (LogCloud.total != null) ? LogCloud.total : state.ai.log.length;
+  if(_tot > LOG_MAX * 0.9) warnCap('log',
+    '⚠ Data Log 已經去到 ' + _tot + '／' + LOG_MAX + ' 條。爆咗之後最舊嗰啲會被移走（連「還原」資料一齊冇），建議撳 Data Log 嘅「⬇ 備份」留底。');
+  /* 未登入＝冇雲端幫手剪，照舊自己剪，唔好俾 localStorage 谷爆 */
+  if(!currentUser && state.ai.log.length > LOG_MAX) state.ai.log = state.ai.log.slice(-LOG_MAX);
   return e;
 }
 
@@ -3614,15 +3972,30 @@ window.__onStateLoaded = function(){
   resetUndoHistory(true);
 };
 
-/* 匯入 JSON 時唔好整走 Data Log */
+/* 匯入 JSON：兩件事——
+   ① 檔冇 log 嘅話唔好整走現有 Data Log（原有保護，照舊）
+   ② 檔有 log 嘅話，「覆蓋所有資料」嘅原意包埋 log，所以雲端
+      diary_calendar_log 嗰份要一齊換晒，唔係其他機睇到嘅仲係舊嗰批 */
 try{
   const impEl = $('importFile');
   const _imp = impEl.onchange;
   impEl.onchange = async function(){
     const keep = JSON.parse(JSON.stringify(ensureAI()));
+    const before = state.ai;   /* 用物件身份判斷有冇真係匯入咗：撳「取消」或者檔壞咗，state.ai 唔會換過新物件 */
     await _imp.apply(this, arguments);
     ensureAI();
-    if(!state.ai.log.length && keep.log.length){ state.ai = keep; snap=null; save(); }
+    if(state.ai === before) return;   /* 冇匯入到，乜都唔使做 */
+    if(state.ai.log.length){
+      if(currentUser){
+        toast('還原緊 Data Log 上雲（' + state.ai.log.length + ' 條）…');
+        const ok = await LogCloud.replaceAll(state.ai.log);
+        toast(ok ? '✅ 匯入完成，Data Log（' + state.ai.log.length + ' 條）已經同步上雲。'
+                 : '⚠ Data Log 上雲失敗（' + short(LogCloud.lastError,60) + '）。呢部機睇到，但未同步到其他機。');
+      }
+    }else if(keep.log.length){
+      state.ai = keep; snap=null; save();   /* 原有保護：檔冇 log 就唔好整走現有嗰份 */
+    }
+    renderLog();
   };
 }catch(e){}
 
@@ -5942,6 +6315,8 @@ async function revertLog(logId){
     }
   });
   entry.reverted = true; /* 標記做已還原 */
+  LogCloud.put(entry);   /* 個「✓ 已還原」旗要寫埋上雲：log 唔再跟 save() 上傳，
+                            唔寫嘅話換部機／refresh 之後個旗就唔見，仲會俾人撳多一次還原 */
   save();
   renderLog(); renderCal(); renderTree();
   undoToast('↩ 已還原：' + (actions.join('、') || '冇改動'), 'undo');
@@ -5952,13 +6327,37 @@ function renderLog(){
   const f = $('aiLogFilter').value;
   const all = state.ai.log||[];
   const list = all.slice().reverse().filter(x=>!f || x.type===f);
-  $('aiLogCount').textContent = '共 '+all.length+' 條' + ((state.ai.sinceRule||0) ? '　（上次提煉規則之後有 '+state.ai.sinceRule+' 次糾正）' : '');
+  /* 條數顯示：搬咗去 LogCloud 之後開機唔會成份 log 拉落嚟，「共幾多條」
+     要靠開機點人頭嗰個總數；點唔到（例如 REST 打唔通）就老老實實寫
+     「已載入最近 X 條」，唔好報細數當總數呃自己 */
+  let _cnt;
+  if(currentUser && LogCloud.started && !LogCloud.allLoaded){
+    _cnt = (LogCloud.total != null)
+      ? ('共 ' + Math.max(LogCloud.total, all.length) + ' 條（已載入 ' + all.length + ' 條）')
+      : ('已載入最近 ' + all.length + ' 條');
+  }else{
+    _cnt = '共 ' + all.length + ' 條';
+  }
+  $('aiLogCount').textContent = _cnt + ((state.ai.sinceRule||0) ? '　（上次提煉規則之後有 '+state.ai.sinceRule+' 次糾正）' : '');
+  /* 「載入更舊」：雲端仲有舊嘢先現身 */
+  const _more = $('aiLogMore');
+  if(_more) _more.style.display = (currentUser && LogCloud.started && !LogCloud.allLoaded) ? '' : 'none';
   const box = $('aiLogList'); box.innerHTML='';
   if(!list.length){
     box.innerHTML = '<div class="subnote">仲未有記錄。去第一個 tab 講句嘢俾佢聽啦。</div>';
     return;
   }
-  list.slice(0,300).forEach(x=>{
+  /* 以前寫死最多畫 300 條；而家用戶撳「載入更舊」載幾多就畫幾多。
+     但要有個安全上限：匯出／備份會將雲端全份攞晒落記憶體，如果第日
+     積到幾千條，一次過起幾千個 DOM 節點會令 iPad 頓——所以最多畫
+     1000 條，再舊嘅用「⬇ 備份」攞個檔出嚟睇 */
+  const RENDER_CAP = 1000;
+  if(list.length > RENDER_CAP){
+    const note = document.createElement('div'); note.className = 'subnote';
+    note.textContent = '（為免部機頓，呢度只顯示最近 ' + RENDER_CAP + ' 條；成份 ' + list.length + ' 條想慢慢睇，撳「⬇ 備份」攞個檔出嚟。）';
+    box.appendChild(note);
+  }
+  list.slice(0, RENDER_CAP).forEach(x=>{
     const d = document.createElement('div'); d.className='logItem' + (x.reverted?' reverted':'');
     const meta = document.createElement('div'); meta.className='meta';
     const tp = document.createElement('span'); tp.className='logType t-'+x.type; tp.textContent = TYPE_NAME[x.type]||x.type;
@@ -5979,7 +6378,7 @@ function renderLog(){
       meta.appendChild(tag);
     }
     const del = document.createElement('button'); del.className='mini'; del.textContent='刪';
-    del.onclick = ()=>{ state.ai.log = state.ai.log.filter(y=>y.id!==x.id); save(); renderLog(); };
+    del.onclick = ()=>{ state.ai.log = state.ai.log.filter(y=>y.id!==x.id); LogCloud.remove(x); /* 雲端嗰條都要剷，唔係 refresh 就返生 */ save(); renderLog(); };
     if(x.guest){
       const gTag=document.createElement('span'); gTag.className='badge guest'; gTag.textContent='👤 訪客'; gTag.style.fontSize='10px';
       meta.appendChild(gTag);
@@ -5991,6 +6390,38 @@ function renderLog(){
   });
 }
 $('aiLogFilter').onchange = renderLog;
+/* 「載入更舊」：向雲端再揭一頁（每頁 LogCloud.PAGE 條） */
+if($('aiLogMore')) $('aiLogMore').onclick = async function(){
+  const b = this, t0 = b.textContent;
+  b.disabled = true; b.textContent = '載緊…';
+  try{
+    await LogCloud.loadOlder();
+    renderLog();
+    if(LogCloud.allLoaded) toast('已經載晒最舊嗰啲');
+  }catch(err){ toast('載入失敗：' + short(String((err && err.message) || err), 60)); }
+  b.disabled = false; b.textContent = t0;
+};
+/* ===== LogCloud ↔ UI 嘅接線位 =====
+   LogCloud 係頂層 code，掂唔到呢個 IIFE 入面嘅 toast／renderLog／warnCap
+   （亂咁掂會 ReferenceError——「報數」嗰單 bug 嘅教訓），所以由呢邊
+   主動將要用嘅嘢掛上 window／LogCloud 度 */
+window.__aiLogNotify = function(msg){ try{ toast(msg); }catch(e){} };
+window.__aiLogReady = async function(){
+  LogCloud.onChange = function(){ try{ renderLog(); }catch(e){} };   /* 有新記錄（包括第二部機推過嚟）就重畫 */
+  try{ renderLog(); }catch(e){}
+  if(!LogCloud.started) return;   /* 遷移失敗維持舊模式嗰陣，唔好去點人頭／修剪 */
+  try{
+    const n = await LogCloud.fetchCount();
+    if(n == null) return;         /* 點唔到人頭：唔緊要，UI 會顯示「已載入 X 條」 */
+    renderLog();                  /* 攞到總數，「共 X 條」即刻更新 */
+    if(n > LOG_MAX){
+      await LogCloud.trimTo(LOG_MAX);   /* 爆咗上限：剷走最舊嗰啲（開機做一次，唔阻傾偈） */
+      renderLog();
+    }else if(n > LOG_MAX * 0.9){
+      warnCap('log', '⚠ Data Log 雲端已經有 ' + n + '／' + LOG_MAX + ' 條。爆咗最舊嗰啲會被移走（連「還原」資料一齊冇），想留底就撳「⬇ 備份」。');
+    }
+  }catch(e){}
+};
 $('aiTeachGo').onclick = ()=>{
   const v = $('aiTeach').value.trim();
   if(!v) return;
@@ -5999,12 +6430,23 @@ $('aiTeachGo').onclick = ()=>{
 };
 $('aiTeach').addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.isComposing){ e.preventDefault(); $('aiTeachGo').click(); } });
 $('aiLogClear').onclick = async ()=>{
-  if(await confirmBox('確定要清走全部 '+((state.ai.log||[]).length)+' 條記憶？\n清咗之後 AI 會由零開始學過。')){
-    state.ai.log = []; state.ai.sinceRule = 0; save(); renderLog();
+  const _n = (currentUser && LogCloud.started && LogCloud.total != null) ? LogCloud.total : ((state.ai.log||[]).length);
+  if(await confirmBox('確定要清走全部 '+_n+' 條記憶？\n清咗之後 AI 會由零開始學過。')){
+    state.ai.log = []; state.ai.sinceRule = 0;
+    const ok = await LogCloud.clear();   /* 雲端嗰份都要一齊清，唔係下次開機成班又返晒嚟 */
+    save(); renderLog();
+    if(currentUser && !ok) toast('⚠ 雲端清唔切（' + short(LogCloud.lastError,60) + '）。下次開機啲記錄可能會返返嚟，到時再撳多次。');
   }
 };
-$('aiLogExport').onclick = ()=>{
+$('aiLogExport').onclick = async ()=>{
   ensureAI();
+  /* log 而家開機只載最近一頁：備份之前要問雲端攞齊全份，唔係份備份會走漏
+     舊記錄。攞唔到會問你照唔照出（同埋講明份檔唔齊） */
+  if(currentUser && !LogCloud.allLoaded){
+    const okAll = await LogCloud.fetchAll();
+    if(!okAll && !(await confirmBox('⚠ 攞唔齊雲端 Data Log（' + short(LogCloud.lastError,60) + '）。\n照備份嘅話，份檔只包已載入嗰 ' + ((state.ai.log||[]).length) + ' 條。要照出？'))) return;
+    renderLog();   /* 全份已經喺記憶體，順手畀版面同步埋 */
+  }
   const blob = new Blob([JSON.stringify({type:'diarycal_ai', at:nowISO(), ai:state.ai}, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -6022,7 +6464,16 @@ $('aiLogImport').onchange = async function(){
     if(!Array.isArray(ai.log)) throw new Error('唔似係備份檔');
     if(await confirmBox('要用呢個備份覆蓋而家嘅 Data Log 同 Rules？')){
       state.ai = {log:ai.log, rules:String(ai.rules||''), rulesAt:String(ai.rulesAt||''), sinceRule:Number(ai.sinceRule||0)};
-      save(); renderLog(); loadRules();
+      save();
+      /* log 唔再住喺主 state：要同時將雲端 diary_calendar_log 換晒做備份
+         嗰份，唔係其他機（同下次開機）睇到嘅仲係舊嗰批 */
+      if(currentUser){
+        toast('還原緊 Data Log 上雲（' + ai.log.length + ' 條）…');
+        const ok = await LogCloud.replaceAll(state.ai.log);
+        toast(ok ? '✅ Data Log 已經還原，雲端一齊更新咗。'
+                 : '⚠ 雲端更新失敗（' + short(LogCloud.lastError,60) + '）。呢部機睇到，但未同步到其他機。');
+      }
+      renderLog(); loadRules();
     }
   }catch(e){ alert('還原失敗：'+e.message); }
 };
@@ -6189,7 +6640,12 @@ async function genRules(silent){
   state.ai.sinceRule = 0;
   /* 標記用嚟提煉嘅 log 做已消化，下次 AI query 唔再重複讀佢哋 */
   const cutoff = Date.now() - (90*24*60*60*1000);
-  (state.ai.log||[]).forEach(x=>{ if(x && (!x.digested) && new Date(x.at||0).getTime() < cutoff) x.digested = true; });
+  const _digestedNow = [];
+  (state.ai.log||[]).forEach(x=>{ if(x && (!x.digested) && new Date(x.at||0).getTime() < cutoff){ x.digested = true; _digestedNow.push(x); } });
+  /* 「已消化」旗要寫埋上雲：log 唔再跟 save() 上傳，唔寫嘅話下次開機
+     載返落嚟嗰批（同埋第二部機）唔知呢啲已經入咗 General Rules，
+     會重複攞嚟餵 AI，白白嘥 token */
+  if(_digestedNow.length) LogCloud.putMany(_digestedNow).catch(function(){});
   logPush('rule','AI 由 Data Log 重新提煉咗 General Rules', {kind:'auto'});
   save(); loadRules();
   if(!silent) setStatus('aiRuleStatus','提煉好喇 👍 下次排程就會照住呢份規則做。');
@@ -6728,7 +7184,12 @@ function selfCheck(){
   L.push('── 儲存 ──');
   try{ localStorage.setItem('_t','1'); localStorage.removeItem('_t'); L.push('localStorage：✓ 用得'); }
   catch(e){ L.push('localStorage：✗ 用唔到（' + e.message + '）'); }
-  try{ L.push('行事曆項目：' + ((state.events||[]).length) + ' 條　·　Data Log：' + ((state.ai && state.ai.log || []).length) + ' 條'); }catch(e){}
+  try{
+    const _lgN = ((state.ai && state.ai.log) || []).length;
+    const _lgTail = (currentUser && LogCloud.started && !LogCloud.allLoaded)
+      ? '（已載入；雲端總數 ' + (LogCloud.total != null ? LogCloud.total : '未知') + '）' : '';
+    L.push('行事曆項目：' + ((state.events||[]).length) + ' 條　·　Data Log：' + _lgN + ' 條' + _lgTail);
+  }catch(e){}
   try{
     if(AI_LAST_USAGE){
       L.push('最近一次 API：入 ' + (AI_LAST_USAGE.prompt_tokens||0) +
@@ -8703,7 +9164,13 @@ function buildCurrentChatMd(){
 }
 
 /* ---------- 入口 ①：訪客對話（揀日子）---------- */
-$('guestChatExport').onclick = ()=>{
+$('guestChatExport').onclick = async ()=>{
+  /* 訪客對話係由 Data Log 抽返嚟，而 log 開機只載最近一頁：開呢個匯出
+     視窗之前先攞齊全份，唔係舊過嗰頁嘅對話會走漏、日子點極都唔啱數 */
+  if(currentUser && !LogCloud.allLoaded){
+    setStatus('guestExpStatus','讀緊雲端 Data Log…');
+    await LogCloud.fetchAll();
+  }
   const today = fmtDate(new Date());
   if(!$('guestExpFrom').value) $('guestExpFrom').value = today;
   if(!$('guestExpTo').value)   $('guestExpTo').value   = today;
@@ -8760,6 +9227,7 @@ $('guestExpThinkClear').onclick = async ()=>{
 };
 $('guestExpGo').onclick = async ()=>{
   const fromD = $('guestExpFrom').value, toD = $('guestExpTo').value;
+  if(currentUser && !LogCloud.allLoaded) await LogCloud.fetchAll();   /* 保險：萬一頭先開視窗嗰下攞唔齊 */
   const rows = guestChatsInRange(fromD, toD);
   if(!rows.length){ setStatus('guestExpStatus','冇嘢可以匯出。', true); return; }
   const tag = (fromD||'all') + (toD && toD !== fromD ? '_' + toD : '');
