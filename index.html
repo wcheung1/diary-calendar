@@ -269,6 +269,8 @@ header .spacer{flex:1}
   font-size:12px;color:var(--muted);background:var(--bg);border-radius:6px;padding:6px 9px}
 .hwSlot.on{background:var(--accent-soft);color:var(--accent)}
 .hwSlot input{padding:4px 7px;border:1px solid var(--line);border-radius:5px;font-size:12px}
+.hwSlot input[type=number]{width:52px;text-align:center}
+.hwSlot .hwDur{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
 .hwCourse{border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;
   margin-bottom:7px;background:var(--panel);overflow:hidden}
 .hwCourse.bad{border-left-color:var(--overdue)}
@@ -2313,6 +2315,26 @@ function hwGcOrphans(){
     if(!ok){ delete e.hwFor; n++; }
   });
   if(n > 0){ console.info('🧹 清走咗 ' + n + ' 條冇嘢對得返嘅功課記錄'); save(); }
+  return n;
+}
+
+/* ============ 🩺 執返「完結早過開始」嘅時段 ============
+   上面 hwSchedule 嗰個 bug 喺修好之前已經寫咗落資料，所以要幫手執返。
+   安全措施：① state.events 空（Firebase 未載完）就一定唔郁；
+             ② 只碰明顯壞咗嗰啲（完結 <= 開始）；③ 做功課格補 30 分鐘，
+                其他項目補 60 分鐘（同行事曆本身估時長嘅預設一致）。 */
+function fixBadEndTimes(){
+  const evs = Array.isArray(state.events) ? state.events : [];
+  if(!evs.length) return 0;
+  let n = 0;
+  evs.forEach(function(e){
+    if(!e || !e.endOverride || !e.start || e.start.length < 16) return;
+    const s0 = minutes(e.start.slice(11)), t0 = minutes(e.endOverride);
+    if(!isFinite(s0) || !isFinite(t0) || t0 > s0) return;
+    e.endOverride = endHHMM(s0 + (isHwSlot(e) ? 30 : 60));
+    n++;
+  });
+  if(n > 0){ console.info('🩺 執返 ' + n + ' 格「完結早過開始」嘅時段'); save(); }
   return n;
 }
 
@@ -4691,18 +4713,32 @@ let hwFilter = 'all';
 
 /* 建立／改動一件功課嘅「做功課時段」。
    呢個係同 timetable 即時同步嘅位：喺功課卡度改時間，行事曆嗰邊即刻郁。 */
-function hwSchedule(o, dateStr, timeStr, mode){
+/* 一格「做功課」時段有幾長（分鐘）。冇設過、或者個數唔合理（負數、跨夜、
+   成日咁長）就當返預設 30 分鐘。 */
+function hwDurOf(ev){
+  if(!ev || !ev.endOverride || !ev.start || ev.start.length < 16) return 30;
+  const d = minutes(ev.endOverride) - minutes(ev.start.slice(11));
+  return (d > 0 && d <= 600) ? d : 30;
+}
+function hwSchedule(o, dateStr, timeStr, mode, durMin){
   /* mode: 'new' = 另外加多一格（做唔完，第二日繼續）
            一個 event id  = 指定郁邊一格
-           唔填          = 郁最早嗰格（舊行為，改期／向後褪就係用呢個） */
+           唔填          = 郁最早嗰格（舊行為，改期／向後褪就係用呢個）
+     durMin: 唔填就沿用原本嗰格嘅時長，新格預設 30 分鐘 */
   const all = hwSlotsOf(o.key, o.label);
   const ex = (mode === 'new') ? null
            : (mode ? all.filter(function(x){ return x.id === mode; })[0] : all[0]);
   const start = dateStr + 'T' + (timeStr || '20:00');
-  /* 做功課格一律填返 30 分鐘完結時間。
+  /* 做功課格一律填返完結時間。
      唔填嘅話，行事曆會用「下一件事嘅開始時間」推算，就會變成
-     「15:00 → 19:30（未定完結時間）」，睇落好似要做四個半鐘。 */
-  const endS = hhmm(minutes(start.slice(11)) + 30);
+     「15:00 → 19:30（未定完結時間）」，睇落好似要做四個半鐘。
+
+     ⚠️ 舊 bug（已修）：以前係 ex.endOverride = ex.endOverride || endS，
+     即係更新開始時間嗰陣，個舊完結時間原封不動咁留低 ——
+     20:00→20:30 嘅一格改去 21:00，就變成「21:00 → 20:30」，完結早過開始。
+     而家改成：保留返嗰格原本嘅「時長」，跟住新嘅開始時間重新計完結時間。 */
+  const dur = (durMin > 0 && durMin <= 600) ? Math.round(durMin) : hwDurOf(ex);
+  const endS = endHHMM(minutes(start.slice(11)) + dur);
   if(ex){
     /* 褪期計數：同一格由一日搬去另一日先算一次，同日改鐘數唔算。
        點解要記：一件功課俾人一路向後褪，每次望落都好合理，但褪到第四第五次
@@ -4711,7 +4747,7 @@ function hwSchedule(o, dateStr, timeStr, mode){
       ex.hwPush = (parseInt(ex.hwPush,10) || 0) + 1;
     }
     ex.start = start;
-    ex.endOverride = ex.endOverride || endS;
+    ex.endOverride = endS;          /* 一定要跟返新嘅開始時間重新計，見上面 */
     ex.hwFor = o.key;
     ex.hwSlot = true;
     if(start > nowStr()){ ex.planned = true; ex.done = false; }
@@ -4816,15 +4852,21 @@ function hwCard(o, finished){
                         : (o.preAt ? o.preAt.slice(11) : '20:00');
         const lead = !slot ? '未排時間 —— 排落'
                    : (slots.length > 1 ? ('第 ' + (idx+1) + ' 節排咗喺') : '排咗喺');
+        /* 做幾耐：以前淨係得開始時間，完結時間喺後台死做 30 分鐘，
+           想改就要走去行事曆度開嗰格。而家喺呢度直接填得。 */
+        const mv = slot ? hwDurOf(slot) : 30;
         sl.innerHTML = '<span>🗓 ' + lead + '</span>' +
-          '<input type="date" value="' + dv + '"><input type="time" value="' + tv + '">';
+          '<input type="date" class="hwD" value="' + dv + '"><input type="time" class="hwT" value="' + tv + '">' +
+          '<span class="hwDur">做 <input type="number" class="hwM" min="5" max="600" step="5" value="' + mv + '"> 分鐘</span>';
         const go = document.createElement('button');
         go.className = 'btn'; go.style.cssText = 'padding:3px 10px;font-size:12px';
         go.textContent = slot ? '↻ 更新時間表' : '📅 排落時間表';
         go.onclick = ()=>{
-          const ins = sl.querySelectorAll('input');
-          hwSchedule(o, ins[0].value, ins[1].value, slot ? slot.id : null);
-          toast(slot ? '時間表已經更新' : '排咗落時間表');
+          const dI = sl.querySelector('.hwD'), tI = sl.querySelector('.hwT'), mI = sl.querySelector('.hwM');
+          const md = Math.min(600, Math.max(5, parseInt(mI && mI.value, 10) || 30));
+          hwSchedule(o, dI.value, tI.value, slot ? slot.id : null, md);
+          toast((slot ? '時間表已經更新：' : '排咗落時間表：') +
+                tI.value + ' → ' + endHHMM(minutes(tI.value) + md));
         };
         sl.appendChild(go);
         if(slot){
@@ -4849,7 +4891,7 @@ function hwCard(o, finished){
         ab.onclick = ()=>{
           const last = slots[slots.length-1];
           const nd = fmtDate(new Date(new Date(last.start.slice(0,10)+'T00:00').getTime() + 86400000));
-          hwSchedule(o, nd, last.start.slice(11), 'new');
+          hwSchedule(o, nd, last.start.slice(11), 'new', hwDurOf(last));
           toast('加咗第 ' + (slots.length+1) + ' 節，日子時間可以喺上面改');
         };
         add.appendChild(ab);
@@ -5018,6 +5060,15 @@ function detectBundle(rule){
 function hhmm(mins){
   let m = mins; while(m < 0) m += 1440; m = m % 1440;
   return String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
+}
+/* 計「完結時間」專用。
+   點解唔可以直接用 hhmm：hhmm 過咗午夜會 wrap 返轉頭（23:45 + 30 分鐘 → 00:15），
+   而完結時間一 wrap 就即刻變成「完結早過開始」。夜過 23:59 一律封頂做 23:59。 */
+function endHHMM(mins){
+  if(!isFinite(mins)) return '23:59';
+  if(mins >= 1439) return '23:59';
+  if(mins < 0) return '00:00';
+  return hhmm(mins);
 }
 
 /* ============ 一鍵幫功課搵個時段 ============
@@ -6524,7 +6575,16 @@ $('aiApply').onclick = ()=>{
       const date = r.dt.value, time = r.tm.value;
       if(!date || !time) return;
       const start = date + 'T' + time;
-      const end = r.en.value || null;
+      let end = r.en.value || null;
+      /* 把關：完結時間唔可以早過（或者等於）開始時間。
+         最常見嘅來源係「改時間」——舊格個完結時間照抄咗落新時間度。
+         計得返原本嗰格幾長就用返嗰個時長，計唔到就當佢冇填完結時間。 */
+      if(end && minutes(end) <= minutes(time)){
+        const _ev0 = (state.events||[]).find(e=>e.id===o.id);
+        const _d = (_ev0 && _ev0.endOverride && _ev0.start)
+                 ? minutes(_ev0.endOverride) - minutes(_ev0.start.slice(11)) : 0;
+        end = (_d > 0 && _d <= 600) ? endHHMM(minutes(time) + _d) : null;
+      }
       const color = r.col.value || '';
 
       if(title!==String(o.title||'') || date!==String(o.date||'') || time!==String(o.time||'')){
@@ -10137,6 +10197,7 @@ function autoArchiveIfOwner(){
   /* 歸檔之後先清孤兒：歸檔會將舊 event 由 events 搬去 eventsArchive，
      而 hwGcOrphans 兩邊都當「存在」，所以次序點都唔會誤刪。 */
   try{ hwGcOrphans(); }catch(e){ console.warn('清孤兒失敗', e); }
+  try{ fixBadEndTimes(); }catch(e){ console.warn('執完結時間失敗', e); }
   return n;
 }
 setTimeout(()=>{ try{ autoArchiveIfOwner(); }catch(e){ console.warn('歸檔失敗', e); } }, 2000);
