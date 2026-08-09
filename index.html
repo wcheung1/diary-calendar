@@ -628,6 +628,7 @@ body.readonly #btnUndo,
 body.readonly #btnRedo,
 body.readonly #btnNewFolder,
 body.readonly #btnNewTask,
+body.readonly #btnToggleLeft,
 body.readonly #importFile,
 body.readonly #btnAISet,
 body.readonly #chatExport,
@@ -1239,7 +1240,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-09b";
+const BUILD = "2026-08-09c";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -2853,6 +2854,7 @@ rightPane.addEventListener('touchend', e=>{
 
 /* 手機版：撳左面板標題收合/展開 */
 document.getElementById('leftHead').addEventListener('click', ()=>{
+  if(document.body.classList.contains('readonly')) return;   /* 訪客唔准撳返開 */
   if(window.innerWidth <= 700){
     document.getElementById('leftPane').classList.toggle('collapsed');
   }
@@ -4698,25 +4700,23 @@ function homeworkBoard(){
 /* ctxText 用嘅：淨係要未做完嗰批 */
 function pendingHomework(){ return homeworkBoard().pending; }
 
-/* 一份功課撳到「做完」嗰刻，順手收埋佢啲做功課時段。
-   點解要做：功課板上面一份功課得一個「做完啦」掣，佢本來就係 cover 晒
-   所有時段嘅（一份工作紙分五次做，都係撳一次）。舊行為淨係加個計數，
-   行事曆嗰五格照樣留喺度「逾期未確認」，AI 嗰邊仲會當佢係而家應該做緊嘅嘢。
-   已經過咗嘅格自動當做咗，打返個 hwAutoDone 記號；撳返「未做完」就還原返，
-   而爸爸自己喺行事曆撳過「確認做咗」嘅格冇呢個記號，唔會俾人還原走。
-   仲未到嘅格一律唔郁——自動刪人哋行事曆係大忌，改為喺 toast 話返有幾格，由佢決定。 */
-function hwSyncSlots(o, finished){
+/* 一份功課撳到「做完」嗰刻，點下佢啲做功課時段仲有咩手尾。
+
+   ⚠️ 兩個「做完」係兩件事，唔准撈埋一齊，呢個界線一定要守住：
+   · 功課板嘅「✓ 做完喇」＝ 呢份功課整體完成咗。一份功課得一個掣。
+   · 行事曆嘅「✓ 確認做咗」＝ 嗰段時間佢真係有坐低做過嘢，做一兩題都算數。
+     呢個係爸爸每日行一次行事曆、對得返先撳落去嘅事實紀錄，對唔返佢會改。
+   所以撳咗前者，唔可以自動幫後者填。試過寫成「做完就自動將過咗嘅格打做咗」，
+   噉會喺爸爸故意留低冇撳嗰啲格上面蓋一個假紀錄落去，本日誌就信唔過。
+   呢度改為淨係數，一個字都唔寫入行事曆，數完喺 toast 話返俾佢知，由佢自己決定。 */
+function hwSlotTally(o){
   const nw = nowStr();
-  let past = 0, future = 0;
+  let pastOpen = 0, future = 0;
   hwSlotsOf(o.key, o.label, o).forEach(function(e){
-    if(String(e.start||'') > nw){ future++; return; }
-    if(finished){
-      if(!e.done){ e.done = true; e.planned = true; e.hwAutoDone = true; past++; }
-    }else if(e.hwAutoDone){
-      e.done = false; delete e.hwAutoDone; past++;
-    }
+    if(String(e.start||'') > nw) future++;
+    else if(!e.done) pastOpen++;
   });
-  return {past:past, future:future};
+  return {pastOpen:pastOpen, future:future};
 }
 
 /* 打卡。class 來源寫入 hwDone，task 來源寫返落張 task 度。 */
@@ -4735,13 +4735,13 @@ function hwTick(o, delta){
     now = t.done;
   }
   const fin = now >= need;
-  const r = hwSyncSlots(o, fin);
   save(); renderHw(); try{ renderCal(); }catch(e){}
-  if(fin && (r.past || r.future)){
+  if(fin){
+    const r = hwSlotTally(o);
     const bits = [];
-    if(r.past)   bits.push('順手收咗 ' + r.past + ' 格已經過咗嘅時段');
-    if(r.future) bits.push('仲有 ' + r.future + ' 格排咗喺將來，要拎走就去行事曆度撳「✕ 唔排」');
-    toast(bits.join('　·　'));
+    if(r.pastOpen) bits.push('行事曆仲有 ' + r.pastOpen + ' 格未撳「確認做咗」');
+    if(r.future)   bits.push('仲有 ' + r.future + ' 格排咗喺將來，唔使就去撳「✕ 唔排」');
+    if(bits.length) toast(bits.join('　·　'));
   }
 }
 function hwSkipToggle(o){
@@ -8538,11 +8538,18 @@ function condenseWiki(text, query, cap){
   if(cur.body.length) secs.push(cur);
   if(!secs.length) return String(text||'').slice(0, cap);
   const keys = (String(query||'').toLowerCase().match(/[a-z0-9]{2,}|[\u4e00-\u9fff]/g) || []);
+  /* 想搵一句對白嗰陣，之前一定執唔到。點解：加分名單淨係有劇情類，
+     而對白全部住喺【Quotes】嗰段度，分低，一到字數上限就俾人剪走。
+     實測就係咁搞到紅心皇后嗰句對白查極都話搵唔到。
+     查詞夠長（四個英文字以上，多數即係整句掟落嚟）就當佢想要原文，引言段大幅加分。 */
+  const QUOTE_H = /quotes?|quotations?|dialogue|語錄|名言|對白|引言|金句|台詞/i;
+  const wantQuote = (String(query||'').match(/[a-z][a-z''-]+/gi) || []).length >= 4;
   const scored = secs.map(function(s, i){
     const low = (s.h+' '+s.body.join(' ')).toLowerCase();
     let sc = 0;
     keys.forEach(function(k){ if(low.indexOf(k) >= 0) sc++; });
     if(/劇情|情節|故事|角色|生平|簡介|plot|synopsis|summary|biography|history/i.test(s.h)) sc += 3;
+    if(QUOTE_H.test(s.h)) sc += wantQuote ? 8 : 3;
     if(i === 0) sc += 5;                    /* 開頭嗰段一定要留 */
     return {s:s, sc:sc, i:i};
   }).sort(function(a,b){ return b.sc - a.sc || a.i - b.i; });
@@ -8557,13 +8564,42 @@ function condenseWiki(text, query, cap){
   return picked.map(function(x){ return x.blk; }).join('\n\n');
 }
 
+/* 一句完整嘅句子掟落 MediaWiki 搜尋，多數係零結果——佢係搵條目，唔係搵句子。
+   零結果唔代表冇，所以退一步再搜：先淨係留最長嗰幾個詞，再唔得就留頭兩個詞。
+   冇咗呢層，個 AI 一搜唔中就會報「搵唔到」收工，然後叫細路懷疑自己記錯。 */
+function searchFallbacks(query){
+  const q = String(query||'').trim();
+  const raw = q.match(/[A-Za-z][A-Za-z''-]+|[\u4e00-\u9fff]{2,}/g) || [];
+  /* 剷走英文虛詞先揀。唔剷嘅話，最長嗰幾個字好易全部都係 those、think 呢類，
+     搵極都唔中；剷完就會浮返 Mummy、blink 呢類真係認得出條目嘅字。 */
+  const STOP = /^(you|your|yours|the|a|an|and|or|but|if|of|to|in|on|at|is|are|was|were|be|been|being|will|would|shall|should|can|could|may|might|must|just|like|did|do|does|done|i|me|my|mine|he|him|his|she|her|hers|it|its|they|them|their|we|us|our|that|this|those|these|with|for|from|as|so|not|no|nor|then|than|there|here|what|when|where|who|whom|how|why|all|any|some|about|into|over|out|up|down|too|very|now|got|get|going)$/i;
+  const words = raw.filter(function(w){ return !STOP.test(w); });
+  const out = [];
+  if(words.length > 3){
+    const top = words.slice().sort(function(a,b){ return b.length - a.length; }).slice(0,4);
+    out.push(words.filter(function(w){ return top.indexOf(w) >= 0; }).join(' '));
+  }
+  if(words.length > 1) out.push(words.slice(0,2).join(' '));
+  return out.filter(function(x,i,a){ return x && x !== q && a.indexOf(x) === i; });
+}
+async function mwSearchTitles(api, query, limit){
+  const tries = [String(query||'')].concat(searchFallbacks(query));
+  for(let i = 0; i < tries.length; i++){
+    const s = await mwCall(api, {action:'query', list:'search',
+                                 srsearch:tries[i], srlimit:(limit||2), srprop:''});
+    const t = (((s.query||{}).search)||[]).map(function(x){ return x.title; });
+    if(t.length) return {titles:t, used:tries[i]};
+  }
+  return {titles:[], used:String(query||'')};
+}
+
 async function lookupWiki(query){
   const chunks = [];
   for(let i = 0; i < WIKI_SITES.length; i++){
     const site = WIKI_SITES[i];
     try{
-      const s = await mwCall(site.api, {action:'query', list:'search', srsearch:query, srlimit:2, srprop:''});
-      const titles = (((s.query||{}).search)||[]).map(function(x){ return x.title; });
+      const hit = await mwSearchTitles(site.api, query, 2);
+      const titles = hit.titles;
       for(let j = 0; j < titles.length; j++){
         const txt = await mwPlainText(site.api, titles[j]);
         if(txt) chunks.push('◆ 來源：'+site.name+'〈'+titles[j]+'〉\n'+condenseWiki(txt, query, 2400));
@@ -8578,9 +8614,10 @@ async function lookupFandom(sub, query){
   const api = fandomApi(sub);
   if(!api) return ['◆ Fandom 網站代號唔啱，請用英文細楷，例如 disney、aliceinwonderland。'];
   try{
-    const s = await mwCall(api, {action:'query', list:'search', srsearch:query, srlimit:2, srprop:''});
-    const titles = (((s.query||{}).search)||[]).map(function(x){ return x.title; });
-    if(!titles.length) return ['◆ '+sub+'.fandom.com 搵唔到「'+query+'」。可以換過一個網站代號，或者改用 [[SEARCH: …]] 查維基百科。'];
+    const hit = await mwSearchTitles(api, query, 3);
+    const titles = hit.titles;
+    if(!titles.length) return ['◆ '+sub+'.fandom.com 用「'+query+'」同埋退返簡短嘅查詞都搵唔到條目。'
+      + '呢個係「我搵唔到」，唔係「呢樣嘢冇」——換過一個網站代號、或者用角色名加「語錄」／「quotes」再試一次。'];
     const out = [];
     for(let j = 0; j < titles.length; j++){
       const txt = await mwPlainText(api, titles[j]);
@@ -8844,6 +8881,12 @@ function searchNote(){
 (hasWeb
   ? '· 查返嚟嘅資料如果自相矛盾，或者明顯係舊嘅，要講出嚟，唔好扮晒肯定。網上啲舖頭資料好易過時，涉及開唔開門、幾點閂呢類，提用戶去到之前最好打個電話。'
   : ''),
+'',
+'【查唔到嗰陣點做 —— [[FANDOM]] 同 [[SEARCH]] 一樣要守】',
+'F1) 查詞唔好將成句嘢掟落去。兩個工具都係搵「條目」，唔係搵「句子」。想搵一句對白，要查「角色名 語錄」或者「角色名 quotes」；想搵一個場口，要查「角色名」或者「套戲個名」，然後喺攞返嚟嘅內文度搵。',
+'F2) 一次唔中就換角度再試，唔准搜一次就收工。你一個回應有三個標記額度，一次過出兩三個唔同角度嘅查詞，好過出一個然後失望。',
+'F3) 「我搵唔到」唔等於「呢樣嘢唔存在」。你最多只可以講「我查極都搵唔到」。唔准掉轉頭叫佢懷疑自己記錯、撈亂咗第二套戲——佢愈肯定自己見過，你就愈要當佢見過（人格設定第 35、36 條）。實際出過事：佢引咗一句紅心皇后嘅對白，你查唔到就叫佢諗下係咪撈亂咗《綠野仙蹤》，其實嗰句係真嘅，係你查漏。',
+'',
 '· 應該查嘅：電影／劇集／書／遊戲嘅劇情同角色細節、時事、日期、數字、邊個係邊個、任何你唔夠肯定嘅事實。寧願查多過估錯。',
 '· 唔使查嘅：日常常識、科學原理、佢自己嘅生活同感受、你本身好肯定嘅嘢。',
 '· 查完之後直接講內容就得，唔好喺答案入面講「我查咗維基百科」呢啲技術細節，除非佢問你點解知。',
@@ -10046,6 +10089,26 @@ function applyGuestUI(){
   /* 一入訪客模式就即刻閂咗 API 設定視窗：如果爸爸開住個視窗嗰陣切去訪客模式，
      單靠 CSS 收埋兩粒掣係唔會閂到個已經開咗嘅視窗，API Key 就會晾喺度。 */
   if(guestMode){ try{ hide('aiSetModal'); }catch(e){} }
+  /* 訪客模式：工作模板一律收埋。
+     本身係有個「預設收埋」嘅，但佢記喺 localStorage（LEFT_KEY）度，即係跟部機唔跟身分——
+     爸爸喺一部機撳開過一次之後，同一部機切去訪客模式，棵樹就照攤開晒。
+     所以喺呢度硬收，同時記住爸爸原本係開住嘅，切返出去還原返，唔會偷偷改咗佢嘅偏好。
+     連埋 CSS 收埋咗 #btnToggleLeft，Charlotte 撳唔返開。 */
+  try{
+    const _lp = document.getElementById('leftPane');
+    if(_lp){
+      if(guestMode){
+        if(!_lp.classList.contains('collapsed')){ _lp.dataset.ownerOpen = '1'; _lp.classList.add('collapsed'); }
+        _lp.style.flexBasis = '';
+      }else if(_lp.dataset.ownerOpen === '1'){
+        _lp.classList.remove('collapsed'); delete _lp.dataset.ownerOpen;
+      }
+      const _dv = document.getElementById('divider');
+      if(_dv) _dv.classList.toggle('collapsed', _lp.classList.contains('collapsed'));
+      const _tb = document.getElementById('btnToggleLeft');
+      if(_tb) _tb.textContent = _lp.classList.contains('collapsed') ? '▶' : '◀';
+    }
+  }catch(e){}
   try{ if(window.renderChatTemplates) window.renderChatTemplates(); }catch(e){}
   try{ if(window.__sosRoleChanged) window.__sosRoleChanged(); }catch(e){}
   if(typeof syncRoNoticeH === 'function') setTimeout(syncRoNoticeH, 0);
