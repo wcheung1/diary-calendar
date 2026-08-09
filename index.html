@@ -1239,7 +1239,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-09a";
+const BUILD = "2026-08-09b";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -4579,20 +4579,33 @@ function isHwSlot(ev){
 }
 /* 搵返一件功課排咗喺邊個時段做 */
 /* 一份功課可以排唔止一格。做唔完想第二日繼續做埋嗰陣就用得着。
-   全部都掛住同一個 hwFor，所以邊格都認得返係邊份功課。 */
-function hwSlotsOf(key, label){
+   全部都掛住同一個 hwFor，所以邊格都認得返係邊份功課。
+
+   ⚠️ 舊 bug（已修）：hwFor 對唔到嗰陣會跌落「靠個名夾」嗰條後備路，
+   而嗰條路以前係冇時間範圍、亦都唔理人哋認咗主未。結果：8 月 1 號嗰堂派嘅
+   「學而思數學速算工作紙」排咗五格（8 月 5 至 7 號）做完撳咗「做完啦」之後，
+   8 月 8 號上堂派返一份全新嘅同名工作紙，佢個 key 係新嘅、冇任何一格夾到，
+   於是靠個名一次過撈返晒舊嗰五格，畫面就變成「新功課已經排咗五節、仲褪過期」。
+   再撳「更新時間表」會搶咗舊格改寫佢個 hwFor，撳「唔排」會刪走已經做完嘅記錄。
+   而家後備路加咗兩重閘：① 已經寫住 hwFor 嘅格係人哋嘅，唔准靠個名搶；
+   ② 唔准撈早過「派呢份功課嗰堂」嘅格——8 號派嘅嘢冇可能 5 號做咗。
+   刻意唔加上限（唔查死線），因為過咗死線仲喺度做嘅格要繼續睇得到，見第 79 條嘅褪期設計。 */
+function hwSlotsOf(key, label, o){
   const evs = state.events || [];
   const byKey = evs.filter(function(e){ return e.hwFor === key; });
   if(byKey.length) return byKey.sort(function(a,b){ return a.start.localeCompare(b.start); });
-  return evs.filter(function(e){ return isHwSlot(e) && String(e.title||'').indexOf(label) >= 0; })
-            .sort(function(a,b){ return a.start.localeCompare(b.start); });
+  /* 後備路：靠個名夾。俾未有 hwFor 嘅舊資料、同埋爸爸自己喺行事曆打嘅「做功課：X」用。 */
+  const from = (o && o.src === 'class') ? (o.classDate || '') : '';
+  return evs.filter(function(e){
+      if(!isHwSlot(e)) return false;
+      if(e.hwFor) return false;                                   /* 認咗主，唔准搶 */
+      if(String(e.title||'').indexOf(label) < 0) return false;
+      if(from && String(e.start||'').slice(0,10) < from) return false;  /* 早過派功課嗰堂 */
+      return true;
+    }).sort(function(a,b){ return a.start.localeCompare(b.start); });
 }
-function hwSlotOf(key, label){
-  const evs = state.events || [];
-  const byKey = evs.filter(function(e){ return e.hwFor === key; });
-  if(byKey.length) return byKey.sort(function(a,b){ return a.start.localeCompare(b.start); })[0];
-  const byName = evs.filter(function(e){ return isHwSlot(e) && String(e.title||'').indexOf(label) >= 0; });
-  return byName.sort(function(a,b){ return a.start.localeCompare(b.start); })[0] || null;
+function hwSlotOf(key, label, o){
+  return hwSlotsOf(key, label, o)[0] || null;
 }
 function daysAgo(iso){ if(!iso) return 999;
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000); }
@@ -4685,18 +4698,51 @@ function homeworkBoard(){
 /* ctxText 用嘅：淨係要未做完嗰批 */
 function pendingHomework(){ return homeworkBoard().pending; }
 
+/* 一份功課撳到「做完」嗰刻，順手收埋佢啲做功課時段。
+   點解要做：功課板上面一份功課得一個「做完啦」掣，佢本來就係 cover 晒
+   所有時段嘅（一份工作紙分五次做，都係撳一次）。舊行為淨係加個計數，
+   行事曆嗰五格照樣留喺度「逾期未確認」，AI 嗰邊仲會當佢係而家應該做緊嘅嘢。
+   已經過咗嘅格自動當做咗，打返個 hwAutoDone 記號；撳返「未做完」就還原返，
+   而爸爸自己喺行事曆撳過「確認做咗」嘅格冇呢個記號，唔會俾人還原走。
+   仲未到嘅格一律唔郁——自動刪人哋行事曆係大忌，改為喺 toast 話返有幾格，由佢決定。 */
+function hwSyncSlots(o, finished){
+  const nw = nowStr();
+  let past = 0, future = 0;
+  hwSlotsOf(o.key, o.label, o).forEach(function(e){
+    if(String(e.start||'') > nw){ future++; return; }
+    if(finished){
+      if(!e.done){ e.done = true; e.planned = true; e.hwAutoDone = true; past++; }
+    }else if(e.hwAutoDone){
+      e.done = false; delete e.hwAutoDone; past++;
+    }
+  });
+  return {past:past, future:future};
+}
+
 /* 打卡。class 來源寫入 hwDone，task 來源寫返落張 task 度。 */
 function hwTick(o, delta){
   ensureHw();
+  const need = Math.max(1, parseInt(o.need,10) || 1);
+  let now = 0;
   if(o.src === 'class'){
-    hwSetDone(o.key, Math.max(0, o.done + delta));
+    now = Math.max(0, o.done + delta);
+    hwSetDone(o.key, now);
   }else{
     const t = (state.ai.hwTasks||[]).filter(function(x){ return x.id === o.taskId; })[0];
     if(!t) return;
     t.done = Math.max(0, (parseInt(t.done,10)||0) + delta);
     t.doneAt = t.done >= Math.max(1,parseInt(t.times,10)||1) ? nowISO() : '';
+    now = t.done;
   }
-  save(); renderHw();
+  const fin = now >= need;
+  const r = hwSyncSlots(o, fin);
+  save(); renderHw(); try{ renderCal(); }catch(e){}
+  if(fin && (r.past || r.future)){
+    const bits = [];
+    if(r.past)   bits.push('順手收咗 ' + r.past + ' 格已經過咗嘅時段');
+    if(r.future) bits.push('仲有 ' + r.future + ' 格排咗喺將來，要拎走就去行事曆度撳「✕ 唔排」');
+    toast(bits.join('　·　'));
+  }
 }
 function hwSkipToggle(o){
   ensureHw();
@@ -4725,9 +4771,9 @@ function hwSchedule(o, dateStr, timeStr, mode, durMin){
            一個 event id  = 指定郁邊一格
            唔填          = 郁最早嗰格（舊行為，改期／向後褪就係用呢個）
      durMin: 唔填就沿用原本嗰格嘅時長，新格預設 30 分鐘 */
-  const all = hwSlotsOf(o.key, o.label);
-  const ex = (mode === 'new') ? null
-           : (mode ? all.filter(function(x){ return x.id === mode; })[0] : all[0]);
+  const all = hwSlotsOf(o.key, o.label, o);
+  let ex = (mode === 'new') ? null
+         : (mode ? all.filter(function(x){ return x.id === mode; })[0] : all[0]);
   const start = dateStr + 'T' + (timeStr || '20:00');
   /* 做功課格一律填返完結時間。
      唔填嘅話，行事曆會用「下一件事嘅開始時間」推算，就會變成
@@ -4739,6 +4785,9 @@ function hwSchedule(o, dateStr, timeStr, mode, durMin){
      而家改成：保留返嗰格原本嘅「時長」，跟住新嘅開始時間重新計完結時間。 */
   const dur = (durMin > 0 && durMin <= 600) ? Math.round(durMin) : hwDurOf(ex);
   const endS = endHHMM(minutes(start.slice(11)) + dur);
+  /* 安全網：撞啱郁到一格已經認咗第二份功課嘅時段，唔准搶佢過嚟改寫，
+     改為另開一格。冇咗呢句，兩份同名功課會互相偷對方嘅歷史。 */
+  if(ex && ex.hwFor && ex.hwFor !== o.key) ex = null;
   if(ex){
     /* 褪期計數：同一格由一日搬去另一日先算一次，同日改鐘數唔算。
        點解要記：一件功課俾人一路向後褪，每次望落都好合理，但褪到第四第五次
@@ -4760,9 +4809,11 @@ function hwSchedule(o, dateStr, timeStr, mode, durMin){
   renderHw();
 }
 function hwUnschedule(o, evId){
-  const all = hwSlotsOf(o.key, o.label);
+  const all = hwSlotsOf(o.key, o.label, o);
   const ex = evId ? all.filter(function(x){ return x.id === evId; })[0] : all[0];
   if(!ex) return;
+  /* 安全網：唔准刪一格已經認咗第二份功課嘅時段。 */
+  if(ex.hwFor && ex.hwFor !== o.key){ toast('呢格係第二份功課嘅時段，唔會喺呢度刪。'); return; }
   state.events = state.events.filter(function(x){ return x.id !== ex.id; });
   save(); try{ renderCal(); }catch(e){}
   renderHw();
@@ -4798,7 +4849,7 @@ function hwCard(o, finished){
      （上堂之後 21 日，過咗就算未做都會由清單度消失），因為嗰個唔提就冇得補救。 */
   let pushTxt = '';
   if(!finished){
-    const _sl = hwSlotOf(o.key, o.label);
+    const _sl = hwSlotOf(o.key, o.label, o);
     const _p  = _sl ? (parseInt(_sl.hwPush,10) || 0) : 0;
     if(_p >= 2){
       const _today = fmtDate(new Date());
@@ -4832,7 +4883,7 @@ function hwCard(o, finished){
 
   /* 排咗喺邊個時段做。一份功課可以有幾格（做唔完第二日繼續）。 */
   if(!finished){
-    const slots = hwSlotsOf(o.key, o.label);
+    const slots = hwSlotsOf(o.key, o.label, o);
     if(guest){
       const sl = document.createElement('div');
       sl.className = 'hwSlot' + (slots.length ? ' on' : '');
@@ -5253,7 +5304,7 @@ function renderHwCourses(){
           const o = rec.o, st = rec.g;
           const row = document.createElement('div');
           row.className = 'hwItemRow' + (st==='done' ? ' fin' : (st==='skipped' ? ' skip' : (o.overdue ? ' over' : '')));
-          const slot = hwSlotOf(o.key, o.label);
+          const slot = hwSlotOf(o.key, o.label, o);
           row.innerHTML =
             '<div class="hwItemT">' +
               (st==='done' ? '✅ ' : st==='skipped' ? '🚫 ' : o.overdue ? '⚠️ ' : '⬜ ') +
@@ -5310,7 +5361,7 @@ function renderHwCourses(){
       const unsched = board.pending.filter(function(o){
         return o.src==='class' && (rule.items||[]).some(function(it){ return o.label === it.name; })
                && past.some(function(e){ return o.key.indexOf(e.id) === 0; })
-               && !hwSlotOf(o.key, o.label);
+               && !hwSlotOf(o.key, o.label, o);
       });
       if(unsched.length){
         const b = document.createElement('button'); b.className='btn primary';
@@ -5793,7 +5844,7 @@ function ctxText(){
   const hw = pendingHomework();
   L.push('\n【課後功課：仲未做完（自動由「上完邊堂要跟進乜」推算）】\n' + (hw.length
     ? hw.map(function(h){
-        const slot = hwSlotOf(h.key, h.label);
+        const slot = hwSlotOf(h.key, h.label, h);
         return '- ' + h.label + (h.need>1 ? '（做咗 '+h.done+'／'+h.need+' 轉）' : '')
              + (h.src==='class'
                  ? '　←　' + h.classDate + ' 上咗「' + h.fromClass + '」'
