@@ -1245,7 +1245,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-11a";
+const BUILD = "2026-08-11b";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -5947,7 +5947,7 @@ function ctxText(){
      唔好搞到成段「最近嘅對話同糾正」變空白。 */
   /* 主人對話（owner-chat）剔走：入面可能有 API key、屋企私事、大人之間嘅事，
      唔應該餵返做 context——訪客模式之下呢段 context 係俾 Charlotte 嗰個 AI 讀嘅。 */
-  const _all = (state.ai.log||[]).filter(x=>!(x && x.meta && x.meta.kind === 'owner-chat'));
+  const _all = (state.ai.log||[]).filter(x=>!(x && (x.kind || (x.meta||{}).kind) === 'owner-chat'));
   const _fresh = _all.filter(x=>x && !x.digested);
   const lg = (_fresh.length ? _fresh : _all).slice(-14);
   L.push('\n【最近嘅對話同糾正（要學返嚟）——注意：呢度只係 Data Log 最近 ' + lg.length
@@ -6272,13 +6272,14 @@ const PERSONA_PARENT = [
 '· 佢同你講一件事，通常係喺度交代事實、想攞你嘅分析。唔係喺度呻，唔係想搵人哄。',
 '',
 '▓ 你嘅真實限制 —— 呢一節排喺所有嘢之前。違反咗唔係做得差，係講大話',
-'A1) 你冇長期記憶。呢個對話一關 browser 就一個字都唔會剩，而家長模式嘅對話亦都唔會寫入 Data Log。所以「已記住」「我會記住」「已加入長期記憶」「記低咗」呢類說話一律唔准講——就算佢明文叫你記都唔准，因為佢叫你記唔會令你記到。',
+'A1) 你冇長期記憶。呢個對話一關 browser 就一個字都唔會剩。家長模式嘅對話而家可能會寫入 Data Log（睇佢設定入面嗰個掣），但就算寫咗都唔會餵返俾你做 context，亦都唔會攞去提煉 General Rules，所以你下次一樣係一個字都記唔返。所以「已記住」「我會記住」「已加入長期記憶」「記低咗」呢類說話一律唔准講，就算佢明文叫你記都唔准，因為佢叫你記唔會令你記到。',
 'A2) 佢叫你記嘢嗰陣，正確做法係兩步：一，即刻喺今次回應入面用返嗰個資料，證明你收到；二，用一句話講返真正入到數嘅方法——撳傾偈下面嗰粒「🧠 傾到嘅偏好 ➜ 加落 Rules」，或者自己開 General Rules 個 tab 打落去。唔准問「要唔要我幫你加落 General Rules？」，因為你自己撳唔到粒掣，問等於將件事推返俾佢又扮咗做緊嘢。直接叫佢撳。呢條凌駕通用規則入面叫你問嗰句。',
 'A3) 你嘅上網能力係有限而且要睇設定嘅。你永遠查到維基百科同 Fandom。如果用戶填咗 Jina key，你仲會多一個 [[WEB]] 工具，可以真係上網搜尋；冇填就冇。上面嗰段【你識得上網查資料】會話你知今次有冇。',
 'A4) 以下呢啲維基百科一律冇：香港邊個商場有咩舖頭同餐廳、營業時間、價錢、排唔排隊、今日天氣、交通實況、學校收生消息、有咩優惠或者活動。呢啲淨係 [[WEB]] 先查得到。',
 'A5) 所以規矩好簡單：有 [[WEB]] 就一定要查，唔准靠記憶答；冇 [[WEB]] 就一定要老實講你查唔到，叫佢自己去官網、OpenRice 或者 Google Maps 睇。兩種情況都唔准做同一件事——列一張「好似有粥店、點心之類」嘅估算清單出嚟。喺前面加句「我未必最新」唔會令佢變成資料，佢係會照住張清單去行嘅，去到先發現冇。',
 'A5b) 就算查到，都要記住網上資料會過時：涉及幾點開門、仲有冇得訂位、幾錢呢類，講返你係邊度睇到，同埋提佢出門之前打個電話確認。查唔到嘅部分，立即轉去用你真係做得到嗰部分幫佢——例如唔講餐廳名，改為講佢今日揀嘢食應該用咩準則揀（邊個要食軟嘢、幾點食、食完仲要去邊）。',
 'A6) 你對佢屋企嘅所有認識，都係嚟自行事曆、習慣統計、General Rules 同呢輪對話。唔喺入面嘅嘢就係唔知，唔准填空。',
+'A7) 你係住喺呢個行事曆 app 入面嘅，但你冇睇過佢嘅 code。佢點計 token、一張相會重發幾多次、幾時轉去睇相嗰條線、邊粒掣做乜、而家扣緊邊條 key 嘅錢，呢啲你一律唔知。唔准攞「一般 API 係咁運作」當「佢呢個 app 係咁運作」答：佢問嗰陣關心嘅係佢自己部機扣緊嘅錢，唔係教科書原理。要答就分兩層，而且要標明邊層係邊層。一般機制係咁；佢個 app 有冇加限制、用緊邊條線，你睇唔到，要佢自己撳開設定或者睇返 code 先知。實際出過事：佢問點解睇相扣錢咁快，你答「傳一張相之後再傾八句，嗰張相就計咗九次錢」，但個 app 本身有上限，只會重發最近幾個有相嘅回合，你嗰個數字係錯嘅；而且佢有兩條 API 線（主線同睇相線），你連佢燒緊邊條都未問過就出咗個結論。',
 '',
 '▓ 每次都要交貨，但一次只推一件（最高優先）',
 '1) 每一次回應都要交到一件佢即刻攞得走嘅嘢：一個判斷、一個方案、一句照抄得嘅對白、或者一個改得到嘅時間表安排。淨係整理佢講過嘅嘢、淨係鋪陳背景、淨係表示理解，一律當交白卷。',
@@ -6417,6 +6418,7 @@ const PERSONA_PARENT = [
 '   □ 有冇簡體字？一隻都唔准有。',
 '   □ 我有冇提過香港嘅舖頭、餐廳、營業時間、價錢？有 [[WEB]] 嘅話我查咗未？冇 [[WEB]] 而我又寫咗出嚟，即係我估緊——刪咗佢。',
 '   □ 我引咗行事曆嘅嘢，有冇分清楚邊啲係入面真係有、邊啲係我推算？',
+'   □ 佢問嘅係咪呢個 app 本身點運作？我有冇將一般原理當咗佢個 app 嘅實情講出嚟？',
 '   □ 全篇夾埋問咗幾多條問題？超過一條就刪到剩返最關鍵嗰條，或者一條都唔問。',
 '   □ 最後一句係咪「你想 A 定 B？」？係就改成一個建議加一個理由。',
 '   □ 除咗重新排版佢講過嘅嘢、同埋讚佢之外，我今次有冇加過一樣佢自己攞唔到嘅嘢？冇就返去重寫。',
@@ -7080,7 +7082,7 @@ async function genRules(silent){
      慳返嘅 token 可以留俾新嘅糾正。全部都 digested 就照用返最新嗰批做保險。 */
   const mkLog = (n,cut)=>{
     /* 同 ctxText() 一樣剔走主人對話：提煉「你哋屋企嘅習慣」唔應該讀你同 AI 嘅私人傾偈。 */
-    const all = (state.ai.log||[]).filter(x=>!(x && x.meta && x.meta.kind === 'owner-chat'));
+    const all = (state.ai.log||[]).filter(x=>!(x && (x.kind || (x.meta||{}).kind) === 'owner-chat'));
     const fresh = all.filter(x=>x && !x.digested);
     return (fresh.length ? fresh : all).slice(-n)
       .map(x=>'('+(TYPE_NAME[x.type]||x.type)+') '+fmtStamp(x.at)+' '+digest(x,cut)).join('\n');
@@ -9790,6 +9792,12 @@ async function saveTextFile(filename, text, mime){
     }
   }catch(err){
     if(err && err.name === 'AbortError') return 'cancelled';   /* 用戶自己撳取消，唔算錯 */
+    /* 其餘錯誤（多數係 Chrome 唔准寫入嗰個資料夾，例如系統目錄、
+       或者受管控嘅同步資料夾）以前係靜靜雞跌落下面條下載路，
+       用戶會以為「揀第二個位就存唔到」，其實份檔已經入咗「下載」。
+       出一句聲，唔好等佢估。 */
+    try{ toast('揀唔到嗰個位置（' + (err && err.name ? err.name : '未知') +
+               '），已經改為直接下載去「下載」資料夾。'); }catch(e){}
   }
   const blob = new Blob([text], {type: type + ';charset=utf-8'});
   const url = URL.createObjectURL(blob);
@@ -9852,17 +9860,24 @@ function guestChatsInRange(fromD, toD, who){
   const out = [];
   for(const x of list){
     if(!x || !x.at) continue;
-    const isOwnerChat = (x.meta && x.meta.kind === 'owner-chat')
-                     || /^🧑 主人對話記錄/.test(String(x.text||''));
+    /* ⚠️ logPush(type, text, extra) 係 Object.assign 將 extra 攤平喺記錄嘅頂層，
+       所以係 x.kind／x.q／x.a，唔係 x.meta.kind。以前寫成 x.meta.* 嗰啲條件
+       永遠都係 false，兩個後果：一，匯出被迫跌落「拆返條 text」嗰條路，而 text
+       喺入 log 之前已經剪到 500 字，長嘅回覆匯出嚟就係斷尾；二，主人對話嘅
+       排除條件失效，即係佢仲係會餵返做 AI context 同提煉規則。兩樣都由呢度起。
+       x.meta 保留做後備，遷就將來真係改成有 meta 嘅寫法。 */
+    const _kind = x.kind || (x.meta||{}).kind || '';
+    const isOwnerChat = _kind === 'owner-chat' || /^🧑 主人對話記錄/.test(String(x.text||''));
     const isGuestChat = !isOwnerChat
-                     && ((x.meta && (x.meta.kind === 'guest-chat' || x.meta.guest))
+                     && (_kind === 'guest-chat' || x.guest || (x.meta||{}).guest
                          || /^👤 訪客對話記錄/.test(String(x.text||'')));
     if(owner ? !isOwnerChat : !isGuestChat) continue;
     const d = fmtDate(new Date(x.at));          /* 本地日期，唔係 UTC */
     if(fromD && d < fromD) continue;
     if(toD   && d > toD)   continue;
     let q = '', a = '';
-    if(x.meta && x.meta.q){ q = x.meta.q; a = x.meta.a || ''; }
+    const _q = x.q || (x.meta||{}).q, _a = x.a || (x.meta||{}).a;
+    if(_q){ q = _q; a = _a || ''; }                    /* 全文喺呢度，唔係剪過嗰條 text */
     else{
       const t = String(x.text||'').replace(/^(?:👤 訪客|🧑 主人)對話記錄：\s*/,'');
       const i = t.indexOf('\nAI：');
