@@ -675,6 +675,14 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 
 /* ===== 左面板收合（桌面） ===== */
 #btnToggleLeft{flex:0 0 auto;line-height:1}
+.imgStickBar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 6px;
+  padding:5px 9px;border:1px solid var(--accent);border-radius:8px;background:var(--hover);font-size:12.5px}
+.imgStickBar .isTag{font-weight:700;color:var(--accent)}
+.imgStickBar .isN{font-weight:700}
+.imgStickBar .isNote{color:var(--muted);flex:1;min-width:120px}
+.imgStickBar .isX{border:1px solid var(--line);background:var(--card);border-radius:6px;
+  padding:3px 9px;cursor:pointer;font-size:12px;color:inherit}
+.imgStickBar .isX:hover{border-color:var(--accent);color:var(--accent)}
 #kwFilterBtn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 #kwFilterBtn .kfN{font-weight:700;margin-left:4px}
 #kfRows{margin-top:10px;display:flex;flex-direction:column;gap:2px}
@@ -1084,6 +1092,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
         <textarea id="chatInput" placeholder="喺度打你想傾嘅嘢…（Enter 送出，Shift+Enter 換行）"></textarea>
         <button class="btn primary" id="chatSend">↵ 送出</button>
       </div>
+      <div class="imgStickBar" id="imgStickBar" style="display:none"></div>
       <div class="chatImgs" id="chatImgs"></div>
       <div class="chatActRow">
         <button class="btn" id="chatTTS" title="AI 覆完自動用廣東話讀出嚟（訪客模式一樣用得）">🔊 自動讀：熄</button>
@@ -1240,6 +1249,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
     <div class="ttsNote" id="webDiag" style="margin:8px 0 0"></div>
     <label class="ttsChk"><input type="checkbox" id="webGuest" checked> 訪客模式（Charlotte）都可以上網搜尋</label>
     <label class="ttsChk"><input type="checkbox" id="logOwnerChat" checked> 主人（你自己）同 AI 傾偈都記入 Data Log</label>
+    <p class="ttsNote" style="margin-top:8px"><b>關於張相幾時會再用：</b>送咗相之後，系統會逐句自己判斷你問嘅嘢關唔關張相事。追問功課、問相入面嘅字、答緊 AI 問返關於張相嘅嘢，就會帶返張相（行睇相線，按量收費）；轉咗去講行事曆、天氣、故事呢啲，就唔會帶，亦都唔會扣 Charlotte 嘅相機額度。拿不準嗰啲會用文字線問一句判斷，唔會燒睇相嘅錢。唔使你手動設定，亦都唔使小朋友識撳任何掣。</p>
     <p class="ttsNote" style="margin-top:4px">開咗先至可以事後匯出返自己嘅對話嚟檢討家長版 persona。呢批記錄唔會攞去提煉 General Rules、亦唔會餵返俾 AI 做 context——因為裡面好可能有 API key、屋企私事。剔走就同以前一樣：關咗個 tab 就冇。</p>
     <p class="ttsNote" style="margin-top:4px">剔走嘅話，Charlotte 喺訪客模式之下淨係查得到維基百科同 Fandom（呢兩個係有人編輯過嘅百科），唔會攞成個互聯網嘅內容返嚟。你自己用就唔受影響。</p>
   </div>
@@ -1271,7 +1281,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-12a";
+const BUILD = "2026-08-12c";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -9204,7 +9214,15 @@ async function addChatImgs(files){
       toast('唔收影片——太食 token。想問片入面嘅嘢，就㩒停佢再影張相。'); continue;
     }
     if(!/^image\//.test(f.type||'')){ toast('「' + (f.name||'呢個檔') + '」唔係相'); continue; }
-    try{ chatImgs.push(await shrinkImage(f)); }
+    try{
+      chatImgs.push(await shrinkImage(f));
+      /* 額度喺呢度計：真係加咗一張相入去，先至算影多咗一張。
+         訪客先計數（camAfterShot 自己有 isGuestNow 閘）。 */
+      try{
+        const qm = camAfterShot();
+        if(qm){ toast(qm); if(typeof pushCamNote === 'function') pushCamNote(qm); }
+      }catch(e2){ console.warn('cam quota', e2); }
+    }
     catch(e){ toast('處理唔到一張相：' + e.message); }
   }
   renderChatImgs();
@@ -9308,6 +9326,11 @@ function snapCam(){
   cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = 'high';
   cx.drawImage(v, sx, sy, sw, sh, 0, 0, w, h);
   chatImgs.push(cv.toDataURL('image/jpeg', 0.88));
+  /* 同 addChatImgs 一樣：加咗一張相入去嗰刻先計額度，唔係叫 API 嗰陣先計。 */
+  try{
+    const qm = camAfterShot();
+    if(qm){ toast(qm); if(typeof pushCamNote === 'function') pushCamNote(qm); }
+  }catch(e){ console.warn('cam quota', e); }
   renderChatImgs();
   /* 影完一張就收工返去傾偈。細路見到相機仲喺度，就會一路影落去；
      想再影就自己撳多次 📷，唔使我哋引導。 */
@@ -9473,11 +9496,12 @@ async function callVision(messages, opt, models, onNote){
     for(let a = 0; a <= VIS_WAITS.length; a++){
       try{
         const r = await callAI(messages, Object.assign({}, opt, {model:m}));
-        visBump();
-        try{
-          const qm = camAfterShot();
-          if(qm){ toast(qm); if(typeof pushCamNote === 'function') pushCamNote(qm); }
-        }catch(e){ console.warn('cam quota', e); }
+        visBump();          /* 呢個係「今日叫咗幾多次睇相 API」嘅成本上限，擺喺呢度啱 */
+        /* ⚠️ 舊 bug（已修）：camAfterShot() 以前擺咗喺呢度，即係每叫一次睇相 API
+           就當 Charlotte 影多咗一張相。配埋舊嗰個「舊相會跟住成段對話」嘅問題，
+           變成佢影一張相之後傾幾句唔關事嘅嘢，額度就由 10 跌到 7、6、5。
+           但個額度嘅本意係「一日最多影 20 張相」，係數相，唔係數 API call。
+           而家搬咗去 addChatImgs()，即係真係加一張相入去嗰刻先計。 */
         return r;
       }catch(err){
         last = err;
@@ -9621,6 +9645,116 @@ function makeStreamView(host, guest){
   return view;
 }
 
+/* ================= 張相關唔關呢句嘢事 =================
+   目標：完全自動。用戶（尤其係六歲嘅 Charlotte）唔應該要理解、
+   更加唔會主動去撳任何「計唔計入」嘅掣。所以呢度唔用「跟得幾轉」
+   呢類計數，改為每一句都判斷返「呢句嘢使唔使睇返上面張相」。
+
+   判斷分三層，由平到貴：
+     L1 明顯要　——「呢題點做」「相入面第二個字」「啱唔啱」呢類，直接要，唔使問人。
+     L2 明顯唔關事 ——「今日天氣點」「聽日去邊度」「幫我排時間」呢類，直接唔要。
+     L3 拿不準　—— 交俾文字 model 判一句。文字線係月費／平價，睇相線係按量收費，
+                   用幾百個文字 token 去慳一次睇相 call，係穩賺嘅。
+
+   L3 失敗（冇 key、網絡問題、覆咗啲怪嘢）就用返 L1／L2 嗰個傾向分做決定，
+   唔會卡死，亦都唔會靜靜雞照燒錢。
+
+   ⚠️ 呢度嘅決定同時管住三樣嘢，一定要一齊郁，唔可以各行各路：
+     ① 張相入唔入 payload　② 用唔用睇相 model　③ 扣唔扣 Charlotte 嘅相機額度。 */
+
+/* L1：明顯指住張相／功課。中英夾雜都要接得住。 */
+const IMG_YES_RE = new RegExp([
+  '相片|照片|張相|幅相|相入面|相裏|相裡|相度|呢張|嗰張|呢幅|嗰幅',
+  '呢題|嗰題|下一題|上一題|第\\s*[0-9一二三四五六七八九十]+\\s*(題|條|行|格|個字)',
+  '呢條(數|題)|呢個字|呢個詞|呢句|呢行|呢格|呢個空格|空格',
+  '點做|點計|點解呢題|點樣填|填咩|揀邊個|選擇題',
+  '啱唔啱|對唔對|做啱咗|有冇錯|錯咗邊|對下|check',
+  '上面(嗰|果|個)|下面(嗰|果|個)|左邊|右邊|中間嗰',
+  'this (one|question|word)|the (photo|picture|image)'
+].join('|'), 'i');
+
+/* L2：明顯係新話題。呢啲字一出，多數同張相冇關係。 */
+const IMG_NO_RE = new RegExp([
+  '^(hi|hello|hey|哈囉|你好|早晨|午安|晚安|拜拜|bye|多謝|thank)',
+  '今日|聽日|尋日|後日|星期|幾點|行事曆|時間表|排時間|去邊|天氣|落雨',
+  '講(個|下)(故事|笑話)|唱歌|玩遊戲|傾下計',
+  '你叫咩名|你係邊個|你識唔識'
+].join('|'), 'i');
+
+let imgOff = false;              /* 家長／用戶明文話「唔好再用張相」 */
+let imgLastUsed = false;         /* 上一句有冇用到張相，做 L3 失敗時嘅後備 */
+let imgLastWhy = '';             /* 俾條 bar 顯示點解 */
+function imgHasAny(){ return (chatHistory||[]).some(function(m){ return m && m.imgs && m.imgs.length; }); }
+function imgOffReset(){ imgOff = false; }
+function imgOffSet(){ imgOff = true; imgLastUsed = false; try{ renderImgStick(); }catch(e){} }
+
+/* 交俾文字 model 判。只送文字，唔送相——所以呢個 call 本身唔會燒到 vision token。 */
+async function imgAskModel(text, lastAi, imgHint){
+  const sys = '你係一個分類器。判斷「用戶最新嗰句嘢」需唔需要睇返之前嗰張相先答到。' +
+    '需要就答 YES，唔需要就答 NO。淨係答一個字，唔准解釋。' +
+    '提示：追問功課、追問相入面嘅字或者圖、回答緊 AI 問返關於張相嘅嘢、' +
+    '用「呢個」「佢」指住相入面嘅嘢，全部都係 YES。' +
+    '轉咗去講行事曆、天氣、心情、故事、或者任何唔使睇相都答到嘅嘢，就係 NO。';
+  const usr = '之前嗰張相係關於：' + (imgHint || '（唔知）') + '\n' +
+              'AI 上一句講：' + short(String(lastAi||'（冇）'), 200) + '\n' +
+              '用戶最新嗰句：' + short(String(text||''), 200);
+  /* 12 秒夠有突：呢個 call 只係判一個字。判斷唔到就跌返落後備傾向，
+     唔好為咗一個分類器令細路等成十幾秒。 */
+  const r = await callAI([{role:'system', content:sys}, {role:'user', content:usr}],
+                         {max:8, temp:0, noThink:true, timeout:12000});
+  return /yes/i.test(String(r||''));
+}
+
+/* 主判斷。回傳 {use:boolean, why:string} */
+async function imgDecide(text){
+  if(!imgHasAny())  return {use:false, why:''};
+  if(imgOff)        return {use:false, why:'你話咗唔使再睇'};
+  const t = String(text||'').trim();
+  if(!t)            return {use:true,  why:'冇打字，淨係送相'};
+  if(IMG_YES_RE.test(t)) return {use:true,  why:'你問緊相入面嘅嘢'};
+  if(IMG_NO_RE.test(t))  return {use:false, why:'轉咗話題'};
+  /* L3 失敗時嘅後備傾向：好短、又唔似一條新問題嘅句（「係呀」「5個」「唔知」），
+     多數係喺度答緊 AI 問返關於張相嘅嘢。有問號、或者以「點解／邊個」呢類
+     問句開頭嘅，就當佢開緊新話題，唔好貿然當追問。 */
+  const lean = imgLastUsed && t.length <= 6 && !/[？?]$/.test(t) &&
+               !/^(點解|點樣|為咩|為乜|乜嘢|邊個|邊度|幾時|可唔可以|你識唔識)/.test(t);
+  try{
+    const hist = chatHistory || [];
+    let lastAi = '', hint = '';
+    for(let i = hist.length - 1; i >= 0; i--){
+      if(!lastAi && hist[i].role === 'assistant' && !hist[i].error) lastAi = hist[i].content||'';
+      if(!hint && hist[i].imgs && hist[i].imgs.length) hint = hist[i].content||'';
+      if(lastAi && hint) break;
+    }
+    const yes = await imgAskModel(t, lastAi, hint);
+    return {use:yes, why: yes ? '睇落係接住張相講' : '睇落同張相冇關'};
+  }catch(e){
+    console.warn('img relevance', e);
+    return {use:lean, why: lean ? '判斷唔到，當你仲喺度追問' : '判斷唔到，當你轉咗話題'};
+  }
+}
+
+/* 條 bar 淨係報返個狀態，唔需要用戶做嘢。留粒掣係俾家長一個 override，唔係必要動作。 */
+function renderImgStick(){
+  const box = $('imgStickBar'); if(!box) return;
+  if(!imgHasAny()){ box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.style.display = '';
+  box.innerHTML = '<span class="isTag">📎 上面有張相</span>' +
+    '<span class="isNote">' + (imgOff
+      ? '已經收埋咗，之後唔會再用。想再問張相，就重新影過或者揀返張相。'
+      : (imgLastUsed
+          ? '啱啱嗰句有用到張相' + (imgLastWhy ? '（' + esc(imgLastWhy) + '）' : '')
+          : '我會自己睇下你問嘅嘢關唔關張相事，唔關事就唔會用，唔會扣你睇相額度')) +
+    '</span>';
+  if(!imgOff){
+    const x = document.createElement('button');
+    x.className = 'isX'; x.textContent = '✕ 收埋張相';
+    x.title = '唔想我再自動判斷就撳呢個，之後嘅訊息一定唔會帶張相';
+    x.onclick = ()=>{ imgOffSet(); toast('好，之後唔會再用嗰張相。'); };
+    box.appendChild(x);
+  }
+}
+
 /* 邊幾轉嘅相會真係上載，同埋洗唔洗轉去睇相嗰條線——兩件事一定要用同一把尺。
 
    ⚠️ 舊 bug（已修）：以前有兩把尺。決定「送邊幾張相」嗰段由最尾數返、
@@ -9631,13 +9765,18 @@ function makeStreamView(host, guest){
    仲有第二個窿：keep 係按 chatHistory 嘅位置編號，但下面 map 行喺濾走 error 之後嗰個
    array 上面，一有出錯記錄編號就偏一格，相會黐錯轉——所以一炒就一直炒落去。
    而家：一個函數計晒，用返原本位置編號，payload 有相就一定 wantVis。 */
-function imgKeepSet(){
+function imgKeepSet(useImgs){
   const hist = chatHistory || [];
-  const win = Math.max(0, hist.length - CHAT_IMG_KEEP * 2);   /* 太舊嘅相唔再上載 */
   const keep = {};
-  let budget = CHAT_IMG_KEEP;
-  for(let i = hist.length - 1; i >= win; i--){
-    if(hist[i] && hist[i].imgs && hist[i].imgs.length && budget > 0){ keep[i] = true; budget--; }
+  /* ⚠️ 舊 bug（已修）：以前淨係用「最近 N 條訊息」做窗，即係影完一張相之後
+     講幾句唔關事嘅嘢，張相照樣會夾返入 payload，於是照樣行睇相嗰條線、
+     照樣燒 vision token、照樣扣相機額度。用戶明明轉咗話題。
+     而家由 imgDecide() 逐句判斷關唔關事，答案由 useImgs 傳入嚟，呢度唔再自己估。 */
+  if(useImgs){
+    let budget = CHAT_IMG_KEEP;
+    for(let i = hist.length - 1; i >= 0 && budget > 0; i--){
+      if(hist[i] && hist[i].imgs && hist[i].imgs.length){ keep[i] = true; budget--; }
+    }
   }
   const msgs = [];
   hist.forEach(function(m, i){
@@ -9692,6 +9831,8 @@ async function chatSend(presetText){
   /* 加 user message */
   chatHistory.push({role:'user', content:text, imgs:sendImgs, at:nowISO()});
   if(presetText==null){ chatInput.value = ''; chatImgs = []; renderChatImgs(); }
+  if(sendImgs.length) imgOffReset();          /* 送咗新相，之前收埋嘅指令唔再算數 */
+  try{ renderImgStick(); }catch(e){}
   renderChat();
   /* 加一個 loading 訊息 */
   const loadingEl = document.createElement('div');
@@ -9712,10 +9853,21 @@ async function chatSend(presetText){
   const _guest = document.body.classList.contains('readonly');
   let _tries = 0, _lastErr = null;   /* 試咗幾多次、對上一次點死 —— 兩樣都要入記錄 */
   try{
+    /* 呢句嘢關唔關上面張相事？判斷一次，之後三處（payload／睇相線／額度）共用。
+       今次自己夾咗新相入嚟就梗係要，唔使問。 */
+    let _imgUse = sendImgs.length > 0, _imgWhy = '';
+    if(!_imgUse && imgHasAny()){
+      try{ loadingEl.innerHTML = '<span class="aiSpin"></span> 睇下你問嘅嘢關唔關張相事…'; }catch(e){}
+      const d = await imgDecide(text);
+      _imgUse = d.use; _imgWhy = d.why;
+    }
+    imgLastUsed = _imgUse; imgLastWhy = _imgWhy;
+    try{ renderImgStick(); }catch(e){}
+    const _keep = imgKeepSet(_imgUse);
     /* 組 messages：system + 用戶資料 + 對話歷史 */
     const messages = [
       {role:'system', content: SYS_CHAT + '\n\n' + searchNote() + '\n\n' + personaBlock() + '\n\n' + ctxText()},
-      ...imgKeepSet().msgs
+      ..._keep.msgs
     ];
     /* 呢個 turn 有相要睇 → 轉用睇相 model */
     const visM  = String(cfg().visionModel||'').trim();
@@ -9723,7 +9875,7 @@ async function chatSend(presetText){
     const visB  = String(cfg().visionBase||'').trim();
     const visK  = String(cfg().visionKey||'').trim();
     /* 同一把尺：payload 真係夾咗相，先至用睇相嗰條線。唔准各行各路。 */
-    const useVis = !!visM && imgKeepSet().hasImg;
+    const useVis = !!visM && _keep.hasImg;
     /* 傾偈係最需要「內部思考」嘅場合（要拆問題、諗點示範、揀邊樣講）。
        推理模型嘅思考 token 計入 max_tokens，6000 遠遠唔夠，所以預設 20000。
        講出嚟嘅長度唔係由呢度控制，係由 persona 嗰條「六十至一百八十字」控制。 */
@@ -10231,7 +10383,7 @@ $('chatExport').onclick = async ()=>{
     : (r === 'picked') ? '✅ 已經存好。' : '✅ 已經下載（睇下你部機嘅「下載」）。';
 };
 
-$('chatClear').addEventListener('click', ()=>{ chatImgs = []; renderChatImgs(); });
+$('chatClear').addEventListener('click', ()=>{ chatImgs = []; imgOffReset(); imgLastUsed = false; renderChatImgs(); try{ renderImgStick(); }catch(e){} });
 $('chatClear').onclick = async ()=>{
   if(!chatHistory.length) return;
   if(await confirmBox('確定要清走目前嘅對話？\n（對話本來就唔會儲存，清咗即冇咗。）')){
