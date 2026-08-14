@@ -629,6 +629,7 @@ body.readonly #btnRedo,
 body.readonly #btnNewFolder,
 body.readonly #btnNewTask,
 body.readonly #btnToggleLeft,
+body.readonly #kwFilterBtn,
 body.readonly #importFile,
 body.readonly #btnAISet,
 body.readonly #chatExport,
@@ -674,6 +675,17 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 
 /* ===== 左面板收合（桌面） ===== */
 #btnToggleLeft{flex:0 0 auto;line-height:1}
+#kwFilterBtn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+#kwFilterBtn .kfN{font-weight:700;margin-left:4px}
+#kfRows{margin-top:10px;display:flex;flex-direction:column;gap:2px}
+.kfRow{display:flex;align-items:center;gap:9px;padding:7px 9px;border:1px solid var(--line);
+       border-radius:8px;cursor:pointer;user-select:none}
+.kfRow:hover{background:var(--hover)}
+.kfRow.on{border-color:var(--accent);background:var(--hover)}
+.kfRow input{margin:0;flex:0 0 auto;cursor:pointer}
+.kfDot{width:12px;height:12px;border-radius:50%;flex:0 0 auto}
+.kfName{flex:1;font-weight:600}
+.kfCnt{font-size:12px;color:var(--muted);flex:0 0 auto}
 #leftPane.collapsed{flex:0 0 42px;min-width:0;overflow:hidden}
 #leftPane.collapsed #treeWrap{display:none}
 #leftPane.collapsed #leftHead{justify-content:center}
@@ -750,6 +762,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
   <button class="hbtn" id="btnAI">🤖 AI 排程 (Ctrl+K)</button>
   <button class="hbtn" id="btnAISet">⚙ AI 設定</button>
   <button class="hbtn" id="btnKw">🎨 關鍵字顏色</button>
+  <button class="hbtn" id="kwFilterBtn" title="淨係顯示含有指定關鍵字嘅項目">🔎 篩選</button>
   <button class="hbtn" id="btnSearch">🔍 搜尋 (Ctrl+F)</button>
   <button class="hbtn" id="btnBulk">📅 批量計劃</button>
   <button class="hbtn" id="btnExport">⬇ 匯出 JSON</button>
@@ -850,6 +863,19 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
     <div id="kwPrev" style="font-weight:600"></div>
   </div>
   <div class="modalActs"><button class="btn primary" id="kwClose">完成</button></div>
+</div></div>
+<div class="overlay" id="kfModal"><div class="modal"><h3>🔎 篩選時間表</h3>
+  <p class="subnote">剔咗嘅關鍵字，先至喺時間表度顯示。標題撞唔到任何一個剔咗嘅字，就會暫時隱藏。<br>呢個純粹係顯示層：冇刪過嘢，冚咗嘅項目照樣喺度，AI 同課後功課嗰邊一樣睇得到。</p>
+  <div id="kfRows"></div>
+  <p class="subnote" id="kfHint" style="margin-top:8px"></p>
+  <div class="aiBar" style="margin-top:6px">
+    <button class="btn" id="kfAll">全部剔晒</button>
+    <button class="btn" id="kfNone">全部唔剔</button>
+    <button class="btn" id="kfMore">🎨 去改關鍵字同顏色</button>
+  </div>
+  <label class="ttsChk" style="margin-top:10px"><input type="checkbox" id="kfKeepNone"> 連「一個關鍵字都撞唔到」嘅項目一齊顯示</label>
+  <p class="subnote">例如「食晏」「休息」呢啲冇寫邊個名嘅項目。唔剔嘅話，篩選開住嗰陣佢哋都會冚埋。</p>
+  <div class="modalActs"><button class="btn danger" id="kfOff">✕ 關閉篩選，show 返晒全部</button><span style="flex:1"></span><button class="btn primary" id="kfDone">完成</button></div>
 </div></div>
 <div class="overlay" id="eventModal"><div class="modal"><h3 id="evModalTitle">編輯項目</h3><div class="frow"><div style="flex:2"><label>標題</label><input type="text" id="evTitle"></div></div><div class="frow"><div><label>日期</label><input type="date" id="evDate"></div><div><label>開始時間</label><input type="time" id="evTimeInp"></div><div><label>指定完結時間（背景／平行任務先需要）</label><div style="display:flex;gap:6px"><input type="time" id="evEnd"><button class="btn" id="evEndClear" title="清除" style="padding:4px 8px">✕</button></div></div></div><div class="frow"><div><label><input type="checkbox" id="evHwSlot" style="margin-right:6px;vertical-align:-1px">呢個係「做功課／練習」嘅時段，唔係上堂</label><div class="subnote" style="margin-top:2px">剔咗之後，系統就唔會當佢係一堂而再派多一份功課出嚟。</div></div></div><div class="frow"><div><label>顏色（艾森豪四象限，可以唔揀）</label><div class="colorPick" id="evColors"><button class="cpBtn cp-none" data-c="" title="無"></button><button class="cpBtn cp-red" data-c="red" title="緊急＋重要"></button><button class="cpBtn cp-amber" data-c="amber" title="重要但唔緊急"></button><button class="cpBtn cp-blue" data-c="blue" title="緊急但唔重要"></button><button class="cpBtn cp-grey" data-c="grey" title="唔重要唔緊急"></button></div></div></div><div class="frow"><div><label>SOP／內文（可以直接由 Word 貼上，會自動變 Markdown 純文字，圖片一律過濾）</label><textarea id="evSop" class="sop"></textarea><div class="sopPreview" id="evSopPrev"></div><button class="btn" id="evPrevToggle" style="margin-top:6px;padding:3px 10px;font-size:12px">預覽排版</button></div></div><div class="modalActs"><button class="btn danger" id="evDelete">刪除</button><span style="flex:1"></span><button class="btn" id="evCancel">取消</button><button class="btn primary" id="evSave">儲存</button></div></div></div>
 <div class="overlay" id="tplModal"><div class="modal"><h3 id="tplModalTitle">編輯任務模板</h3><div class="frow"><div><label>標題</label><input type="text" id="tplTitle"></div></div><div class="frow"><div><label>預設顏色</label><div class="colorPick" id="tplColors"><button class="cpBtn cp-none" data-c="" title="無"></button><button class="cpBtn cp-red" data-c="red" title="緊急＋重要"></button><button class="cpBtn cp-amber" data-c="amber" title="重要但唔緊急"></button><button class="cpBtn cp-blue" data-c="blue" title="緊急但唔重要"></button><button class="cpBtn cp-grey" data-c="grey" title="唔重要唔緊急"></button></div></div></div><div class="frow"><div><label>SOP（可由 Word 貼上，自動轉 Markdown；圖片一律過濾）</label><textarea id="tplSop" class="sop"></textarea><div class="sopPreview" id="tplSopPrev"></div><button class="btn" id="tplPrevToggle" style="margin-top:6px;padding:3px 10px;font-size:12px">預覽排版</button></div></div><p class="subnote">提示：儲存後，如果將來已排程嘅項目仍然同舊模板一模一樣（未被個別修改過），會問你要唔要一次過套用新內容。已過去嘅記錄一律不受影響。</p><div class="modalActs"><button class="btn" id="tplCancel">取消</button><button class="btn primary" id="tplSave">儲存</button></div></div></div>
@@ -1245,7 +1271,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-11b";
+const BUILD = "2026-08-12a";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -2724,9 +2750,34 @@ const expanded=new Set();
 const calArea=document.getElementById('calArea');
 const WD=['一','二','三','四','五','六','日'];
 
+/* ---------- 🔎 關鍵字篩選 ----------
+   純顯示層：淨係揀邊啲項目喺時間表度睇得到，一個 event 都唔會改到、刪到。
+   點解要用返「關鍵字顏色」嗰張表：爸爸已經設定咗 Charlotte 係紅色、Jasmine 係綠色，
+   即係嗰張表本身就係佢心目中嘅分類。另開一張篩選清單就要維護兩次。
+   狀態擺喺 localStorage 唔擺 state：篩選係「而家想睇乜」，唔應該同步落雲、
+   更加唔應該喺另一部機度突然生效，令人以為啲嘢唔見咗。 */
+const KF_KEY = 'diarycal_kwfilter_v1';
+let kwFilter = {on:false, kws:[], keepNone:false};
+try{ const _v = JSON.parse(localStorage.getItem(KF_KEY)); if(_v && typeof _v === 'object') kwFilter = Object.assign(kwFilter, _v); }catch(e){}
+function kfSave(){ try{ localStorage.setItem(KF_KEY, JSON.stringify(kwFilter)); }catch(e){} }
+/* 一條 event 撞唔撞到篩選。大細楷唔分，同 kwHtml 一致。 */
+function kfPass(e){
+  if(!kwFilter.on) return true;
+  const t = String((e && e.title) || '').toLowerCase();
+  const picked = (kwFilter.kws||[]).filter(function(k){ return String(k||'').trim(); });
+  if(!picked.length) return true;                       /* 一個都冇剔＝等於冇篩選，唔好突然全屏空白 */
+  if(picked.some(function(k){ return t.indexOf(String(k).toLowerCase()) >= 0; })) return true;
+  if(kwFilter.keepNone){
+    /* 「冇任何關鍵字」嘅項目照顯示：要對住成張關鍵字表數，唔係淨係對剔咗嗰啲 */
+    const all = kwList().map(function(x){ return String(x.kw||'').toLowerCase(); }).filter(Boolean);
+    if(!all.some(function(k){ return t.indexOf(k) >= 0; })) return true;
+  }
+  return false;
+}
 function eventsOn(dateStr){
   /* 加防禦：任何一條 event 冇 start，原本會令成個 render throw，畫面變白 */
   return (state.events||[]).filter(e=>e && typeof e.start==='string' && e.start.slice(0,10)===dateStr)
+    .filter(kfPass)
     .sort((a,b)=>a.start.localeCompare(b.start));
 }
 function computeEnd(ev, dayEvs){
@@ -5230,7 +5281,8 @@ function hwPattern(rule){
 /* 續多一堂（入草稿，未寫入行事曆）。一堂 = 正堂 + 組合拳嘅其他格。 */
 function hwNextDate(rule){
   const p = hwPattern(rule); if(!p) return null;
-  const list = hwDraft[rule.id] || [];
+  /* 草稿嘅日期改得，改完可能唔再順序，所以攞最遲嗰個做基準，唔可以靠位置。 */
+  const list = (hwDraft[rule.id] || []).slice().sort(function(a,b){ return String(a.date).localeCompare(String(b.date)); });
   const days = lessonDays(rule);
   const base = list.length ? list[list.length-1].date
              : (days.length ? days[days.length-1].start.slice(0,10) : p.lastStart.slice(0,10));
@@ -5565,12 +5617,53 @@ function renderHwCourses(){
 
       if(drafts.length){
         const dv = document.createElement('div');
-        dv.innerHTML = '<div class="hwSecT">草稿（仲未落時間表）</div><ul class="hwLs draft">' +
-          drafts.map(function(L){
-            return '<li><b>' + L.date + '</b>　' +
-              L.parts.map(function(x){ return x.start.slice(11) + ' ' + esc(short(x.title,18)); }).join('　→　') +
-            '</li>';
-          }).join('') + '</ul>';
+        dv.innerHTML = '<div class="hwSecT">草稿（仲未落時間表）</div>' +
+          '<div class="hwSub" style="margin-bottom:6px">日期同時間喺呢度改咗先，先至撳「同步落時間表」。' +
+          '改正堂嘅時間，成組組合拳會跟住郁，偏移照計。</div>';
+        /* 點解要喺呢度改得：以前草稿係唯讀，推算出嚟嘅時間唔啱都要先同步落時間表、
+           再喺時間表度逐格搵返出嚟改，等於明知錯都要先寫錯咗佢。 */
+        drafts.forEach(function(L, li){
+          const box = document.createElement('div'); box.className = 'hwLesson';
+          const hd = document.createElement('div'); hd.className = 'hwLessonHd';
+          hd.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap';
+          hd.innerHTML = '<b style="flex:0 0 auto">第 ' + (li+1) + ' 堂</b>';
+          const dIn = document.createElement('input'); dIn.type='date'; dIn.value = L.date;
+          dIn.style.cssText = 'flex:0 0 150px;padding:3px 6px';
+          const tIn = document.createElement('input'); tIn.type='time';
+          const mainP = L.parts.filter(function(x){ return x.main; })[0] || L.parts[0];
+          tIn.value = mainP.start.slice(11);
+          tIn.style.cssText = 'flex:0 0 100px;padding:3px 6px';
+          const reflow = function(){
+            const nd = dIn.value || L.date;
+            const nt = tIn.value || mainP.start.slice(11);
+            const base = minutes(nt), oldBase = minutes(mainP.start.slice(11));
+            L.parts.forEach(function(x){
+              const off = x.main ? 0 : (minutes(x.start.slice(11)) - oldBase);
+              x.start = nd + 'T' + hhmm(base + off);
+            });
+            L.parts.sort(function(a,b){ return a.start.localeCompare(b.start); });
+            L.date = nd;
+            renderHw();
+          };
+          dIn.onchange = (e)=>{ e.stopPropagation(); reflow(); };
+          tIn.onchange = (e)=>{ e.stopPropagation(); reflow(); };
+          dIn.onclick = (e)=>e.stopPropagation();
+          tIn.onclick = (e)=>e.stopPropagation();
+          hd.appendChild(dIn); hd.appendChild(tIn);
+          const wd = document.createElement('span'); wd.className='hwSub';
+          wd.textContent = '星期' + WD[(new Date(L.date).getDay()+6)%7];
+          hd.appendChild(wd);
+          const xB = document.createElement('button'); xB.className='btn danger';
+          xB.style.cssText='padding:3px 9px;font-size:12px;margin-left:auto';
+          xB.textContent='✕ 唔要呢堂';
+          xB.onclick = (e)=>{ e.stopPropagation(); hwDraft[rule.id].splice(li,1); renderHw(); };
+          hd.appendChild(xB);
+          box.appendChild(hd);
+          const pl = document.createElement('div'); pl.className='hwSub'; pl.style.padding='2px 10px 8px';
+          pl.textContent = L.parts.map(function(x){ return x.start.slice(11) + ' ' + short(x.title,18); }).join('　→　');
+          box.appendChild(pl);
+          dv.appendChild(box);
+        });
         const s1 = document.createElement('button'); s1.className='btn primary';
         s1.textContent = '⬆ 同步落時間表（' + drafts.length + ' 堂）';
         const s2 = document.createElement('button'); s2.className='btn';
@@ -7745,9 +7838,99 @@ $('chatInput').addEventListener('paste', function(e){
   if(items.length){ e.preventDefault(); addChatImgs(items); }
 });
 $('btnKw').onclick = ()=>{ kwOpenPal = -1; renderKw(); show('kwModal'); };
-$('kwClose').onclick = ()=>{ hide('kwModal'); try{ renderCal(); }catch(e){} };
+/* 改完關鍵字：剔咗嘅字可能已經改名或者刪走，要清走殘留，
+   唔好留住一個篩緊但已經唔存在嘅字，否則會變成「乜都唔顯示」而又搵唔到原因。 */
+function kfPrune(){
+  const live = kwList().map(function(x){ return String((x&&x.kw)||'').trim(); }).filter(Boolean);
+  kwFilter.kws = (kwFilter.kws||[]).filter(function(k){ return live.indexOf(k) >= 0; });
+  kfSave(); kfSyncBtn();
+}
+$('kwClose').onclick = ()=>{ kfPrune(); hide('kwModal'); try{ renderCal(); }catch(e){} };
 $('kwAdd').onclick = ()=>{ kwList().push({kw:'', color:KW_PALETTE[kwList().length % KW_PALETTE.length]});
                            kwOpenPal = kwList().length-1; save(); renderKw(); };
+/* ---------- 🔎 篩選 UI ---------- */
+function kfUniq(){
+  /* 同一隻色可能有幾個關鍵字（爸爸／爹哋都係橙色）。撳一個就當揀晒同色嗰組，
+     因為佢心入面「橙色＝爸爸」係一件事，唔係兩件。 */
+  const out = [], seen = {};
+  kwList().forEach(function(x){
+    const kw = String((x&&x.kw)||'').trim(); if(!kw) return;
+    const c = String((x&&x.color)||'').toLowerCase();
+    if(seen[c] != null){ out[seen[c]].kws.push(kw); out[seen[c]].name += '／' + kw; return; }
+    seen[c] = out.length;
+    out.push({color:x.color, name:kw, kws:[kw]});
+  });
+  return out;
+}
+function kfCount(kws){
+  const low = kws.map(function(k){ return k.toLowerCase(); });
+  return (state.events||[]).filter(function(e){
+    const t = String((e&&e.title)||'').toLowerCase();
+    return low.some(function(k){ return t.indexOf(k) >= 0; });
+  }).length;
+}
+function renderKf(){
+  const box = $('kfRows'); if(!box) return;
+  box.innerHTML = '';
+  const groups = kfUniq();
+  if(!groups.length){
+    box.innerHTML = '<p class="subnote">仲未設定關鍵字。撳下面「🎨 去改關鍵字同顏色」先加幾個（例如 Charlotte、Jasmine）。</p>';
+  }
+  groups.forEach(function(g){
+    const on = g.kws.some(function(k){ return (kwFilter.kws||[]).indexOf(k) >= 0; });
+    const row = document.createElement('label');
+    row.className = 'kfRow' + (on ? ' on' : '');
+    row.innerHTML = '<input type="checkbox"' + (on ? ' checked' : '') + '>' +
+                    '<span class="kfDot" style="background:' + esc(g.color||'#888') + '"></span>' +
+                    '<span class="kfName" style="color:' + esc(g.color||'') + '">' + esc(g.name) + '</span>' +
+                    '<span class="kfCnt">' + kfCount(g.kws) + ' 個項目</span>';
+    row.querySelector('input').onchange = (ev)=>{
+      const keep = (kwFilter.kws||[]).filter(function(k){ return g.kws.indexOf(k) < 0; });
+      kwFilter.kws = ev.target.checked ? keep.concat(g.kws) : keep;
+      kwFilter.on = true;
+      kfSave(); renderKf(); kfSyncBtn(); try{ renderCal(); }catch(e){}
+    };
+    box.appendChild(row);
+  });
+  const hint = $('kfHint');
+  if(hint){
+    const n = (kwFilter.kws||[]).length;
+    hint.textContent = !kwFilter.on ? '而家冇篩選，全部項目都顯示緊。'
+      : (!n ? '一個都未剔——等於冇篩選，全部照顯示。' : '而家淨係顯示撞到嗰 ' + n + ' 個關鍵字嘅項目。');
+  }
+  const kn = $('kfKeepNone'); if(kn) kn.checked = !!kwFilter.keepNone;
+}
+function kfSyncBtn(){
+  const b = $('kwFilterBtn'); if(!b) return;
+  const n = (kwFilter.kws||[]).length;
+  const on = kwFilter.on && n > 0;
+  b.classList.toggle('on', on);
+  b.innerHTML = on ? '🔎 篩選緊<span class="kfN">' + n + '</span>' : '🔎 篩選';
+  b.title = on ? '而家淨係顯示部分項目。撳一下開設定，或者用 Shift 撳一下即刻 show 返晒全部。' 
+              : '淨係顯示含有指定關鍵字嘅項目';
+}
+$('kwFilterBtn').onclick = (e)=>{
+  /* Shift＋撳＝即開即關，唔使入 modal。日常最常做嘅就係呢個動作。 */
+  if(e.shiftKey && (kwFilter.kws||[]).length){
+    kwFilter.on = !kwFilter.on; kfSave(); kfSyncBtn();
+    try{ renderCal(); }catch(e2){}
+    toast(kwFilter.on ? '篩選開咗' : 'show 返晒全部');
+    return;
+  }
+  if(!kwFilter.on) kwFilter.on = true;
+  renderKf(); kfSyncBtn(); show('kfModal');
+};
+$('kfAll').onclick = ()=>{
+  kwFilter.kws = kfUniq().reduce(function(a,g){ return a.concat(g.kws); }, []);
+  kwFilter.on = true; kfSave(); renderKf(); kfSyncBtn(); try{ renderCal(); }catch(e){}
+};
+$('kfNone').onclick = ()=>{ kwFilter.kws = []; kfSave(); renderKf(); kfSyncBtn(); try{ renderCal(); }catch(e){} };
+$('kfKeepNone').onchange = (e)=>{ kwFilter.keepNone = e.target.checked; kfSave(); renderKf(); try{ renderCal(); }catch(e2){} };
+$('kfOff').onclick = ()=>{ kwFilter.on = false; kfSave(); kfSyncBtn(); try{ renderCal(); }catch(e){} hide('kfModal'); toast('show 返晒全部'); };
+$('kfDone').onclick = ()=>hide('kfModal');
+$('kfMore').onclick = ()=>{ hide('kfModal'); $('btnKw').click(); };
+kfSyncBtn();
+
 $('kwSeed').onclick = ()=>{ state.kwColors = KW_DEFAULT.map(function(x){ return {kw:x.kw, color:x.color}; });
                             kwOpenPal = -1; save(); renderKw(); try{ renderCal(); }catch(e){} };
 $('kwClear').onclick = async ()=>{
@@ -10191,7 +10374,12 @@ function applyGuestUI(){
   document.body.classList.toggle('readonly', guestMode);
   /* 一入訪客模式就即刻閂咗 API 設定視窗：如果爸爸開住個視窗嗰陣切去訪客模式，
      單靠 CSS 收埋兩粒掣係唔會閂到個已經開咗嘅視窗，API Key 就會晾喺度。 */
-  if(guestMode){ try{ hide('aiSetModal'); }catch(e){} }
+  if(guestMode){
+    try{ hide('aiSetModal'); }catch(e){}
+    /* 篩選係爸爸嘅工具。訪客模式之下佢粒掣係收埋嘅，如果仲篩緊，
+       Charlotte 就會見到半份時間表而又冇任何辦法 show 返，所以入訪客一律關咗佢。 */
+    try{ if(typeof kwFilter === 'object' && kwFilter.on){ kwFilter.on = false; kfSave(); kfSyncBtn(); } }catch(e){}
+  }
   /* 訪客模式：工作模板一律收埋。
      本身係有個「預設收埋」嘅，但佢記喺 localStorage（LEFT_KEY）度，即係跟部機唔跟身分——
      爸爸喺一部機撳開過一次之後，同一部機切去訪客模式，棵樹就照攤開晒。
