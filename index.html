@@ -382,23 +382,17 @@ mark{background:#ffe9a8;border-radius:2px}
   padding:6px 9px;margin:0 0 7px;max-height:150px;overflow:hidden;white-space:pre-wrap;
 }
 .chatThink.done{max-height:34px;opacity:.45;font-size:10.5px}
-/* 訪客模式：唔再流原文推理，改為平靜嘅廣東話狀態。
-   點解要噉：AI 條推理入面住住咗佢自己計好嘅答案（見人格設定第 48 條）。
-   細路慢慢睇得到十行推理，就等於直接睇到答案，成個引導式教學即刻報廢。
-   原文推理照舊完整存返落 Data Log，爸爸匯出返嚟一個字都唔會少。 */
-.chatThink.guestCalm{
-  max-height:none;overflow:visible;white-space:normal;
-  font-size:13px;line-height:1.9;opacity:1;color:var(--muted);
-  background:transparent;border-left:none;padding:2px 0;
+/* 訪客模式：思考中嘅「走馬燈」——單行、淡色，字係飛得好快嘅。
+   點解特登唔放慢、唔加行：AI 條推理入面住住咗佢自己計好嘅答案（人格設定第 48 條）。
+   慢到讀得到，就等於將答案交咗俾佢，成個引導式教學即刻報廢。
+   呢條走馬燈嘅用途唔係俾人讀，係俾人「見到」——見到個腦真係喺度轉，而且轉得好快。
+   上面嗰行字數計數器就係做緊呢件事：唔使識睇英文，都感受到個規模。 */
+.chatThink.guestTicker{
+  max-height:none;overflow:hidden;white-space:nowrap;text-overflow:clip;
+  font-size:11px;opacity:.7;
 }
-.chatThink.guestCalm .gcRow{display:flex;align-items:center;gap:8px;
-  transition:opacity .45s ease}
-.chatThink.guestCalm .gcRow.old{opacity:.32}
-.chatThink.guestCalm .gcIco{flex:0 0 auto;font-size:15px}
-.chatThink.guestCalm .gcDots{display:inline-block;width:22px;letter-spacing:2px}
-@keyframes gcBlink{0%,100%{opacity:.25}50%{opacity:1}}
-.chatThink.guestCalm .gcRow:last-child .gcIco{animation:gcBlink 1.6s ease-in-out infinite}
-@media (prefers-reduced-motion:reduce){.chatThink.guestCalm .gcRow:last-child .gcIco{animation:none}}
+.chatThink.guestTicker::before{content:"🧠 "}
+.gThinkN{font-variant-numeric:tabular-nums;font-weight:700;color:var(--accent)}
 /* 主人模式：答完之後保留返嘅推理過程（摺埋，撳開先睇到） */
 .chatThinkKeep{margin:0 0 8px}
 .chatThinkKeep summary{cursor:pointer;font-size:11.5px;color:var(--muted);user-select:none;list-style-position:inside}
@@ -1292,7 +1286,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-12d";
+const BUILD = "2026-08-17a";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -9600,18 +9594,22 @@ function chatError(host, err, guest){
   host.appendChild(bar);
 }
 
-/* 由推理內容認出「而家做緊邊個階段」，再講返一句佢睇得明嘅廣東話。
-   只認階段，唔會將推理內容本身漏出去——認到「喺度計數」都唔會講個數字係幾多。
-   每句最少企 1.6 秒先換，慢到佢真係讀得完；讀得完就唔會焦慮。 */
-const GUEST_PHASES = [
-  {re:/image|photo|picture|相|睇相|工作紙|worksheet/i,        ico:'👀', say:'我望緊你張相'},
-  {re:/\[\[|search|lookup|fandom|wiki|查/i,                    ico:'🔍', say:'我去搵緊資料'},
-  {re:/calculat|arithmetic|multiply|divide|equation|計|答案/i, ico:'🧮', say:'我計緊條數'},
-  {re:/rule\s*\d|persona|guideline|唔准|條文/i,               ico:'📏', say:'我諗緊點講先啱'},
-  {re:/question|ask her|guide|hint|引導|問佢/i,                ico:'💭', say:'我諗緊問你啲乜'},
-  {re:/story|character|film|movie|戲|角色/i,                   ico:'🎬', say:'我諗返套戲入面嘅嘢'}
-];
-const GUEST_WAIT = ['🧠 我諗緊', '🧠 我仲諗緊，等我一陣', '🧠 呢條有啲難，我再諗諗'];
+/* 訪客見到嗰行狀態。只准講「肯定係真」嘅嘢。
+
+   ⚠️ 實際出過事：試過用一堆 regex 去估佢做緊乜（睇相／搵資料／諗返套戲），
+   結果 Charlotte 講咗句「早晨，我依家換晒衫啦」，畫面照樣寫住
+   「我諗返套戲入面嘅嘢」同「我去搵緊資料」——因為推理入面淨係出現過
+   character、question 呢啲字就中咗招。同一個細路講大話，比乜都差。
+   所以而家只認兩個確實訊號：真係出咗搵嘢嘅標記、真係夾咗張相入去。
+   認唔到就淨係講「我個腦喺度轉緊」加一個字數，唔准估佢諗緊乜。 */
+function guestThinkLine(think, txt){
+  const n = String(think||'').replace(/\s+/g,'').length;
+  let bit = '';
+  if(/\[\[\s*(SEARCH|FANDOM|WEB|WIKI)/i.test(String(txt||''))) bit = '🔍 我去搵緊資料　';
+  else if(typeof imgLastUsed !== 'undefined' && imgLastUsed) bit = '👀 我望緊你張相　';
+  if(n < 20) return bit + '我個腦喺度轉緊…';
+  return bit + '我個腦喺度轉緊，已經諗咗 <span class="gThinkN">' + n + '</span> 個字';
+}
 
 function makeStreamView(host, guest){
   let txt = '', think = '', queued = false;
@@ -9621,50 +9619,25 @@ function makeStreamView(host, guest){
   host.appendChild(head);
   const box = document.createElement('div');
   /* 訪客都有得睇：不過係一條單行「走馬燈」，淨係俾佢知道 AI 諗緊嘢 */
-  box.className = 'chatThink' + (guest ? ' guestCalm' : '');
+  box.className = 'chatThink' + (guest ? ' guestTicker' : '');
   box.style.display = 'none';
   host.appendChild(box);
   const body = document.createElement('div');
   body.className = 'chatStream';
   host.appendChild(body);
 
-  /* 訪客：平靜面板。累積落嚟嘅句會留喺畫面上面淡低，唔會一閃即冇，
-     佢想睇返上一句都仲喺度。最多留三行，夠佢慢慢睇又唔會佔成個畫面。 */
-  let calmSaid = [], calmShown = [], calmAt = 0, calmWait = 0;
-  const paintCalm = function(){
-    const now = Date.now();
-    if(calmAt && now - calmAt < 1600) return;      /* 每句最少企 1.6 秒 */
-    let pick = '';
-    const tailTxt = think.slice(-600);
-    /* 揀第一個「撞到而且未講過」嘅階段。淨係 break 喺第一個撞到嗰個嘅話，
-       講完「我望緊你張相」之後就會一路卡喺嗰度，跟住嘅階段永遠出唔到。 */
-    for(let i = 0; i < GUEST_PHASES.length; i++){
-      const p = GUEST_PHASES[i].ico + ' ' + GUEST_PHASES[i].say;
-      if(GUEST_PHASES[i].re.test(tailTxt) && calmShown.indexOf(p) < 0){ pick = p; break; }
-    }
-    if(!pick){
-      /* 認唔到新階段，就用「仲諗緊」嗰組，一句一句慢慢升級，唔好乾企喺度 */
-      pick = GUEST_WAIT[Math.min(calmWait, GUEST_WAIT.length - 1)];
-      if(calmShown.indexOf(pick) >= 0) return;
-      calmWait++;
-    }
-    calmSaid.push(pick); calmShown.push(pick);
-    if(calmSaid.length > 3) calmSaid.shift();
-    calmAt = now;
-    box.innerHTML = calmSaid.map(function(x, i){
-      const old = (i < calmSaid.length - 1) ? ' old' : '';
-      const sp = x.indexOf(' ');
-      return '<div class="gcRow' + old + '"><span class="gcIco">' + esc(x.slice(0, sp)) +
-             '</span><span>' + esc(x.slice(sp + 1)) + '</span></div>';
-    }).join('');
-  };
-
   const paint = function(){
     queued = false;
     if(think){
       if(guest){
+        /* 訪客：思考文字剪剩條尾，一路串流一路向左「走」，似走馬燈 */
         box.style.display = '';
-        paintCalm();
+        const tail = think.replace(/\s+/g,' ').slice(-46);
+        box.textContent = (think.length > 46 ? '…' : '') + tail;
+        /* 走馬燈啲字讀唔到係預咗嘅。上面呢行負責講返「而家發生緊乜」，
+           個數字一路跳，佢就見到規模——呢個先係佢真正睇得明嗰部分。 */
+        head.style.display = '';
+        head.innerHTML = '<span class="aiSpin"></span> ' + guestThinkLine(think, txt);
       } else {
         box.style.display = '';
         box.textContent = think.length > 900 ? ('…' + think.slice(-900)) : think;
@@ -9690,7 +9663,7 @@ function makeStreamView(host, guest){
     }
   };
   view.reset = function(msg){
-    txt = ''; think = ''; calmSaid = []; calmShown = []; calmAt = 0; calmWait = 0;
+    txt = ''; think = '';
     head.style.display = ''; head.innerHTML = '<span class="aiSpin"></span> ' + esc(msg || '諗緊…');
     box.style.display = 'none'; box.classList.remove('done'); box.textContent = '';
     body.textContent = '';
