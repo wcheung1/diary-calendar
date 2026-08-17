@@ -692,6 +692,60 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 .imgStickBar .isX{border:1px solid var(--line);background:var(--card);border-radius:6px;
   padding:3px 9px;cursor:pointer;font-size:12px;color:inherit}
 .imgStickBar .isX:hover{border-color:var(--accent);color:var(--accent)}
+/* ===== 📚 學習角 =====
+   爹哋放連結，Charlotte 揀嚟睇。訪客模式之下佢見到嘅係標題同分類，
+   條 URL 根本唔會寫入 DOM（唔係靠 CSS 收埋——CSS 收埋只係唔畫出嚟，
+   啲字仲喺頁面度）。 */
+#hubModal{z-index:59}
+#hubEditModal{z-index:59}   /* 寫喺 #hubModal 後面，同層之下自然疊喺佢上面 */
+body.readonly #hubManage{display:none!important}
+.hubSec{margin:14px 0 0}
+.hubSec:first-child{margin-top:4px}
+.hubSecT{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;margin:0 0 6px}
+.hubSecT .hubDot{width:12px;height:12px;border-radius:50%;flex:0 0 auto}
+.hubCat{font-size:12.5px;color:var(--muted);margin:9px 0 5px;font-weight:600}
+.hubCards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:9px}
+.hubCard{display:flex;align-items:center;gap:9px;text-align:left;
+  padding:13px 12px;border:1px solid var(--line);border-left-width:5px;border-radius:11px;
+  background:var(--card);cursor:pointer;font-size:15px;line-height:1.45;min-height:58px}
+.hubCard:hover{background:var(--hover)}
+.hubCard .hcT{flex:1;min-width:0;font-weight:600}
+.hubCard .hcSpk{flex:0 0 auto;border:1px solid var(--line);background:var(--card);
+  border-radius:9px;width:38px;height:38px;font-size:17px;line-height:1;padding:0;cursor:pointer}
+.hubCard .hcSpk:hover{border-color:var(--accent)}
+.hubEmpty{padding:18px 4px;color:var(--muted);font-size:13.5px;line-height:1.7}
+/* 爹哋嗰張管理表 */
+.hubRow{display:flex;gap:6px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.hubRow.off{opacity:.5}
+.hubRow select,.hubRow input[type=text]{padding:4px 6px;font-size:13px}
+.hubRow .hrUrl{flex:1 1 260px;min-width:0}
+.hubRow .hrBad{color:var(--overdue);font-size:11.5px;flex:1 1 100%;margin:0}
+.hubRow .hrOps{display:flex;gap:4px;flex:0 0 auto}
+.hubRow .hrOps button{padding:3px 8px;font-size:12px}
+/* ===== 📚 學習角：睇緊嘢嗰個框 =====
+   蓋晒成塊 iPad。點解唔用普通 .overlay：嗰啲係中間一個細窗，
+   而佢要睇嘅係 Three.js 場景，愈大愈好。 */
+#hubView{position:fixed;inset:0;z-index:200;background:var(--card);display:none;flex-direction:column}
+#hubView.show{display:flex}
+body.hubOpen{overflow:hidden}
+.hvBar{display:flex;align-items:center;gap:7px;flex:0 0 auto;
+  padding:calc(6px + env(safe-area-inset-top,0px)) calc(8px + env(safe-area-inset-right,0px)) 6px calc(8px + env(safe-area-inset-left,0px));
+  border-bottom:1px solid var(--line);background:var(--bg)}
+.hvBar .hvBtn{border:1px solid var(--line);background:var(--card);border-radius:9px;
+  padding:7px 12px;font-size:13.5px;cursor:pointer;color:inherit;flex:0 0 auto;white-space:nowrap}
+.hvBar .hvBtn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.hvBar .hvBtn:disabled{opacity:.35;cursor:default}
+.hvBar .hvX{margin-left:auto;border-color:var(--accent);color:var(--accent);font-weight:700}
+.hvTitle{flex:1;min-width:0;font-weight:700;font-size:14px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;padding:0 4px}
+.hvWrap{flex:1;min-height:0;position:relative}
+#hvFrame{width:100%;height:100%;border:0;display:block;background:#fff}
+.hvMsg{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;
+  justify-content:center;gap:12px;padding:24px;text-align:center;background:var(--card);
+  font-size:15px;line-height:1.8}
+.hvMsg.show{display:flex}
+.hvMsg button{border:1px solid var(--accent);background:var(--card);color:var(--accent);
+  border-radius:10px;padding:9px 18px;font-size:14px;cursor:pointer}
 /* 篩到一版空白嗰陣嗰條解釋。用虛線邊，同真係有嘢嘅項目一眼分得開。 */
 .kfFallback{margin:0 0 8px;padding:7px 10px;border:1px dashed var(--accent);border-radius:8px;
   background:var(--hover);font-size:12.5px;color:var(--muted);line-height:1.6}
@@ -783,6 +837,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
   <button class="hbtn" id="btnAISet">⚙ AI 設定</button>
   <button class="hbtn" id="btnKw">🎨 關鍵字顏色</button>
   <button class="hbtn" id="kwFilterBtn" title="淨係顯示含有指定關鍵字嘅項目">🔎 篩選</button>
+  <button class="hbtn" id="btnHub" title="爹哋放咗嘅學習連結">📚 學習角</button>
   <button class="hbtn" id="btnSearch">🔍 搜尋 (Ctrl+F)</button>
   <button class="hbtn" id="btnBulk">📅 批量計劃</button>
   <button class="hbtn" id="btnExport">⬇ 匯出 JSON</button>
@@ -897,6 +952,32 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
   <p class="subnote">例如「食晏」「休息」呢啲冇寫邊個名嘅項目。唔剔嘅話，篩選開住嗰陣佢哋都會冚埋。</p>
   <div class="modalActs"><button class="btn danger" id="kfOff">✕ 關閉篩選，show 返晒全部</button><span style="flex:1"></span><button class="btn primary" id="kfDone">完成</button></div>
 </div></div>
+<div class="overlay" id="hubModal"><div class="modal" style="width:min(760px,100%)"><h3>📚 學習角</h3>
+  <p class="subnote" id="hubIntro"></p>
+  <div id="hubList"></div>
+  <div class="modalActs"><button class="btn" id="hubManage">⚙ 管理連結</button><span style="flex:1"></span><button class="btn primary" id="hubClose">完成</button></div>
+</div></div>
+<div class="overlay" id="hubEditModal"><div class="modal" style="width:min(940px,100%)"><h3>⚙ 管理學習連結</h3>
+  <p class="subnote">Charlotte 只會見到「科目 ＋ 分類 ＋ 標題」，條網址佢見唔到，亦都改唔到。<br>
+    標題請用佢讀得明嘅字——佢喺卡片度撳 🔊 就會讀出嚟。</p>
+  <div id="hubRows"></div>
+  <datalist id="hubCatList"></datalist>
+  <div class="aiBar" style="margin-top:8px"><button class="btn" id="hubAdd">＋ 加一條</button></div>
+  <p class="subnote" id="hubEditNote" style="margin-top:8px"></p>
+  <div class="modalActs"><span style="flex:1"></span><button class="btn primary" id="hubEditDone">完成</button></div>
+</div></div>
+<div id="hubView" aria-hidden="true">
+  <div class="hvBar">
+    <button class="hvBtn" id="hvBack" disabled>← 上一頁</button>
+    <button class="hvBtn" id="hvHome">⌂ 返去開頭</button>
+    <span class="hvTitle" id="hvTitle"></span>
+    <button class="hvBtn hvX" id="hvClose">✕ 返去時間表</button>
+  </div>
+  <div class="hvWrap">
+    <iframe id="hvFrame" title="學習角" allow="fullscreen; autoplay; xr-spatial-tracking"></iframe>
+    <div class="hvMsg" id="hvMsg"></div>
+  </div>
+</div>
 <div class="overlay" id="eventModal"><div class="modal"><h3 id="evModalTitle">編輯項目</h3><div class="frow"><div style="flex:2"><label>標題</label><input type="text" id="evTitle"></div></div><div class="frow"><div><label>日期</label><input type="date" id="evDate"></div><div><label>開始時間</label><input type="time" id="evTimeInp"></div><div><label>指定完結時間（背景／平行任務先需要）</label><div style="display:flex;gap:6px"><input type="time" id="evEnd"><button class="btn" id="evEndClear" title="清除" style="padding:4px 8px">✕</button></div></div></div><div class="frow"><div><label><input type="checkbox" id="evHwSlot" style="margin-right:6px;vertical-align:-1px">呢個係「做功課／練習」嘅時段，唔係上堂</label><div class="subnote" style="margin-top:2px">剔咗之後，系統就唔會當佢係一堂而再派多一份功課出嚟。</div></div></div><div class="frow"><div><label>顏色（艾森豪四象限，可以唔揀）</label><div class="colorPick" id="evColors"><button class="cpBtn cp-none" data-c="" title="無"></button><button class="cpBtn cp-red" data-c="red" title="緊急＋重要"></button><button class="cpBtn cp-amber" data-c="amber" title="重要但唔緊急"></button><button class="cpBtn cp-blue" data-c="blue" title="緊急但唔重要"></button><button class="cpBtn cp-grey" data-c="grey" title="唔重要唔緊急"></button></div></div></div><div class="frow"><div><label>SOP／內文（可以直接由 Word 貼上，會自動變 Markdown 純文字，圖片一律過濾）</label><textarea id="evSop" class="sop"></textarea><div class="sopPreview" id="evSopPrev"></div><button class="btn" id="evPrevToggle" style="margin-top:6px;padding:3px 10px;font-size:12px">預覽排版</button></div></div><div class="modalActs"><button class="btn danger" id="evDelete">刪除</button><span style="flex:1"></span><button class="btn" id="evCancel">取消</button><button class="btn primary" id="evSave">儲存</button></div></div></div>
 <div class="overlay" id="tplModal"><div class="modal"><h3 id="tplModalTitle">編輯任務模板</h3><div class="frow"><div><label>標題</label><input type="text" id="tplTitle"></div></div><div class="frow"><div><label>預設顏色</label><div class="colorPick" id="tplColors"><button class="cpBtn cp-none" data-c="" title="無"></button><button class="cpBtn cp-red" data-c="red" title="緊急＋重要"></button><button class="cpBtn cp-amber" data-c="amber" title="重要但唔緊急"></button><button class="cpBtn cp-blue" data-c="blue" title="緊急但唔重要"></button><button class="cpBtn cp-grey" data-c="grey" title="唔重要唔緊急"></button></div></div></div><div class="frow"><div><label>SOP（可由 Word 貼上，自動轉 Markdown；圖片一律過濾）</label><textarea id="tplSop" class="sop"></textarea><div class="sopPreview" id="tplSopPrev"></div><button class="btn" id="tplPrevToggle" style="margin-top:6px;padding:3px 10px;font-size:12px">預覽排版</button></div></div><p class="subnote">提示：儲存後，如果將來已排程嘅項目仍然同舊模板一模一樣（未被個別修改過），會問你要唔要一次過套用新內容。已過去嘅記錄一律不受影響。</p><div class="modalActs"><button class="btn" id="tplCancel">取消</button><button class="btn primary" id="tplSave">儲存</button></div></div></div>
 <div class="overlay" id="bulkModal"><div class="modal"><h3>批量計劃／修改／刪除</h3><div class="frow"><div><label>揀選任務模板</label><select id="bulkTask"></select></div></div><div class="frow"><div><label>由（日期）</label><input type="date" id="bulkFrom"></div><div><label>至（日期）</label><input type="date" id="bulkTo"></div><div><label>時間</label><input type="time" id="bulkTime" value="09:00"></div></div><div class="frow"><div><label>動作</label><select id="bulkMode"><option value="create">建立：喺呢段日期內，每日同一時間新增呢個任務</option><option value="retime">修改：將呢段日期內同一任務全部改做新時間</option><option value="delete">刪除：將呢段日期內同一任務全部刪除</option></select></div></div><div class="frow" id="bulkNewTimeRow" style="display:none"><div><label>新時間</label><input type="time" id="bulkNewTime" value="10:00"></div></div><div class="modalActs"><button class="btn" id="bulkCancel">取消</button><button class="btn primary" id="bulkGo">執行</button></div></div></div>
@@ -1293,7 +1374,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-17c";
+const BUILD = "2026-08-17d";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -4345,7 +4426,8 @@ let undoBtn = null, redoBtn = null;
    ② 更嚴重：每次 logPush() 都會令 state 變咗樣，於是「傾一句偈」都會產生
       一格 undo；跟住撳 Ctrl+Z，就會連 Data Log 嘅新記錄一齊還原走。
    而家只快照行事曆嗰幾個 key，還原嗰陣用 Object.assign 蓋返上去，state.ai 原封不動。 */
-const UNDO_KEYS = ['version','tree','archive','events','eventsArchive','leftW'];
+/* 加咗 'hub'：爹哋誤刪一條學習連結，撳 Ctrl+Z 要返到嚟。 */
+const UNDO_KEYS = ['version','tree','archive','events','eventsArchive','leftW','hub'];
 function snapStr(){
   try{
     const o = {};
@@ -4392,6 +4474,8 @@ function describeDiff(fromStr, toStr){
     const parts=[fmt(added,'新增'),fmt(removed,'刪除'),fmt(edited,'修改')].filter(Boolean);
     const pn = cntTasks(from.tree)+cntTasks(from.archive), tn = cntTasks(to.tree)+cntTasks(to.archive);
     if(pn!==tn) parts.push('工作模板 '+pn+'→'+tn);
+    const hf = ((from.hub||{}).items||[]).length, ht = ((to.hub||{}).items||[]).length;
+    if(hf!==ht) parts.push('學習角連結 '+hf+'→'+ht);
     return parts.length ? parts.join('，') : '狀態已還原';
   }catch(e){ return '狀態已還原'; }
 }
@@ -10807,7 +10891,7 @@ save = function(){
 /* ---------- 全域攔截 dblclick 同 drag（防止快速點擊繞過）---------- */
 document.addEventListener('dblclick', e=>{
   if(!guestMode) return;
-  if(e.target.closest('.overlay')) return; /* modal 內放行（例如關閉） */
+  if(e.target.closest('.overlay, #hubView')) return; /* modal／學習角個框內放行 */
   e.preventDefault(); e.stopPropagation();
   toast('🔒 訪客模式：撳「解鎖編輯」先可以改');
 }, true);
@@ -11758,6 +11842,384 @@ window.__sosPrefill = function(text){
     openPanel();
   }catch(e){ console.warn('SOS prefill', e); }
 };
+})();
+
+/* =========================================================
+   📚 學習角
+   爹哋放連結（科目／分類／標題／網址），Charlotte 揀嚟睇。
+
+   三條底線：
+   ① 條 URL 喺訪客模式根本唔會寫入 DOM。唔係靠 CSS 收埋——CSS 收埋只係唔畫出嚟，
+      啲字仲然喺頁面度。佢見到嘅係科目、分類、標題，就係咁多。
+   ② 撳入去唔會彈出去另一個網站，係 embed 喺個框入面。框入面再撳去第二頁，
+      一樣留喺框入面；一離開咗嗰個 Pages 專案嘅範圍就即刻彈返嚟。
+   ③ 唔准留白畫面。載入唔到就出一句佢睇得明嘅嘢加粒「再試一次」——
+      對一個六歲人嚟講，白畫面同「我撳錯咗」係同一件事。
+
+   點解 iframe 得：GitHub Pages（*.github.io）唔會送 X-Frame-Options，
+   而且 GitHub 根本唔俾你自訂 header，所以佢一定 embed 得。
+   ⚠ 但 github.com/<user>/<repo> 嗰種 repo 網址就一定唔得（GitHub 本站硬性擋），
+   所以下面收 URL 嗰陣會驗，貼錯即刻話返爹哋知，唔會等 Charlotte 撳完先發現。
+
+   時間表本身住喺 https://wcheung1.github.io/diary-calendar/，
+   Homework Hub 住喺 https://wcheung1.github.io/homework-hub/ —— 同一個 origin。
+   所以「上一頁」、「唔准遊走出去」、「target=_blank 改喺框內開」三樣都做得到。
+   萬一將來搬咗去第二度變成跨 origin，下面會自動偵測到，退化成
+   「返去開頭」加一句講清楚，唔會靜靜雞當冇事發生。
+========================================================= */
+(function(){
+'use strict';
+const el = id => document.getElementById(id);
+const isGuest = () => document.body.classList.contains('readonly');
+const say = m => { try{ window.toast(m); }catch(e){ console.warn(m); } };
+
+const SUBJ = [
+  {k:'chi',   name:'中文', color:'#d92d20'},
+  {k:'eng',   name:'英文', color:'#1971c2'},
+  {k:'math',  name:'數學', color:'#2f9e44'},
+  {k:'sci',   name:'科學', color:'#e8590c'},
+  {k:'other', name:'其他', color:'#6741d9'}
+];
+const subjOf = k => SUBJ.filter(x=>x.k===k)[0] || SUBJ[SUBJ.length-1];
+
+/* Firebase 唔會儲空 array／空 object：第一次乜都未加，讀返嚟就係 undefined，
+   一撳就炒。所以照 ensureAI() 嗰套，每次入口先補結構。 */
+function ensureHub(){
+  if(!state.hub || typeof state.hub !== 'object') state.hub = {};
+  if(!Array.isArray(state.hub.items)) state.hub.items = [];
+  state.hub.items = state.hub.items.filter(x => x && typeof x === 'object');
+  state.hub.items.forEach(function(x){
+    if(!x.id) x.id = uid();
+    if(typeof x.subj !== 'string' || !SUBJ.some(y=>y.k===x.subj)) x.subj = 'other';
+    if(typeof x.cat   !== 'string') x.cat = '';
+    if(typeof x.title !== 'string') x.title = '';
+    if(typeof x.url   !== 'string') x.url = '';
+    if(x.on === undefined) x.on = true;
+  });
+  return state.hub;
+}
+function hubItems(onlyOn){
+  const list = ensureHub().items;
+  return onlyOn ? list.filter(x => x.on !== false && x.url && x.title) : list;
+}
+/* 一條 link 嘅「範圍」＝ 佢個 origin 加第一段路徑，即係嗰個 GitHub Pages 專案嘅根。
+   https://wcheung1.github.io/homework-hub/maths/… → https://wcheung1.github.io/homework-hub/
+   框入面行到出咗呢個範圍，就當佢想走去第二個網站。 */
+function hubBase(u){
+  try{
+    const a = new URL(u);
+    const seg = a.pathname.split('/').filter(Boolean);
+    return a.origin + (seg.length ? '/' + seg[0] + '/' : '/');
+  }catch(e){ return ''; }
+}
+/* 同 origin 先至望得入個框（上一頁、擋住遊走出去、target=_blank 改喺框內開）。
+   時間表住喺 wcheung1.github.io/diary-calendar/，Homework Hub 住喺
+   wcheung1.github.io/homework-hub/ —— origin 一樣，所以三樣都行到。 */
+function sameOriginAsApp(u){
+  try{ return new URL(u).origin === location.origin; }catch(e){ return false; }
+}
+function urlProblem(u){
+  const t = String(u||'').trim();
+  if(!t) return '未填網址';
+  if(!/^https:\/\//i.test(t)) return '一定要 https:// 開頭（http 會俾瀏覽器擋住，個框會白畫面）';
+  try{
+    const a = new URL(t);
+    if(/(^|\.)github\.com$/i.test(a.hostname))
+      return 'github.com 嗰種 repo 網址 embed 唔到（GitHub 本站擋 iframe）。要用 Pages 網址，即係 xxx.github.io 嗰條。';
+  }catch(e){ return '呢條唔似一條網址'; }
+  return '';
+}
+
+/* ================= Charlotte 見到嗰版 ================= */
+function renderHubList(){
+  const box = el('hubList'); if(!box) return;
+  const guest = isGuest();
+  box.innerHTML = '';
+  const items = hubItems(true);
+  const intro = el('hubIntro');
+  if(intro) intro.textContent = guest
+    ? '爹哋放咗呢啲嘢俾你睇。撳一下就入去，撳 🔊 就讀個名俾你聽。'
+    : '呢個係 Charlotte 訪客模式見到嘅版面。撳「⚙ 管理連結」加嘢。';
+  if(!items.length){
+    box.innerHTML = '<p class="hubEmpty">' + (guest
+      ? '爹哋仲未放嘢入嚟。等佢放咗你就會見到。'
+      : '仲未有連結。撳下面「⚙ 管理連結」加第一條。') + '</p>';
+    return;
+  }
+  SUBJ.forEach(function(sj){
+    const mine = items.filter(x => x.subj === sj.k);
+    if(!mine.length) return;
+    const sec = document.createElement('div'); sec.className = 'hubSec';
+    const h = document.createElement('div'); h.className = 'hubSecT';
+    h.innerHTML = '<span class="hubDot" style="background:' + sj.color + '"></span>' +
+                  '<span style="color:' + sj.color + '">' + sj.name + '</span>';
+    sec.appendChild(h);
+    /* 分類按「第一次出現」排，唔重新排序——爹哋嗰個次序本身就係佢心目中嘅次序 */
+    const cats = [];
+    mine.forEach(function(x){ if(cats.indexOf(x.cat||'') < 0) cats.push(x.cat||''); });
+    cats.forEach(function(c){
+      if(c){ const ct = document.createElement('div'); ct.className = 'hubCat';
+             ct.textContent = c; sec.appendChild(ct); }
+      const grid = document.createElement('div'); grid.className = 'hubCards';
+      mine.filter(x => (x.cat||'') === c).forEach(function(x){
+        const card = document.createElement('div');
+        card.className = 'hubCard';
+        card.style.borderLeftColor = sj.color;
+        /* ⚠ 條 URL 由頭到尾唔會入 DOM：唔做 data-url、唔做 <a href>。
+           撳落去嗰刻先由 state 攞返，所以佢喺畫面上係搵唔到條 link 嘅。 */
+        const t = document.createElement('span');
+        t.className = 'hcT'; t.textContent = x.title;
+        card.appendChild(t);
+        /* 🔊：佢六至七歲，撳錯咗入去先發現唔啱，比聽一次再揀差好多 */
+        const spk = document.createElement('button');
+        spk.type = 'button'; spk.className = 'hcSpk'; spk.textContent = '🔊';
+        spk.setAttribute('aria-label', '讀出：' + x.title);
+        spk.title = '讀出「' + x.title + '」';
+        /* 觸控機淨靠 click 唔穩陣：手指郁少少就判咗做撳咗成張卡。
+           同時間表啲行用返同一招——touchend 處理 + 擋走跟住嗰個合成 click。 */
+        let fired = 0;
+        const doSpeak = function(e){
+          const now = Date.now();
+          if(now - fired < 400) return;
+          fired = now;
+          e.stopPropagation(); e.preventDefault();
+          if(typeof window.ttsSpeak === 'function') window.ttsSpeak(x.title, spk);
+        };
+        spk.addEventListener('touchend', doSpeak, {passive:false});
+        spk.addEventListener('click', doSpeak);
+        card.appendChild(spk);
+        card.onclick = function(){ hubOpen(x); };
+        grid.appendChild(card);
+      });
+      sec.appendChild(grid);
+    });
+    box.appendChild(sec);
+  });
+}
+
+/* ================= 爹哋嗰張管理表 ================= */
+function renderHubRows(){
+  const box = el('hubRows'); if(!box) return;
+  box.innerHTML = '';
+  const list = hubItems(false);
+  const dl = el('hubCatList');
+  if(dl){
+    const cats = [];
+    list.forEach(function(x){ if(x.cat && cats.indexOf(x.cat) < 0) cats.push(x.cat); });
+    dl.innerHTML = cats.map(c => '<option value="' + esc(c) + '">').join('');
+  }
+  if(!list.length){
+    box.innerHTML = '<p class="subnote">一條都未有。撳下面「＋ 加一條」。</p>';
+  }
+  list.forEach(function(x, i){
+    const bad = urlProblem(x.url);
+    const row = document.createElement('div');
+    row.className = 'hubRow' + (x.on === false ? ' off' : '');
+
+    const sel = document.createElement('select');
+    sel.innerHTML = SUBJ.map(sj => '<option value="' + sj.k + '"' +
+                     (sj.k === x.subj ? ' selected' : '') + '>' + sj.name + '</option>').join('');
+    sel.onchange = () => { x.subj = sel.value; save(); renderHubRows(); };
+    row.appendChild(sel);
+
+    const cat = document.createElement('input');
+    cat.type = 'text'; cat.value = x.cat; cat.placeholder = '分類（例如 加減數）';
+    cat.setAttribute('list', 'hubCatList');
+    cat.style.cssText = 'flex:0 1 150px;min-width:0';
+    cat.onchange = () => { x.cat = cat.value.trim(); save(); renderHubRows(); };
+    row.appendChild(cat);
+
+    const ttl = document.createElement('input');
+    ttl.type = 'text'; ttl.value = x.title; ttl.placeholder = 'Charlotte 見到嘅標題';
+    ttl.style.cssText = 'flex:1 1 190px;min-width:0';
+    ttl.onchange = () => { x.title = ttl.value.trim(); save(); renderHubRows(); };
+    row.appendChild(ttl);
+
+    const url = document.createElement('input');
+    url.type = 'text'; url.value = x.url; url.placeholder = 'https://wcheung1.github.io/homework-hub/…';
+    url.className = 'hrUrl';
+    if(bad) url.style.borderColor = 'var(--overdue)';
+    url.onchange = () => { x.url = url.value.trim(); save(); renderHubRows(); };
+    row.appendChild(url);
+
+    const ops = document.createElement('div'); ops.className = 'hrOps';
+    const onB = document.createElement('button'); onB.className = 'btn';
+    onB.textContent = x.on === false ? '熄咗' : '開住';
+    onB.title = '熄咗＝Charlotte 見唔到，但條記錄仲喺度';
+    onB.onclick = () => { x.on = (x.on === false); save(); renderHubRows(); };
+    ops.appendChild(onB);
+    const up = document.createElement('button'); up.className = 'btn'; up.textContent = '↑';
+    up.disabled = i === 0;
+    up.onclick = () => { const a = state.hub.items; a.splice(i-1, 0, a.splice(i,1)[0]); save(); renderHubRows(); };
+    ops.appendChild(up);
+    const dn = document.createElement('button'); dn.className = 'btn'; dn.textContent = '↓';
+    dn.disabled = i === list.length - 1;
+    dn.onclick = () => { const a = state.hub.items; a.splice(i+1, 0, a.splice(i,1)[0]); save(); renderHubRows(); };
+    ops.appendChild(dn);
+    const del = document.createElement('button'); del.className = 'btn danger'; del.textContent = '✕';
+    del.title = '刪走（撳錯咗 Ctrl+Z 返到嚟）';
+    del.onclick = async () => {
+      if(await confirmBox('刪走「' + (x.title || x.url) + '」？\n（撳錯咗可以 Ctrl+Z 返轉頭）')){
+        state.hub.items.splice(i, 1); save(); renderHubRows();
+      }
+    };
+    ops.appendChild(del);
+    row.appendChild(ops);
+
+    if(bad){ const p = document.createElement('p'); p.className = 'hrBad';
+             p.textContent = '⚠ ' + bad; row.appendChild(p); }
+    else if(x.url && !sameOriginAsApp(x.url)){
+      /* 唔擋——照開得。但要講清楚會失去乜，唔好等佢自己發現「上一頁」灰咗。 */
+      const p = document.createElement('p'); p.className = 'hrBad';
+      p.style.color = 'var(--muted)';
+      p.textContent = 'ℹ 呢條唔係同一個網域（' + location.origin + ' 以外），'
+        + '個框開得到，但「← 上一頁」同「唔准遊走去第二個網站」呢兩樣會失效'
+        + '——瀏覽器唔准我望入去。';
+      row.appendChild(p);
+    }
+    box.appendChild(row);
+  });
+  const note = el('hubEditNote');
+  if(note){
+    const n = hubItems(true).length, tot = list.length;
+    note.textContent = 'Charlotte 而家見到 ' + n + ' 條（總共 ' + tot + ' 條）。'
+      + '改完撳「完成」就會同步落佢部機。';
+  }
+}
+
+/* ================= 睇緊嘢嗰個框 ================= */
+let hvStack = [];        /* 我哋自己記住行過邊幾條 URL，唔靠 iframe 個 history */
+let hvBase = '';         /* 準許嘅範圍 */
+let hvSameOrigin = true; /* 望唔望到入面，第一次載入之後就知 */
+let hvTimer = null;
+
+function hvMsg(html){
+  const m = el('hvMsg'); if(!m) return;
+  if(!html){ m.classList.remove('show'); m.innerHTML = ''; return; }
+  m.innerHTML = html; m.classList.add('show');
+}
+function hvSyncBtns(){
+  const b = el('hvBack'); if(!b) return;
+  b.disabled = !(hvSameOrigin && hvStack.length > 1);
+  b.title = b.disabled
+    ? (hvSameOrigin ? '而家已經係第一頁' : '呢個網站唔准我望入去，所以行唔到上一頁。可以撳「⌂ 返去開頭」。')
+    : '返去框入面上一頁';
+}
+function hvGo(u){
+  const fr = el('hvFrame'); if(!fr) return;
+  clearTimeout(hvTimer);
+  hvMsg('');
+  /* 十五秒都仲係白畫面就要出聲。唔准留一個白框俾佢對住——
+     對佢嚟講，白畫面同「我撳錯咗」係同一件事。 */
+  hvTimer = setTimeout(function(){
+    hvMsg('😕 呢一課載入唔到。可能係網絡慢咗，或者條 link 搬咗位。' +
+          '<button type="button" id="hvRetry">↻ 再試一次</button>');
+    const r = el('hvRetry'); if(r) r.onclick = function(){ hvGo(hvStack[hvStack.length-1] || u); };
+  }, 15000);
+  try{ fr.contentWindow.location.replace(u); }   /* 用 replace：唔好谷大 iframe 自己個 history */
+  catch(e){ fr.src = u; }
+  hvSyncBtns();
+}
+function hvOnLoad(){
+  clearTimeout(hvTimer);
+  const fr = el('hvFrame'); if(!fr) return;
+  let href = '';
+  try{ href = fr.contentWindow.location.href; }
+  catch(e){ hvSameOrigin = false; }
+  if(!hvSameOrigin || !href || href === 'about:blank'){ hvMsg(''); hvSyncBtns(); return; }
+  /* 一離開咗嗰個 Pages 專案嘅範圍就彈返嚟。冇呢道閘，佢由一條 link 撳撳下
+     就可以遊走去任何網站，而爹哋以為佢淨係喺 Homework Hub 度。 */
+  if(hvBase && href.indexOf(hvBase) !== 0){
+    const back = hvStack[hvStack.length-1] || hvBase;
+    hvMsg('🚧 呢條 link 走咗去第二個網站，我幫你彈返嚟。想睇嘅話同爹哋講聲。');
+    setTimeout(function(){ try{ fr.contentWindow.location.replace(back); }catch(e){} }, 1200);
+    return;
+  }
+  hvMsg('');
+  if(hvStack[hvStack.length-1] !== href) hvStack.push(href);
+  /* 框入面啲 link 一律留喺框入面（你嘅要求 c）。
+     咁樣你唔使返去逐個 HTML 檔剷走 target="_blank"。 */
+  try{
+    const d = fr.contentDocument;
+    if(d) d.querySelectorAll('a[target]').forEach(function(a){
+      if(a.target === '_blank' || a.target === '_top' || a.target === '_parent') a.target = '_self';
+    });
+    fr.contentWindow.open = function(u2){
+      try{ fr.contentWindow.location.href = u2; }catch(e){}
+      return null;
+    };
+  }catch(e){}
+  hvSyncBtns();
+}
+function hubOpen(item){
+  const bad = urlProblem(item.url);
+  const fr = el('hvFrame'), v = el('hubView');
+  if(!fr || !v) return;
+  if(bad){
+    say(isGuest() ? '呢一課而家開唔到，同爹哋講聲。' : '呢條 link 有問題：' + bad);
+    return;
+  }
+  try{ if(typeof window.stopAllMedia === 'function') window.stopAllMedia('開學習角'); }catch(e){}
+  hvBase = hubBase(item.url);
+  hvStack = [];
+  hvSameOrigin = true;
+  el('hvTitle').textContent = item.title || '學習角';
+  v.classList.add('show');
+  v.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('hubOpen');
+  hvGo(item.url);
+}
+function hubViewClose(){
+  const v = el('hubView'), fr = el('hvFrame');
+  if(!v) return;
+  clearTimeout(hvTimer);
+  v.classList.remove('show');
+  v.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('hubOpen');
+  /* 一定要落返 about:blank：唔係嗰個 Three.js 場景會繼續喺背景跑，
+     食住部 iPad 嘅電同 CPU。 */
+  try{ fr.src = 'about:blank'; }catch(e){}
+  hvStack = []; hvMsg('');
+}
+
+/* ================= 掛掣 ================= */
+el('btnHub').onclick = function(){
+  ensureHub();
+  renderHubList();
+  show('hubModal');
+};
+el('hubClose').onclick = function(){ hide('hubModal'); };
+el('hubManage').onclick = function(){
+  if(isGuest()) return;                 /* CSS 已經收埋咗，呢度再擋一次 */
+  ensureHub(); renderHubRows(); show('hubEditModal');
+};
+el('hubAdd').onclick = function(){
+  ensureHub();
+  state.hub.items.push({id:uid(), subj:'math', cat:'', title:'', url:'', on:true});
+  save(); renderHubRows();
+};
+el('hubEditDone').onclick = function(){
+  hide('hubEditModal'); renderHubList();
+};
+el('hvBack').onclick = function(){
+  if(hvStack.length > 1){ hvStack.pop(); hvGo(hvStack[hvStack.length-1]); }
+};
+el('hvHome').onclick = function(){
+  const first = hvStack[0];
+  if(first){ hvStack = [first]; hvGo(first); }
+};
+el('hvClose').onclick = hubViewClose;
+el('hvFrame').addEventListener('load', hvOnLoad);
+/* Esc 閂個框。用 capture 兼 stopPropagation：唔係嘅話下面嗰啲 Esc handler
+   會順手連學習角個 modal 都閂埋，佢撳一下 Esc 就一路彈返出時間表。 */
+document.addEventListener('keydown', function(e){
+  if(e.key !== 'Escape') return;
+  const v = el('hubView');
+  if(v && v.classList.contains('show')){
+    e.stopPropagation(); e.preventDefault();
+    hubViewClose();
+  }
+}, true);
 })();
 </script>
 
