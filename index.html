@@ -736,8 +736,14 @@ body.hubOpen{overflow:hidden}
 .hvBar .hvBtn:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
 .hvBar .hvBtn:disabled{opacity:.35;cursor:default}
 .hvBar .hvX{margin-left:auto;border-color:var(--accent);color:var(--accent);font-weight:700}
-.hvTitle{flex:1;min-width:0;font-weight:700;font-size:14px;overflow:hidden;
+.hvTitle{flex:1 1 0;min-width:0;font-weight:700;font-size:14px;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap;padding:0 4px}
+/* 窄機唔好逼到粒「✕ 返去時間表」出咗界：個標題可以縮到冇，粒掣唔可以縮。
+   細過 560px 索性收埋個標題——佢啱啱先由張卡撳入嚟，知自己睇緊乜。 */
+@media (max-width:560px){
+  .hvBar .hvBtn{padding:7px 9px;font-size:12.5px}
+  .hvTitle{display:none}
+}
 .hvWrap{flex:1;min-height:0;position:relative}
 #hvFrame{width:100%;height:100%;border:0;display:block;background:#fff}
 .hvMsg{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;
@@ -1374,7 +1380,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-17d";
+const BUILD = "2026-08-17e";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -12091,7 +12097,11 @@ function renderHubRows(){
 let hvStack = [];        /* 我哋自己記住行過邊幾條 URL，唔靠 iframe 個 history */
 let hvBase = '';         /* 準許嘅範圍 */
 let hvSameOrigin = true; /* 望唔望到入面，第一次載入之後就知 */
-let hvTimer = null;
+let hvTimer = null;      /* 「等到而家都乜都冇」嗰個計時 */
+let hvPoll  = null;      /* 開住個框期間一路查：框入面而家去咗邊 */
+let hvLast  = '';        /* 對上一次確認到嘅位置，用嚟認出「佢撳咗入去第二頁」 */
+let hvWant  = '';        /* 而家想去嗰條，防止慢咗嘅navigate 蓋過新嘅 */
+const HV_WAIT_MS = 20000;
 
 function hvMsg(html){
   const m = el('hvMsg'); if(!m) return;
@@ -12105,34 +12115,62 @@ function hvSyncBtns(){
     ? (hvSameOrigin ? '而家已經係第一頁' : '呢個網站唔准我望入去，所以行唔到上一頁。可以撳「⌂ 返去開頭」。')
     : '返去框入面上一頁';
 }
+/* 框入面而家去到邊？去到就回傳條 URL，未去到就回傳空字串。
+   同 origin 先望得入去；望唔到就記低（hvSameOrigin=false），之後淨係靠 load event。 */
+function hvWhere(){
+  const fr = el('hvFrame'); if(!fr) return '';
+  let href = '', ready = '';
+  try{
+    href  = (fr.contentWindow && fr.contentWindow.location.href) || '';
+    ready = (fr.contentDocument && fr.contentDocument.readyState) || '';
+  }catch(e){ hvSameOrigin = false; return ''; }
+  if(!href || href.indexOf('about:') === 0) return '';
+  if(ready !== 'interactive' && ready !== 'complete') return '';
+  return href;
+}
 function hvGo(u){
   const fr = el('hvFrame'); if(!fr) return;
   clearTimeout(hvTimer);
   hvMsg('');
-  /* 十五秒都仲係白畫面就要出聲。唔准留一個白框俾佢對住——
-     對佢嚟講，白畫面同「我撳錯咗」係同一件事。 */
+  hvLast = '';
+  hvWant = u;
+  /* ⚠️ 舊 bug（就係你影相俾我睇嗰個）：呢度以前寫
+        fr.contentWindow.location.replace(u)
+     覺得咁樣唔會谷大 iframe 自己個 history，幾靚。實際喺 iPad 上面，
+     個框由頭到尾冇 navigate 過，一直停喺 about:blank（所以係一片白），
+     跟住下面個計時器夠鐘就報「載入唔到」——但條 link 根本冇問題。
+     教訓：iframe 導航就用返最悶嗰招 fr.src，佢喺乜嘢瀏覽器都行。
+     谷大 iframe 個 history 完全冇所謂，因為「上一頁」係用我哋自己嗰個
+     hvStack，由頭到尾都冇掂過 iframe 嘅 history。
+     先落 about:blank 再落真嘢：唔係嘅話撳「再試一次」set 返同一條 src，
+     瀏覽器會當佢冇變過，唔會重新載入。 */
+  try{ fr.src = 'about:blank'; }catch(e){}
+  setTimeout(function(){
+    if(hvWant !== u) return;                 /* 期間佢已經撳咗去第二度 */
+    try{ fr.src = u; }catch(e){}
+  }, 30);
+  /* 等到而家都仲係乜都冇，先至出聲。
+     ⚠️ 出聲之前一定要再 check 一次：個框可能其實已經去到，
+     只係某個圖片／CDN 未載完所以 load event 未到。嗰陣出「載入唔到」，
+     就係一塊唔透明嘅嘢冚住一版正常嘅內容兼夾講咗大話。 */
   hvTimer = setTimeout(function(){
+    if(hvWhere()) return;
     hvMsg('😕 呢一課載入唔到。可能係網絡慢咗，或者條 link 搬咗位。' +
           '<button type="button" id="hvRetry">↻ 再試一次</button>');
-    const r = el('hvRetry'); if(r) r.onclick = function(){ hvGo(hvStack[hvStack.length-1] || u); };
-  }, 15000);
-  try{ fr.contentWindow.location.replace(u); }   /* 用 replace：唔好谷大 iframe 自己個 history */
-  catch(e){ fr.src = u; }
+    const r = el('hvRetry'); if(r) r.onclick = function(){ hvGo(u); };
+  }, HV_WAIT_MS);
   hvSyncBtns();
 }
-function hvOnLoad(){
-  clearTimeout(hvTimer);
+/* 真係去到一版新嘢先行呢度。由 hvTick()（同 origin）或者 load event（跨 origin）叫。 */
+function hvArrive(href){
   const fr = el('hvFrame'); if(!fr) return;
-  let href = '';
-  try{ href = fr.contentWindow.location.href; }
-  catch(e){ hvSameOrigin = false; }
-  if(!hvSameOrigin || !href || href === 'about:blank'){ hvMsg(''); hvSyncBtns(); return; }
+  clearTimeout(hvTimer);
   /* 一離開咗嗰個 Pages 專案嘅範圍就彈返嚟。冇呢道閘，佢由一條 link 撳撳下
      就可以遊走去任何網站，而爹哋以為佢淨係喺 Homework Hub 度。 */
   if(hvBase && href.indexOf(hvBase) !== 0){
     const back = hvStack[hvStack.length-1] || hvBase;
     hvMsg('🚧 呢條 link 走咗去第二個網站，我幫你彈返嚟。想睇嘅話同爹哋講聲。');
-    setTimeout(function(){ try{ fr.contentWindow.location.replace(back); }catch(e){} }, 1200);
+    setTimeout(function(){ hvGo(back); }, 1200);
     return;
   }
   hvMsg('');
@@ -12151,6 +12189,28 @@ function hvOnLoad(){
   }catch(e){}
   hvSyncBtns();
 }
+/* 開住個框期間每 400 毫秒查一次。點解唔淨係靠 load event：
+   ① load 要等晒所有圖片／script 先至嚟，有時遲好多；
+   ② 佢喺框入面撳 link 轉頁，我要即刻知（要行返上面嗰道閘同記低個 stack）。
+   同 origin 之下呢個 check 好平,讀個 location 同 readyState 就係咁多。 */
+function hvTick(){
+  if(!hvSameOrigin) return;
+  const href = hvWhere();
+  if(href && href !== hvLast){ hvLast = href; hvArrive(href); }
+}
+function hvOnLoad(){
+  const fr = el('hvFrame'); if(!fr) return;
+  let href = '';
+  try{ href = (fr.contentWindow && fr.contentWindow.location.href) || ''; }
+  catch(e){ hvSameOrigin = false; }
+  if(!hvSameOrigin){
+    /* 跨 origin：望唔到入面，load 就係我哋唯一嘅信號。
+       同時亦都做唔到「唔准遊走出去」同「上一頁」——hvSyncBtns() 會照直講。 */
+    clearTimeout(hvTimer); hvMsg(''); hvSyncBtns(); return;
+  }
+  if(!href || href.indexOf('about:') === 0) return;   /* about:blank 唔算 */
+  hvTick();
+}
 function hubOpen(item){
   const bad = urlProblem(item.url);
   const fr = el('hvFrame'), v = el('hubView');
@@ -12167,12 +12227,17 @@ function hubOpen(item){
   v.classList.add('show');
   v.setAttribute('aria-hidden', 'false');
   document.body.classList.add('hubOpen');
+  hvLast = '';
+  clearInterval(hvPoll);
+  hvPoll = setInterval(hvTick, 400);
   hvGo(item.url);
 }
 function hubViewClose(){
   const v = el('hubView'), fr = el('hvFrame');
   if(!v) return;
   clearTimeout(hvTimer);
+  clearInterval(hvPoll); hvPoll = null;
+  hvWant = ''; hvLast = '';
   v.classList.remove('show');
   v.setAttribute('aria-hidden', 'true');
   document.body.classList.remove('hubOpen');
@@ -12205,7 +12270,7 @@ el('hvBack').onclick = function(){
   if(hvStack.length > 1){ hvStack.pop(); hvGo(hvStack[hvStack.length-1]); }
 };
 el('hvHome').onclick = function(){
-  const first = hvStack[0];
+  const first = hvStack[0] || hvWant;
   if(first){ hvStack = [first]; hvGo(first); }
 };
 el('hvClose').onclick = hubViewClose;
