@@ -634,7 +634,6 @@ body.readonly #btnRedo,
 body.readonly #btnNewFolder,
 body.readonly #btnNewTask,
 body.readonly #btnToggleLeft,
-body.readonly #kwFilterBtn,
 body.readonly #importFile,
 body.readonly #btnAISet,
 body.readonly #chatExport,
@@ -647,6 +646,12 @@ body.readonly .evTime:hover{background:transparent}
 body.readonly .chip{cursor:default}
 body.readonly .trow{cursor:default}
 body.readonly .trow.task .nm{cursor:default}
+/* 篩選唔係設定：揀睇邊個人嘅嘢，同改到人哋啲嘢係兩回事，所以粒「🔎 篩選」訪客照出。
+   但篩選視窗入面粒「🎨 去改關鍵字同顏色」係真係改到爸爸嗰張關鍵字表，一定要收埋。 */
+body.readonly #kfMore{display:none!important}
+/* 「✕ 收埋張相」係俾大人做 override 用。細路撳咗，AI 會突然見唔到佢本功課，
+   而佢完全唔知自己撳過乜——訪客模式一律唔准見到呢粒掣。 */
+body.readonly .imgStickBar .isX{display:none!important}
 /* 訪客模式：隱藏 Data Log 同 General Rules 兩個 tab */
 body.readonly .aiTabs button[data-p="log"],
 body.readonly .aiTabs button[data-p="rule"]{display:none!important}
@@ -683,11 +688,13 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 .imgStickBar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 6px;
   padding:5px 9px;border:1px solid var(--accent);border-radius:8px;background:var(--hover);font-size:12.5px}
 .imgStickBar .isTag{font-weight:700;color:var(--accent)}
-.imgStickBar .isN{font-weight:700}
 .imgStickBar .isNote{color:var(--muted);flex:1;min-width:120px}
 .imgStickBar .isX{border:1px solid var(--line);background:var(--card);border-radius:6px;
   padding:3px 9px;cursor:pointer;font-size:12px;color:inherit}
 .imgStickBar .isX:hover{border-color:var(--accent);color:var(--accent)}
+/* 篩到一版空白嗰陣嗰條解釋。用虛線邊，同真係有嘢嘅項目一眼分得開。 */
+.kfFallback{margin:0 0 8px;padding:7px 10px;border:1px dashed var(--accent);border-radius:8px;
+  background:var(--hover);font-size:12.5px;color:var(--muted);line-height:1.6}
 #kwFilterBtn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 #kwFilterBtn .kfN{font-weight:700;margin-left:4px}
 #kfRows{margin-top:10px;display:flex;flex-direction:column;gap:2px}
@@ -1286,7 +1293,7 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-17a";
+const BUILD = "2026-08-17c";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -2378,7 +2385,15 @@ function fixBadEndTimes(){
     if(!e || !e.endOverride || !e.start || e.start.length < 16) return;
     const s0 = minutes(e.start.slice(11)), t0 = minutes(e.endOverride);
     if(!isFinite(s0) || !isFinite(t0) || t0 > s0) return;
-    e.endOverride = endHHMM(s0 + (isHwSlot(e) ? 30 : 60));
+    /* ⚠️ endHHMM()／isHwSlot() 住喺 AI 個 IIFE 入面，呢度係頂層 code，
+       直接寫個名會掟 ReferenceError；而 call site 包住 try/catch，於是靜靜雞
+       乜都冇做過——即係呢個修復功能一撞到真係要修嘅嘢就死，冇嘢要修嗰陣反而行到。
+       行返 window（兩個已經加咗落 IIFE 尾嗰個 export block）。 */
+    const _isHw = (typeof window.isHwSlot === 'function') ? window.isHwSlot(e) : false;
+    const _endM = s0 + (_isHw ? 30 : 60);
+    e.endOverride = (typeof window.endHHMM === 'function')
+      ? window.endHHMM(_endM)
+      : (_endM >= 1439 ? '23:59' : pad(Math.floor(_endM/60)) + ':' + pad(_endM%60));
     n++;
   });
   if(n > 0){ console.info('🩺 執返 ' + n + ' 格「完結早過開始」嘅時段'); save(); }
@@ -2789,12 +2804,36 @@ function kfPass(e){
   }
   return false;
 }
-function eventsOn(dateStr){
+/* 篩選唔可以令一個版面完全空白。
+   Charlotte 有權決定自己睇邊個人嘅嘢——揀睇乜唔等於改到嘢，所以佢有得篩。
+   但佢揀嗰啲喺呢一版一個都撞唔到嗰陣，一片空白同「呢日真係冇嘢」喺畫面上
+   一模一樣，即係個 app 用沉默講咗個唔啱嘅答案。所以篩剩零個就 show 返呢一版
+   真係有嘅嘢，再喺上面講返點解。 */
+let kfFellBack = false;          /* 呢一次重畫有冇用過上面呢招 */
+function kfApply(list){
+  const src = list || [];
+  const out = src.filter(kfPass);
+  if(!out.length && src.length){ kfFellBack = true; return src.slice(); }
+  return out;
+}
+function kfNotice(){
+  if(!kfFellBack || !calArea) return;
+  const n = document.createElement('div');
+  n.className = 'kfFallback';
+  n.textContent = '🔎 你揀咗嘅關鍵字喺呢一版一個項目都撞唔到，所以而家 show 返晒呢一版有嘅嘢。想改就撳上面粒「🔎 篩選」。';
+  calArea.insertBefore(n, calArea.firstChild);
+}
+/* 未篩嘅原本清單。計完結時間、判斷「而家做緊邊件事」一律要用呢個。
+   ⚠️ 舊 bug：computeEnd()／isNowEvent() 收到嘅係篩剩嗰個 list，於是下一件事
+   一俾篩走，冇填「指定完結時間」嗰格就會由「→ 17:00（1 小時）」變成
+   「→ 23:59（未定完結時間）」，「▶ 而家」仲會著喺一件已經完咗嘅事度。
+   篩選係顯示層嘅嘢，唔准改到一格幾點完。 */
+function eventsOnAll(dateStr){
   /* 加防禦：任何一條 event 冇 start，原本會令成個 render throw，畫面變白 */
   return (state.events||[]).filter(e=>e && typeof e.start==='string' && e.start.slice(0,10)===dateStr)
-    .filter(kfPass)
     .sort((a,b)=>a.start.localeCompare(b.start));
 }
+function eventsOn(dateStr){ return kfApply(eventsOnAll(dateStr)); }
 function computeEnd(ev, dayEvs){
   if(ev.endOverride) return ev.endOverride;
   const t=ev.start.slice(11);
@@ -2822,8 +2861,9 @@ function isNowEvent(ev, dayEvs){
 }
 /* 揀一個「錨」嚟捲畫面：優先用進行緊嗰件；冇嘅話（例如兩件事之間嘅空檔）
    就用今日下一件未到嘅事，等你一眼睇到跟住要做乜。 */
-function anchorIndex(dayEvs){
-  let i = dayEvs.findIndex(ev=>isNowEvent(ev, dayEvs));
+function anchorIndex(dayEvs, allEvs){
+  const base = allEvs || dayEvs;        /* 「而家」要對住未篩嘅清單計 */
+  let i = dayEvs.findIndex(ev=>isNowEvent(ev, base));
   if(i>=0) return i;
   const t = nowStr();
   if(dayEvs.length && dayEvs[0].start.slice(0,10)===fmtDate(new Date())){
@@ -2959,6 +2999,7 @@ function weekStart(d){
 }
 function renderCal(){
   const lbl=document.getElementById('rangeLabel');
+  kfFellBack = false;
   if(view==='day'){
     lbl.textContent=cursor.getFullYear()+'年'+(cursor.getMonth()+1)+'月'+cursor.getDate()+'日（'+WD[(cursor.getDay()+6)%7]+'）';
     renderDay();
@@ -2973,19 +3014,25 @@ function renderCal(){
     lbl.textContent=cursor.getFullYear()+'年';
     renderYear();
   }
+  kfNotice();
 }
 
 function renderDay(){
   const ds=fmtDate(cursor);
-  const evs=eventsOn(ds);
+  const all=eventsOnAll(ds);        /* 未篩：計完結時間同「而家」用呢個 */
+  const evs=kfApply(all);           /* 篩完：畫出嚟嗰批 */
   const wrap=document.createElement('div'); wrap.className='dayList';
   const tt=document.createElement('div'); tt.className='dayTitle';
-  tt.textContent = evs.length? evs.length+' 個項目' : '今日仲未有記錄';
+  /* 篩緊嗰陣一定要講返「N／M」。淨係寫「3 個項目」，同「今日真係得三件事」
+     喺畫面上分唔開。 */
+  tt.textContent = !all.length ? '今日仲未有記錄'
+    : (all.length > evs.length ? '篩選緊：'+evs.length+'／'+all.length+' 個項目'
+                               : evs.length+' 個項目');
   wrap.appendChild(tt);
 
   const rowEls=[]; let nowIdx=-1;
   evs.forEach((ev,i)=>{
-    const isNow = isNowEvent(ev, evs);
+    const isNow = isNowEvent(ev, all);
     if(isNow) nowIdx = i;
     const row=document.createElement('div');
     row.className='evRow'+(ev.color?' c-'+ev.color:'')+(isOverdue(ev, isNow)?' overdue':'')+(ev.guestPending?' guestPending':'')+(ev.guestDel?' guestDel':'')+(isNow?' now':'');
@@ -2996,7 +3043,7 @@ function renderDay(){
     tEl.ondblclick=e=>{ e.stopPropagation(); inlineTimeEdit(tEl,ev); };
     main.appendChild(tEl);
 
-    const end=computeEnd(ev,evs);
+    const end=computeEnd(ev,all);
     const dur=document.createElement('span'); dur.className='evDur';
     const mins=minutes(end)-minutes(ev.start.slice(11));
     /* 冇填「指定完結時間」嘅事，個結束時間係由下一件事嘅開始時間推算出嚟嘅，
@@ -3109,7 +3156,7 @@ function renderDay(){
   wrap.appendChild(add);
 
   calArea.innerHTML=''; calArea.appendChild(wrap);
-  scrollAnchor(rowEls, nowIdx>=0 ? nowIdx : anchorIndex(evs), 'day|'+ds+'|'+evs.length);
+  scrollAnchor(rowEls, nowIdx>=0 ? nowIdx : anchorIndex(evs, all), 'day|'+ds+'|'+evs.length);
 }
 function actBtn(parent,label,fn){
   const b=document.createElement('button'); b.textContent=label;
@@ -3142,7 +3189,7 @@ setInterval(()=>{
     if(document.querySelector('.overlay.show')) return;
     const ae=document.activeElement, tag=ae&&ae.tagName;
     if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return;
-    const evs=eventsOn(fmtDate(new Date()));
+    const evs=eventsOnAll(fmtDate(new Date()));   /* 「而家做緊邊件事」唔可以跟你篩咗乜 */
     const cur=evs.find(ev=>isNowEvent(ev,evs));
     const id=cur? cur.id : '';
     if(id!==lastNowId){ lastNowId=id; renderCal(); }
@@ -3163,6 +3210,13 @@ function renderWeek(){
   const grid=document.createElement('div'); grid.className='weekGrid';
   const today=fmtDate(new Date());
   let nowChips=null;
+  /* 一版一個決定：成個禮拜篩剩零個先至 show 返晒，唔好逐日彈出彈入 */
+  const rawWk = [];
+  for(let i=0;i<7;i++){ const d0=new Date(s); d0.setDate(d0.getDate()+i); rawWk.push(eventsOnAll(fmtDate(d0))); }
+  const wkRaw = rawWk.reduce(function(a,x){ return a + x.length; }, 0);
+  const wkFil = rawWk.reduce(function(a,x){ return a + x.filter(kfPass).length; }, 0);
+  const wkAll = (!wkFil && wkRaw > 0);
+  if(wkAll) kfFellBack = true;
   for(let i=0;i<7;i++){
     const d=new Date(s); d.setDate(d.getDate()+i);
     const ds=fmtDate(d);
@@ -3173,9 +3227,10 @@ function renderWeek(){
     h.onclick=()=>{ cursor=d; setView('day'); };
     col.appendChild(h);
     const body=document.createElement('div'); body.className='wbody';
-    const dayEvs=eventsOn(ds);
+    const dayAll=rawWk[i];
+    const dayEvs=wkAll ? dayAll.slice() : dayAll.filter(kfPass);
     dayEvs.forEach(ev=>{
-      const chip=makeChip(ev, dayEvs);
+      const chip=makeChip(ev, dayAll);        /* 「而家」對住未篩嘅計 */
       body.appendChild(chip);
       if(chip.classList.contains('now')) nowChips=[chip, dayEvs.indexOf(ev), dayEvs];
     });
@@ -3219,6 +3274,12 @@ function renderMonth(){
   const today=fmtDate(new Date());
   const grid=document.createElement('div'); grid.className='monthGrid';
   WD.forEach(w=>{ const h=document.createElement('div'); h.className='mwd'; h.textContent='週'+w; grid.appendChild(h); });
+  const rawMo = [];
+  for(let i=0;i<42;i++){ const d0=new Date(gridStart); d0.setDate(d0.getDate()+i); rawMo.push(eventsOnAll(fmtDate(d0))); }
+  const moRaw = rawMo.reduce(function(a,x){ return a + x.length; }, 0);
+  const moFil = rawMo.reduce(function(a,x){ return a + x.filter(kfPass).length; }, 0);
+  const moAll = (!moFil && moRaw > 0);
+  if(moAll) kfFellBack = true;
   for(let i=0;i<42;i++){
     const d=new Date(gridStart); d.setDate(d.getDate()+i);
     const ds=fmtDate(d);
@@ -3227,7 +3288,7 @@ function renderMonth(){
     const dn=document.createElement('span'); dn.className='dnum'; dn.textContent=d.getDate();
     dn.onclick=()=>{ cursor=d; setView('day'); };
     cell.appendChild(dn);
-    const evs=eventsOn(ds);
+    const evs=moAll ? rawMo[i] : rawMo[i].filter(kfPass);
     evs.slice(0,4).forEach(ev=>cell.appendChild(makeChip(ev)));
     if(evs.length>4){
       const mo=document.createElement('span'); mo.className='more';
@@ -3244,15 +3305,22 @@ function renderMonth(){
 function renderYear(){
   const y=cursor.getFullYear();
   const grid=document.createElement('div'); grid.className='yearGrid';
+  /* 上面個數同下面啲點要用同一把尺。以前個數唔篩、啲點篩，
+     篩緊嗰陣會出現「30 個項目」但得三粒點。 */
+  const yRaw=(state.events||[]).filter(e=>e && typeof e.start==='string' && e.start.startsWith(y+'-'));
+  const yFil=yRaw.filter(kfPass);
+  const yAll=(!yFil.length && yRaw.length>0);
+  if(yAll) kfFellBack = true;
+  const yPass=function(e){ return yAll || kfPass(e); };
   for(let m=0;m<12;m++){
     const card=document.createElement('div'); card.className='ycard';
-    const cnt=(state.events||[]).filter(e=>e && typeof e.start==='string' && e.start.startsWith(y+'-'+pad(m+1))).length;
+    const cnt=yRaw.filter(e=>e.start.startsWith(y+'-'+pad(m+1)) && yPass(e)).length;
     card.innerHTML='<h4>'+(m+1)+'月</h4><div class="cnt">'+(cnt? cnt+' 個項目':'—')+'</div>';
     const dots=document.createElement('div'); dots.className='ydots';
     const days=new Date(y,m+1,0).getDate();
     for(let d=1;d<=days;d++){
       const dot=document.createElement('span');
-      dot.className='ydot'+(eventsOn(y+'-'+pad(m+1)+'-'+pad(d)).length?' has':'');
+      dot.className='ydot'+(eventsOnAll(y+'-'+pad(m+1)+'-'+pad(d)).filter(yPass).length?' has':'');
       dots.appendChild(dot);
     }
     card.appendChild(dots);
@@ -5341,7 +5409,9 @@ function hwSyncDrafts(rule){
   list.forEach(function(L){
     L.parts.forEach(function(x){
       state.events.push({id:uid(), title:x.title, start:x.start,
-        endOverride: x.dur ? hhmm(minutes(x.start.slice(11)) + x.dur) : null,
+        /* 一定要用 endHHMM 唔可以用 hhmm：hhmm 過咗午夜會 wrap 返轉頭
+           （23:45 + 30 分鐘 → 00:15），即刻變成「完結早過開始」。 */
+        endOverride: x.dur ? endHHMM(minutes(x.start.slice(11)) + x.dur) : null,
         sop:'', color:'', templateId:null, planned:true, done:false, hwSlot:false});
       n++;
     });
@@ -5981,7 +6051,10 @@ function ctxText(){
       ? '係——做緊「' + hwNow.title + '」。相機呢一刻淨係用嚟讀字同講返條題目問乜，唔准解題、唔准示範類似題。'
       : '唔係。相機可以照第 96 至 99 條當好奇心工具用。'));
     const q = camQuota();
-    L.push('【相機額度】今日功課時段影咗 ' + q.used + '／' + q.daily + ' 張。'
+    /* ⚠️ camAfterShot() 訪客模式係每張都計，唔理係咪功課時段（見佢自己嗰行註解）。
+       呢句以前寫「今日功課時段影咗 N 張」，同真正計法對唔上；而第 71 條會叫 AI
+       主動報返呢個數俾 Charlotte 聽，即係借住 AI 把口講咗句唔準確嘅嘢。 */
+    L.push('【相機額度】今日總共影咗 ' + q.used + '／' + q.daily + ' 張（計晒所有相，唔淨止功課時段）。'
       + (q.frozen ? ('而家凍結緊，仲有 ' + fmtLeftMin(q.freezeLeft) + ' 先可以再影。')
                   : ('呢一輪仲剩 ' + q.left + ' 張。'))
       + '規矩係：一輪 ' + q.batch + ' 張，影夠就抖 ' + Math.round(camFreezeMin()/60)
@@ -9419,7 +9492,7 @@ function camLocked(){ return !!camState().lock; }
 function camLock(why){
   const c = camState();
   c.lock = true; c.lockAt = nowISO(); c.lockWhy = why || '';
-  logPush('safety', '📷 相機自動鎖咗\n原因：' + (why||'功課時段影相次數超出上限') +
+  logPush('safety', '📷 相機自動鎖咗\n原因：' + (why||'影相次數超出上限') +
           '\n今日喺功課時段影咗 ' + c.hw + ' 張。要爹哋媽咪喺「⚙ API 設定」度解鎖。');
   save(); renderChatImgs();
 }
@@ -9440,7 +9513,7 @@ function camGate(){
      功課時段仍然有用：AI 嗰邊會知而家係咪做緊功課，語氣同做法唔同。 */
   {
     if(q.leftDay <= 0){
-      camLock('今日喺功課時段影夠 ' + q.daily + ' 張');
+      camLock('今日影夠 ' + q.daily + ' 張');
       return {ok:false, msg:'📷 今日影夠 ' + q.daily + ' 張喇，相機要收返先。聽日會重新計過。' +
         '而家你可以讀返條題目俾我聽，我一樣幫到你。'};
     }
@@ -9458,7 +9531,7 @@ function camAfterShot(){
   const B = camBatchN(), D = camDailyN();
   let msg = '';
   if(c.hw >= D){
-    camLock('今日喺功課時段影夠 ' + D + ' 張');
+    camLock('今日影夠 ' + D + ' 張');
     msg = '📷 今日 ' + D + ' 張影晒喇，相機收工。聽日重新計過——而家我哋用講嘅，你讀返條題目俾我聽。';
   }else if(c.hw % B === 0){
     c.freezeUntil = Date.now() + camFreezeMin()*60000;
@@ -9690,9 +9763,9 @@ function makeStreamView(host, guest){
 
 /* L1：明顯指住張相／功課。中英夾雜都要接得住。 */
 const IMG_YES_RE = new RegExp([
-  '相片|照片|張相|幅相|相入面|相裏|相裡|相度|呢張|嗰張|呢幅|嗰幅',
+  '相片|照片|張相|幅相|相入面|相裏|相裡|相度|呢張|嗰張|果張|呢幅|嗰幅|果幅',
   '呢題|嗰題|下一題|上一題|第\\s*[0-9一二三四五六七八九十]+\\s*(題|條|行|格|個字)',
-  '呢條(數|題)|呢個字|呢個詞|呢句|呢行|呢格|呢個空格|空格',
+  '呢條(數|題)|呢個字|呢個詞|呢句|呢行|呢格|呢個空格|空格|呢份|嗰份|果份|呢版|嗰版|呢頁|嗰頁',
   '點做|點計|點解呢題|點樣填|填咩|揀邊個|選擇題',
   '啱唔啱|對唔對|做啱咗|有冇錯|錯咗邊|對下|check',
   '上面(嗰|果|個)|下面(嗰|果|個)|左邊|右邊|中間嗰',
@@ -9707,17 +9780,44 @@ const IMG_NO_RE = new RegExp([
   '你叫咩名|你係邊個|你識唔識'
 ].join('|'), 'i');
 
+/* L2 有一道閘：講到功課嘅句，一律唔准行「明顯唔關事」呢條捷徑。
+   ⚠️ IMG_NO_RE 冇 anchor，佢係喺成句字入面搵嘅。所以「我今日呢份功課點做」
+   會中咗個「今日」直接判無關，張功課相被抌走，跟住佢就答「我睇唔到你張相」。
+   撞到功課字眼就跌落 L3 交俾文字 model 判，貴唔到邊度去，但唔會判錯。 */
+const IMG_HW_RE = /功課|工作紙|練習|默書|測驗|測考|題目|答案|做卷|補充|抄寫/;
+
 let imgOff = false;              /* 家長／用戶明文話「唔好再用張相」 */
 let imgLastUsed = false;         /* 上一句有冇用到張相，做 L3 失敗時嘅後備 */
 let imgLastWhy = '';             /* 俾條 bar 顯示點解 */
-function imgHasAny(){ return (chatHistory||[]).some(function(m){ return m && m.imgs && m.imgs.length; }); }
+/* 張相會冷。
+   ⚠️ 舊寫法係「成個 session 有過一張相就當佢永遠喺度」。兩個後果：
+     ① 影完相兩個鐘之後隨口講句「啱唔啱呀」，IMG_YES_RE 中咗（入面有「啱唔啱」），
+        就真係去攞返嗰張古老嘅相入 payload，白燒 vision token；
+     ② 就算唔中，之後每一句都要叫多一次分類器。
+   而家：三十分鐘之內送過嘅相先算生存；過咗時限但上一句仲喺度用緊佢（imgLastUsed），
+   就當佢仲熱——即係一路傾緊功課會自己續命，唔傾就自然冷卻。
+   呢個時限係 app 內部嘅嘢，唔會、亦都唔應該變成任何要人手撳嘅掣。 */
+const IMG_LIVE_MS = 30*60*1000;
+function imgHasAny(){
+  const hist = chatHistory || [];
+  for(let i = hist.length - 1; i >= 0; i--){
+    const m = hist[i];
+    if(m && m.imgs && m.imgs.length){
+      const t = Date.parse(m.at || '') || 0;
+      if(!t) return true;                          /* 冇時間戳就當佢新，唔好誤殺 */
+      if(Date.now() - t <= IMG_LIVE_MS) return true;
+      return !!imgLastUsed;                        /* 冷咗，但仲傾緊就續命 */
+    }
+  }
+  return false;
+}
 function imgOffReset(){ imgOff = false; }
 function imgOffSet(){ imgOff = true; imgLastUsed = false; try{ renderImgStick(); }catch(e){} }
 
 /* 交俾文字 model 判。只送文字，唔送相——所以呢個 call 本身唔會燒到 vision token。 */
 async function imgAskModel(text, lastAi, imgHint){
   const sys = '你係一個分類器。判斷「用戶最新嗰句嘢」需唔需要睇返之前嗰張相先答到。' +
-    '需要就答 YES，唔需要就答 NO。淨係答一個字，唔准解釋。' +
+    '需要就答 YES，唔需要就答 NO。一定要用英文大楷 YES 或者 NO，淨係答一個字，唔准解釋，唔准用中文。' +
     '提示：追問功課、追問相入面嘅字或者圖、回答緊 AI 問返關於張相嘅嘢、' +
     '用「呢個」「佢」指住相入面嘅嘢，全部都係 YES。' +
     '轉咗去講行事曆、天氣、心情、故事、或者任何唔使睇相都答到嘅嘢，就係 NO。';
@@ -9726,9 +9826,15 @@ async function imgAskModel(text, lastAi, imgHint){
               '用戶最新嗰句：' + short(String(text||''), 200);
   /* 12 秒夠有突：呢個 call 只係判一個字。判斷唔到就跌返落後備傾向，
      唔好為咗一個分類器令細路等成十幾秒。 */
-  const r = await callAI([{role:'system', content:sys}, {role:'user', content:usr}],
-                         {max:8, temp:0, noThink:true, timeout:12000});
-  return /yes/i.test(String(r||''));
+  const r = String(await callAI([{role:'system', content:sys}, {role:'user', content:usr}],
+                         {max:8, temp:0, noThink:true, timeout:12000}) || '').trim();
+  /* ⚠️ 舊寫法係 return /yes/i.test(r)，即係兩態。model 覆「需要」「要」「係」
+     全部會變成 false——靜靜雞判咗「唔關事」，張相唔送，跟住佢答「我睇唔到你張相」。
+     呢種情況唔會掟 exception，所以連下面個後備傾向都用唔到。
+     而家分三態：認到係、認到唔係、認唔到（null）。認唔到嘅交返俾 imgDecide 決定。 */
+  if(/^(yes|y|要|係|需|有關|關事)/i.test(r)) return true;
+  if(/^(no|n|唔|不|冇|無)/i.test(r))        return false;
+  return null;
 }
 
 /* 主判斷。回傳 {use:boolean, why:string} */
@@ -9738,7 +9844,7 @@ async function imgDecide(text){
   const t = String(text||'').trim();
   if(!t)            return {use:true,  why:'冇打字，淨係送相'};
   if(IMG_YES_RE.test(t)) return {use:true,  why:'你問緊相入面嘅嘢'};
-  if(IMG_NO_RE.test(t))  return {use:false, why:'轉咗話題'};
+  if(IMG_NO_RE.test(t) && !IMG_HW_RE.test(t)) return {use:false, why:'轉咗話題'};
   /* L3 失敗時嘅後備傾向：好短、又唔似一條新問題嘅句（「係呀」「5個」「唔知」），
      多數係喺度答緊 AI 問返關於張相嘅嘢。有問號、或者以「點解／邊個」呢類
      問句開頭嘅，就當佢開緊新話題，唔好貿然當追問。 */
@@ -9753,6 +9859,8 @@ async function imgDecide(text){
       if(lastAi && hint) break;
     }
     const yes = await imgAskModel(t, lastAi, hint);
+    if(yes === null)   /* 認唔到佢覆乜，唔准當佢答咗 NO */
+      return {use:lean, why: lean ? '判斷唔到，當你仲喺度追問' : '判斷唔到，當你轉咗話題'};
     return {use:yes, why: yes ? '睇落係接住張相講' : '睇落同張相冇關'};
   }catch(e){
     console.warn('img relevance', e);
@@ -9765,14 +9873,21 @@ function renderImgStick(){
   const box = $('imgStickBar'); if(!box) return;
   if(!imgHasAny()){ box.style.display = 'none'; box.innerHTML = ''; return; }
   box.style.display = '';
+  /* 條 bar 講嘅嘢兩邊都要係真嘅，但講法唔同：大人要知機制，細路只要知發生緊乜。 */
+  const _g = (typeof isGuestNow === 'function') ? isGuestNow() : false;
   box.innerHTML = '<span class="isTag">📎 上面有張相</span>' +
     '<span class="isNote">' + (imgOff
-      ? '已經收埋咗，之後唔會再用。想再問張相，就重新影過或者揀返張相。'
+      ? (_g ? '張相收埋咗喇。想再問張相入面嘅嘢，就再影過一張。'
+            : '已經收埋咗，之後唔會再用。想再問張相，就重新影過或者揀返張相。')
       : (imgLastUsed
-          ? '啱啱嗰句有用到張相' + (imgLastWhy ? '（' + esc(imgLastWhy) + '）' : '')
-          : '我會自己睇下你問嘅嘢關唔關張相事，唔關事就唔會用，唔會扣你睇相額度')) +
+          ? (_g ? '我啱啱望咗你張相。'
+                : '啱啱嗰句有用到張相' + (imgLastWhy ? '（' + esc(imgLastWhy) + '）' : ''))
+          : (_g ? '你問我嘢嗰陣，我會自己睇下使唔使望返你張相。'
+                : '我會自己睇下你問嘅嘢關唔關張相事，唔關事就唔會用，唔會扣你睇相額度'))) +
     '</span>';
-  if(!imgOff){
+  /* 粒「✕ 收埋張相」淨係俾大人（CSS 亦都收埋咗，呢度再擋一次）。
+     細路撳咗，AI 就會突然見唔到佢本功課，而佢完全唔知自己撳過乜。 */
+  if(!imgOff && !_g){
     const x = document.createElement('button');
     x.className = 'isX'; x.textContent = '✕ 收埋張相';
     x.title = '唔想我再自動判斷就撳呢個，之後嘅訊息一定唔會帶張相';
@@ -9900,8 +10015,9 @@ async function chatSend(presetText){
     const visList = visM.split(/[,，]/).map(function(x){ return x.trim(); }).filter(Boolean);
     const visB  = String(cfg().visionBase||'').trim();
     const visK  = String(cfg().visionKey||'').trim();
-    /* 同一把尺：payload 真係夾咗相，先至用睇相嗰條線。唔准各行各路。 */
-    const useVis = !!visM && _keep.hasImg;
+    /* 同一把尺：payload 真係夾咗相，先至用睇相嗰條線。唔准各行各路。
+       用 let 唔用 const：查資料嗰個 loop 行到第二轉會關咗佢，見下面。 */
+    let useVis = !!visM && _keep.hasImg;
     /* 傾偈係最需要「內部思考」嘅場合（要拆問題、諗點示範、揀邊樣講）。
        推理模型嘅思考 token 計入 max_tokens，6000 遠遠唔夠，所以預設 20000。
        講出嚟嘅長度唔係由呢度控制，係由 persona 嗰條「六十至一百八十字」控制。 */
@@ -9956,6 +10072,23 @@ async function chatSend(presetText){
     let rounds = 0;
     while(rounds < SEARCH_MAX_ROUNDS && hasLookup(reply)){
       rounds++;
+      /* ⚠️ 舊 bug：useVis 一開頭就定死咗，於是每一轉查資料都行返睇相嗰條線，
+         而 messages 由頭到尾夾住張 image_url——即係一條有相嘅問題，同一張相
+         最多可以上載五次（第一轉 + 四轉查資料），次次計 vision token。
+         點解留返第一轉：佢可能一開口就出咗 [[SEARCH]]，未講過相入面有乜，
+         即刻抽走會令佢查完資料之後答唔返。所以第二轉先至換返文字線。 */
+      if(useVis && rounds >= 2){
+        for(let mi = 0; mi < messages.length; mi++){
+          const _m = messages[mi];
+          if(_m && Array.isArray(_m.content)){
+            messages[mi] = {role:_m.role,
+              content: _m.content.filter(function(x){ return x && x.type === 'text'; })
+                                 .map(function(x){ return x.text || ''; }).join('')
+                     + '\n（頭先嗰張相我已經睇過，唔再重複上載）'};
+          }
+        }
+        useVis = false;
+      }
       view.reset('🔍 上網搵緊資料…');
       chatHist.scrollTop = chatHist.scrollHeight;
       const found = await runLookups(reply);
@@ -10497,7 +10630,10 @@ Object.assign(window, {
   renderChatTemplates: renderChatTemplates,
   warnCap: warnCap,
   ARCHIVE_MAX: ARCHIVE_MAX,
-  aiCancel: aiCancel
+  aiCancel: aiCancel,
+  /* 呢兩個俾頂層嘅 fixBadEndTimes() 用——佢喺 IIFE 外面，唔行 window 就攞唔到。 */
+  endHHMM: endHHMM,
+  isHwSlot: isHwSlot
 });
 
 /* ---------- 12. 啟動 ---------- */
@@ -10554,9 +10690,12 @@ function applyGuestUI(){
      單靠 CSS 收埋兩粒掣係唔會閂到個已經開咗嘅視窗，API Key 就會晾喺度。 */
   if(guestMode){
     try{ hide('aiSetModal'); }catch(e){}
-    /* 篩選係爸爸嘅工具。訪客模式之下佢粒掣係收埋嘅，如果仲篩緊，
-       Charlotte 就會見到半份時間表而又冇任何辦法 show 返，所以入訪客一律關咗佢。 */
-    try{ if(typeof kwFilter === 'object' && kwFilter.on){ kwFilter.on = false; kfSave(); kfSyncBtn(); } }catch(e){}
+    /* 篩選唔再係爸爸專用：Charlotte 有權決定自己睇邊個人嘅嘢，粒「🔎 篩選」訪客照出，
+       收埋咗嘅只係篩選視窗入面粒「🎨 去改關鍵字同顏色」。
+       ⚠️ 舊版喺呢度夾硬關篩選，而嗰句本身係壞嘅：kfSyncBtn() 住喺 AI 個 IIFE 入面，
+       喺呢個 IIFE 叫係 ReferenceError，俾個 catch(e){} 食晒；而且成句冇 renderCal()，
+       所以切模式嗰刻個時間表根本冇重畫，佢照樣見到篩剩嗰半份。
+       而家唔靠「切模式關咗佢」，改為喺 kfApply() 度保證任何一版都唔會篩到一片空白。 */
   }
   /* 訪客模式：工作模板一律收埋。
      本身係有個「預設收埋」嘅，但佢記喺 localStorage（LEFT_KEY）度，即係跟部機唔跟身分——
