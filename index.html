@@ -707,6 +707,9 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 .imgStickBar .isX:hover{border-color:var(--accent);color:var(--accent)}
 /* ===== 📋 待辦 ===== */
 body.readonly .aiTabs button[data-p="todo"]{display:none!important}
+#tdPasteArea.dragOver{outline:3px dashed var(--accent);outline-offset:4px;border-radius:10px}
+.tdBox .fname{font-size:11px;color:var(--accent);background:var(--hover);
+  border-radius:6px;padding:1px 7px;max-width:46%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tdBox{border:1px solid var(--line);border-radius:10px;padding:9px;margin:0 0 9px;background:var(--card)}
 .tdBox textarea{width:100%;min-height:96px;padding:8px;font-size:13.5px;border:1px solid var(--line);border-radius:8px;resize:vertical}
 .tdBox .tdBoxHead{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12.5px;color:var(--muted)}
@@ -1243,10 +1246,13 @@ body.hubOpen{overflow:hidden}
       <span class="subnote" id="tdHint" style="margin:0"></span>
     </div>
     <div id="tdPasteArea" style="display:none">
-      <p class="subnote">一個框＝一張通告。唔使自己改名——AI 會幫每張起返個十零個字嘅名，之後喺「📄 通告」度改得。</p>
+      <p class="subnote">一個框＝一張通告；一個檔案（.md／.txt）都係一張通告——撳「📂 揀檔案」或者直接 drag 十幾個檔案落嚟呢度。
+        檔案嘅通告會用返個檔名做名，貼上嚟嘅就由 AI 起名，兩樣之後都喺「📄 通告」度改得。</p>
+      <input type="file" id="tdFile" multiple accept=".md,.txt,.text,text/plain,text/markdown" style="display:none">
       <div id="tdBoxes"></div>
       <div class="aiBar">
         <button class="btn" id="tdAddBox">＋ 加多張</button>
+        <button class="btn" id="tdPick">📂 揀檔案</button>
         <span style="flex:1"></span>
         <button class="btn" id="tdPasteCancel">取消</button>
         <button class="btn primary" id="tdGo">▶ 開始拆</button>
@@ -1462,7 +1468,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-18a";
+const BUILD = "2026-08-18b";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -1470,20 +1476,29 @@ console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;p
    ---------------------------------------------------------
    ⚠ 下面個 apiKey 係公開嘅，冇問題 —— Firebase 個 apiKey 淨係識別
    邊個 project，唔係密碼。真正擋人嘅係 Realtime Database 嘅安全規則。
-   截至 2026-08 已部署嘅規則（同 repo 入面 database.rules.json 一樣）：
+   截至 2026-08-18 已部署嘅規則（同 repo 入面 database.rules.json 一樣，
+   六個節點，直接成段 copy 得落 Firebase Console）：
 
      {
        "rules": {
-         "diary_calendar_data":  { "$uid": { ".read": "$uid === auth.uid",
-                                             ".write": "$uid === auth.uid" } },
-         "diary_calendar_think": { "$uid": { ".read": "$uid === auth.uid",
-                                             ".write": "$uid === auth.uid" } },
-         "diary_calendar_sos":   { "$uid": { ".read": "$uid === auth.uid",
-                                             ".write": "$uid === auth.uid" } }
+         "diary_calendar_data":   { "$uid": { ".read": "$uid === auth.uid",
+                                              ".write": "$uid === auth.uid" } },
+         "diary_calendar_think":  { "$uid": { ".read": "$uid === auth.uid",
+                                              ".write": "$uid === auth.uid" } },
+         "diary_calendar_sos":    { "$uid": { ".read": "$uid === auth.uid",
+                                              ".write": "$uid === auth.uid" } },
+         "diary_calendar_log":    { "$uid": { ".read": "$uid === auth.uid",
+                                              ".write": "$uid === auth.uid" } },
+         "diary_calendar_cost":   { "$uid": { ".read": "$uid === auth.uid",
+                                              ".write": "$uid === auth.uid" } },
+         "diary_calendar_notice": { "$uid": { ".read": "$uid === auth.uid",
+                                              ".write": "$uid === auth.uid" } }
        }
      }
-   ⚠ diary_calendar_sos 係「🆘 搵爹哋」用嘅。冇加呢三行，個掣送唔到嘢，
-     會喺面板下面出紅字提你。
+   邊個節點做乜：data＝主 state；think＝AI 推理記錄；sos＝「🆘 搵爹哋」；
+   log＝Data Log；cost＝用量計數；notice＝📋 待辦嘅通告原文。
+   ⚠ 少咗邊個節點，邊嚿嘢就上唔到雲——sos 會出紅字，notice 會喺通告行
+     顯示「☁ 原文上唔到雲」。
 
    即係：淨係本人先讀寫得到自己 uid 下面嗰份資料；root 同其他路徑冇寫
    .read/.write，預設一律拒絕。未登入嗰陣 auth 係 null，條式永遠唔成立。
@@ -10167,8 +10182,10 @@ async function tdParseOne(text, view){
   return got;
 }
 
-/* AI 覆返嚟 → 寫入 state。回傳 {notice, items} */
-async function tdCommitParse(text, got){
+/* AI 覆返嚟 → 寫入 state。回傳 {notice, items}
+   fname：由檔案嚟嘅通告用返個檔名做名（你自己改嘅名一定好過 AI 起嘅），
+   貼上嚟嗰啲先由 AI 嘅 title10 起名。 */
+async function tdCommitParse(text, got, fname){
   const t = ensureTodo();
   const now = new Date();
   const at = now.toISOString();
@@ -10197,7 +10214,7 @@ async function tdCommitParse(text, got){
   const notice = {
     id:nid, at:at,
     who: (['charlotte','jasmine','both','me'].indexOf(got.who)>=0) ? got.who : null,
-    title: String(got.title10 || ('通告 ' + fmtDate(now))).slice(0,30),
+    title: String(fname || got.title10 || ('通告 ' + fmtDate(now))).slice(0,30),
     kind: (['todo','info','ad'].indexOf(got.kind)>=0) ? got.kind : 'todo',
     hash: tdHash32(norm), sim: tdSim64(norm), len: norm.length,
     itemIds: items.map(x=>x.id),
@@ -10286,14 +10303,17 @@ function tdPaneShow(which){
 }
 
 /* ===== 貼通告：一個框一張 ===== */
-function tdAddBox(txt){
+function tdAddBox(txt, fname){
   const host = $('tdBoxes');
   const n = host.children.length + 1;
   const box = document.createElement('div');
   box.className = 'tdBox';
+  box._fname = fname || '';
   const head = document.createElement('div');
   head.className = 'tdBoxHead';
-  head.innerHTML = '<span class="n">第 ' + n + ' 張</span><span style="flex:1"></span>';
+  head.innerHTML = '<span class="n">第 ' + n + ' 張</span>' +
+    (fname ? '<span class="fname" title="' + esc(fname) + '">📄 ' + esc(fname) + '</span>' : '') +
+    '<span style="flex:1"></span>';
   const del = document.createElement('button');
   del.className = 'mini'; del.textContent = '✕';
   del.onclick = ()=>{ box.remove(); tdRenumber(); };
@@ -10358,7 +10378,7 @@ async function tdRun(){
           try{
             const got = await tdParseOne(j.text, view);
             view.done();
-            const r = await tdCommitParse(j.text, got);
+            const r = await tdCommitParse(j.text, got, j.box._fname);
             tdBoxMsg(j.box,'ok','✅ ' + esc(r.notice.title) + '：拆咗 ' + r.items.length + ' 件。');
             renderTodo();
           }catch(e){ view.fail(); tdBoxMsg(j.box,'err','❌ ' + esc(e.message||String(e)) +
@@ -10372,7 +10392,7 @@ async function tdRun(){
     try{
       const got = await tdParseOne(j.text, view);
       view.done();
-      const r = await tdCommitParse(j.text, got);
+      const r = await tdCommitParse(j.text, got, j.box._fname);
       made += r.items.length;
       let note = '✅ ' + esc(r.notice.title) + '：';
       if(r.notice.kind==='ad')       note += '睇落係賣廣告，冇嘢要做。';
@@ -10391,7 +10411,7 @@ async function tdRun(){
           try{
             const got2 = await tdParseOne(job.text, v2);
             v2.done();
-            const r2 = await tdCommitParse(job.text, got2);
+            const r2 = await tdCommitParse(job.text, got2, job.box._fname);
             tdBoxMsg(job.box,'ok','✅ ' + esc(r2.notice.title) + '：拆咗 ' + r2.items.length + ' 件。');
             renderTodo();
           }catch(e2){ v2.fail(); tdBoxMsg(job.box,'err','❌ 又係唔得：' + esc(e2.message||String(e2))); }
@@ -10719,6 +10739,83 @@ $('tdStop').onclick = ()=>{ tdStopFlag = true; };
 $('tdManualBtn').onclick = tdManual;
 $('tdNoticesBtn').onclick = tdNotices;
 $('tdTidyBtn').onclick = tdTidy;
+/* ---------- 檔案入通告：一個檔案＝一張 ----------
+   .md／.txt 先收。圖片同 PDF 唔收——嗰啲要行睇相線（按量收費），
+   而且你講明係 copy 文字。收唔到嘅唔會靜靜雞跳過，一定講返點解。 */
+function tdAcceptFile(f){
+  const nm = String(f.name||'');
+  if(/\.(md|txt|text|markdown)$/i.test(nm)) return true;
+  return /^text\//.test(String(f.type||''));
+}
+async function tdTakeFiles(files){
+  const list = Array.prototype.slice.call(files||[]);
+  if(!list.length) return;
+  tdPaneShow('tdPasteArea');
+  /* 得一個空框喺度嗰陣，第一個檔案填落去，唔好留返個空殼 */
+  const boxes = $('tdBoxes');
+  if(boxes.children.length===1 && !boxes.children[0].querySelector('textarea').value.trim()){
+    boxes.innerHTML = '';
+  }
+  let ok=0, bad=[];
+  for(const f of list){
+    if(!tdAcceptFile(f)){ bad.push(f.name + '（唔係文字檔）'); continue; }
+    if(f.size > 300*1024){ bad.push(f.name + '（' + Math.round(f.size/1024) + 'KB，唔似一張通告）'); continue; }
+    try{
+      const txt = await new Promise(function(res, rej){
+        const r = new FileReader();
+        r.onload = ()=>res(String(r.result||''));
+        r.onerror = ()=>rej(new Error('讀唔到'));
+        r.readAsText(f);
+      });
+      if(!txt.trim()){ bad.push(f.name + '（空檔）'); continue; }
+      tdAddBox(txt.trim(), f.name.replace(/\.(md|txt|text|markdown)$/i,''));
+      ok++;
+    }catch(e){ bad.push(f.name + '（讀唔到）'); }
+  }
+  if(ok) toast('入咗 ' + ok + ' 張通告' + (bad.length ? '，' + bad.length + ' 個檔收唔到' : ''));
+  if(bad.length) $('tdHint').textContent = '收唔到：' + bad.join('、');
+}
+$('tdPick').onclick = ()=>$('tdFile').click();
+$('tdFile').onchange = function(){ tdTakeFiles(this.files); this.value=''; };
+/* drag & drop：拖十幾個檔案落個貼通告區。
+   dragover 一定要 preventDefault，唔係瀏覽器會自己打開個檔、成版嘢冇晒。 */
+(function(){
+  const zone = $('tdPasteArea');
+  let depth = 0;
+  ['dragenter','dragover'].forEach(function(evn){
+    zone.addEventListener(evn, function(e){
+      e.preventDefault(); e.stopPropagation();
+      if(evn==='dragenter') depth++;
+      zone.classList.add('dragOver');
+    });
+  });
+  zone.addEventListener('dragleave', function(e){
+    e.preventDefault();
+    depth = Math.max(0, depth-1);
+    if(!depth) zone.classList.remove('dragOver');
+  });
+  zone.addEventListener('drop', function(e){
+    e.preventDefault(); e.stopPropagation();
+    depth = 0; zone.classList.remove('dragOver');
+    if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length){
+      tdTakeFiles(e.dataTransfer.files);
+    }
+  });
+  /* 成個 tab 都接得：喺待辦 tab 度是但邊度跌落嚟，都當你想入通告。 */
+  const pane = $('paneTodo');
+  pane.addEventListener('dragover', function(e){
+    if(e.dataTransfer && Array.prototype.some.call(e.dataTransfer.types||[], t=>t==='Files')){
+      e.preventDefault();
+    }
+  });
+  pane.addEventListener('drop', function(e){
+    if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length){
+      e.preventDefault();
+      tdTakeFiles(e.dataTransfer.files);
+    }
+  });
+})();
+
 /* Ctrl+Enter＝加多張（連環貼十幾張嗰陣手唔使離開鍵盤） */
 $('tdBoxes').addEventListener('keydown', function(e){
   if((e.ctrlKey||e.metaKey) && e.key==='Enter'){ e.preventDefault(); tdAddBox(); }
