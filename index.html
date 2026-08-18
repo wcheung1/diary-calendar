@@ -705,6 +705,45 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 .imgStickBar .isX{border:1px solid var(--line);background:var(--card);border-radius:6px;
   padding:3px 9px;cursor:pointer;font-size:12px;color:inherit}
 .imgStickBar .isX:hover{border-color:var(--accent);color:var(--accent)}
+/* ===== 📋 待辦 ===== */
+body.readonly .aiTabs button[data-p="todo"]{display:none!important}
+.tdBox{border:1px solid var(--line);border-radius:10px;padding:9px;margin:0 0 9px;background:var(--card)}
+.tdBox textarea{width:100%;min-height:96px;padding:8px;font-size:13.5px;border:1px solid var(--line);border-radius:8px;resize:vertical}
+.tdBox .tdBoxHead{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12.5px;color:var(--muted)}
+.tdBox .tdBoxHead .n{font-weight:700;color:var(--accent)}
+.tdBox.dup{border-color:var(--q-amber)}
+.tdBox.err{border-color:var(--overdue)}
+.tdBox.ok{border-color:var(--q-green,#2f9e44)}
+.tdBoxMsg{font-size:12.5px;margin-top:6px;line-height:1.6}
+.tdSec{margin:14px 0 0}
+.tdSecHead{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;
+  font-weight:700;font-size:13.5px;padding:4px 0}
+.tdSecHead .hwPill{font-weight:400}
+.tdRow{border:1px solid var(--line);border-left-width:5px;border-radius:10px;
+  padding:9px 11px;margin:7px 0;background:var(--card)}
+.tdRow.late{border-color:var(--overdue);border-left-color:var(--overdue);background:color-mix(in srgb, var(--overdue) 6%, var(--card))}
+.tdRow.blocked{opacity:.55}
+.tdRow.doneRow{opacity:.6}
+.tdRow .tdT{font-weight:600;font-size:14px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.tdRow .tdT .who{font-size:11.5px;color:var(--muted);font-weight:400}
+.tdRow .tdSub{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.55}
+.tdRow .tdSub .lateTxt{color:var(--overdue);font-weight:700}
+.tdRow .tdSub .warn{color:var(--q-amber)}
+.tdRow .tdActs{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap;align-items:center}
+.tdRow .tdActs .btn{padding:4px 10px;font-size:12px}
+.tdStBtns{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.tdStBtns button{border:0;background:transparent;padding:4px 10px;font-size:12px;cursor:pointer;color:var(--muted)}
+.tdStBtns button.on{background:var(--accent);color:#fff}
+.tdNotice{display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid var(--line);font-size:13px;flex-wrap:wrap}
+.tdNotice .nm{flex:1;min-width:140px}
+.tdNotice .meta{color:var(--muted);font-size:11.5px}
+.tdNotice .cloudBad{color:var(--q-amber)}
+.tdManual{border:1px dashed var(--line);border-radius:10px;padding:9px;margin:9px 0;
+  display:flex;gap:7px;flex-wrap:wrap;align-items:flex-end}
+.tdManual label{display:block;font-size:11px;color:var(--muted);margin-bottom:2px}
+.tdManual input[type=text]{padding:5px 7px;font-size:13px}
+.tdManual input[type=date],.tdManual select{padding:4px 6px;font-size:12.5px}
+
 /* ===== 📚 學習角 =====
    爹哋放連結，Charlotte 揀嚟睇。訪客模式之下佢見到嘅係標題同分類，
    條 URL 根本唔會寫入 DOM（唔係靠 CSS 收埋——CSS 收埋只係唔畫出嚟，
@@ -1019,6 +1058,7 @@ body.hubOpen{overflow:hidden}
     <button data-p="log">📚 Data Log（佢嘅記憶）</button>
     <button data-p="rule">🧠 General Rules（規則）</button>
     <button data-p="hw" id="tabHw">📚 課後功課</button>
+    <button data-p="todo" id="tabTodo">📋 待辦</button>
     <button data-p="chat">💬 傾偈</button>
   </div>
 
@@ -1192,6 +1232,33 @@ body.hubOpen{overflow:hidden}
   </div>
 
   <!-- Tab 4：💬 傾偈（Chat） -->
+  <!-- Tab：待辦（通告 → 行動清單）。訪客模式收埋（CSS + switchTab 兩度都擋）。 -->
+  <div class="aiPane" id="paneTodo">
+    <div class="aiBar" style="margin-bottom:8px">
+      <button class="btn primary" id="tdPaste">✍️ 貼通告</button>
+      <button class="btn" id="tdManualBtn">＋ 手動加一件</button>
+      <button class="btn" id="tdNoticesBtn">📄 通告</button>
+      <button class="btn" id="tdTidyBtn">🧹 執一執</button>
+      <span style="flex:1"></span>
+      <span class="subnote" id="tdHint" style="margin:0"></span>
+    </div>
+    <div id="tdPasteArea" style="display:none">
+      <p class="subnote">一個框＝一張通告。唔使自己改名——AI 會幫每張起返個十零個字嘅名，之後喺「📄 通告」度改得。</p>
+      <div id="tdBoxes"></div>
+      <div class="aiBar">
+        <button class="btn" id="tdAddBox">＋ 加多張</button>
+        <span style="flex:1"></span>
+        <button class="btn" id="tdPasteCancel">取消</button>
+        <button class="btn primary" id="tdGo">▶ 開始拆</button>
+        <button class="btn danger" id="tdStop" style="display:none">⏹ 停</button>
+      </div>
+      <div id="tdRunThink" style="display:none"></div>
+    </div>
+    <div id="tdManualArea" style="display:none"></div>
+    <div id="tdNoticesArea" style="display:none"></div>
+    <div id="tdList"></div>
+  </div>
+
   <div class="aiPane" id="paneChat">
     <p class="subnote">同 AI 自由傾偈：可以一齊規劃時間表、傾偏好，甚至閒話家常。<br>對話記錄只存喺記憶體，關瀏覽器即消失。<br>例外：撳「傾到嘅偏好 ➜ 加落 Rules」，或者喺訪客模式之下傾偈，對話會記入 Data Log。</p>
     <div class="chatTemplates" id="chatTemplates"></div>
@@ -1395,7 +1462,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-17h";
+const BUILD = "2026-08-18a";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -4466,7 +4533,7 @@ let undoBtn = null, redoBtn = null;
       一格 undo；跟住撳 Ctrl+Z，就會連 Data Log 嘅新記錄一齊還原走。
    而家只快照行事曆嗰幾個 key，還原嗰陣用 Object.assign 蓋返上去，state.ai 原封不動。 */
 /* 加咗 'hub'：爹哋誤刪一條學習連結，撳 Ctrl+Z 要返到嚟。 */
-const UNDO_KEYS = ['version','tree','archive','events','eventsArchive','leftW','hub'];
+const UNDO_KEYS = ['version','tree','archive','events','eventsArchive','leftW','hub','todo'];
 function snapStr(){
   try{
     const o = {};
@@ -4515,6 +4582,8 @@ function describeDiff(fromStr, toStr){
     if(pn!==tn) parts.push('工作模板 '+pn+'→'+tn);
     const hf = ((from.hub||{}).items||[]).length, ht = ((to.hub||{}).items||[]).length;
     if(hf!==ht) parts.push('學習角連結 '+hf+'→'+ht);
+    const tf = ((from.todo||{}).items||[]).length, tt = ((to.todo||{}).items||[]).length;
+    if(tf!==tt) parts.push('待辦 '+tf+'→'+tt);
     return parts.length ? parts.join('，') : '狀態已還原';
   }catch(e){ return '狀態已還原'; }
 }
@@ -6862,7 +6931,7 @@ function openAI(tab){
 }
 function switchTab(p){
   /* 訪客模式只可以用「講低你想做乜」同「傾偈」 */
-  if(document.body.classList.contains('readonly') && (p==='log' || p==='rule')){
+  if(document.body.classList.contains('readonly') && (p==='log' || p==='rule' || p==='todo')){
     p = 'ask';
   }
   document.querySelectorAll('#aiTabs button').forEach(b=>b.classList.toggle('on', b.dataset.p===p));
@@ -6871,6 +6940,7 @@ function switchTab(p){
   if(p==='log') renderLog();
   if(p==='rule') loadRules();
   if(p==='hw') renderHw();
+  if(p==='todo') renderTodo();
 }
 document.querySelectorAll('#aiTabs button').forEach(b=> b.onclick = ()=>switchTab(b.dataset.p));
 $('btnAI').onclick = ()=>openAI('ask');
@@ -9882,6 +9952,267 @@ function guestThinkLine(think, txt){
   return bit + '我個腦喺度轉緊，已經諗咗 <span class="gThinkN">' + n + '</span> 個字';
 }
 
+
+/* =========================================================
+   📋 待辦：通告 → 行動清單
+   ---------------------------------------------------------
+   佢做乜：爸爸將學校通告（一個框一張）貼入嚟，AI 逐張拆成
+   actionable items，主軸係「開工日」（死線 − 預留時間），
+   過咗開工日未郁手就當逾期——個 app 嘅職責係逼你提早開工，
+   唔係陪你做 deadline fighter。
+
+   三條底線（同成個 app 一致）：
+   ① AI 唔准作：冇死線出 null、認唔到類型出 unknown、判唔到邊個女出 null。
+   ② 唔准靜靜雞：重複、失敗、上唔到雲，一律要喺畫面見到。
+   ③ 一張通告一次 call，逐張做；一張死咗唔准拖冧成隊。
+
+   呢個 module 住喺 AI 嘅 IIFE 入面，所以 callAIJSON／makePlanStream／
+   toast／$ 全部直接用得。NoticeCloud 都放埋喺度（佢只喺呢個 tab 用），
+   佢讀嘅 db／currentUser 係外層 global，內層讀外層冇問題——
+   之前兩次 scope 事故全部係倒轉嗰個方向（頂層叫 IIFE 入面嘅嘢）。
+========================================================= */
+
+/* ---------- 通告原文：獨立雲端節點 ----------
+   一定唔可以擺入 diary_calendar_data/<uid>：嗰度有 dbRef.on('value')
+   全樹監聽，行事曆每改一次就會將成堆原文重新下載一次。
+   Data Log 當年就係為咗呢個原因搬走（見 LogCloud 段註解）。
+   套路照抄 ThinkCloud：一次性讀寫、冇監聽、寫唔到唔炒，但要記低（cloudOK）。 */
+const NoticeCloud = {
+  ROOT:'diary_calendar_notice', lastError:'',
+  ref(){
+    try{
+      if(!currentUser || !currentUser.uid || typeof db === 'undefined') return null;
+      return db.ref(this.ROOT + '/' + currentUser.uid);
+    }catch(e){ return null; }
+  },
+  key(rec){
+    return String(rec.at||'').replace(/[.:#$\[\]\/]/g,'-') + '__' + String(rec.id||'').replace(/[.:#$\[\]\/]/g,'-');
+  },
+  async put(rec){
+    const r = this.ref(); if(!r) return false;
+    try{ await r.child(this.key(rec)).set(rec); this.lastError=''; return true; }
+    catch(e){ this.lastError = String((e&&e.message)||e); return false; }
+  },
+  async get(rec){
+    const r = this.ref(); if(!r) return null;
+    try{ const sn = await r.child(this.key(rec)).once('value'); return sn.val(); }
+    catch(e){ this.lastError = String((e&&e.message)||e); return null; }
+  },
+  async del(rec){
+    const r = this.ref(); if(!r) return false;
+    try{ await r.child(this.key(rec)).remove(); return true; }
+    catch(e){ this.lastError = String((e&&e.message)||e); return false; }
+  }
+};
+
+/* ---------- state.todo ----------
+   Firebase 唔儲空 array／空 object，所以照 ensureAI() 嗰套逐個補。 */
+const TD_LEAD_DEFAULT = [
+  {k:'out',     name:'要出街辦',       days:7},
+  {k:'buy',     name:'要買／等寄到',   days:10},
+  {k:'wait',    name:'要等第二個人',   days:5},
+  {k:'prep',    name:'要練／要準備',   days:7},
+  {k:'self',    name:'自己坐低做得完', days:1},
+  {k:'unknown', name:'認唔到',         days:3}
+];
+function ensureTodo(){
+  if(!state.todo || typeof state.todo !== 'object') state.todo = {};
+  const t = state.todo;
+  if(!Array.isArray(t.items))   t.items = [];
+  if(!Array.isArray(t.notices)) t.notices = [];
+  if(!Array.isArray(t.learned)) t.learned = [];
+  if(!Array.isArray(t.lead) || !t.lead.length) t.lead = TD_LEAD_DEFAULT.map(x=>Object.assign({},x));
+  if(!t.ui || typeof t.ui !== 'object') t.ui = {};
+  if(t.ui.later === undefined) t.ui.later = false;
+  if(t.ui.nodue === undefined) t.ui.nodue = false;
+  if(t.ui.done  === undefined) t.ui.done  = false;
+  t.items = t.items.filter(x=>x && typeof x==='object');
+  t.items.forEach(function(x){
+    if(!x.id) x.id = uid();
+    if(!x.status) x.status = 'todo';
+    if(x.leadDays !== null && x.leadDays !== undefined) x.leadDays = parseInt(x.leadDays,10)||0;
+  });
+  return t;
+}
+function tdLeadDays(why){
+  const t = ensureTodo();
+  const hit = t.lead.filter(x=>x.k===why)[0];
+  return hit ? hit.days : 3;
+}
+/* 開工日 = 死線 − 預留。冇死線就 null（永遠唔會變紅）。 */
+function tdStart(it){
+  if(!it || !it.due) return null;
+  const d = new Date(it.due + 'T00:00:00');
+  if(isNaN(d)) return null;
+  const lead = (it.leadDays===null || it.leadDays===undefined) ? tdLeadDays('unknown') : it.leadDays;
+  d.setDate(d.getDate() - lead);
+  return fmtDate(d);
+}
+function tdBlocked(it){
+  if(!it.blockedBy) return null;
+  const prev = ensureTodo().items.filter(x=>x.id===it.blockedBy)[0];
+  return (prev && prev.status !== 'done') ? prev : null;
+}
+
+/* ---------- 指紋（去重，全部本機，唔使錢） ---------- */
+function tdNorm(txt){
+  return String(txt||'')
+    .replace(/[\s\u3000]+/g,'')
+    .replace(/[，,、．.。：:；;！!？?（()）「」『』【】\-—_*#>]/g,'')
+    .toLowerCase();
+}
+function tdHash32(str){
+  let h = 2166136261;
+  for(let i=0;i<str.length;i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return (h>>>0).toString(16);
+}
+/* simhash：四個字一組 shingle → 64 bit（兩個 32 bit 砌埋）。
+   兩次 copy 揀嘅範圍唔同（多咗標題、少咗頁尾）都認得返。 */
+function tdSim64(str){
+  const v = new Array(64).fill(0);
+  const n = str.length;
+  if(n < 4) return tdHash32(str) + '00000000';
+  for(let i=0;i<=n-4;i++){
+    const g = str.substr(i,4);
+    let h1 = 2166136261, h2 = 5381;
+    for(let j=0;j<4;j++){ const c=g.charCodeAt(j); h1=(Math.imul(h1,16777619)^c)>>>0; h2=((h2*33)^c)>>>0; }
+    for(let b=0;b<32;b++){ v[b]    += (h1>>>b)&1 ? 1 : -1; }
+    for(let b=0;b<32;b++){ v[32+b] += (h2>>>b)&1 ? 1 : -1; }
+  }
+  let a=0,bq=0;
+  for(let b=0;b<32;b++){ if(v[b]>0)    a |= (1<<b); }
+  for(let b=0;b<32;b++){ if(v[32+b]>0) bq |= (1<<b); }
+  return (a>>>0).toString(16).padStart(8,'0') + (bq>>>0).toString(16).padStart(8,'0');
+}
+function tdHamming(hex1, hex2){
+  let d=0;
+  for(let i=0;i<16;i+=8){
+    let x = (parseInt(hex1.substr(i,8),16) ^ parseInt(hex2.substr(i,8),16)) >>> 0;
+    while(x){ d += x&1; x >>>= 1; }
+  }
+  return d;
+}
+/* 搵返貼過嘅：精確中＝一模一樣；模糊中（≤8 bit 差 + 長度差<25%）＝好似貼過 */
+function tdFindDup(text){
+  const t = ensureTodo();
+  const norm = tdNorm(text);
+  const h = tdHash32(norm), sim = tdSim64(norm), len = norm.length;
+  for(const nt of t.notices){
+    if(nt.hash === h && Math.abs((nt.len||0)-len) < 8) return {kind:'exact', notice:nt};
+  }
+  for(const nt of t.notices){
+    if(!nt.sim) continue;
+    const dl = Math.abs((nt.len||0)-len) / Math.max(1, nt.len||1);
+    if(dl < 0.25 && tdHamming(nt.sim, sim) <= 8) return {kind:'similar', notice:nt};
+  }
+  return null;
+}
+
+/* ---------- AI：一張通告一次 call ---------- */
+const SYS_TODO = [
+'你係一個幫香港家長處理學校通告嘅助手。家長有兩個女：Charlotte（六至七歲，小學）同 Jasmine（兩歲半）。',
+'你會收到一張通告嘅全文。你要將佢拆成一件件做得到嘅事（actionable items）。',
+'',
+'鐵規矩（逐條跟，唔准彈性處理）：',
+'1) 通告冇寫死線嘅事，due 一律出 null。唔准自己估一個日子出嚟。',
+'2) 估唔到嗰件事屬於邊一類，leadWhy 出 "unknown"。唔准夾硬揀。',
+'3) 判唔到係邊個女嘅事，who 出 null。唔准估。',
+'4) 每件 item 要動詞開頭、一句講一件事。「準備旅行」唔算——要拆到「簽回條」「入錢落八達通」呢種細度。',
+'5) 有先後次序嘅（例如影完相先貼得落回條），用 seq 排次序，冇次序嘅全部 seq 出 1。',
+'6) 死線已經過咗嘅照出，唔准靜靜雞略過。',
+'7) 純資訊、冇嘢要做嘅通告，kind 出 "info"，items 出空 array。賣廣告嘅 kind 出 "ad"。',
+'8) title10 係你幫張通告起嘅名：十個字左右，家長一眼認得返係邊張（例：秋季旅行通告、校服訂購通知）。',
+'9) leadWhy 只准由 context 俾你嗰個表入面揀，唔准自己發明新類型。',
+'10) 只准輸出 JSON，唔准有任何其他文字。',
+'',
+'輸出格式：',
+'{',
+'  "title10": "十個字左右嘅通告名",',
+'  "who": "charlotte / jasmine / both / me / null",',
+'  "kind": "todo / info / ad",',
+'  "summary": "一句講呢張通告係乜",',
+'  "items": [',
+'    { "seq": 1, "title": "動詞開頭嘅一件事", "due": "YYYY-MM-DD 或者 null",',
+'      "leadWhy": "out/buy/wait/prep/self/unknown", "who": "同上，可以逐件唔同",',
+'      "quad": "red=緊急又重要/amber=重要唔緊急/blue=緊急唔重要/grey=兩樣都唔係",',
+'      "why": "一句解釋你點解咁判" }',
+'  ]',
+'}'
+].join('\n');
+
+function tdSlimContext(){
+  const t = ensureTodo();
+  const L = [];
+  L.push('【今日】' + fmtDate(new Date()));
+  L.push('【預留時間表】（leadWhy 只准由呢度揀）');
+  t.lead.forEach(x=>L.push('  ' + x.k + ' = ' + x.name + '（' + x.days + ' 日）'));
+  const learned = t.learned.slice(-20);
+  if(learned.length){
+    L.push('【家長改過嘅預留時間】（撞到同類嘢要照呢度）');
+    learned.forEach(x=>L.push('  「' + x.t + '」→ ' + x.days + ' 日'));
+  }
+  const open = t.items.filter(x=>x.status!=='done').slice(-30);
+  if(open.length){
+    L.push('【而家已經有嘅未完成事項】（如果通告講嘅係同一件事，喺 why 度講明）');
+    open.forEach(x=>L.push('  ' + (x.due||'冇死線') + '　' + x.title));
+  }
+  return L.join('\n');
+}
+
+async function tdParseOne(text, view){
+  const got = await callAIJSON([
+    {role:'system', content:SYS_TODO},
+    {role:'user', content: tdSlimContext() + '\n\n【通告全文】\n' + text}
+  ], {temp:0.2, max:12000, want:['title10','kind','items'], onDelta:view, longThink:true});
+  return got;
+}
+
+/* AI 覆返嚟 → 寫入 state。回傳 {notice, items} */
+async function tdCommitParse(text, got){
+  const t = ensureTodo();
+  const now = new Date();
+  const at = now.toISOString();
+  const norm = tdNorm(text);
+  const nid = uid();
+  const items = [];
+  let prevId = null, prevSeq = null;
+  (Array.isArray(got.items) ? got.items : []).forEach(function(r, i){
+    if(!r || !r.title) return;
+    const it = {
+      id: uid(), title: String(r.title).slice(0,120),
+      who: (['charlotte','jasmine','both','me'].indexOf(r.who)>=0) ? r.who : (got.who && ['charlotte','jasmine','both','me'].indexOf(got.who)>=0 ? got.who : null),
+      due: /^\d{4}-\d{2}-\d{2}$/.test(String(r.due||'')) ? r.due : null,
+      leadWhy: (t.lead.some(x=>x.k===r.leadWhy)) ? r.leadWhy : 'unknown',
+      quad: (['red','amber','blue','grey'].indexOf(r.quad)>=0) ? r.quad : '',
+      status:'todo', doneAt:null, noticeId:nid,
+      seq: parseInt(r.seq,10)||1, blockedBy:null, evId:null,
+      note:'', why:String(r.why||'').slice(0,200), at:at
+    };
+    it.leadDays = tdLeadDays(it.leadWhy);
+    /* 同一張通告入面，seq 大過上一件 → 等緊上一件 */
+    if(prevId !== null && it.seq > prevSeq) it.blockedBy = prevId;
+    prevId = it.id; prevSeq = it.seq;
+    items.push(it);
+  });
+  const notice = {
+    id:nid, at:at,
+    who: (['charlotte','jasmine','both','me'].indexOf(got.who)>=0) ? got.who : null,
+    title: String(got.title10 || ('通告 ' + fmtDate(now))).slice(0,30),
+    kind: (['todo','info','ad'].indexOf(got.kind)>=0) ? got.kind : 'todo',
+    hash: tdHash32(norm), sim: tdSim64(norm), len: norm.length,
+    itemIds: items.map(x=>x.id),
+    dueMax: items.reduce((m,x)=> (x.due && (!m || x.due>m)) ? x.due : m, null),
+    summary: String(got.summary||'').slice(0,120),
+    cloudOK: false
+  };
+  /* 原文上雲（獨立節點）。上唔到唔炒，但要記低——UI 會顯示「☁ 未上雲」。 */
+  notice.cloudOK = await NoticeCloud.put({id:nid, at:at, who:notice.who, title:notice.title, text:String(text)});
+  t.items = t.items.concat(items);
+  t.notices.push(notice);
+  save();
+  return {notice:notice, items:items};
+}
+
 /* 排程助手嘅串流面板。
    點解唔直接借傾偈嗰個 makeStreamView()：排程嘅「內容」係一大嚿 JSON，
    照住傾偈咁流出嚟，用戶會見到一堆括號同引號，冇意思。
@@ -9942,6 +10273,456 @@ function makePlanStream(host){
   view.fail = function(){ host.innerHTML = ''; host.style.display = 'none'; };
   return view;
 }
+
+
+/* ---------- 📋 待辦 UI ---------- */
+let tdQueue = [];        /* [{text, state:'wait|dup|sim|run|ok|err|skip', msg, dup}] */
+let tdRunning = false, tdStopFlag = false;
+
+function tdPaneShow(which){
+  ['tdPasteArea','tdManualArea','tdNoticesArea'].forEach(id=>{
+    $(id).style.display = (id===which) ? '' : 'none';
+  });
+}
+
+/* ===== 貼通告：一個框一張 ===== */
+function tdAddBox(txt){
+  const host = $('tdBoxes');
+  const n = host.children.length + 1;
+  const box = document.createElement('div');
+  box.className = 'tdBox';
+  const head = document.createElement('div');
+  head.className = 'tdBoxHead';
+  head.innerHTML = '<span class="n">第 ' + n + ' 張</span><span style="flex:1"></span>';
+  const del = document.createElement('button');
+  del.className = 'mini'; del.textContent = '✕';
+  del.onclick = ()=>{ box.remove(); tdRenumber(); };
+  head.appendChild(del);
+  box.appendChild(head);
+  const ta = document.createElement('textarea');
+  ta.placeholder = '貼一張通告嘅全文喺度（一個框＝一張）';
+  ta.value = txt || '';
+  box.appendChild(ta);
+  const msg = document.createElement('div');
+  msg.className = 'tdBoxMsg'; msg.style.display = 'none';
+  box.appendChild(msg);
+  host.appendChild(box);
+  ta.focus();
+  return box;
+}
+function tdRenumber(){
+  Array.prototype.forEach.call($('tdBoxes').children, function(b,i){
+    const n = b.querySelector('.tdBoxHead .n'); if(n) n.textContent = '第 ' + (i+1) + ' 張';
+  });
+}
+function tdBoxMsg(box, cls, html){
+  box.className = 'tdBox' + (cls ? ' ' + cls : '');
+  const m = box.querySelector('.tdBoxMsg');
+  m.style.display = html ? '' : 'none';
+  m.innerHTML = html || '';
+}
+
+/* ===== 逐張做 =====
+   一張死咗唔准拖冧成隊：標「錯咗」，繼續做下一張，最後個別重試。 */
+async function tdRun(){
+  if(tdRunning) return;
+  const boxes = Array.prototype.slice.call($('tdBoxes').children);
+  const jobs = boxes.map(b=>({box:b, text:b.querySelector('textarea').value.trim()}))
+                    .filter(j=>j.text);
+  if(!jobs.length){ toast('未貼嘢喎'); return; }
+  tdRunning = true; tdStopFlag = false;
+  $('tdGo').style.display = 'none';
+  $('tdStop').style.display = '';
+  const thinkHost = $('tdRunThink');
+  thinkHost.style.display = '';
+  let done = 0, made = 0;
+  for(let i=0;i<jobs.length;i++){
+    const j = jobs[i];
+    if(tdStopFlag){ tdBoxMsg(j.box, '', '⏸ 停咗，未做。'); continue; }
+    /* 去重：喺叫 API 之前攔——重複貼一次係唔使錢嘅 */
+    const dup = tdFindDup(j.text);
+    if(dup){
+      const nt = dup.notice;
+      const open = ensureTodo().items.filter(x=>x.noticeId===nt.id && x.status!=='done');
+      tdBoxMsg(j.box, 'dup',
+        '📄 ' + (dup.kind==='exact' ? '呢張你貼過' : '呢張同你之前貼嗰張好似') +
+        '（' + (nt.at||'').slice(0,10) + '・' + esc(nt.title) + '）' +
+        (open.length ? '，仲有 ' + open.length + ' 件未做完' : '，嗰批全部做晒') + '。' +
+        '<div style="margin-top:5px"><button class="btn" data-a="skip">唔使拆喇</button> ' +
+        '<button class="btn" data-a="force">照樣當新嘅拆</button></div>');
+      j.box.querySelectorAll('button[data-a]').forEach(function(bt){
+        bt.onclick = async function(){
+          if(bt.dataset.a==='skip'){ tdBoxMsg(j.box,'','✅ 跳過咗。'); return; }
+          tdBoxMsg(j.box,'run','🤖 拆緊…');
+          const view = makePlanStream(thinkHost);
+          try{
+            const got = await tdParseOne(j.text, view);
+            view.done();
+            const r = await tdCommitParse(j.text, got);
+            tdBoxMsg(j.box,'ok','✅ ' + esc(r.notice.title) + '：拆咗 ' + r.items.length + ' 件。');
+            renderTodo();
+          }catch(e){ view.fail(); tdBoxMsg(j.box,'err','❌ ' + esc(e.message||String(e)) +
+            ' <button class="btn" onclick="this.closest(\'.tdBox\').querySelector(\'button[data-a=force]\').click()">↻ 再試</button>'); }
+        };
+      });
+      continue;
+    }
+    tdBoxMsg(j.box, 'run', '🤖 第 ' + (i+1) + '／' + jobs.length + ' 張，拆緊…');
+    const view = makePlanStream(thinkHost);
+    try{
+      const got = await tdParseOne(j.text, view);
+      view.done();
+      const r = await tdCommitParse(j.text, got);
+      made += r.items.length;
+      let note = '✅ ' + esc(r.notice.title) + '：';
+      if(r.notice.kind==='ad')       note += '睇落係賣廣告，冇嘢要做。';
+      else if(r.notice.kind==='info')note += '純資訊，冇嘢要做。';
+      else                            note += '拆咗 ' + r.items.length + ' 件。';
+      if(!r.notice.cloudOK) note += '<span class="cloudBad">　☁ 原文上唔到雲（Firebase rules 未加？），淨係本機。</span>';
+      tdBoxMsg(j.box, 'ok', note);
+    }catch(e){
+      view.fail();
+      tdBoxMsg(j.box, 'err', '❌ 拆唔到：' + esc(e.message||String(e)) +
+        '　<button class="btn td-retry">↻ 單獨再試呢張</button>');
+      (function(job){
+        job.box.querySelector('.td-retry').onclick = async function(){
+          tdBoxMsg(job.box,'run','🤖 再試緊…');
+          const v2 = makePlanStream(thinkHost);
+          try{
+            const got2 = await tdParseOne(job.text, v2);
+            v2.done();
+            const r2 = await tdCommitParse(job.text, got2);
+            tdBoxMsg(job.box,'ok','✅ ' + esc(r2.notice.title) + '：拆咗 ' + r2.items.length + ' 件。');
+            renderTodo();
+          }catch(e2){ v2.fail(); tdBoxMsg(job.box,'err','❌ 又係唔得：' + esc(e2.message||String(e2))); }
+        };
+      })(j);
+    }
+    done++;
+    renderTodo();
+    if(i < jobs.length-1) await new Promise(r=>setTimeout(r,300));
+  }
+  tdRunning = false;
+  $('tdGo').style.display = '';
+  $('tdStop').style.display = 'none';
+  toast(tdStopFlag ? ('停咗。做咗 '+done+' 張。') : ('搞掂：'+done+' 張，共 '+made+' 件事。'));
+}
+
+/* ===== 清單 ===== */
+function tdWhoName(w){
+  return w==='charlotte' ? 'Charlotte' : w==='jasmine' ? 'Jasmine'
+       : w==='both' ? '兩個女' : w==='me' ? '我自己' : '';
+}
+function tdStatusBtns(it){
+  const wrap = document.createElement('span');
+  wrap.className = 'tdStBtns';
+  [['todo','未做'],['doing','做緊'],['done','完成']].forEach(function(p){
+    const b = document.createElement('button');
+    b.textContent = p[1];
+    if(it.status===p[0]) b.classList.add('on');
+    b.onclick = function(){
+      it.status = p[0];
+      it.doneAt = (p[0]==='done') ? fmtDate(new Date()) : null;
+      save(); renderTodo();
+    };
+    wrap.appendChild(b);
+  });
+  return wrap;
+}
+function tdRowEl(it, today){
+  const t = ensureTodo();
+  const start = tdStart(it);
+  const blocked = tdBlocked(it);
+  const late = (it.status!=='done') && start && start <= today && !blocked;
+  const row = document.createElement('div');
+  row.className = 'tdRow' + (it.status==='done' ? ' doneRow' : late ? ' late' : blocked ? ' blocked' : '');
+  row.style.borderLeftColor = it.quad==='red' ? 'var(--q-red)' : it.quad==='amber' ? 'var(--q-amber)'
+    : it.quad==='blue' ? 'var(--q-blue)' : it.quad==='grey' ? 'var(--q-grey)' : 'var(--line)';
+  const tt = document.createElement('div');
+  tt.className = 'tdT';
+  tt.innerHTML = esc(it.title) + (it.who ? ' <span class="who">' + tdWhoName(it.who) + '</span>' : '');
+  row.appendChild(tt);
+  const sub = document.createElement('div');
+  sub.className = 'tdSub';
+  const bits = [];
+  if(start){
+    const lateDays = Math.round((new Date(today) - new Date(start)) / 86400000);
+    bits.push('開工日 ' + start.slice(5).replace('-','月') + '日' +
+      (it.status!=='done' && lateDays>0 ? ' <span class="lateTxt">（過咗 ' + lateDays + ' 日）</span>' : ''));
+  }
+  if(it.due) bits.push('死線 ' + it.due.slice(5).replace('-','月') + '日');
+  else bits.push('冇死線');
+  if(it.leadWhy==='unknown') bits.push('<span class="warn">⚠ 估唔到要幾耐，當咗 ' + (it.leadDays!=null?it.leadDays:tdLeadDays('unknown')) + ' 日，你改返啱佢</span>');
+  if(blocked) bits.push('等緊：' + esc(blocked.title));
+  if(it.status==='done' && it.doneAt) bits.push('完成於 ' + it.doneAt);
+  sub.innerHTML = bits.join(' · ');
+  row.appendChild(sub);
+  const acts = document.createElement('div');
+  acts.className = 'tdActs';
+  acts.appendChild(tdStatusBtns(it));
+  /* 📅 加落時間表：加喺開工日（唔係死線）。死線嗰日想加多格，喺編輯度剔。 */
+  if(it.status!=='done'){
+    const cal = document.createElement('button');
+    cal.className = 'btn';
+    if(it.evId){
+      cal.textContent = '📅 已加落時間表';
+      cal.onclick = async function(){
+        if(await confirmBox('由時間表度刪返嗰格？（件事本身唔會刪）')){
+          state.events = (state.events||[]).filter(e=>e.id!==it.evId);
+          it.evId = null; save(); renderCal(); renderTodo();
+        }
+      };
+    } else {
+      cal.textContent = '📅 加落時間表';
+      cal.disabled = !start && !it.due;
+      cal.title = cal.disabled ? '冇日期，加唔落' : '會加喺開工日嗰日';
+      cal.onclick = function(){
+        const d = start || it.due;
+        const ev = {id:uid(), title:it.title, start:d + 'T09:00',
+                    color:it.quad||'', sop:'（📋 待辦）' + (it.due ? '死線：' + it.due : '')};
+        state.events = (state.events||[]).concat([ev]);
+        it.evId = ev.id; save(); renderCal(); renderTodo();
+        toast('加咗喺 ' + d + '（朝早 9 點，自己拖返啱佢）');
+      };
+    }
+    acts.appendChild(cal);
+  }
+  const ed = document.createElement('button');
+  ed.className = 'btn'; ed.textContent = '✎';
+  ed.onclick = function(){ tdEdit(it); };
+  acts.appendChild(ed);
+  const del = document.createElement('button');
+  del.className = 'btn danger'; del.textContent = '✕';
+  del.onclick = async function(){
+    if(await confirmBox('刪走「' + it.title + '」？（撳錯咗 Ctrl+Z 返到嚟）')){
+      t.items = t.items.filter(x=>x.id!==it.id);
+      t.items.forEach(x=>{ if(x.blockedBy===it.id) x.blockedBy = it.blockedBy || null; });
+      if(it.evId) state.events = (state.events||[]).filter(e=>e.id!==it.evId);
+      save(); renderTodo();
+    }
+  };
+  acts.appendChild(del);
+  row.appendChild(acts);
+  return row;
+}
+/* 編輯：日期、預留、邊個、四象限。改 leadDays 會學埋（下次同類嘢直接建議你嗰個數）。 */
+function tdEdit(it){
+  const t = ensureTodo();
+  const host = $('tdManualArea');
+  tdPaneShow('tdManualArea');
+  host.innerHTML = '<p class="subnote">改緊：' + esc(it.title) + '</p>';
+  const f = document.createElement('div');
+  f.className = 'tdManual';
+  f.innerHTML =
+    '<div style="flex:2 1 200px"><label>標題</label><input type="text" id="teT" style="width:100%"></div>' +
+    '<div><label>邊個</label><select id="teW"><option value="">—</option><option value="charlotte">Charlotte</option><option value="jasmine">Jasmine</option><option value="both">兩個女</option><option value="me">我自己</option></select></div>' +
+    '<div><label>死線</label><input type="date" id="teD"></div>' +
+    '<div><label>預留（日）</label><input type="text" id="teL" style="width:56px"></div>' +
+    '<div><label>四象限</label><select id="teQ"><option value="">無</option><option value="red">紅</option><option value="amber">橙</option><option value="blue">藍</option><option value="grey">灰</option></select></div>' +
+    '<div><button class="btn" id="teC">取消</button> <button class="btn primary" id="teS">儲存</button></div>';
+  host.appendChild(f);
+  $('teT').value = it.title; $('teW').value = it.who||''; $('teD').value = it.due||'';
+  $('teL').value = (it.leadDays!=null ? it.leadDays : ''); $('teQ').value = it.quad||'';
+  $('teC').onclick = ()=>{ tdPaneShow(''); renderTodo(); };
+  $('teS').onclick = ()=>{
+    const oldLead = it.leadDays;
+    it.title = $('teT').value.trim() || it.title;
+    it.who = $('teW').value || null;
+    it.due = $('teD').value || null;
+    const nl = parseInt($('teL').value,10);
+    it.leadDays = isNaN(nl) ? it.leadDays : nl;
+    it.quad = $('teQ').value;
+    /* 你改咗預留 → 記低，下次同類嘢 AI 直接照你嗰個數建議 */
+    if(!isNaN(nl) && nl !== oldLead){
+      t.learned.push({t:it.title.slice(0,30), days:nl, at:fmtDate(new Date())});
+      if(t.learned.length > 40) t.learned = t.learned.slice(-40);
+      it.leadWhy = 'learned';
+    }
+    save(); tdPaneShow(''); renderTodo();
+  };
+}
+/* 手動加一件（你話想快嗰陣用） */
+function tdManual(){
+  const it = {id:uid(), title:'', who:null, due:null, leadDays:1, leadWhy:'manual',
+              quad:'', status:'todo', doneAt:null, noticeId:'', seq:1, blockedBy:null,
+              evId:null, note:'', why:'', at:new Date().toISOString()};
+  ensureTodo().items.push(it);
+  tdEdit(it);
+  /* 取消嗰陣如果標題仲係空嘅就當冇加過 */
+  const oldC = $('teC').onclick;
+  $('teC').onclick = ()=>{
+    if(!$('teT').value.trim()) ensureTodo().items = ensureTodo().items.filter(x=>x.id!==it.id);
+    oldC();
+  };
+}
+
+function renderTodo(){
+  const t = ensureTodo();
+  const host = $('tdList'); if(!host) return;
+  host.innerHTML = '';
+  const today = fmtDate(new Date());
+  const items = t.items.slice();
+  /* 主排序：開工日 → 四象限（紅橙藍灰）→ 死線 */
+  const qRank = {red:0, amber:1, blue:2, grey:3, '':4};
+  items.sort(function(a,b){
+    const sa = tdStart(a)||'9999', sb = tdStart(b)||'9999';
+    if(sa!==sb) return sa<sb ? -1 : 1;
+    if(qRank[a.quad||'']!==qRank[b.quad||'']) return qRank[a.quad||'']-qRank[b.quad||''];
+    return String(a.due||'9999').localeCompare(String(b.due||'9999'));
+  });
+  const now   = items.filter(x=>x.status!=='done' && tdStart(x) && tdStart(x)<=today);
+  const later = items.filter(x=>x.status!=='done' && tdStart(x) && tdStart(x)> today);
+  const nodue = items.filter(x=>x.status!=='done' && !tdStart(x));
+  const done  = items.filter(x=>x.status==='done');
+  function sec(title, list, open, key){
+    if(!list.length) return;
+    const d = document.createElement('div'); d.className='tdSec';
+    const h = document.createElement('div'); h.className='tdSecHead';
+    h.innerHTML = '<span class="hwCaret">' + (open?'▾':'▸') + '</span>' + title +
+                  '<span class="hwPill">' + list.length + '</span>';
+    if(key) h.onclick = ()=>{ t.ui[key]=!t.ui[key]; renderTodo(); };
+    d.appendChild(h);
+    if(open){
+      /* 「做完咗」超過 30 日嘅唔逐件畫——唔阻眼，但一件都冇刪 */
+      let shown = list;
+      if(key==='done'){
+        const cut = fmtDate(new Date(Date.now()-30*86400000));
+        const old = list.filter(x=>(x.doneAt||'') < cut);
+        shown = list.filter(x=>(x.doneAt||'') >= cut);
+        if(old.length){
+          const p=document.createElement('p'); p.className='subnote';
+          p.textContent = '（另有 ' + old.length + ' 件完成超過 30 日，冇刪，喺「📄 通告」逐張睇得返）';
+          d.appendChild(p);
+        }
+      }
+      shown.forEach(x=>d.appendChild(tdRowEl(x, today)));
+    }
+    host.appendChild(d);
+  }
+  if(!items.length){
+    host.innerHTML = '<p class="hubEmpty">一件事都未有。撳「✍️ 貼通告」貼張學校通告落嚟，或者「＋ 手動加一件」。</p>';
+  } else {
+    sec('🔴 而家要開工', now, true, null);
+    sec('仲未使開工', later, t.ui.later, 'later');
+    sec('冇死線', nodue, t.ui.nodue, 'nodue');
+    sec('做完咗', done, t.ui.done, 'done');
+  }
+  $('tdHint').textContent = now.length ? ('有 ' + now.length + ' 件嘢要開工喇') : '';
+}
+
+/* ===== 📄 通告清單 ===== */
+async function tdNotices(){
+  const t = ensureTodo();
+  const host = $('tdNoticesArea');
+  tdPaneShow('tdNoticesArea');
+  host.innerHTML = '<p class="subnote">原文儲喺獨立雲端節點（diary_calendar_notice），唔會同 Data Log 溝埋，行事曆改嘢亦唔會拖住佢重新下載。</p>';
+  if(!t.notices.length){ host.innerHTML += '<p class="hubEmpty">未有通告。</p>'; return; }
+  t.notices.slice().reverse().forEach(function(nt){
+    const row = document.createElement('div');
+    row.className = 'tdNotice';
+    const its = t.items.filter(x=>x.noticeId===nt.id);
+    const open = its.filter(x=>x.status!=='done').length;
+    const nm = document.createElement('span'); nm.className='nm';
+    nm.textContent = nt.title;
+    nm.title = '撳一下改名';
+    nm.style.cursor = 'pointer';
+    nm.onclick = function(){
+      const inp = document.createElement('input');
+      inp.type='text'; inp.value = nt.title; inp.style.cssText='flex:1;min-width:140px;padding:4px 6px';
+      row.replaceChild(inp, nm);
+      inp.focus();
+      inp.onblur = inp.onchange = function(){
+        nt.title = inp.value.trim() || nt.title;
+        save(); tdNotices();
+      };
+    };
+    const meta = document.createElement('span'); meta.className='meta';
+    meta.textContent = (nt.at||'').slice(0,10) + '　' + tdWhoName(nt.who) +
+      (nt.kind==='ad' ? '　廣告' : nt.kind==='info' ? '　純資訊' : '') +
+      '　' + its.length + ' 件' + (open ? '（' + open + ' 未完）' : its.length ? '（全完成）' : '');
+    const cloud = document.createElement('span');
+    cloud.textContent = '☁';
+    if(!nt.cloudOK){ cloud.className='cloudBad'; cloud.title='原文上唔到雲（睇下 Firebase rules 加咗 diary_calendar_notice 未），而家淨係得個索引'; }
+    else cloud.title = '原文喺雲端';
+    const view = document.createElement('button');
+    view.className='mini'; view.textContent='👁';
+    view.onclick = async function(){
+      view.textContent='…';
+      const rec = await NoticeCloud.get(nt);
+      view.textContent='👁';
+      if(rec && rec.text){
+        const pre = row.nextSibling && row.nextSibling.className==='tdBoxMsg' ? row.nextSibling : null;
+        if(pre){ pre.remove(); return; }
+        const d = document.createElement('div');
+        d.className='tdBoxMsg';
+        d.style.cssText='white-space:pre-wrap;border:1px solid var(--line);border-radius:8px;padding:9px;margin:4px 0 8px;font-size:12.5px;max-height:260px;overflow:auto';
+        d.textContent = rec.text;
+        row.parentNode.insertBefore(d, row.nextSibling);
+      } else toast('攞唔到原文' + (NoticeCloud.lastError ? '：'+NoticeCloud.lastError : '（雲端冇呢張）'));
+    };
+    const del = document.createElement('button');
+    del.className='mini'; del.textContent='✕';
+    del.onclick = async function(){
+      const keep = its.length
+        ? await confirmBox('刪「' + nt.title + '」。\n連埋佢拆出嚟嘅 ' + its.length + ' 件事一齊刪？\n\n確定＝連事項一齊刪　取消＝我再諗下')
+        : await confirmBox('刪「' + nt.title + '」？');
+      if(!keep) return;
+      t.items = t.items.filter(x=>x.noticeId!==nt.id);
+      t.notices = t.notices.filter(x=>x.id!==nt.id);
+      NoticeCloud.del(nt);
+      save(); tdNotices(); renderTodo();
+    };
+    row.appendChild(nm); row.appendChild(meta); row.appendChild(cloud);
+    row.appendChild(view); row.appendChild(del);
+    host.appendChild(row);
+  });
+  const back = document.createElement('div');
+  back.className='aiBar'; back.style.marginTop='10px';
+  back.innerHTML = '<button class="btn" id="tdNoticesBack">返去清單</button>';
+  host.appendChild(back);
+  $('tdNoticesBack').onclick = ()=>{ tdPaneShow(''); renderTodo(); };
+}
+
+/* ===== 🧹 執一執（純本機規矩，唔使錢；三類逐項剔） ===== */
+async function tdTidy(){
+  const t = ensureTodo();
+  const today = Date.now();
+  const cands = [];
+  t.notices.forEach(function(nt){
+    const its = t.items.filter(x=>x.noticeId===nt.id);
+    const allDone = its.length && its.every(x=>x.status==='done');
+    const ageD = (today - new Date(nt.at||0).getTime()) / 86400000;
+    if(nt.kind==='ad') cands.push({nt:nt, why:'賣廣告'});
+    else if(allDone && nt.dueMax && (today - new Date(nt.dueMax).getTime())/86400000 > 60)
+      cands.push({nt:nt, why:'全部做晒，死線過咗 60 日'});
+    else if(nt.kind==='info' && ageD > 90) cands.push({nt:nt, why:'純資訊，貼咗超過 90 日'});
+  });
+  if(!cands.length){ toast('冇嘢好執——三條規矩（廣告／做晒兼過期 60 日／純資訊過 90 日）一張都唔中。'); return; }
+  const lines = cands.map((c,i)=>(i+1)+'. '+c.nt.title+'（'+c.why+'）').join('\n');
+  if(await confirmBox('呢 ' + cands.length + ' 張建議清走（連埋佢哋嘅事項）：\n\n' + lines + '\n\n全部清？')){
+    cands.forEach(function(c){
+      t.items = t.items.filter(x=>x.noticeId!==c.nt.id);
+      t.notices = t.notices.filter(x=>x.id!==c.nt.id);
+      NoticeCloud.del(c.nt);
+    });
+    save(); renderTodo();
+    toast('清咗 ' + cands.length + ' 張。（Ctrl+Z 救得返索引同事項，雲端原文就救唔返）');
+  }
+}
+
+/* ===== 掛掣 ===== */
+$('tdPaste').onclick = ()=>{ tdPaneShow('tdPasteArea'); if(!$('tdBoxes').children.length) tdAddBox(); };
+$('tdAddBox').onclick = ()=>tdAddBox();
+$('tdPasteCancel').onclick = ()=>{ tdPaneShow(''); };
+$('tdGo').onclick = tdRun;
+$('tdStop').onclick = ()=>{ tdStopFlag = true; };
+$('tdManualBtn').onclick = tdManual;
+$('tdNoticesBtn').onclick = tdNotices;
+$('tdTidyBtn').onclick = tdTidy;
+/* Ctrl+Enter＝加多張（連環貼十幾張嗰陣手唔使離開鍵盤） */
+$('tdBoxes').addEventListener('keydown', function(e){
+  if((e.ctrlKey||e.metaKey) && e.key==='Enter'){ e.preventDefault(); tdAddBox(); }
+});
 
 function makeStreamView(host, guest){
   let txt = '', think = '', queued = false;
