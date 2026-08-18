@@ -275,6 +275,14 @@ header .spacer{flex:1}
   margin-bottom:7px;background:var(--panel);overflow:hidden}
 .hwCourse.bad{border-left-color:var(--overdue)}
 .hwCourse.off{opacity:.55}
+/* 收咗檔嘅班別：擺喺最底，預設縮埋，睇落同上緊嗰啲要一眼分得開 */
+.hwArch{margin-top:14px;border:1px dashed var(--line);border-radius:10px;background:var(--panel)}
+.hwArchHead{display:flex;align-items:center;gap:8px;padding:9px 11px;cursor:pointer;
+  font-size:13px;color:var(--muted);user-select:none}
+.hwArchHead:hover{color:var(--accent)}
+.hwArchBody{padding:0 9px 9px}
+.hwArchBody .hwCourse{opacity:.72}
+.hwArchBody .hwCourse:hover{opacity:1}
 .hwCourseHead{display:flex;gap:7px;align-items:center;flex-wrap:wrap;padding:9px 11px;cursor:pointer}
 .hwCourseHead:hover{background:var(--accent-soft)}
 .hwCaret{color:var(--accent);font-weight:700;width:12px}
@@ -358,7 +366,12 @@ body.readonly .hwBar{display:none!important}#guestExpModal{z-index:56}
 
 /* 搜尋 */
 #searchModal .modal{width:min(720px,100%)}
-#searchInput{width:100%;padding:9px 12px;border:1px solid var(--accent);border-radius:8px;font-size:15px}
+/* iPad 冇 Esc 掣，所以搜尋一定要有粒睇得見嘅交叉，唔係開咗就出唔返嚟。 */
+.srchTop{display:flex;gap:8px;align-items:center}
+#searchInput{flex:1;min-width:0;padding:9px 12px;border:1px solid var(--accent);border-radius:8px;font-size:15px}
+#searchClose{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:var(--muted);
+  border-radius:9px;font-size:18px;line-height:1;padding:8px 12px;cursor:pointer}
+#searchClose:hover{border-color:var(--accent);color:var(--accent)}
 .searchOpts{display:flex;gap:16px;margin:10px 0;font-size:13px;color:var(--muted)}
 #searchResults{max-height:55vh;overflow:auto}
 .sres{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:6px}
@@ -988,7 +1001,7 @@ body.hubOpen{overflow:hidden}
 <div class="overlay" id="tplModal"><div class="modal"><h3 id="tplModalTitle">編輯任務模板</h3><div class="frow"><div><label>標題</label><input type="text" id="tplTitle"></div></div><div class="frow"><div><label>預設顏色</label><div class="colorPick" id="tplColors"><button class="cpBtn cp-none" data-c="" title="無"></button><button class="cpBtn cp-red" data-c="red" title="緊急＋重要"></button><button class="cpBtn cp-amber" data-c="amber" title="重要但唔緊急"></button><button class="cpBtn cp-blue" data-c="blue" title="緊急但唔重要"></button><button class="cpBtn cp-grey" data-c="grey" title="唔重要唔緊急"></button></div></div></div><div class="frow"><div><label>SOP（可由 Word 貼上，自動轉 Markdown；圖片一律過濾）</label><textarea id="tplSop" class="sop"></textarea><div class="sopPreview" id="tplSopPrev"></div><button class="btn" id="tplPrevToggle" style="margin-top:6px;padding:3px 10px;font-size:12px">預覽排版</button></div></div><p class="subnote">提示：儲存後，如果將來已排程嘅項目仍然同舊模板一模一樣（未被個別修改過），會問你要唔要一次過套用新內容。已過去嘅記錄一律不受影響。</p><div class="modalActs"><button class="btn" id="tplCancel">取消</button><button class="btn primary" id="tplSave">儲存</button></div></div></div>
 <div class="overlay" id="bulkModal"><div class="modal"><h3>批量計劃／修改／刪除</h3><div class="frow"><div><label>揀選任務模板</label><select id="bulkTask"></select></div></div><div class="frow"><div><label>由（日期）</label><input type="date" id="bulkFrom"></div><div><label>至（日期）</label><input type="date" id="bulkTo"></div><div><label>時間</label><input type="time" id="bulkTime" value="09:00"></div></div><div class="frow"><div><label>動作</label><select id="bulkMode"><option value="create">建立：喺呢段日期內，每日同一時間新增呢個任務</option><option value="retime">修改：將呢段日期內同一任務全部改做新時間</option><option value="delete">刪除：將呢段日期內同一任務全部刪除</option></select></div></div><div class="frow" id="bulkNewTimeRow" style="display:none"><div><label>新時間</label><input type="time" id="bulkNewTime" value="10:00"></div></div><div class="modalActs"><button class="btn" id="bulkCancel">取消</button><button class="btn primary" id="bulkGo">執行</button></div></div></div>
 <div class="overlay" id="exportModal"><div class="modal"><h3>匯出 JSON</h3><p class="subnote">唔揀日期就預設匯出全部資料（包括模板樹）。揀咗日期就只匯出嗰段時間嘅日程（模板樹照樣包埋，方便第日還原）。</p><div class="frow"><div><label>由</label><input type="date" id="expFrom"></div><div><label>至</label><input type="date" id="expTo"></div></div><div class="modalActs"><button class="btn" id="expCancel">取消</button><button class="btn primary" id="expGo">匯出</button></div></div></div>
-<div class="overlay" id="searchModal"><div class="modal"><input type="text" id="searchInput" placeholder="搜尋任務模板同日程…（Esc 關閉）"><div class="searchOpts"><label><input type="radio" name="sscope" value="title" checked> 淨係搜尋標題</label><label><input type="radio" name="sscope" value="all"> 連埋內文（SOP）一齊搜尋</label></div><div id="searchResults"></div></div></div>
+<div class="overlay" id="searchModal"><div class="modal"><div class="srchTop"><input type="text" id="searchInput" placeholder="搜尋任務模板同日程…"><button id="searchClose" type="button" title="關閉搜尋，返去時間表" aria-label="關閉搜尋">✕</button></div><div class="searchOpts"><label><input type="radio" name="sscope" value="title" checked> 淨係搜尋標題</label><label><input type="radio" name="sscope" value="all"> 連埋內文（SOP）一齊搜尋</label></div><div id="searchResults"></div></div></div>
 <div class="overlay" id="confirmModal"><div class="modal"><h3 id="confirmTitle">請確認</h3><p id="confirmMsg"></p><div class="modalActs"><button class="btn" id="cfNo">取消</button><button class="btn primary" id="cfYes">確定</button></div></div></div>
 
 
@@ -1014,11 +1027,13 @@ body.hubOpen{overflow:hidden}
     <textarea id="aiInput" placeholder="直接用廣東話講，例如：&#10;・聽日下晝三點同陳生開會，開兩個鐘&#10;・幫我搵時間跑步（唔使講時間，佢會照你以前嘅習慣估）&#10;・下星期一至五每朝溫書&#10;&#10;打完撳 Enter 送出，想換行就 Shift + Enter。"></textarea>
     <div class="aiBar">
       <button class="btn primary" id="aiSend">↵ 送出</button>
+      <button class="btn danger" id="aiStop" style="display:none">⏹ 停</button>
       <button class="btn" id="aiMic" title="用把口講（Chrome 先支援）">🎤 講嘢</button>
       <span class="aiHint" id="aiHint"></span>
     </div>
     <div class="aiBar" id="aiEgs"></div>
     <div class="aiStatus" id="aiStatus"></div>
+    <div id="aiThink" style="display:none"></div>
     <div class="aiReply" id="aiReply"></div>
     <div class="ttsBar" id="aiReplyBar" style="display:none"></div>
     <div id="aiItems"></div>
@@ -1380,7 +1395,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-17g";
+const BUILD = "2026-08-17h";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -3671,7 +3686,10 @@ document.getElementById('importFile').onchange=async function(){
 const searchInput=document.getElementById('searchInput');
 const searchResults=document.getElementById('searchResults');
 function openSearch(){ show('searchModal'); searchInput.value=''; searchResults.innerHTML=''; searchInput.focus(); }
+function closeSearch(){ hide('searchModal'); }
 document.getElementById('btnSearch').onclick=openSearch;
+/* iPad 冇 Esc：唔加呢粒掣，搜尋開咗就出唔返嚟。 */
+document.getElementById('searchClose').onclick=closeSearch;
 document.addEventListener('keydown',e=>{
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='f'){ e.preventDefault(); openSearch(); }
   if(e.key==='Escape'){
@@ -3995,20 +4013,28 @@ async function callAI(messages, opt){
        係唔思考嘅，唔明文叫佢開，就永遠攞唔到 reasoning_content。唔識呢兩個欄位
        嘅供應商會直接無視，唔會出事。 */
     else if(isReasoning){ body.thinking = {type:'enabled'}; body.enable_thinking = true; }
-    /* 串流：淨係喺傾偈（有 onDelta、唔要 JSON）先開。
-       排程果條要完整 JSON，逐粒字收返嚟冇好處，反而複雜咗。 */
+    /* 串流：有 onDelta 就開，JSON 模式一樣開。
+       ⚠️ 舊寫法係「JSON 就唔准串流」，理由係「逐粒字收返嚟冇好處」。
+       但呢個理由淨係啱內容嗰半——推理嗰半（reasoning_content）先係人想睇嘅嘢，
+       而且唔串流嘅話成個生成過程都要塞晒喺 fetch 嗰一下，
+       90 秒 timeout 就會斬到一個諗緊嘢嘅 model。
+       串流唔會改到內容：readAIStream() 照樣砌返成段 out 出嚟先 return。 */
     /* 重複懲罰：兜圈嗰陣重試會用。0 就唔好放呢個欄位，等預設行為完全唔變。 */
     if(opt.freqPen){ body.frequency_penalty = opt.freqPen; body.presence_penalty = Math.min(0.4, opt.freqPen); }
-    if(opt.onDelta && !opt.json){
+    if(opt.onDelta){
       body.stream = true;
       body.stream_options = {include_usage:true};   /* 唔識呢個欄位嘅供應商會無視 */
     }
   }
   let res;
   const _ctrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
-  const _ms = opt.timeout || AI_TIMEOUT_MS;
+  /* 串流嗰陣個 timeout 只係守「接唔接到線」：headers 一到就 clearTimeout，
+     之後幾耐都由佢諗，睇門口嘅係 readAIStream() 入面嗰個 45 秒 stall watchdog
+     （真係一粒字都唔嚟先算死咗）。唔串流嗰陣就唔同：好多供應商要成段生成完
+     先出 headers，所以個 90 秒實質上係喺度限住佢可以諗幾耐——呢個先係要放寬嗰個。 */
+  const _ms = opt.timeout || (body.stream ? AI_TIMEOUT_MS : (opt.longThink ? 0 : AI_TIMEOUT_MS));
   let _timedOut = false;
-  const _timer = _ctrl ? setTimeout(function(){ _timedOut = true; try{ _ctrl.abort(); }catch(e){} }, _ms) : null;
+  const _timer = (_ctrl && _ms > 0) ? setTimeout(function(){ _timedOut = true; try{ _ctrl.abort(); }catch(e){} }, _ms) : null;
   AI_CTRL = _ctrl;
   try{
     const _init = {method:'POST', headers:headers, body:JSON.stringify(body)};
@@ -4094,7 +4120,8 @@ async function callAI(messages, opt){
   out = _sp.text;
   if(!reason && _sp.think) reason = _sp.think;   /* 冇 reasoning_content 就用 inline 嗰段 */
   try{ AI_LAST_REASON = String(reason||''); }catch(e){}
-  /* 排程果條唔行串流，剪唔到線，但起碼要講返真正死因，唔好報成「JSON 格式錯」。 */
+  /* 冇串流（例如 Claude 線、或者供應商唔支援）就剪唔到線，但起碼要講返真正死因，
+     唔好報成「JSON 格式錯」。有串流嗰陣 readAIStream() 已經即場剪咗。 */
   if(!String(out||'').trim() && reason && isDegenerate(reason)){
     const e = new Error('AI 卡咗喺度兜圈：內部思考一路重複同一句嘢，燒晒額度都冇答案出。');
     e.loop = true; e.retryable = true; e.sample = reason.slice(-80);
@@ -4264,7 +4291,11 @@ function grabJSON(txt, want){
 ========================================================= */
 async function callAIJSON(messages, opt){
   opt = opt || {};
-  const base = Math.max(opt.max || 12000, cfg().maxTok || 0);
+  /* Token 上限同傾偈用返同一把尺：傾偈係 cfg().maxTok || CHAT_MAX_DEFAULT。
+     舊寫法 cfg().maxTok 冇填就得 12000，即係排程比傾偈細成一大截，
+     而排程要出嘅係一大嚿 JSON，最易就係喺度爆額。
+     個 12000 底線留返：JSON 收唔到尾就成次白做，寧願俾多啲。 */
+  const base = Math.max(opt.max || 12000, cfg().maxTok || CHAT_MAX_DEFAULT);
   /* 第一次照你嘅設定行（想留住內部思考就留得住）；一旦讀唔到 JSON，
      後面兩次先夾硬熄咗思考——「推理模型＋嚴格 JSON」係最常爆額嘅組合。 */
   const plans = [
@@ -4283,7 +4314,9 @@ async function callAIJSON(messages, opt){
                  + (lastRaw ? '\n\n【你頭先覆咗（節錄，唔好照抄）】\n' + short(lastRaw,800) : '')};
     }
     try{
-      const raw = await callAI(msgs, {json:p.json, temp:(p.temp==null?opt.temp:p.temp), max:p.max, noThink:p.noThink});
+      if(typeof opt.onDelta === 'function' && opt.onDelta.reset) opt.onDelta.reset(p.note ? '再試多次…' : '');
+      const raw = await callAI(msgs, {json:p.json, temp:(p.temp==null?opt.temp:p.temp), max:p.max,
+                                      noThink:p.noThink, onDelta:opt.onDelta, longThink:opt.longThink});
       lastRaw = raw;
       return {json:grabJSON(raw, opt.want), attempt:i+1, raw:raw};
     }catch(err){
@@ -4768,6 +4801,9 @@ function splitCsv(s){
 function ruleMatches(ev, rule){
   if(!ev || !rule) return false;
   if(rule.on === false) return false;
+  /* 收咗檔（課程完咗）就唔好再認堂。用一個獨立欄位，唔郁「開住」嗰個剔——
+     咁樣拎返出嚟嗰陣，佢原本係開定係熄會照樣恢復。 */
+  if(rule.retired) return false;
   if(isHwSlot(ev)) return false;                       /* 做功課嘅時段唔算上堂 */
   const t = String(ev.title||'');
   const d = ev.start.slice(0,10);
@@ -4893,7 +4929,7 @@ function homeworkBoard(){
 
   /* ── 來源一：補習班功課（由行事曆嘅堂自動生成，預設就係有功課）── */
   (state.ai.hwRules||[]).forEach(function(rule){
-    if(rule.on === false || !rule.items || !rule.items.length) return;
+    if(rule.on === false || rule.retired || !rule.items || !rule.items.length) return;
     if(rule.due === 'none') return;
     const days = lessonDays(rule);                 /* 一日當一堂，已經去咗重複 */
     days.forEach(function(ev, idx){
@@ -4926,6 +4962,8 @@ function homeworkBoard(){
         const need = Math.max(1, parseInt(it.times,10) || 1);
         const k = hwKey(ev.id, it.name);
         const o = {key:k, src:'class', label:it.name, need:need, done:hwDoneN(k), due:due,
+                   /* ruleId：收檔嗰陣要數返呢個班仲有幾多份未做完，靠個名比對唔可靠 */
+                   ruleId:rule.id,
                    fromClass:ev.title, ruleName:rule.name||rule.match, classDate:d0, nextClass:nextCls,
                    sub:d0 + '　' + ev.title, doneAt:hwDoneAt(k)};
         /* 有指定「上堂前幾多分鐘」就計返個建議時間出嚟，等排時間表嗰陣自動填好 */
@@ -5427,6 +5465,7 @@ function hwFreeSlot(dueDate, durMin){
    再一撳一堂咁續落去，確認咗先寫入行事曆。
    draft 係未落實嘅堂：撳「推算多一堂」只係入草稿，撳「同步落時間表」先至真係加。 */
 let hwDraft = {};          /* { ruleId: [ {start, title} ] } */
+let hwArchOpen = false;    /* 「已經完結嘅班別」預設縮埋 */
 let hwOpenRule = '';       /* 而家攤開緊邊條 */
 
 /* 由過往嘅堂反推規律：隔幾多日一堂、幾點、用咩標題 */
@@ -5523,6 +5562,28 @@ function renderHwCourses(){
   ['pending','done','skipped'].forEach(function(g){
     board[g].forEach(function(o){ byKey[o.key] = {o:o, g:g}; });
   });
+
+  /* 收咗檔嘅擺喺最底，預設縮埋。點解唔直接刪：past 嗰堆堂同功課紀錄
+     全部掛喺條規矩度，刪咗就連埋一齊冇。收檔＝唔再派新功課，但歷史留返。 */
+  const live = rules.filter(function(r){ return !r.retired; });
+  const gone = rules.filter(function(r){ return  r.retired; });
+  let archBody = null;
+  if(gone.length){
+    const wrap = document.createElement('div');
+    wrap.className = 'hwArch' + (hwArchOpen ? ' open' : '');
+    const ah = document.createElement('div');
+    ah.className = 'hwArchHead';
+    ah.innerHTML = '<span class="hwCaret">' + (hwArchOpen ? '▾' : '▸') + '</span>' +
+      '<span>📦 已經完結嘅班別</span><span class="hwPill">' + gone.length + ' 個</span>';
+    ah.onclick = ()=>{ hwArchOpen = !hwArchOpen; renderHw(); };
+    wrap.appendChild(ah);
+    archBody = document.createElement('div');
+    archBody.className = 'hwArchBody';
+    if(!hwArchOpen) archBody.style.display = 'none';
+    wrap.appendChild(archBody);
+    /* 掛住個 wrap，等下面 forEach 行完先 append，順序先啱 */
+    el._archWrap = wrap;
+  }
 
   rules.forEach(function(rule){
     const days = lessonDays(rule);
@@ -5850,11 +5911,47 @@ function renderHwCourses(){
         dv.appendChild(sb);
         tools.appendChild(dv);
       }
+      /* 收檔／拎返出嚟。擺喺展開之後先見到：呢個係一個諗清楚先做嘅動作，
+         唔應該喺個列表度一撳就中。 */
+      const rt = document.createElement('div');
+      rt.style.cssText = 'margin-top:10px;padding-top:9px;border-top:1px dashed var(--line);display:flex;align-items:center;gap:9px;flex-wrap:wrap';
+      const rtB = document.createElement('button');
+      rtB.className = 'btn';
+      rtB.style.cssText = 'padding:5px 11px;font-size:12.5px';
+      rtB.textContent = rule.retired ? '↩ 拎返出嚟' : '📦 收檔（呢個課程完咗）';
+      rtB.onclick = async (e)=>{
+        e.stopPropagation();
+        if(rule.retired){
+          rule.retired = false; delete rule.retiredAt;
+          save(); renderHw(); toast('拎返出嚟喇');
+          return;
+        }
+        const nOpen = (board.pending||[]).filter(function(o){ return o.ruleId === rule.id; }).length;
+        if(await confirmBox('收檔「' + (rule.name||rule.match||'呢個班') + '」？\n\n'
+            + '· 唔會再由行事曆認呢個班嘅堂，亦都唔會再派新功課\n'
+            + '· 已經有嘅堂同功課紀錄一律留返，隨時拎返出嚟\n'
+            + (nOpen ? '\n⚠ 佢仲有 ' + nOpen + ' 份功課未做完，收檔之後嗰啲會由「未做完」度消失。' : ''))){
+          rule.retired = true; rule.retiredAt = fmtDate(new Date());
+          hwOpenRule = ''; hwArchOpen = true;   /* 攤開個archive，等佢見到部嘢去咗邊 */
+          save(); renderHw(); toast('收咗檔，擺咗喺最底');
+        }
+      };
+      rt.appendChild(rtB);
+      const rtN = document.createElement('span');
+      rtN.className = 'subnote';
+      rtN.style.cssText = 'margin:0';
+      rtN.textContent = rule.retired
+        ? ('喺 ' + (rule.retiredAt || '之前') + ' 收咗檔。歷史紀錄仲喺度。')
+        : '收檔＝唔再派新功課，但過往紀錄全部留返。';
+      rt.appendChild(rtN);
+      body.appendChild(rt);
+
       body.appendChild(tools);
       card.appendChild(body);
     }
-    el.appendChild(card);
+    (rule.retired && archBody ? archBody : el).appendChild(card);
   });
+  if(el._archWrap){ el.appendChild(el._archWrap); el._archWrap = null; }
 
   const si = $('hwSince'); if(si) si.value = state.ai.hwSince || '';
 }
@@ -6807,17 +6904,21 @@ async function doSend(extraNote){
   if(!text && !extraNote){ setStatus('aiStatus','先打低你想做乜。', true); return; }
   if(!cfgReady()){ setStatus('aiStatus','仲未設定 API。撳右上角「⚙ API 設定」。', true); show('aiSetModal'); return; }
   $('aiSend').disabled = true;
+  $('aiStop').style.display = '';
   $('aiActs').style.display='none';
   ttsStop();
   $('aiReplyBar').style.display='none'; $('aiReplyBar').innerHTML='';
   $('aiItems').innerHTML=''; $('aiReply').className='aiReply';
-  setStatus('aiStatus','AI 諗緊點幫你排…', false, true);
+  /* 狀態行唔好再重複講「諗緊」——下面個面板已經一路流住，仲有字數跳緊。 */
+  setStatus('aiStatus','');
+  const view = makePlanStream($('aiThink'));
   try{
     const got = await callAIJSON([
       {role:'system', content:SYS_PLAN + '\n\n' + personaPlanNote()},
       {role:'user', content: ctxText() + '\n\n【用戶今次講】\n' + text + (extraNote ? '\n\n【用戶對上一次建議嘅意見，要照住改】\n'+extraNote : '')}
-    ], {temp:0.2, max:12000, want:['reply','items'],
+    ], {temp:0.2, max:12000, want:['reply','items'], onDelta:view, longThink:true,
         onRetry:function(n){ setStatus('aiStatus','AI 頭先覆嘅 JSON 讀唔到，自動再試多一次（第 '+n+' 次）…', false, true); }});
+    view.done();
     const j = got.json;
     cur.plan = j; cur.req = text + (extraNote? '（補充：'+extraNote+'）' : '');
 
@@ -6839,11 +6940,15 @@ async function doSend(extraNote){
     if((j.items||[]).length){ $('aiActs').style.display='flex'; }
     else setStatus('aiStatus','AI 覆咗你，但冇排到任何項目。試下講得具體啲。', true);
   }catch(err){
-    setStatus('aiStatus', err.message || String(err), true);
+    view.fail();
+    setStatus('aiStatus', (err && err.aborted) ? '停咗喇。' : (err.message || String(err)), true);
   }finally{
     $('aiSend').disabled = false;
+    $('aiStop').style.display = 'none';
   }
 }
+/* 冇咗硬 timeout，就一定要有粒掣俾佢自己叫停,唔係佢就淨係得個等字。 */
+$('aiStop').onclick = ()=>{ try{ aiCancel(); }catch(e){} };
 
 function clashText(date, time, skipId){
   if(!date||!time) return '';
@@ -9775,6 +9880,67 @@ function guestThinkLine(think, txt){
   else if(typeof imgLastUsed !== 'undefined' && imgLastUsed) bit = '👀 我望緊你張相　';
   if(n < 20) return bit + '我個腦喺度轉緊…';
   return bit + '我個腦喺度轉緊，已經諗咗 <span class="gThinkN">' + n + '</span> 個字';
+}
+
+/* 排程助手嘅串流面板。
+   點解唔直接借傾偈嗰個 makeStreamView()：排程嘅「內容」係一大嚿 JSON，
+   照住傾偈咁流出嚟，用戶會見到一堆括號同引號，冇意思。
+   呢度淨係流推理，內容部分只講返「開始寫緊安排」加個字數。 */
+function makePlanStream(host){
+  let think = '', txt = '', queued = false, head = null, box = null;
+  const build = function(){
+    host.innerHTML = '';
+    host.style.display = '';
+    head = document.createElement('div');
+    head.innerHTML = '<span class="aiSpin"></span> AI 諗緊點幫你排…';
+    host.appendChild(head);
+    box = document.createElement('div');
+    box.className = 'chatThink';
+    box.style.display = 'none';
+    host.appendChild(box);
+  };
+  build();
+  const paint = function(){
+    queued = false;
+    if(think){
+      box.style.display = '';
+      box.textContent = think.length > 1200 ? ('…' + think.slice(-1200)) : think;
+      box.scrollTop = box.scrollHeight;
+    }
+    const n = think.length;
+    head.innerHTML = '<span class="aiSpin"></span> ' +
+      (txt ? '開始寫緊安排…' : 'AI 諗緊點幫你排…') +
+      (n ? '　已經諗咗 <span class="gThinkN">' + n + '</span> 個字' : '');
+  };
+  const view = function(d){
+    if(d.think) think += d.think;
+    if(d.text)  txt   += d.text;
+    if(!queued){
+      queued = true;
+      (window.requestAnimationFrame || setTimeout)(paint, 16);
+    }
+  };
+  view.reset = function(msg){
+    think = ''; txt = ''; build();
+    if(msg) head.innerHTML = '<span class="aiSpin"></span> ' + esc(msg);
+  };
+  /* 收工：唔好將成段推理掉咗，摺埋佢。想睇返「佢當時點諗」嗰陣就撳開。 */
+  view.done = function(){
+    const full = String(AI_LAST_REASON || think || '');
+    host.innerHTML = '';
+    if(!full.trim()){ host.style.display = 'none'; return; }
+    const det = document.createElement('details');
+    det.className = 'chatThinkKeep';
+    const sm = document.createElement('summary');
+    sm.textContent = '🧠 睇下佢頭先點諗（' + full.length + ' 個字）';
+    det.appendChild(sm);
+    const tk = document.createElement('div');
+    tk.className = 'tk'; tk.textContent = full;
+    det.appendChild(tk);
+    host.appendChild(det);
+  };
+  view.fail = function(){ host.innerHTML = ''; host.style.display = 'none'; };
+  return view;
 }
 
 function makeStreamView(host, guest){
