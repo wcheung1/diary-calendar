@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>拓展練習 6 · 圖案文字直式減法</title>
+<style>
+  :root{
+    --paper:#f0f4f8;
+    --ink:#16324f;
+    --pen:#0066cc;
+    --line:#c9d8e6;
+    --panelbg:#ffffff;
+    --ans:#c62828;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--paper);
+    font-family:"PingFang TC","Noto Sans TC","Microsoft JhengHei","Heiti TC","Hiragino Sans TC","Segoe UI",sans-serif;
+    color:var(--ink);-webkit-text-size-adjust:100%;}
+  body{display:flex;flex-direction:column;}
+
+  /* ---------- top bar ---------- */
+  #topbar{flex:0 0 auto;padding:10px 18px 9px;background:#ffffff;border-bottom:2px solid var(--line);}
+  #topbar h1{margin:0;font-size:clamp(26px,2.1vw,34px);font-weight:800;letter-spacing:.5px;}
+  #topbar h1 small{font-size:.55em;font-weight:600;color:#5b7794;margin-left:10px;letter-spacing:0;}
+  #keys{margin-top:6px;font-size:17px;line-height:1.5;color:#3d5c78;font-weight:600;}
+  #keys b{background:#e3edf7;border:1px solid #b9d0e4;border-radius:6px;padding:1px 7px;margin:0 2px;font-weight:800;}
+
+  /* ---------- middle ---------- */
+  #mid{flex:1 1 auto;display:flex;min-height:0;position:relative;}
+  #stage{flex:1 1 auto;position:relative;min-width:0;}
+  #stage canvas{display:block;width:100%;height:100%;touch-action:none;}
+  #panelSpacer{flex:0 0 372px;}
+  #badgeLayer{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+  .badge{position:absolute;display:none;align-items:center;justify-content:center;
+    width:38px;height:38px;border-radius:50%;color:#fff;font-size:20px;font-weight:800;
+    box-shadow:0 2px 6px rgba(0,0,0,.28);border:2px solid rgba(255,255,255,.85);}
+  #scrollHint{position:absolute;right:12px;bottom:10px;background:rgba(255,255,255,.9);
+    border:1px solid var(--line);border-radius:20px;padding:4px 12px;font-size:14px;color:#4a6b88;font-weight:700;pointer-events:none;}
+
+  /* ---------- panel ---------- */
+  #panel{position:fixed;width:348px;background:var(--panelbg);border:2px solid #b9d0e4;
+    border-radius:14px;box-shadow:0 8px 24px rgba(20,50,80,.16);z-index:40;overflow:hidden;
+    display:flex;flex-direction:column;max-height:72vh;}
+  #panelHead{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:9px 10px;
+    background:#dce9f5;border-bottom:2px solid #b9d0e4;cursor:grab;user-select:none;touch-action:none;}
+  #panelHead.drag{cursor:grabbing;}
+  .grip{font-size:19px;color:#3d6285;}
+  .ptitle{flex:1 1 auto;font-size:18px;font-weight:800;}
+  #collapseBtn{flex:0 0 auto;width:30px;height:30px;border-radius:8px;border:1px solid #9dbcd8;
+    background:#fff;font-size:20px;font-weight:800;line-height:1;color:#2c4c6b;cursor:pointer;}
+  #panelBody{flex:1 1 auto;overflow-y:auto;padding:12px 14px 16px;}
+  .sec{margin-bottom:14px;}
+  .secTitle{font-size:15px;font-weight:800;color:#5b7794;letter-spacing:2px;margin-bottom:6px;
+    border-bottom:1px dashed #b9d0e4;padding-bottom:3px;}
+  #phaseTitle{font-size:19px;font-weight:800;margin-bottom:4px;color:#0d4f8b;}
+  #phaseLogic{font-size:17px;line-height:1.65;}
+  #sayLine{font-size:16px;line-height:1.6;margin-top:6px;color:#7a4b12;background:#fff4e0;
+    border-left:4px solid #f0a500;padding:5px 8px;border-radius:0 6px 6px 0;display:none;}
+  .flashHi{animation:hi .55s ease 2;}
+  @keyframes hi{0%{background:#fff}50%{background:#ffe9a8}100%{background:#fff}}
+  #scratch div{font-size:26px;font-weight:800;line-height:1.5;margin:2px 0;white-space:pre-wrap;word-break:break-word;}
+  #scratch .ans{font-size:31px;color:var(--ans);}
+  #scratch .cheer{font-size:20px;color:#1c7a3e;font-weight:800;}
+  #panelMini{display:none;padding:7px 12px;font-size:15px;font-weight:700;color:#3d5c78;
+    border-top:1px solid var(--line);background:#f6fafd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #panel.collapsed #panelBody{display:none;}
+  #panel.collapsed #panelMini{display:block;}
+  #panel.collapsed{max-height:none;}
+
+  /* ---------- bottom ---------- */
+  #bottombar{flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:8px 18px;
+    background:#fff;border-top:2px solid var(--line);}
+  #replayBtn{font:inherit;font-size:18px;font-weight:800;padding:8px 18px;border-radius:10px;
+    border:2px solid #0d4f8b;background:#0d6fc4;color:#fff;cursor:pointer;}
+  #replayBtn:active{transform:translateY(1px);}
+  #muteBtn{position:fixed;left:14px;bottom:76px;z-index:60;font-size:19px;width:44px;height:44px;
+    border:none;border-radius:50%;cursor:pointer;background:#0066cc;color:#fff;
+    box-shadow:0 4px 14px rgba(0,102,204,.4);}
+  #muteBtn:hover{background:#0055aa;}
+  #progress{font-size:16px;font-weight:700;color:#3d5c78;}
+
+  #panel.floating{right:auto;bottom:auto;width:min(348px,calc(100vw - 16px));}
+  @media (max-width:900px){
+    #panelSpacer{display:none;}
+    #panel:not(.floating){left:8px;right:8px;top:auto;bottom:8px;width:auto;max-height:40vh;}
+    #topbar h1{font-size:26px;}
+    #keys{font-size:15px;}
+    #scratch div{font-size:23px;}
+    #mid{padding-bottom:40vh;}
+  }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>拓展練習 6<small>圖案文字直式減法 · 一支筆行晒全程</small></h1>
+  <div id="keys">
+    <b>Space</b>播放／暫停　<b>→</b>下一小步　<b>←</b>退回一步　<b>S / Esc</b>停止重置　·　滑鼠滾輪或手指可上下捲動，鏡頭會自動跟住筆尖
+  </div>
+</div>
+
+<div id="mid">
+  <div id="stage">
+    <div id="badgeLayer"></div>
+    <div id="scrollHint">↕ 可上下捲動</div>
+  </div>
+  <div id="panelSpacer"></div>
+</div>
+
+<div id="panel">
+  <div id="panelHead"><span class="grip">☰</span><span class="ptitle">📝 解題思維與算草區</span>
+    <button id="collapseBtn" title="收起／展開">−</button></div>
+  <div id="panelBody">
+    <div class="sec">
+      <div class="secTitle">邏輯解說</div>
+      <div id="phaseTitle"></div>
+      <div id="phaseLogic"></div>
+      <div id="sayLine"></div>
+    </div>
+    <div class="sec">
+      <div class="secTitle">算草同步</div>
+      <div id="scratch"></div>
+    </div>
+  </div>
+  <div id="panelMini"></div>
+</div>
+
+<div id="bottombar">
+  <button id="replayBtn">🔄 重新播放解題過程</button>
+  <div id="progress"></div>
+</div>
+<button id="muteBtn" title="開/關老師旁白">🔊</button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* =====================================================================
+   CONFIG —— 改呢度就可以換題／換色／換速度
+   ===================================================================== */
+const CONFIG = {
+  bgColor   : 0xf0f4f8,
+  inkColor  : '#16324f',
+  penColor  : '#0066cc',
+  fadedColor: '#8fb9de',
+  ansColor  : '#c62828',
+  borrowColor:'#e8467c',
+  fontStack : '"PingFang TC","Noto Sans TC","Microsoft JhengHei","Heiti TC","Hiragino Sans TC",sans-serif',
+
+  /* 原則 6：區域高亮三部曲 */
+  regionPalette : ['#f4711f','#0aa5c9','#8d5bd6','#f0a500','#e8467c','#33b26a'],
+  flash : { times:3, on:0.13, off:0.11, peak:0.78, dim:0.05, settle:0.36, ease:0.20 },
+
+  speed : 1.0,                 // 全域速度倍率
+  worldWide:900, worldNarrow:620,
+  contentLeft:-470, contentRight:470, contentTop:-20, contentBottom:-1275,
+
+  /* 題目參數 */
+  puzzle1 : { bx:-230, by:-170, cat:3, fish:2 },   // 5貓 − 貓魚 = 21
+  puzzle2 : { bx:-230, by:-760, kai:1, sam:6 },    // 8開 − 開8 = 心3
+  layout  : { colGap:78, rowGap:88, digit:62, rightX:60, rightSize:27, rightMax:390 }
+};
+
+/* =====================================================================
+   小工具
+   ===================================================================== */
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+const SS=2;
+function seg(a,b,n){const o=[];for(let i=0;i<=n;i++){const t=i/n;o.push([a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]);}return o;}
+function rectPath(x,y,w,h,per=10){
+  const x0=x-w/2,x1=x+w/2,y0=y-h/2,y1=y+h/2;
+  const c=[[x0,y1],[x1,y1],[x1,y0],[x0,y0],[x0,y1]];
+  let out=[];
+  for(let i=0;i<4;i++){const s=seg(c[i],c[i+1],per);out=out.concat(i===0?s:s.slice(1));}
+  return out;
+}
+function dashify(pts,dashLen,gapLen){
+  const out=[];let cur=[],on=true,rem=dashLen;
+  for(let i=0;i<pts.length-1;i++){
+    let ax=pts[i][0],ay=pts[i][1];const bx=pts[i+1][0],by=pts[i+1][1];
+    let L=Math.hypot(bx-ax,by-ay);
+    while(L>1e-6){
+      const take=Math.min(L,rem),t=take/L;
+      const nx=ax+(bx-ax)*t,ny=ay+(by-ay)*t;
+      if(on){if(cur.length===0)cur.push([ax,ay]);cur.push([nx,ny]);}
+      ax=nx;ay=ny;L-=take;rem-=take;
+      if(rem<=1e-6){if(on&&cur.length>1)out.push(cur);cur=[];on=!on;rem=on?dashLen:gapLen;}
+    }
+  }
+  if(on&&cur.length>1)out.push(cur);
+  return out;
+}
+/* 閃爍：純函數（進度→透明度），完全冇 setTimeout / setInterval */
+function flashOpacity(t){
+  const f=CONFIG.flash,cyc=f.on+f.off,total=f.times*cyc;
+  if(t>=total){const k=clamp((t-total)/f.ease);return f.dim+(f.settle-f.dim)*k;}
+  return (t%cyc)<f.on ? f.peak : f.dim;
+}
+function backEase(p){const c=1.9;return 1+ (c+1)*Math.pow(p-1,3)+c*Math.pow(p-1,2);}
+
+/* =====================================================================
+   Three.js 場景
+   ===================================================================== */
+const stage=document.getElementById('stage');
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});
+renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+stage.insertBefore(renderer.domElement,stage.firstChild);
+renderer.setClearColor(CONFIG.bgColor,1);
+const scene=new THREE.Scene();
+const camera=new THREE.OrthographicCamera(-450,450,300,-300,-1000,1000);
+camera.position.set(0,0,500);
+scene.add(new THREE.AmbientLight(0xffffff,0.78));
+const dl=new THREE.DirectionalLight(0xffffff,0.9);dl.position.set(0.4,1,2);scene.add(dl);
+
+/* 筆尖（全程只有一支） */
+const penShadow=new THREE.Mesh(new THREE.CircleGeometry(11,24),
+  new THREE.MeshBasicMaterial({color:0x0a2340,transparent:true,opacity:0.16,depthTest:false}));
+penShadow.scale.set(1.25,0.55,1);penShadow.renderOrder=28;scene.add(penShadow);
+const pen=new THREE.Mesh(new THREE.SphereGeometry(11,26,20),
+  new THREE.MeshStandardMaterial({color:0x0b3d91,roughness:0.32,metalness:0.18,transparent:true}));
+pen.renderOrder=30;pen.material.depthTest=false;scene.add(pen);
+pen.position.set(-390,-30,0);
+let penTarget=[-390,-30];
+
+/* =====================================================================
+   繪圖元件工廠
+   ===================================================================== */
+const D=[];                       // 全部可繪物件（每幀先 reset 再由步驟疊加）
+function reg(o){D.push(o);return o;}
+
+function spriteMesh(canvas,w,h,tint){
+  const tex=new THREE.CanvasTexture(canvas);
+  tex.minFilter=THREE.LinearFilter;tex.magFilter=THREE.LinearFilter;tex.generateMipmaps=false;
+  const mat=new THREE.ShaderMaterial({
+    uniforms:{map:{value:tex},uReveal:{value:1},uOpacity:{value:1},
+              uColor:{value:new THREE.Color('#ffffff')},uTint:{value:tint?1:0}},
+    vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+    fragmentShader:[
+      'uniform sampler2D map;uniform float uReveal;uniform float uOpacity;uniform float uTint;',
+      'uniform vec3 uColor;varying vec2 vUv;',
+      'void main(){',
+      ' if(vUv.x>uReveal) discard;',
+      ' vec4 t=texture2D(map,vUv);',
+      ' if(t.a<0.02) discard;',
+      ' vec3 c=mix(t.rgb,uColor,uTint);',
+      ' gl_FragColor=vec4(c,t.a*uOpacity);',
+      '}'].join('\n'),
+    transparent:true,depthTest:false,depthWrite:false
+  });
+  return new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat);
+}
+
+function textCanvas(str,px,weight){
+  const c=document.createElement('canvas'),g=c.getContext('2d');
+  const font=(weight||700)+' '+(px*SS)+'px '+CONFIG.fontStack;
+  g.font=font;
+  const w=Math.ceil(g.measureText(str).width)+10*SS,h=Math.ceil(px*SS*1.5);
+  c.width=w;c.height=h;
+  const g2=c.getContext('2d');
+  g2.font=font;g2.textBaseline='middle';g2.textAlign='left';g2.fillStyle='#ffffff';
+  g2.fillText(str,5*SS,h/2);
+  return {canvas:c,w:w/SS,h:h/SS};
+}
+
+/* 文字（可染色，逐格由左至右浮現＝手寫感） */
+function T(str,o){
+  const tc=textCanvas(str,o.size,o.weight);
+  let W=tc.w,H=tc.h;
+  if(o.maxW&&W>o.maxW){const k=o.maxW/W;W*=k;H*=k;}
+  const mesh=spriteMesh(tc.canvas,W,H,true);
+  const align=o.align||'center';
+  const cx=align==='left'?o.x+W/2:(align==='right'?o.x-W/2:o.x);
+  mesh.position.set(cx,o.y,0);mesh.renderOrder=o.order||12;scene.add(mesh);
+  const base=o.color||CONFIG.inkColor;
+  const obj={
+    mesh,W,H,x0:cx-W/2,y:o.y,
+    reset(){mesh.visible=false;},
+    reveal(p,cur){
+      mesh.visible=p>0;
+      mesh.material.uniforms.uReveal.value=p;
+      mesh.material.uniforms.uOpacity.value=1;
+      mesh.material.uniforms.uColor.value.set((cur&&p<1)?CONFIG.penColor:base);
+    },
+    penPoint(p){return [obj.x0+W*clamp(p),o.y+H*0.16];}
+  };
+  return reg(obj);
+}
+
+/* 具象圖案：貓頭、魚仔（全部即場用程式畫，冇任何外部圖片） */
+function artCanvas(kind,size){
+  const S=size*SS*2,c=document.createElement('canvas');c.width=S;c.height=S;
+  const g=c.getContext('2d');
+  if(kind==='cat'){
+    const cx=S/2,cy=S*0.58,r=S*0.33;
+    g.fillStyle='#1d1d1d';
+    g.beginPath();g.moveTo(cx-r*0.95,cy-r*0.5);g.lineTo(cx-r*0.82,cy-r*1.5);g.lineTo(cx-r*0.05,cy-r*0.95);g.closePath();g.fill();
+    g.beginPath();g.moveTo(cx+r*0.95,cy-r*0.5);g.lineTo(cx+r*0.82,cy-r*1.5);g.lineTo(cx+r*0.05,cy-r*0.95);g.closePath();g.fill();
+    g.beginPath();g.arc(cx,cy,r,0,Math.PI*2);g.fill();
+    g.strokeStyle='#ffffff';g.lineWidth=S*0.014;g.lineCap='round';
+    [[-1,-0.12],[-1,0.06],[1,-0.12],[1,0.06]].forEach(function(w){
+      g.beginPath();g.moveTo(cx+w[0]*r*0.42,cy+w[1]*r);g.lineTo(cx+w[0]*r*1.05,cy+w[1]*r-w[0]*0.02*r);g.stroke();});
+    g.fillStyle='#ffffff';
+    g.beginPath();g.ellipse(cx-r*0.33,cy-r*0.08,r*0.14,r*0.17,0,0,Math.PI*2);g.fill();
+    g.beginPath();g.ellipse(cx+r*0.33,cy-r*0.08,r*0.14,r*0.17,0,0,Math.PI*2);g.fill();
+    g.fillStyle='#f2a0b4';
+    g.beginPath();g.moveTo(cx,cy+r*0.28);g.lineTo(cx-r*0.13,cy+r*0.1);g.lineTo(cx+r*0.13,cy+r*0.1);g.closePath();g.fill();
+  }else{
+    const cx=S*0.53,cy=S*0.55,rx=S*0.30,ry=S*0.21;
+    g.fillStyle='#b5c1c9';
+    g.beginPath();g.moveTo(cx-rx*0.9,cy);g.lineTo(cx-rx*1.55,cy-ry*0.85);g.lineTo(cx-rx*1.55,cy+ry*0.85);g.closePath();g.fill();
+    g.beginPath();g.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);g.fill();
+    g.fillStyle='#9aa8b2';
+    g.beginPath();g.moveTo(cx-rx*0.2,cy-ry*0.9);g.lineTo(cx+rx*0.15,cy-ry*1.5);g.lineTo(cx+rx*0.4,cy-ry*0.8);g.closePath();g.fill();
+    g.fillStyle='#20303a';
+    g.beginPath();g.arc(cx+rx*0.5,cy-ry*0.18,S*0.022,0,Math.PI*2);g.fill();
+    g.strokeStyle='#8d9aa4';g.lineWidth=S*0.012;
+    g.beginPath();g.arc(cx+rx*0.05,cy,ry*0.95,-1.1,1.1);g.stroke();
+  }
+  return {canvas:c,w:size,h:size};
+}
+function ART(kind,o){
+  const a=artCanvas(kind,o.size);
+  const mesh=spriteMesh(a.canvas,a.w,a.h,false);
+  mesh.position.set(o.x,o.y,0);mesh.renderOrder=o.order||12;scene.add(mesh);
+  const obj={
+    mesh,W:a.w,H:a.h,x0:o.x-a.w/2,y:o.y,
+    reset(){mesh.visible=false;},
+    reveal(p,cur){
+      mesh.visible=p>0;
+      const u=mesh.material.uniforms;
+      u.uReveal.value=p;u.uOpacity.value=1;
+      u.uTint.value=(cur&&p<1)?0.62:0;
+      u.uColor.value.set(CONFIG.penColor);
+    },
+    penPoint(p){return [obj.x0+a.w*clamp(p),o.y+a.h*0.12];}
+  };
+  return reg(obj);
+}
+
+/* 筆跡（線／圈／刪除線） */
+function multiRibbonGeom(subs,width){
+  const pos=[],idx=[];let base=0,tri=0;
+  subs.forEach(function(pts){
+    const n=pts.length;
+    for(let i=0;i<n;i++){
+      const a=pts[Math.max(0,i-1)],b=pts[Math.min(n-1,i+1)],p=pts[i];
+      let dx=b[0]-a[0],dy=b[1]-a[1];const L=Math.hypot(dx,dy)||1;dx/=L;dy/=L;
+      const nx=-dy*width/2,ny=dx*width/2;
+      pos.push(p[0]+nx,p[1]+ny,0,p[0]-nx,p[1]-ny,0);
+    }
+    for(let i=0;i<n-1;i++){const a=base+i*2;idx.push(a,a+1,a+2,a+1,a+3,a+2);tri+=2;}
+    base+=n*2;
+  });
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(pos),3));
+  g.setIndex(idx);g.__tri=tri;
+  return g;
+}
+function STK(pts,o){
+  o=o||{};
+  const geo=multiRibbonGeom([pts],o.width||6);
+  const mat=new THREE.MeshBasicMaterial({color:new THREE.Color(CONFIG.penColor),transparent:true,
+    opacity:1,depthTest:false,depthWrite:false,side:THREE.DoubleSide});
+  const mesh=new THREE.Mesh(geo,mat);mesh.renderOrder=o.order||10;scene.add(mesh);
+  const done=o.doneColor||CONFIG.fadedColor,dop=(o.doneOpacity!==undefined)?o.doneOpacity:0.5;
+  const obj={
+    reset(){mesh.visible=false;},
+    reveal(p,cur){
+      mesh.visible=p>0;
+      geo.setDrawRange(0,Math.floor(clamp(p)*geo.__tri)*3);
+      if(cur&&p<1){mat.color.set(CONFIG.penColor);mat.opacity=1;}
+      else{mat.color.set(done);mat.opacity=dop;}
+    },
+    penPoint(p){const i=Math.min(pts.length-1,Math.floor(clamp(p)*(pts.length-1)));return pts[i];}
+  };
+  return reg(obj);
+}
+
+/* 區域高亮：專屬色 × 輪廓框（實線／虛線）× 閃三下 */
+function REGION(x,y,w,h,colorHex,dashed){
+  const col=new THREE.Color(colorHex),dark=col.clone().multiplyScalar(0.7);
+  const fillMat=new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:0,depthTest:false,depthWrite:false});
+  const fill=new THREE.Mesh(new THREE.PlaneGeometry(w,h),fillMat);
+  fill.position.set(x,y,0);scene.add(fill);
+  const path=rectPath(x,y,w,h);
+  const subs=dashed?dashify(path,15,10):[path];
+  const geo=multiRibbonGeom(subs,4.5);
+  const outMat=new THREE.MeshBasicMaterial({color:dark,transparent:true,opacity:1,
+    depthTest:false,depthWrite:false,side:THREE.DoubleSide});
+  const out=new THREE.Mesh(geo,outMat);scene.add(out);
+  const flat=[];subs.forEach(function(s){s.forEach(function(p){flat.push(p);});});
+  const obj={
+    x,y,w,h,color:colorHex,
+    reset(){fill.visible=false;out.visible=false;},
+    play(p,dur,cur,skip){
+      const t=p*dur,oD=skip?0:0.5;
+      out.visible=true;
+      geo.setDrawRange(0,(skip?geo.__tri:Math.floor(clamp(t/0.5)*geo.__tri))*3);
+      outMat.opacity=cur?1:0.85;
+      const ft=t-oD;
+      fill.visible=ft>=0;
+      fillMat.opacity=ft<0?0:flashOpacity(ft);
+      fill.renderOrder=cur?6:2;out.renderOrder=cur?7:3;
+    },
+    penPoint(p,dur,skip){
+      const t=p*dur;
+      if(!skip&&t<0.5){const i=Math.min(flat.length-1,Math.floor(clamp(t/0.5)*(flat.length-1)));return flat[i];}
+      return [x,y+h/2-22];
+    }
+  };
+  return reg(obj);
+}
+
+/* 數字標記：單層圓圈＋普通數字（絕不用 ①②③） */
+const badgeLayer=document.getElementById('badgeLayer');
+const badges=[];
+function BADGE(x,y,num,color){
+  const el=document.createElement('div');
+  el.className='badge';el.textContent=String(num);el.style.background=color;
+  badgeLayer.appendChild(el);
+  const obj={x,y,el,on:false,
+    reset(){obj.on=false;el.style.display='none';},
+    show(p){obj.on=true;el.style.display='flex';
+      el.style.opacity=clamp(p*3);
+      el.style.transform='translate(-50%,-50%) scale('+(p<=0?0:backEase(clamp(p))).toFixed(3)+')';}
+  };
+  badges.push(obj);return reg(obj);
+}
+
+/* =====================================================================
+   版面座標
+   ===================================================================== */
+const G=CONFIG.layout;
+function blk(o){
+  return {tens:o.bx,ones:o.bx+G.colGap,
+    y1:o.by,y2:o.by-G.rowGap,ybar:o.by-134,y3:o.by-178,
+    minusX:o.bx-84,barX0:o.bx-130,barX1:o.bx+126,
+    regY:o.by-89,regH:262};
+}
+const B1=blk(CONFIG.puzzle1),B2=blk(CONFIG.puzzle2);
+const ANS={sym:-300,eq:-246,lp:-196,val:-148,rp:-100,badge:-36};
+
+/* =====================================================================
+   步驟腳本（Phases → Steps）
+   ===================================================================== */
+const phases=[],steps=[];
+let ph=-1;
+function P(title,logic){phases.push({title,logic});ph=phases.length-1;
+  steps.push({phase:ph,dur:1.25,intro:true});}
+function S(o){o.phase=ph;steps.push(o);}
+function stepGroup(objs,dur,scratch,say){
+  const n=objs.length,sg=1/n;
+  S({dur,scratch,say,
+    draw(p,c){objs.forEach(function(o,i){o.reveal(clamp((p-i*sg)/sg),c);});},
+    penAt(p){const i=Math.min(n-1,Math.floor(p/sg));return objs[i].penPoint(clamp((p-i*sg)/sg));}});
+}
+function stepRegion(rg,label,dur,opt){
+  opt=opt||{};
+  const skip=!!opt.skipOutline,ls=(skip?0:0.5)+0.78;
+  S({dur,say:opt.say,scratch:opt.scratch,
+    draw(p,c){rg.play(p,dur,c,skip);if(label)label.reveal(clamp((p*dur-ls)/0.3),false);},
+    penAt(p){return rg.penPoint(p,dur,skip);}});
+}
+function stepBadge(b,dur,say){
+  S({dur,say,draw(p){b.show(p);},penAt(){return [b.x,b.y+26];}});
+}
+function stepScratch(text,penY,dur,say,cls){
+  S({dur,say,scratch:{text,cls},penAt(){return [432,penY];}});
+}
+
+/* ---------- 第一條直式 物件 ---------- */
+const h1=T('第一條直式',{x:-420,y:-72,size:32,align:'left'});
+const d5=T('5',{x:B1.tens,y:B1.y1,size:G.digit});
+const cat1=ART('cat',{x:B1.ones,y:B1.y1,size:60});
+const m1=T('－',{x:B1.minusX,y:B1.y2,size:52});
+const cat2=ART('cat',{x:B1.tens,y:B1.y2,size:60});
+const fish1=ART('fish',{x:B1.ones,y:B1.y2,size:60});
+const bar1=STK(seg([B1.barX0,B1.ybar],[B1.barX1,B1.ybar],26),{width:7,doneColor:CONFIG.inkColor,doneOpacity:1});
+const d2=T('2',{x:B1.tens,y:B1.y3,size:G.digit});
+const d1=T('1',{x:B1.ones,y:B1.y3,size:G.digit});
+
+const r1one=REGION(B1.ones,B1.regY,76,B1.regH,CONFIG.regionPalette[0],false);
+const r1ten=REGION(B1.tens,B1.regY,76,B1.regH,CONFIG.regionPalette[1],false);
+const l1one=T('個位',{x:B1.ones,y:B1.y3-76,size:26,color:CONFIG.regionPalette[0]});
+const l1ten=T('十位',{x:B1.tens,y:B1.y3-76,size:26,color:CONFIG.regionPalette[1]});
+
+const R=G.rightX,RS=G.rightSize,RM=G.rightMax;
+const L1=T('十位：5 － 貓 ＝ 2',{x:R,y:-145,size:RS,align:'left',maxW:RM});
+const L2=T('所以 貓 ＝ 5 － 2 ＝ 3',{x:R,y:-200,size:RS,align:'left',maxW:RM});
+const L3=T('個位：貓 － 魚 ＝ 1',{x:R,y:-268,size:RS,align:'left',maxW:RM});
+const L4=T('3 － 魚 ＝ 1，所以 魚 ＝ 2',{x:R,y:-323,size:RS,align:'left',maxW:RM});
+const L5=T('驗算：53 － 32 ＝ 21 ✓',{x:R,y:-398,size:RS,align:'left',maxW:RM,color:'#1c7a3e'});
+
+const aY1=B1.y3-140,aY2=B1.y3-212;
+const catA=ART('cat',{x:ANS.sym,y:aY1,size:50});
+const eqA=T('＝',{x:ANS.eq,y:aY1,size:42}),lpA=T('（',{x:ANS.lp,y:aY1,size:46}),rpA=T('）',{x:ANS.rp,y:aY1,size:46});
+const ansCat=T('3',{x:ANS.val,y:aY1,size:54,color:CONFIG.ansColor});
+const fishA=ART('fish',{x:ANS.sym,y:aY2,size:50});
+const eqB=T('＝',{x:ANS.eq,y:aY2,size:42}),lpB=T('（',{x:ANS.lp,y:aY2,size:46}),rpB=T('）',{x:ANS.rp,y:aY2,size:46});
+const ansFish=T('2',{x:ANS.val,y:aY2,size:54,color:CONFIG.ansColor});
+const bg1=BADGE(ANS.badge,aY1,1,CONFIG.regionPalette[1]);
+const bg2=BADGE(ANS.badge,aY2,2,CONFIG.regionPalette[0]);
+
+/* ---------- 第二條直式 物件 ---------- */
+const h2=T('第二條直式',{x:-420,y:-645,size:32,align:'left'});
+const d8=T('8',{x:B2.tens,y:B2.y1,size:G.digit});
+const k1=T('開',{x:B2.ones,y:B2.y1,size:G.digit});
+const m2=T('－',{x:B2.minusX,y:B2.y2,size:52});
+const k2=T('開',{x:B2.tens,y:B2.y2,size:G.digit});
+const d8b=T('8',{x:B2.ones,y:B2.y2,size:G.digit});
+const bar2=STK(seg([B2.barX0,B2.ybar],[B2.barX1,B2.ybar],26),{width:7,doneColor:CONFIG.inkColor,doneOpacity:1});
+const sam=T('心',{x:B2.tens,y:B2.y3,size:G.digit});
+const d3=T('3',{x:B2.ones,y:B2.y3,size:G.digit});
+
+const r2one=REGION(B2.ones,B2.regY,76,B2.regH,CONFIG.regionPalette[2],false);
+const r2ten=REGION(B2.tens,B2.regY,76,B2.regH,CONFIG.regionPalette[3],false);
+const l2one=T('個位',{x:B2.ones,y:B2.y3-76,size:26,color:CONFIG.regionPalette[2]});
+const l2ten=T('十位',{x:B2.tens,y:B2.y3-76,size:26,color:CONFIG.regionPalette[3]});
+/* 「借嚟嘅 10」：圖上本身望唔到，所以用虛線框 */
+const rBorrow=REGION(B2.ones,-692,78,52,CONFIG.regionPalette[4],true);
+const lBorrow=T('借嚟嘅 10',{x:-92,y:-692,size:24,align:'left',color:CONFIG.regionPalette[4]});
+const slash8=STK(seg([-266,-726],[-194,-794],14),{width:6,doneColor:CONFIG.borrowColor,doneOpacity:1,order:14});
+const small7=T('7',{x:-230,y:-694,size:34,color:CONFIG.borrowColor,order:14});
+
+const M1=T('個位：開 － 8 ＝ 3？',{x:R,y:-735,size:RS,align:'left',maxW:RM});
+const M2=T('開 最大係 9，9－8＝1，唔夠減',{x:R,y:-790,size:RS,align:'left',maxW:RM});
+const M3=T('所以 一定要向十位借 1（＝10）',{x:R,y:-845,size:RS,align:'left',maxW:RM});
+const M4=T('開 ＋ 10 － 8 ＝ 3 → 開 ＝ 1',{x:R,y:-900,size:RS,align:'left',maxW:RM});
+const M5=T('十位被借走 1：8 － 1 ＝ 7',{x:R,y:-955,size:RS,align:'left',maxW:RM});
+const M6=T('十位：7 － 開 ＝ 7 － 1 ＝ 6',{x:R,y:-1010,size:RS,align:'left',maxW:RM});
+const M7=T('驗算：81 － 18 ＝ 63 ✓',{x:R,y:-1085,size:RS,align:'left',maxW:RM,color:'#1c7a3e'});
+
+const bY1=B2.y3-140,bY2=B2.y3-212;
+const kaiA=T('開',{x:ANS.sym,y:bY1,size:50});
+const eqC=T('＝',{x:ANS.eq,y:bY1,size:42}),lpC=T('（',{x:ANS.lp,y:bY1,size:46}),rpC=T('）',{x:ANS.rp,y:bY1,size:46});
+const ansKai=T('1',{x:ANS.val,y:bY1,size:54,color:CONFIG.ansColor});
+const samA=T('心',{x:ANS.sym,y:bY2,size:50});
+const eqD=T('＝',{x:ANS.eq,y:bY2,size:42}),lpD=T('（',{x:ANS.lp,y:bY2,size:46}),rpD=T('）',{x:ANS.rp,y:bY2,size:46});
+const ansSam=T('6',{x:ANS.val,y:bY2,size:54,color:CONFIG.ansColor});
+const bg3=BADGE(ANS.badge,bY1,3,CONFIG.regionPalette[2]);
+const bg4=BADGE(ANS.badge,bY2,4,CONFIG.regionPalette[3]);
+const finale=T('貓 ＝ 3　魚 ＝ 2　開 ＝ 1　心 ＝ 6',{x:-30,y:-1245,size:40,color:'#1c7a3e'});
+
+/* ---------- 腳本 ---------- */
+P('一、抄低第一條直式','相同圖案代表相同數字。第一條係「5貓 － 貓魚 ＝ 21」，未知數有兩個：貓同魚。先原原本本抄一次。');
+stepGroup([h1],0.7);
+stepGroup([d5,cat1],1.1,{text:'第一條：5貓 － 貓魚 ＝ 21'});
+stepGroup([m1,cat2,fish1],1.4);
+stepGroup([bar1],0.6);
+stepGroup([d2,d1],1.0);
+stepGroup([catA,eqA,lpA,rpA,fishA,eqB,lpB,rpB],1.8,null,'原題係喺括號入面填答案，所以照樣畫返兩行括號，最後由筆尖寫落去。');
+
+P('二、分開「個位」同「十位」兩個直行','直式減法要一個位一個位噉睇。用兩隻唔同顏色框住兩個直行，每個框閃三下先定住，睇清楚邊一笪係邊一笪。');
+stepRegion(r1one,l1one,1.6,{say:'閃緊三下嗰塊橙色，就係「個位」直行：貓 － 魚 ＝ 1。'});
+stepRegion(r1ten,l1ten,1.6,{say:'閃緊三下嗰塊藍色，就係「十位」直行：5 － 貓 ＝ 2。'});
+
+P('三、先攻十位，搵出「貓」','個位有貓同魚兩個未知數，十位就只有「貓」一個。先假設個位夠減（唔使借位），十位直接計。');
+stepRegion(r1ten,null,1.3,{skipOutline:true,say:'再閃三下藍色嗰行，集中望十位。'});
+stepGroup([L1],1.3,{text:'十位：5 － 貓 ＝ 2'});
+stepGroup([L2],1.5);
+stepScratch('貓 ＝ 5 － 2 ＝ 3',-200,1.3,'筆尖飛去算草區，記低第一個答案。');
+stepGroup([ansCat],1.0,null,'返去括號度，喺「（　）」入面寫低 3。');
+stepBadge(bg1,0.6,'搵到第 1 個未知數。');
+
+P('四、返去個位，搵出「魚」','貓 ＝ 3 已知，代返落個位：3 － 魚 ＝ 1。順便驗證返 3 大過 2，真係唔使借位，假設成立。');
+stepRegion(r1one,null,1.3,{skipOutline:true,say:'再閃三下橙色嗰行，集中望個位。'});
+stepGroup([L3],1.3,{text:'個位：貓 － 魚 ＝ 1'});
+stepGroup([L4],1.6);
+stepScratch('3 － 魚 ＝ 1 → 魚 ＝ 2',-323,1.4,'筆尖飛去算草區，記低第二個答案。');
+stepGroup([ansFish],1.0);
+stepBadge(bg2,0.6,'搵到第 2 個未知數。');
+
+P('五、驗算第一條','將 貓 ＝ 3、魚 ＝ 2 代返入去，睇吓個直式係咪真係啱。');
+stepGroup([L5],1.6,{text:'驗算：53 － 32 ＝ 21 ✓'},'53 － 32 真係等於 21，第一條完成！');
+
+P('六、抄低第二條直式','第二條係「8開 － 開8 ＝ 心3」。同樣有兩個未知數：開同心。先抄直式，再逐個位睇。');
+stepGroup([h2],0.7);
+stepGroup([d8,k1],1.1,{text:'第二條：8開 － 開8 ＝ 心3'});
+stepGroup([m2,k2,d8b],1.4);
+stepGroup([bar2],0.6);
+stepGroup([sam,d3],1.0);
+stepGroup([kaiA,eqC,lpC,rpC,samA,eqD,lpD,rpD],1.8);
+
+P('七、個位唔夠減，一定要借位','個位如果直接減：開 － 8 ＝ 3？但 開 最大都只係 9，9 － 8 ＝ 1，永遠去唔到 3。所以一定要向十位借 1（即係借 10）。');
+stepRegion(r2one,l2one,1.6,{say:'閃緊三下嗰塊紫色，就係第二條嘅「個位」直行。'});
+stepGroup([M1],1.3,{text:'個位：開 － 8 ＝ 3？'});
+stepGroup([M2],1.7);
+stepRegion(rBorrow,lBorrow,1.9,{say:'閃緊三下、用虛線框住嗰笪，係圖上本身冇嘅「借嚟嘅 10」，所以特登用虛線。'});
+stepGroup([M3],1.7,{text:'個位唔夠減 → 向十位借 1'});
+stepGroup([slash8,small7],1.5,null,'筆尖將十位嘅 8 劃走，喺上面寫細細個 7：十位借咗 1 出去。');
+stepGroup([M4],1.7);
+stepScratch('開 ＋ 10 － 8 ＝ 3 → 開 ＝ 1',-900,1.5,'飛去算草區，記低第三個答案。');
+stepGroup([ansKai],1.0);
+stepBadge(bg3,0.6,'搵到第 3 個未知數。');
+
+P('八、十位：借走咗 1，搵出「心」','十位原本係 8，借咗 1 出去，剩返 7。7 － 開 ＝ 心，而 開 ＝ 1。');
+stepRegion(r2ten,l2ten,1.6,{say:'閃緊三下嗰塊金色，就係第二條嘅「十位」直行。'});
+stepGroup([M5],1.5,{text:'十位：8 － 1（借出）＝ 7'});
+stepGroup([M6],1.7);
+stepScratch('7 － 1 ＝ 6 → 心 ＝ 6',-1010,1.4,'飛去算草區，記低最後一個答案。');
+stepGroup([ansSam],1.0);
+stepBadge(bg4,0.6,'搵到第 4 個未知數，全部搞掂。');
+
+P('九、驗算 · 寫低最後答案','四個數都搵齊：貓 ＝ 3、魚 ＝ 2、開 ＝ 1、心 ＝ 6。最後驗算第二條。');
+stepGroup([M7],1.6,{text:'驗算：81 － 18 ＝ 63 ✓'});
+stepGroup([finale],2.0);
+stepScratch('＝ 貓3　魚2　開1　心6',-1245,2.2,'四個括號全部填好，同原題格式一模一樣。','ans');
+
+/* =====================================================================
+   廣東話老師旁白（edge-tts 預生成 MP3 · zh-HK-HiuMaanNeural）
+   9 段旁白 ↔ 9 個 Phase：由 phase 嘅 intro 步開播，跨成個 phase。
+   v2（回饋修正）：MP3 需要嘅時間唔再塞晒入 intro 空步（否則開場十幾秒
+   白畫面齋聽聲）——intro 維持原 1.25s，其餘動作步按比例拉長，
+   令「老師一邊講、筆一邊寫」並行，把聲講完啱啱好做完個 phase。
+   宣告式軟同步：暫停=pause 保留進度；離開 phase 範圍=歸零；
+   resume 自動 seek 返正確位；MP3 唔見咗 fallback 3s 無聲。
+   ===================================================================== */
+const AUDIO_DIR='20260818_0825_ch5_q6_audio/';
+const AUDIO_FILES=['01.mp3','02.mp3','03.mp3','04.mp3','05.mp3','06.mp3','07.mp3','08.mp3','09.mp3'];
+const AUDIOS=AUDIO_FILES.map(function(f){const a=new Audio(AUDIO_DIR+f);a.preload='auto';return a;});
+const AUDIO_STEPS=[];
+const STEP_T0=[];
+let AUDIO_READY=false;
+function audDur(i){
+  const d=AUDIOS[i].duration;
+  return (isFinite(d)&&d>0)?d+0.45:3;
+}
+function whenAudioReady(cb){
+  let pend=AUDIOS.length,fired=false;
+  function done(){if(!fired&&--pend<=0){fired=true;cb();}}
+  AUDIOS.forEach(function(a){
+    if(a.readyState>=1)done();
+    else{a.addEventListener('loadedmetadata',done,{once:true});
+         a.addEventListener('error',done,{once:true});}
+  });
+  setTimeout(function(){if(!fired){fired=true;cb();}},3000);
+}
+whenAudioReady(function(){
+  const phStart=[];
+  steps.forEach(function(s,i){if(s.intro)phStart.push(i);});
+  for(let i=0;i<phStart.length;i++){
+    const i0=phStart[i],i1=(i+1<phStart.length)?phStart[i+1]-1:steps.length-1;
+    let totAct=0;
+    for(let k=i0+1;k<=i1;k++)totAct+=steps[k].dur;
+    const need=audDur(i);
+    /* v2：pad 改為「動作步比例拉長」——旁白同書寫並行，唔再有開場白畫面 */
+    if(need>1.25&&totAct>0){
+      const sc=(need-1.25)/totAct;
+      for(let k=i0+1;k<=i1;k++)steps[k].dur*=sc;
+    }
+  }
+  let acc=0;
+  steps.forEach(function(s,i){STEP_T0[i]=acc;acc+=s.dur;});
+  for(let i=0;i<phStart.length;i++){
+    const i0=phStart[i],i1=(i+1<phStart.length)?phStart[i+1]-1:steps.length-1;
+    AUDIO_STEPS.push({el:AUDIOS[i],i0:i0,i1:i1,T0:STEP_T0[i0],T1:STEP_T0[i1]+steps[i1].dur});
+  }
+  AUDIO_READY=true;
+});
+function nowT(){return (STEP_T0[idx]+p*steps[idx].dur)/CONFIG.speed;}
+/* 宣告式軟同步（含 bug#3 ended guard）：MP3 播到 ended 後 0.45s 緩衝期內
+   唔准 re-play 尾段，否則每幀 re-seek 會重播尾段半秒 */
+function syncAudio(){
+  if(!AUDIO_STEPS.length)return;
+  const tt=nowT();
+  for(let i=0;i<AUDIO_STEPS.length;i++){
+    const A=AUDIO_STEPS[i],a=A.el;
+    const T0=A.T0/CONFIG.speed,T1=A.T1/CONFIG.speed;
+    const inWin=idx>=A.i0&&idx<=A.i1&&tt>=T0-0.01&&tt<T1;
+    const want=AUDIO_READY&&playing&&!finished&&inWin;
+    if(want){
+      const off=tt-T0,d=a.duration;
+      if(a.paused&&!(isFinite(d)&&off>=d-0.06)){
+        try{a.currentTime=Math.max(0,off);a.play().catch(function(){});}catch(err){}
+      }
+    }else if(!a.paused){a.pause();}
+    if(!inWin&&a.currentTime>0){try{a.currentTime=0;}catch(err){}}
+  }
+}
+/* 🔊 靜音掣 */
+const muteBtn=document.getElementById('muteBtn');
+muteBtn.addEventListener('click',function(){
+  const m=!AUDIOS[0].muted;
+  AUDIOS.forEach(function(a){a.muted=m;});
+  muteBtn.textContent=m?'🔇':'🔊';
+  muteBtn.blur();
+});
+/* iOS 音頻解鎖：第一次互動解鎖 Audio 元件 */
+(function(){
+  function unlock(){
+    AUDIOS.forEach(function(a){
+      const m=a.muted;a.muted=true;
+      const pr=a.play();
+      const fin=function(){try{a.pause();a.currentTime=0;}catch(e){}a.muted=m;};
+      if(pr&&pr.then)pr.then(fin).catch(function(){a.muted=m;});else fin();
+    });
+    ['pointerdown','touchstart','keydown'].forEach(function(ev){removeEventListener(ev,unlock);});
+  }
+  ['pointerdown','touchstart','keydown'].forEach(function(ev){addEventListener(ev,unlock);});
+})();
+/* 點一下畫面＝播放／暫停（拖曳/捲動超過 8px 唔會誤觸；對齊 hub 其他動畫操作） */
+(function(){
+  let tx=null,tyy=0,moved=0;
+  stage.addEventListener('pointerdown',function(e){tx=e.clientX;tyy=e.clientY;moved=0;});
+  stage.addEventListener('pointermove',function(e){
+    if(tx!==null)moved=Math.max(moved,Math.hypot(e.clientX-tx,e.clientY-tyy));});
+  stage.addEventListener('click',function(){
+    if(moved>8)return;
+    if(!AUDIO_READY)return;
+    if(finished){gotoStart();playing=true;}
+    else playing=!playing;
+    stopAt=null;autoFollow=true;
+  });
+})();
+
+/* =====================================================================
+   播放引擎
+   ===================================================================== */
+let idx=0,p=0,playing=false,stopAt=null,finished=false,lastPhase=-1;
+const elPhaseT=document.getElementById('phaseTitle'),elPhaseL=document.getElementById('phaseLogic'),
+      elSay=document.getElementById('sayLine'),elScratch=document.getElementById('scratch'),
+      elMini=document.getElementById('panelMini'),elProg=document.getElementById('progress');
+
+function update(dt){
+  if(!playing)return;
+  const s=steps[idx];
+  p+=dt/(s.dur/CONFIG.speed);
+  if(p>=1){
+    p=0;idx++;
+    if(idx>=steps.length){idx=steps.length-1;p=1;playing=false;finished=true;return;}
+    if(stopAt!==null&&idx>stopAt){playing=false;stopAt=null;}
+  }
+}
+function applyAll(){
+  for(let i=0;i<D.length;i++)D[i].reset();
+  for(let i=0;i<idx;i++){const s=steps[i];if(s.draw)s.draw(1,false);}
+  const s=steps[idx];
+  if(p>0&&s&&s.draw)s.draw(p,true);
+  if(s&&s.penAt)penTarget=s.penAt(p);
+}
+let lastScratchKey='';
+function updatePanel(){
+  const s=steps[idx],phase=phases[s.phase];
+  if(s.phase!==lastPhase){
+    lastPhase=s.phase;
+    autoFollow=true;   /* v2：新 Phase 一律重拾自動跟鏡——user 拖上拉落後唔會失焦 */
+    elPhaseT.textContent=phase.title;
+    elPhaseL.textContent=phase.logic;
+    elPhaseL.classList.remove('flashHi');void elPhaseL.offsetWidth;elPhaseL.classList.add('flashHi');
+  }
+  const say=s.say||'';
+  elSay.style.display=say?'block':'none';
+  if(say&&elSay.textContent!==say)elSay.textContent=say;
+
+  const lines=[];
+  for(let i=0;i<=idx;i++){
+    const st=steps[i];if(!st.scratch)continue;
+    const full=st.scratch.text;
+    let show=full;
+    if(i===idx){if(p<=0)continue;show=full.slice(0,Math.ceil(p*full.length));}
+    lines.push({t:show,cls:st.scratch.cls||''});
+  }
+  if(finished)lines.push({t:'🎉 全部搞掂！四個括號都填好晒。',cls:'cheer'});
+  const key=lines.map(function(l){return l.cls+'|'+l.t;}).join('§');
+  if(key!==lastScratchKey){
+    lastScratchKey=key;
+    elScratch.innerHTML='';
+    lines.forEach(function(l){
+      const d=document.createElement('div');d.className=l.cls;d.textContent=l.t;elScratch.appendChild(d);});
+    elMini.textContent=lines.length?('算草：'+lines[lines.length-1].t):'算草：（未開始）';
+  }
+  elProg.textContent='階段 '+(s.phase+1)+' / '+phases.length+'　·　小步 '+(idx+1)+' / '+steps.length+
+    (playing?'　▶ 播放中':(finished?'　■ 已完成':'　⏸ 暫停'));
+}
+
+/* =====================================================================
+   鏡頭 · 捲動 · 自動跟筆
+   ===================================================================== */
+let worldW=900,worldH=600,camX=0,camY=0,autoFollow=true;
+function resize(){
+  const w=stage.clientWidth,h=stage.clientHeight;
+  if(w<2||h<2)return;
+  renderer.setSize(w,h,false);
+  worldW=(w<700)?CONFIG.worldNarrow:CONFIG.worldWide;
+  worldH=worldW*h/w;
+  camera.left=-worldW/2;camera.right=worldW/2;camera.top=worldH/2;camera.bottom=-worldH/2;
+  camera.updateProjectionMatrix();
+  clampCam();
+}
+function clampCam(){
+  const yMax=CONFIG.contentTop-worldH/2+40,yMin=CONFIG.contentBottom+worldH/2-40;
+  camY=(yMin>yMax)?(yMax+yMin)/2:Math.max(yMin,Math.min(yMax,camY));
+  const cw=CONFIG.contentRight-CONFIG.contentLeft;
+  if(worldW>=cw){camX=(CONFIG.contentLeft+CONFIG.contentRight)/2;}
+  else{const xMin=CONFIG.contentLeft+worldW/2,xMax=CONFIG.contentRight-worldW/2;
+       camX=Math.max(xMin,Math.min(xMax,camX));}
+  camera.position.x=camX;camera.position.y=camY;
+}
+function followPen(dt){
+  if(!autoFollow)return;
+  /* v2：margin 收細（140→100）——筆尖要更貼邊先推鏡頭，
+     鏡頭傾向留住上方算式區；寫答案短暫落去，唔會成個鏡頭搬走 */
+  const my=Math.min(100,worldH*0.22);
+  const top=camY+worldH/2,bot=camY-worldH/2;
+  let ty=camY;
+  if(penTarget[1]>top-my)ty=penTarget[1]-worldH/2+my;
+  else if(penTarget[1]<bot+my)ty=penTarget[1]+worldH/2-my;
+  camY+=(ty-camY)*Math.min(1,dt*4.5);
+  const cw=CONFIG.contentRight-CONFIG.contentLeft;
+  if(worldW<cw){
+    const mx=Math.min(120,worldW*0.25);let tx=camX;
+    if(penTarget[0]>camX+worldW/2-mx)tx=penTarget[0]-worldW/2+mx;
+    else if(penTarget[0]<camX-worldW/2+mx)tx=penTarget[0]+worldW/2-mx;
+    camX+=(tx-camX)*Math.min(1,dt*4.5);
+  }
+  clampCam();
+}
+stage.addEventListener('wheel',function(e){
+  e.preventDefault();autoFollow=false;
+  if(e.shiftKey)camX+=e.deltaY*0.7;else camY-=e.deltaY*0.7;
+  clampCam();
+},{passive:false});
+let dragging=false,lastPt=null;
+stage.addEventListener('pointerdown',function(e){dragging=true;lastPt=[e.clientX,e.clientY];stage.setPointerCapture(e.pointerId);});
+stage.addEventListener('pointermove',function(e){
+  if(!dragging)return;
+  const k=worldW/stage.clientWidth;
+  autoFollow=false;
+  camY+=(e.clientY-lastPt[1])*k;camX-=(e.clientX-lastPt[0])*k;
+  lastPt=[e.clientX,e.clientY];clampCam();
+});
+['pointerup','pointercancel','pointerleave'].forEach(function(t){
+  stage.addEventListener(t,function(){dragging=false;});});
+
+/* =====================================================================
+   輸入控制
+   ===================================================================== */
+function gotoStart(){idx=0;p=0;playing=false;stopAt=null;finished=false;lastPhase=-1;autoFollow=true;}
+function nextStep(){
+  autoFollow=true;
+  if(playing){p=1;}
+  else{if(idx>=steps.length-1&&p>=1)return;stopAt=idx;playing=true;finished=false;}
+}
+function prevStep(){
+  autoFollow=true;playing=false;finished=false;
+  if(p>0.001){p=0;}
+  else{idx=Math.max(0,idx-1);p=0;}
+  lastPhase=-1;
+}
+document.addEventListener('keydown',function(e){
+  if(!AUDIO_READY)return;
+  const k=e.key;
+  if(k===' '||k==='Spacebar'){e.preventDefault();
+    if(finished){gotoStart();playing=true;}else playing=!playing;stopAt=null;autoFollow=true;}
+  else if(k==='ArrowRight'){e.preventDefault();nextStep();}
+  else if(k==='ArrowLeft'){e.preventDefault();prevStep();}
+  else if(k==='s'||k==='S'||k==='Escape'){e.preventDefault();gotoStart();}
+});
+document.getElementById('replayBtn').addEventListener('click',function(){
+  if(!AUDIO_READY)return;
+  gotoStart();playing=true;this.blur();});
+
+/* =====================================================================
+   面板：可拖曳 · 可摺疊
+   ===================================================================== */
+const panel=document.getElementById('panel'),head=document.getElementById('panelHead'),
+      spacer=document.getElementById('panelSpacer');
+let moved=false;
+function layoutPanel(){
+  if(moved)return;
+  if(window.innerWidth<=900){panel.style.left='';panel.style.top='';return;}
+  const r=spacer.getBoundingClientRect();
+  panel.style.left=(r.left+12)+'px';
+  panel.style.top=(document.getElementById('mid').getBoundingClientRect().top+12)+'px';
+}
+let pdrag=false,poff=[0,0];
+head.addEventListener('pointerdown',function(e){
+  if(e.target.id==='collapseBtn')return;
+  pdrag=true;moved=true;head.classList.add('drag');panel.classList.add('floating');
+  const r=panel.getBoundingClientRect();poff=[e.clientX-r.left,e.clientY-r.top];
+  head.setPointerCapture(e.pointerId);
+});
+head.addEventListener('pointermove',function(e){
+  if(!pdrag)return;
+  const w=panel.offsetWidth,h=panel.offsetHeight;
+  panel.style.left=Math.max(4,Math.min(window.innerWidth-w-4,e.clientX-poff[0]))+'px';
+  panel.style.top=Math.max(4,Math.min(window.innerHeight-h-4,e.clientY-poff[1]))+'px';
+  panel.style.bottom='auto';panel.style.right='auto';
+});
+['pointerup','pointercancel'].forEach(function(t){
+  head.addEventListener(t,function(){pdrag=false;head.classList.remove('drag');});});
+document.getElementById('collapseBtn').addEventListener('click',function(){
+  panel.classList.toggle('collapsed');
+  this.textContent=panel.classList.contains('collapsed')?'＋':'−';
+  this.blur();
+});
+
+/* =====================================================================
+   主迴圈
+   ===================================================================== */
+function projectXY(x,y){
+  const v=new THREE.Vector3(x,y,0).project(camera);
+  return [(v.x*0.5+0.5)*stage.clientWidth,(-v.y*0.5+0.5)*stage.clientHeight];
+}
+function syncBadges(){
+  for(let i=0;i<badges.length;i++){
+    const b=badges[i];if(!b.on)continue;
+    const s=projectXY(b.x,b.y);
+    b.el.style.left=s[0]+'px';b.el.style.top=s[1]+'px';
+  }
+}
+let last=performance.now();
+function loop(now){
+  const dt=Math.min(0.05,(now-last)/1000);last=now;
+  update(dt);
+  applyAll();
+  followPen(dt);
+  const k=Math.min(1,dt*13);
+  pen.position.x+=(penTarget[0]-pen.position.x)*k;
+  pen.position.y+=(penTarget[1]-pen.position.y)*k;
+  penShadow.position.set(pen.position.x+7,pen.position.y-10,0);
+  updatePanel();
+  syncAudio();
+  syncBadges();
+  renderer.render(scene,camera);
+  requestAnimationFrame(loop);
+}
+window.addEventListener('resize',function(){resize();layoutPanel();});
+resize();layoutPanel();
+camY=CONFIG.contentTop-worldH/2+40;clampCam();
+gotoStart();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
