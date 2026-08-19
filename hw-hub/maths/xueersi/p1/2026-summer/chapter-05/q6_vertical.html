@@ -74,6 +74,11 @@
   #replayBtn{font:inherit;font-size:18px;font-weight:800;padding:8px 18px;border-radius:10px;
     border:2px solid #0d4f8b;background:#0d6fc4;color:#fff;cursor:pointer;}
   #replayBtn:active{transform:translateY(1px);}
+  /* v4：iPad 冇 keyboard——螢幕按掣（上一步／播放暫停／下一步） */
+  .cbtn{font:inherit;font-size:20px;font-weight:800;padding:8px 15px;border-radius:10px;
+    border:2px solid #9dbcd8;background:#fff;color:#0d4f8b;cursor:pointer;line-height:1;}
+  .cbtn:active{transform:translateY(1px);}
+  #playBtn{background:#eef6ff;min-width:52px;}
   #muteBtn{position:fixed;left:14px;bottom:76px;z-index:60;font-size:19px;width:44px;height:44px;
     border:none;border-radius:50%;cursor:pointer;background:#0066cc;color:#fff;
     box-shadow:0 4px 14px rgba(0,102,204,.4);}
@@ -81,13 +86,15 @@
   #progress{font-size:16px;font-weight:700;color:#3d5c78;}
 
   #panel.floating{right:auto;bottom:auto;width:min(348px,calc(100vw - 16px));}
+  /* v3：iPad 打直——面板預設收起、移去底欄上面，舞台用盡直向空間 */
   @media (max-width:900px){
     #panelSpacer{display:none;}
-    #panel:not(.floating){left:8px;right:8px;top:auto;bottom:8px;width:auto;max-height:40vh;}
+    #panel:not(.floating){left:8px;right:8px;top:auto;bottom:74px;width:auto;max-height:38vh;}
     #topbar h1{font-size:26px;}
     #keys{font-size:15px;}
     #scratch div{font-size:23px;}
-    #mid{padding-bottom:40vh;}
+    #mid{padding-bottom:128px;}
+    #muteBtn{bottom:166px;}
   }
 </style>
 </head>
@@ -96,7 +103,7 @@
 <div id="topbar">
   <h1>拓展練習 6<small>圖案文字直式減法 · 一支筆行晒全程</small></h1>
   <div id="keys">
-    <b>Space</b>播放／暫停　<b>→</b>下一小步　<b>←</b>退回一步　<b>S / Esc</b>停止重置　·　滑鼠滾輪或手指可上下捲動，鏡頭會自動跟住筆尖
+    <b>Space</b>播放／暫停　<b>→</b>下一小步　<b>←</b>退回一步　<b>S / Esc</b>停止重置　·　滑鼠滾輪或手指可上下捲動，鏡頭會自動跟住筆尖　·　iPad 可用下面嘅 ⏮ ▶ ⏭ 按掣
   </div>
 </div>
 
@@ -127,6 +134,9 @@
 </div>
 
 <div id="bottombar">
+  <button id="prevBtn" class="cbtn" title="退回一步（＝鍵盤 ←）">⏮</button>
+  <button id="playBtn" class="cbtn" title="播放／暫停（＝Space）">▶</button>
+  <button id="nextBtn" class="cbtn" title="下一小步（＝鍵盤 →）">⏭</button>
   <button id="replayBtn">🔄 重新播放解題過程</button>
   <div id="progress"></div>
 </div>
@@ -770,6 +780,7 @@ function updatePanel(){
   }
   elProg.textContent='階段 '+(s.phase+1)+' / '+phases.length+'　·　小步 '+(idx+1)+' / '+steps.length+
     (playing?'　▶ 播放中':(finished?'　■ 已完成':'　⏸ 暫停'));
+  playBtn.textContent=playing?'⏸':'▶';   /* v4：播放掣 icon 同步 */
 }
 
 /* =====================================================================
@@ -780,7 +791,9 @@ function resize(){
   const w=stage.clientWidth,h=stage.clientHeight;
   if(w<2||h<2)return;
   renderer.setSize(w,h,false);
-  worldW=(w<700)?CONFIG.worldNarrow:CONFIG.worldWide;
+  /* v3：舞台高過闊（打直）時用足內容全闊 940——worldH 隨之變大，
+     成條直式連答案括號一鏡到底，筆寫答案都唔會推走頂部算式 */
+  worldW=(w<700)?CONFIG.worldNarrow:(h>w?(CONFIG.contentRight-CONFIG.contentLeft):CONFIG.worldWide);
   worldH=worldW*h/w;
   camera.left=-worldW/2;camera.right=worldW/2;camera.top=worldH/2;camera.bottom=-worldH/2;
   camera.updateProjectionMatrix();
@@ -858,6 +871,15 @@ document.addEventListener('keydown',function(e){
 document.getElementById('replayBtn').addEventListener('click',function(){
   if(!AUDIO_READY)return;
   gotoStart();playing=true;this.blur();});
+/* v4：螢幕按掣（iPad 無 keyboard）——功能同 Space／←／→ 完全一致 */
+document.getElementById('prevBtn').addEventListener('click',function(){
+  if(!AUDIO_READY)return;prevStep();this.blur();});
+document.getElementById('playBtn').addEventListener('click',function(){
+  if(!AUDIO_READY)return;
+  if(finished){gotoStart();playing=true;}else playing=!playing;
+  stopAt=null;autoFollow=true;this.blur();});
+document.getElementById('nextBtn').addEventListener('click',function(){
+  if(!AUDIO_READY)return;nextStep();this.blur();});
 
 /* =====================================================================
    面板：可拖曳 · 可摺疊
@@ -891,6 +913,7 @@ head.addEventListener('pointermove',function(e){
 document.getElementById('collapseBtn').addEventListener('click',function(){
   panel.classList.toggle('collapsed');
   this.textContent=panel.classList.contains('collapsed')?'＋':'−';
+  syncMobilePadding();resize();   /* v3：收起／展開即時重算舞台大小 */
   this.blur();
 });
 
@@ -924,8 +947,17 @@ function loop(now){
   renderer.render(scene,camera);
   requestAnimationFrame(loop);
 }
-window.addEventListener('resize',function(){resize();layoutPanel();});
-resize();layoutPanel();
+/* v3：窄幕（電話／iPad）預設收起面板，舞台用盡直向空間；
+   用戶展開面板時 #mid 先加返保留位，鏡頭唔使理面板遮擋 */
+function syncMobilePadding(){
+  const mid=document.getElementById('mid');
+  if(window.innerWidth>900){mid.style.paddingBottom='';return;}
+  mid.style.paddingBottom=panel.classList.contains('collapsed')?'128px':'calc(128px + 38vh)';
+}
+if(window.innerWidth<=900){panel.classList.add('collapsed');
+  document.getElementById('collapseBtn').textContent='＋';}
+window.addEventListener('resize',function(){syncMobilePadding();resize();layoutPanel();});
+syncMobilePadding();resize();layoutPanel();
 camY=CONFIG.contentTop-worldH/2+40;clampCam();
 gotoStart();
 requestAnimationFrame(loop);
