@@ -707,6 +707,13 @@ body.readonly #calArea{padding-bottom:calc(var(--roH, 46px) + 22px)}
 .imgStickBar .isX:hover{border-color:var(--accent);color:var(--accent)}
 /* ===== 📋 待辦 ===== */
 body.readonly .aiTabs button[data-p="todo"]{display:none!important}
+.tdBoxThink{margin-top:6px}
+.tdDbg{margin-top:6px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+.tdDbg summary{cursor:pointer;font-size:11.5px;color:var(--muted);padding:6px 9px;list-style-position:inside}
+.tdDbg[open] summary{border-bottom:1px solid var(--line)}
+.tdDbg pre{margin:0;padding:9px;font-size:11.5px;line-height:1.6;white-space:pre-wrap;
+  word-break:break-word;max-height:300px;overflow:auto;font-family:ui-monospace,Consolas,monospace}
+.tdDbg .lbl{font-size:11px;color:var(--accent);font-weight:700;padding:7px 9px 0}
 #tdPasteArea.dragOver{outline:3px dashed var(--accent);outline-offset:4px;border-radius:10px}
 .tdBox .fname{font-size:11px;color:var(--accent);background:var(--hover);
   border-radius:6px;padding:1px 7px;max-width:46%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1258,7 +1265,6 @@ body.hubOpen{overflow:hidden}
         <button class="btn primary" id="tdGo">▶ 開始拆</button>
         <button class="btn danger" id="tdStop" style="display:none">⏹ 停</button>
       </div>
-      <div id="tdRunThink" style="display:none"></div>
     </div>
     <div id="tdManualArea" style="display:none"></div>
     <div id="tdNoticesArea" style="display:none"></div>
@@ -1468,7 +1474,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-18b";
+const BUILD = "2026-08-18c";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -10175,17 +10181,39 @@ function tdSlimContext(){
 }
 
 async function tdParseOne(text, view){
+  /* ⚠️ 2026-08-18b 之前呢度寫住 return got——錯足七張通告。
+     callAIJSON() 回嘅係一個殼：{json:…, attempt:…, raw:…}，唔係個 object 本身
+     （排程嗰邊一直都寫住 const j = got.json）。所以 got.items 永遠 undefined，
+     Array.isArray(undefined) 係 false，逐張通告都「拆咗 0 件」——
+     而個模型由頭到尾都覆得啱，張張 JSON 都 parse 得到，係我掉咗佢。
+     教訓：一個 helper 回一個殼定回內容，用之前一定要去睇佢點 return，
+     唔好靠個名估。順手將推理同原始回覆一齊帶返出去，等出事嗰陣查得返。 */
   const got = await callAIJSON([
     {role:'system', content:SYS_TODO},
     {role:'user', content: tdSlimContext() + '\n\n【通告全文】\n' + text}
   ], {temp:0.2, max:12000, want:['title10','kind','items'], onDelta:view, longThink:true});
-  return got;
+  return {
+    data:    got.json || {},
+    raw:     String(got.raw || ''),
+    attempt: got.attempt || 1,
+    reason:  String(AI_LAST_REASON || '')
+  };
+}
+
+/* 檔名 → 睇得舒服嘅通告名 */
+function tdTidyName(fname){
+  return String(fname||'')
+    .replace(/^\d{6,8}[ _\-]+/, '')        /* 剝走 20260814_ 呢種前綴 */
+    .replace(/[_]+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim() || String(fname||'');
 }
 
 /* AI 覆返嚟 → 寫入 state。回傳 {notice, items}
    fname：由檔案嚟嘅通告用返個檔名做名（你自己改嘅名一定好過 AI 起嘅），
    貼上嚟嗰啲先由 AI 嘅 title10 起名。 */
-async function tdCommitParse(text, got, fname){
+async function tdCommitParse(text, parsed, fname){
+  const got = (parsed && parsed.data) ? parsed.data : (parsed || {});
   const t = ensureTodo();
   const now = new Date();
   const at = now.toISOString();
@@ -10214,16 +10242,29 @@ async function tdCommitParse(text, got, fname){
   const notice = {
     id:nid, at:at,
     who: (['charlotte','jasmine','both','me'].indexOf(got.who)>=0) ? got.who : null,
-    title: String(fname || got.title10 || ('通告 ' + fmtDate(now))).slice(0,30),
+    /* 檔名做通告名，但要執靚：剝走前面嗰串日期、底線換返空格、上限拉到 40
+       （你啲檔名似 20260814_Circular_of_Student_Handbook，30 字會斬到一半）。 */
+    title: (fname ? tdTidyName(fname) : String(got.title10 || ('通告 ' + fmtDate(now)))).slice(0,40),
     kind: (['todo','info','ad'].indexOf(got.kind)>=0) ? got.kind : 'todo',
     hash: tdHash32(norm), sim: tdSim64(norm), len: norm.length,
     itemIds: items.map(x=>x.id),
     dueMax: items.reduce((m,x)=> (x.due && (!m || x.due>m)) ? x.due : m, null),
     summary: String(got.summary||'').slice(0,120),
+    /* 呢兩個唔入主 state（大嚿），淨係入索引做個記號；正文喺 NoticeCloud */
+    hasDebug: true,
+    attempt: (parsed && parsed.attempt) || 1,
     cloudOK: false
   };
   /* 原文上雲（獨立節點）。上唔到唔炒，但要記低——UI 會顯示「☁ 未上雲」。 */
-  notice.cloudOK = await NoticeCloud.put({id:nid, at:at, who:notice.who, title:notice.title, text:String(text)});
+  /* 原文 ＋ AI 推理 ＋ AI 原始回覆一齊擺喺獨立節點。
+     推理一定要留：出事嗰陣（例如今次「拆咗 0 件」）冇咗佢就完全查唔到邊度衰。 */
+  notice.cloudOK = await NoticeCloud.put({
+    id:nid, at:at, who:notice.who, title:notice.title, text:String(text),
+    reason: (parsed && parsed.reason) || '',
+    raw:    (parsed && parsed.raw) || '',
+    attempt:(parsed && parsed.attempt) || 1,
+    itemCount: items.length
+  });
   t.items = t.items.concat(items);
   t.notices.push(notice);
   save();
@@ -10326,6 +10367,13 @@ function tdAddBox(txt, fname){
   const msg = document.createElement('div');
   msg.className = 'tdBoxMsg'; msg.style.display = 'none';
   box.appendChild(msg);
+  /* 每個框自己一個推理位。
+     ⚠️ 舊寫法係成隊共用一個 #tdRunThink，做第二張就洗走咗第一張嘅推理——
+     你想檢討頭嗰幾張都冇得睇。而家逐張留返，摺埋，撳開就見到。 */
+  const think = document.createElement('div');
+  think.className = 'tdBoxThink';
+  box.appendChild(think);
+  box._think = think;
   host.appendChild(box);
   ta.focus();
   return box;
@@ -10342,6 +10390,30 @@ function tdBoxMsg(box, cls, html){
   m.innerHTML = html || '';
 }
 
+/* 每張通告拆完，喺個框下面掛返 AI 究竟覆咗乜。
+   點解要有：今次七張通告全部「0 件」，你想查都冇得查——推理同原始回覆
+   當時根本冇留低。而家一律留返，摺埋，唔阻眼但撳得開。 */
+function tdAttachDebug(box, notice, parsed){
+  if(!box || !parsed) return;
+  const old = box.querySelector('.tdDbg'); if(old) old.remove();
+  const det = document.createElement('details');
+  det.className = 'tdDbg';
+  const items = ((parsed.data||{}).items)||[];
+  const sm = document.createElement('summary');
+  sm.textContent = '🧠 AI 覆咗乜（推理 ' + String(parsed.reason||'').length + ' 字・回覆 ' +
+                   String(parsed.raw||'').length + ' 字・第 ' + (parsed.attempt||1) + ' 次成功・items ' + items.length + ' 件）';
+  det.appendChild(sm);
+  if(parsed.reason){
+    const l1 = document.createElement('div'); l1.className='lbl'; l1.textContent='內部推理';
+    const p1 = document.createElement('pre'); p1.textContent = parsed.reason;
+    det.appendChild(l1); det.appendChild(p1);
+  }
+  const l2 = document.createElement('div'); l2.className='lbl'; l2.textContent='原始回覆（JSON）';
+  const p2 = document.createElement('pre'); p2.textContent = parsed.raw || '（空）';
+  det.appendChild(l2); det.appendChild(p2);
+  box.appendChild(det);
+}
+
 /* ===== 逐張做 =====
    一張死咗唔准拖冧成隊：標「錯咗」，繼續做下一張，最後個別重試。 */
 async function tdRun(){
@@ -10353,8 +10425,6 @@ async function tdRun(){
   tdRunning = true; tdStopFlag = false;
   $('tdGo').style.display = 'none';
   $('tdStop').style.display = '';
-  const thinkHost = $('tdRunThink');
-  thinkHost.style.display = '';
   let done = 0, made = 0;
   for(let i=0;i<jobs.length;i++){
     const j = jobs[i];
@@ -10374,11 +10444,12 @@ async function tdRun(){
         bt.onclick = async function(){
           if(bt.dataset.a==='skip'){ tdBoxMsg(j.box,'','✅ 跳過咗。'); return; }
           tdBoxMsg(j.box,'run','🤖 拆緊…');
-          const view = makePlanStream(thinkHost);
+          const view = makePlanStream(j.box._think);
           try{
             const got = await tdParseOne(j.text, view);
             view.done();
             const r = await tdCommitParse(j.text, got, j.box._fname);
+            tdAttachDebug(j.box, r.notice, got);
             tdBoxMsg(j.box,'ok','✅ ' + esc(r.notice.title) + '：拆咗 ' + r.items.length + ' 件。');
             renderTodo();
           }catch(e){ view.fail(); tdBoxMsg(j.box,'err','❌ ' + esc(e.message||String(e)) +
@@ -10388,15 +10459,20 @@ async function tdRun(){
       continue;
     }
     tdBoxMsg(j.box, 'run', '🤖 第 ' + (i+1) + '／' + jobs.length + ' 張，拆緊…');
-    const view = makePlanStream(thinkHost);
+    const view = makePlanStream(j.box._think);
     try{
       const got = await tdParseOne(j.text, view);
       view.done();
       const r = await tdCommitParse(j.text, got, j.box._fname);
+      tdAttachDebug(j.box, r.notice, got);
       made += r.items.length;
       let note = '✅ ' + esc(r.notice.title) + '：';
       if(r.notice.kind==='ad')       note += '睇落係賣廣告，冇嘢要做。';
       else if(r.notice.kind==='info')note += '純資訊，冇嘢要做。';
+      else if(!r.items.length)
+        /* 標成 todo 但一件都拆唔到＝有古怪，唔好靜靜雞報個 0 就算，
+           叫佢即刻撳開下面個 🧠 睇 AI 究竟覆咗乜。 */
+        note += '<span class="cloudBad">⚠ 標咗「有嘢要做」但一件都拆唔到——撳下面「🧠 AI 覆咗乜」睇下佢原本回咗啲乜。</span>';
       else                            note += '拆咗 ' + r.items.length + ' 件。';
       if(!r.notice.cloudOK) note += '<span class="cloudBad">　☁ 原文上唔到雲（Firebase rules 未加？），淨係本機。</span>';
       tdBoxMsg(j.box, 'ok', note);
@@ -10407,11 +10483,12 @@ async function tdRun(){
       (function(job){
         job.box.querySelector('.td-retry').onclick = async function(){
           tdBoxMsg(job.box,'run','🤖 再試緊…');
-          const v2 = makePlanStream(thinkHost);
+          const v2 = makePlanStream(job.box._think);
           try{
             const got2 = await tdParseOne(job.text, v2);
             v2.done();
             const r2 = await tdCommitParse(job.text, got2, job.box._fname);
+            tdAttachDebug(job.box, r2.notice, got2);
             tdBoxMsg(job.box,'ok','✅ ' + esc(r2.notice.title) + '：拆咗 ' + r2.items.length + ' 件。');
             renderTodo();
           }catch(e2){ v2.fail(); tdBoxMsg(job.box,'err','❌ 又係唔得：' + esc(e2.message||String(e2))); }
@@ -10680,6 +10757,37 @@ async function tdNotices(){
         row.parentNode.insertBefore(d, row.nextSibling);
       } else toast('攞唔到原文' + (NoticeCloud.lastError ? '：'+NoticeCloud.lastError : '（雲端冇呢張）'));
     };
+    /* 🧠：由雲端攞返嗰次嘅推理同原始回覆。冇雲端就冇得睇——會照直講。 */
+    const brain = document.createElement('button');
+    brain.className='mini'; brain.textContent='🧠';
+    brain.title='睇 AI 當時點諗、覆咗乜';
+    brain.onclick = async function(){
+      const nx = row.nextSibling;
+      if(nx && nx.className==='tdDbgWrap'){ nx.remove(); return; }
+      brain.textContent='…';
+      const rec = await NoticeCloud.get(nt);
+      brain.textContent='🧠';
+      const d = document.createElement('div');
+      d.className='tdDbgWrap';
+      if(!rec){ d.innerHTML = '<p class="subnote">攞唔到' +
+        (NoticeCloud.lastError ? '：'+esc(NoticeCloud.lastError) : '（雲端冇呢張——可能係加 Firebase rules 之前貼嘅）') + '</p>'; }
+      else {
+        const det = document.createElement('details');
+        det.className='tdDbg'; det.open = true;
+        det.innerHTML = '<summary>🧠 ' + esc(nt.title) + '（推理 ' + String(rec.reason||'').length +
+          ' 字・回覆 ' + String(rec.raw||'').length + ' 字・第 ' + (rec.attempt||1) + ' 次成功・拆咗 ' +
+          (rec.itemCount==null?'?':rec.itemCount) + ' 件）</summary>';
+        if(rec.reason){
+          const l=document.createElement('div'); l.className='lbl'; l.textContent='內部推理';
+          const p=document.createElement('pre'); p.textContent=rec.reason; det.appendChild(l); det.appendChild(p);
+        }
+        const l2=document.createElement('div'); l2.className='lbl'; l2.textContent='原始回覆（JSON）';
+        const p2=document.createElement('pre'); p2.textContent=rec.raw||'（當時冇留低）';
+        det.appendChild(l2); det.appendChild(p2);
+        d.appendChild(det);
+      }
+      row.parentNode.insertBefore(d, row.nextSibling);
+    };
     const del = document.createElement('button');
     del.className='mini'; del.textContent='✕';
     del.onclick = async function(){
@@ -10693,14 +10801,95 @@ async function tdNotices(){
       save(); tdNotices(); renderTodo();
     };
     row.appendChild(nm); row.appendChild(meta); row.appendChild(cloud);
-    row.appendChild(view); row.appendChild(del);
+    row.appendChild(view); row.appendChild(brain); row.appendChild(del);
     host.appendChild(row);
   });
   const back = document.createElement('div');
   back.className='aiBar'; back.style.marginTop='10px';
-  back.innerHTML = '<button class="btn" id="tdNoticesBack">返去清單</button>';
+  back.innerHTML = '<button class="btn" id="tdNoticesBack">返去清單</button>' +
+                   '<span style="flex:1"></span>' +
+                   '<button class="btn" id="tdExport">⬇ 匯出分析記錄</button>';
   host.appendChild(back);
   $('tdNoticesBack').onclick = ()=>{ tdPaneShow(''); renderTodo(); };
+  $('tdExport').onclick = tdExport;
+}
+
+/* ===== ⬇ 匯出分析記錄 =====
+   一張通告一節：原文、AI 推理、AI 原始回覆、拆咗乜。
+   用途好明確——校 SYS_TODO 嗰陣要對住實例改，同校 PERSONA_KID 一模一樣。 */
+async function tdExport(){
+  const t = ensureTodo();
+  if(!t.notices.length){ toast('未有通告'); return; }
+  const btn = $('tdExport');
+  if(btn){ btn.disabled = true; btn.textContent = '⬇ 攞緊…'; }
+  const L = [];
+  L.push('# 📋 待辦・通告分析記錄');
+  L.push('');
+  L.push('匯出時間：' + fmtDate(new Date()) + ' ' + fmtTime(new Date()) + '　｜　BUILD `' + BUILD + '`');
+  L.push('通告 ' + t.notices.length + ' 張，事項 ' + t.items.length + ' 件。');
+  L.push('');
+  L.push('> 每張分四節：通告原文、AI 內部推理、AI 原始回覆（JSON）、實際拆出嚟嘅事項。');
+  L.push('> 想校個 prompt，就搵拆得唔啱嗰張，對住「原始回覆」睇佢究竟出咗乜。');
+  L.push('');
+  L.push('---');
+  L.push('');
+  L.push('## SYS_TODO（今次用緊嘅 prompt）');
+  L.push('');
+  L.push('```');
+  L.push(SYS_TODO);
+  L.push('```');
+  L.push('');
+  for(let i = t.notices.length - 1; i >= 0; i--){
+    const nt = t.notices[i];
+    const its = t.items.filter(x=>x.noticeId===nt.id);
+    L.push('---');
+    L.push('');
+    L.push('## ' + nt.title);
+    L.push('');
+    L.push('- 貼落嚟：' + String(nt.at||'').slice(0,10) +
+           '　｜　邊個：' + (tdWhoName(nt.who)||'—') +
+           '　｜　分類：' + nt.kind +
+           '　｜　第 ' + (nt.attempt||1) + ' 次成功' +
+           '　｜　拆咗 ' + its.length + ' 件');
+    if(nt.summary) L.push('- AI 一句總結：' + nt.summary);
+    L.push('');
+    const rec = await NoticeCloud.get(nt);
+    L.push('### 通告原文');
+    L.push('');
+    L.push('```');
+    L.push((rec && rec.text) ? rec.text : '（攞唔到——雲端冇呢張，可能係加 Firebase rules 之前貼嘅）');
+    L.push('```');
+    L.push('');
+    L.push('### AI 內部推理');
+    L.push('');
+    L.push('```');
+    L.push((rec && rec.reason) ? rec.reason : '（當時冇留低，或者個模型今次冇出推理）');
+    L.push('```');
+    L.push('');
+    L.push('### AI 原始回覆（JSON）');
+    L.push('');
+    L.push('```json');
+    L.push((rec && rec.raw) ? rec.raw : '（當時冇留低）');
+    L.push('```');
+    L.push('');
+    L.push('### 實際拆出嚟');
+    L.push('');
+    if(!its.length){ L.push('（一件都冇）'); }
+    else its.forEach(function(x){
+      L.push('- **' + x.title + '**');
+      L.push('  - 死線 ' + (x.due||'冇') + '　開工日 ' + (tdStart(x)||'—') +
+             '　預留 ' + (x.leadDays==null?'?':x.leadDays) + ' 日（' + x.leadWhy + '）' +
+             '　四象限 ' + (x.quad||'—') + '　邊個 ' + (tdWhoName(x.who)||'—'));
+      if(x.why) L.push('  - AI 點解咁判：' + x.why);
+    });
+    L.push('');
+  }
+  if(btn){ btn.disabled = false; btn.textContent = '⬇ 匯出分析記錄'; }
+  const name = '待辦通告分析_' + fmtDate(new Date()).replace(/-/g,'') + '.md';
+  try{
+    const how = await saveTextFile(name, L.join('\n'));
+    toast(how==='picked' ? '匯出咗' : '下載咗 ' + name);
+  }catch(e){ toast('匯出失敗：' + (e.message||e)); }
 }
 
 /* ===== 🧹 執一執（純本機規矩，唔使錢；三類逐項剔） ===== */
