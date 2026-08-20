@@ -745,6 +745,18 @@ body.readonly .aiTabs button[data-p="todo"]{display:none!important}
 .tdRow .tdSub{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.55}
 .tdRow .tdSub .lateTxt{color:var(--overdue);font-weight:700}
 .tdRow .tdSub .warn{color:var(--q-amber)}
+.tdRow .tdSrc{font-size:11.5px;color:var(--muted);margin-top:4px}
+.tdRow .tdSrc .lnk{color:var(--accent);cursor:pointer;text-decoration:underline dotted}
+.tdRow .tdSrc .lnk:hover{text-decoration:underline}
+.tdNoticeItems{margin:2px 0 10px 26px;padding:8px 11px;border-left:3px solid var(--accent);
+  background:var(--panel);border-radius:0 8px 8px 0;font-size:12.5px;line-height:1.75}
+.tdNoticeItems .ni{display:flex;gap:7px;align-items:baseline;margin:3px 0}
+.tdNoticeItems .ni .st{flex:0 0 auto;font-size:11px;color:var(--muted)}
+.tdNoticeItems .ni .tx{flex:1;min-width:0}
+.tdNoticeItems .ni .dt{flex:0 0 auto;font-size:11px;color:var(--muted)}
+.tdNoticeItems .none{color:var(--muted)}
+.tdAiSum{padding:9px;font-size:12.5px;line-height:1.8}
+.tdAiSum .k{color:var(--accent);font-weight:700}
 .tdRow .tdActs{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap;align-items:center}
 .tdRow .tdActs .btn{padding:4px 10px;font-size:12px}
 .tdStBtns{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
@@ -1489,7 +1501,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-21a";
+const BUILD = "2026-08-21b";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -10159,7 +10171,23 @@ function tdMinus(dateStr, days){
 }
 function tdStart(it, _seen){
   if(!it) return null;
-  if(it.due) return tdMinus(it.due, tdLeadOf(it));
+  if(it.due){
+    let st = tdMinus(it.due, tdLeadOf(it));
+    /* ⚠️ 一件前置嘅開工日，唔可以遲過佢塞住嗰件。
+       實際出過事：「查返 Jasmine 班別學號」死線 10/05、開工 9/30，
+       但佢塞住嘅「出席茶聚」開工日係 9/29——即係個清單叫你 9/29 去出席，
+       而查班別要 9/30 先開始，前後倒轉。撞到就跟返後面嗰件，早一日開工。 */
+    const seen = _seen || {};
+    if(!seen[it.id]){
+      seen[it.id] = 1;
+      ensureTodo().items.forEach(function(x){
+        if(x.blockedBy !== it.id || x.status === 'done') return;
+        const ds = tdStart(x, seen);
+        if(ds && ds <= st) st = tdMinus(ds, 1);
+      });
+    }
+    return st;
+  }
   /* 防環：A 塞住 B、B 又塞住 A 呢種爛資料唔可以拖死成個 render */
   const seen = _seen || {};
   if(seen[it.id]) return null;
@@ -10301,6 +10329,17 @@ function tdSlimContext(){
   const t = ensureTodo();
   const L = [];
   L.push('【今日】' + fmtDate(new Date()));
+  /* ⚠️ 用戶將「Jasmine 讀邊班、學號幾多」呢類嘢寫咗喺 General Rules，
+     但拆通告嗰條線本來完全睇唔到,所以茶聚嗰張要另外出一件「去查返班別學號」，
+     其實答案一早就喺屋企個 app 入面。傾偈嗰邊（ctxText）一早已經餵緊，
+     呢邊漏咗。General Rules 通常唔長，照餵。 */
+  const _gr = String((state.ai||{}).rules||'').trim();
+  if(_gr){
+    L.push('【General Rules ── 家長寫低嘅屋企實情，最高優先，一定要用】');
+    L.push(_gr);
+    L.push('（如果上面已經答到通告入面某個問題,例如邊班、學號、邊個時段,');
+    L.push('　就直接用，唔好再出一件叫家長去查嘅事。）');
+  }
   L.push('【預留時間表】（leadWhy 只准由呢度揀）');
   t.lead.forEach(x=>L.push('  ' + x.k + ' = ' + x.name + '（' + x.days + ' 日）' +
                            (x.eg ? '　例：' + x.eg : '')));
@@ -10481,6 +10520,7 @@ function makePlanStream(host){
 /* ---------- 📋 待辦 UI ---------- */
 let tdQueue = [];        /* [{text, state:'wait|dup|sim|run|ok|err|skip', msg, dup}] */
 let tdSel = {};          /* 匯出揀咗邊幾張：{noticeId:true} */
+let tdOpenNotice = '';   /* 通告清單度攤開咗邊張 */
 let tdRunning = false, tdStopFlag = false;
 
 function tdPaneShow(which){
@@ -10536,6 +10576,28 @@ function tdBoxMsg(box, cls, html){
   m.innerHTML = html || '';
 }
 
+/* 將 AI 嗰嚿 JSON 譯返做人話。用戶原話：「一大堆 JSON 格式嘅嘢，我好難睇㗎嘛」。
+   Raw JSON 唔會刪,佢仲係校 prompt 最準嘅材料,但收埋落多一層。 */
+function tdHumanReply(data){
+  const d = data || {};
+  const L = [];
+  L.push('<div><span class="k">通告名</span>：' + esc(d.title10 || '（冇）') + '</div>');
+  L.push('<div><span class="k">關於邊個</span>：' + esc(tdWhoName(d.who) || '判唔到') +
+         '　<span class="k">分類</span>：' + esc(d.kind==='ad'?'賣廣告':d.kind==='info'?'純資訊':'有嘢要做') + '</div>');
+  if(d.summary) L.push('<div><span class="k">一句總結</span>：' + esc(d.summary) + '</div>');
+  const its = Array.isArray(d.items) ? d.items : [];
+  L.push('<div style="margin-top:6px"><span class="k">拆咗 ' + its.length + ' 件</span>：</div>');
+  if(!its.length) L.push('<div style="margin-left:14px;color:var(--muted)">（冇）</div>');
+  its.forEach(function(r, i){
+    L.push('<div style="margin:5px 0 0 14px">' + (i+1) + '. ' + esc(r.title||'（冇標題）') + '</div>');
+    L.push('<div style="margin-left:28px;color:var(--muted);font-size:11.5px">死線 ' +
+           esc(r.due || '冇') + '　類型 ' + esc(r.leadWhy || '?') +
+           '　象限 ' + esc(r.quad || '—') + '　關於 ' + esc(tdWhoName(r.who) || '—') + '</div>');
+    if(r.why) L.push('<div style="margin-left:28px;color:var(--muted);font-size:11.5px">↳ ' + esc(r.why) + '</div>');
+  });
+  return L.join('');
+}
+
 /* 每張通告拆完，喺個框下面掛返 AI 究竟覆咗乜。
    點解要有：今次七張通告全部「0 件」，你想查都冇得查——推理同原始回覆
    當時根本冇留低。而家一律留返，摺埋，唔阻眼但撳得開。 */
@@ -10549,14 +10611,22 @@ function tdAttachDebug(box, notice, parsed){
   sm.textContent = '🧠 AI 覆咗乜（推理 ' + String(parsed.reason||'').length + ' 字・回覆 ' +
                    String(parsed.raw||'').length + ' 字・第 ' + (parsed.attempt||1) + ' 次成功・items ' + items.length + ' 件）';
   det.appendChild(sm);
+  /* 人話擺最前 */
+  const lh = document.createElement('div'); lh.className='lbl'; lh.textContent='AI 覆咗（人話版）';
+  const ph = document.createElement('div'); ph.className='tdAiSum';
+  ph.innerHTML = tdHumanReply(parsed.data);
+  det.appendChild(lh); det.appendChild(ph);
   if(parsed.reason){
     const l1 = document.createElement('div'); l1.className='lbl'; l1.textContent='內部推理';
     const p1 = document.createElement('pre'); p1.textContent = parsed.reason;
     det.appendChild(l1); det.appendChild(p1);
   }
-  const l2 = document.createElement('div'); l2.className='lbl'; l2.textContent='原始回覆（JSON）';
+  /* Raw JSON 收埋多一層:校 prompt 先至要，日常唔使睇 */
+  const d2 = document.createElement('details');
+  d2.innerHTML = '<summary style="cursor:pointer;font-size:11px;color:var(--muted);padding:6px 9px">原始回覆（JSON）</summary>';
   const p2 = document.createElement('pre'); p2.textContent = parsed.raw || '（空）';
-  det.appendChild(l2); det.appendChild(p2);
+  d2.appendChild(p2);
+  det.appendChild(d2);
   box.appendChild(det);
 }
 
@@ -10700,6 +10770,23 @@ function tdRowEl(it, today){
   if(it.status==='done' && it.doneAt) bits.push('完成於 ' + it.doneAt);
   sub.innerHTML = bits.join(' · ');
   row.appendChild(sub);
+  /* 出自邊張通告。冇呢行，個清單就係一堆孤兒事項——
+     用戶原話：「佢個 source 係乜嘢，我睇唔到，亦都查唔到」。 */
+  const _nt = it.noticeId ? t.notices.filter(y=>y.id===it.noticeId)[0] : null;
+  const src = document.createElement('div');
+  src.className = 'tdSrc';
+  if(_nt){
+    src.innerHTML = '📄 <span class="lnk">' + esc(_nt.title) + '</span>';
+    src.title = '撳一下去睇呢張通告（原文、AI 點諗、拆咗邊幾件）';
+    src.querySelector('.lnk').onclick = function(e){
+      e.stopPropagation();
+      tdOpenNotice = it.noticeId;
+      tdNotices();
+    };
+  } else {
+    src.innerHTML = '✍️ <span class="muted">手動加</span>';
+  }
+  row.appendChild(src);
   const acts = document.createElement('div');
   acts.className = 'tdActs';
   acts.appendChild(tdStatusBtns(it));
@@ -10879,14 +10966,19 @@ async function tdNotices(){
     };
     row.appendChild(pick);
     const nm = document.createElement('span'); nm.className='nm';
-    nm.textContent = nt.title;
-    nm.title = '撳一下改名';
+    nm.innerHTML = '<span class="caret">' + (tdOpenNotice===nt.id ? '▾' : '▸') + '</span> ' + esc(nt.title);
+    nm.title = '撳一下睇佢拆咗邊幾件事（雙撳改名）';
     nm.style.cursor = 'pointer';
     nm.onclick = function(){
+      tdOpenNotice = (tdOpenNotice===nt.id) ? '' : nt.id;
+      tdNotices();
+    };
+    nm.ondblclick = function(e){
+      e.stopPropagation();
       const inp = document.createElement('input');
       inp.type='text'; inp.value = nt.title; inp.style.cssText='flex:1;min-width:140px;padding:4px 6px';
       row.replaceChild(inp, nm);
-      inp.focus();
+      inp.focus(); inp.select();
       inp.onblur = inp.onchange = function(){
         nt.title = inp.value.trim() || nt.title;
         save(); tdNotices();
@@ -10936,13 +11028,22 @@ async function tdNotices(){
         det.innerHTML = '<summary>🧠 ' + esc(nt.title) + '（推理 ' + String(rec.reason||'').length +
           ' 字・回覆 ' + String(rec.raw||'').length + ' 字・第 ' + (rec.attempt||1) + ' 次成功・拆咗 ' +
           (rec.itemCount==null?'?':rec.itemCount) + ' 件）</summary>';
+        /* 人話版擺最前。raw JSON 收埋落第二層。 */
+        let _d = null;
+        try{ _d = JSON.parse(String(rec.raw||'')); }catch(e){}
+        if(_d){
+          const lh=document.createElement('div'); lh.className='lbl'; lh.textContent='AI 覆咗（人話版）';
+          const ph=document.createElement('div'); ph.className='tdAiSum'; ph.innerHTML=tdHumanReply(_d);
+          det.appendChild(lh); det.appendChild(ph);
+        }
         if(rec.reason){
           const l=document.createElement('div'); l.className='lbl'; l.textContent='內部推理';
           const p=document.createElement('pre'); p.textContent=rec.reason; det.appendChild(l); det.appendChild(p);
         }
-        const l2=document.createElement('div'); l2.className='lbl'; l2.textContent='原始回覆（JSON）';
+        const dd=document.createElement('details');
+        dd.innerHTML='<summary style="cursor:pointer;font-size:11px;color:var(--muted);padding:6px 9px">原始回覆（JSON）</summary>';
         const p2=document.createElement('pre'); p2.textContent=rec.raw||'（當時冇留低）';
-        det.appendChild(l2); det.appendChild(p2);
+        dd.appendChild(p2); det.appendChild(dd);
         d.appendChild(det);
       }
       row.parentNode.insertBefore(d, row.nextSibling);
@@ -10962,6 +11063,43 @@ async function tdNotices(){
     row.appendChild(nm); row.appendChild(meta); row.appendChild(cloud);
     row.appendChild(view); row.appendChild(brain); row.appendChild(del);
     host.appendChild(row);
+    /* 攤開:呢張通告究竟拆咗邊幾件事。用戶原話：「每一張通告，佢拆咗邊幾個行動事項，我又 check 唔到」。 */
+    if(tdOpenNotice === nt.id){
+      const box = document.createElement('div');
+      box.className = 'tdNoticeItems';
+      if(nt.summary){
+        const sm = document.createElement('div');
+        sm.style.cssText = 'margin-bottom:6px;color:var(--muted)';
+        sm.textContent = '「' + nt.summary + '」';
+        box.appendChild(sm);
+      }
+      if(!its.length){
+        const p = document.createElement('div'); p.className='none';
+        p.textContent = nt.kind==='ad' ? '（AI 判斷係賣廣告，冇嘢要做）'
+                      : nt.kind==='info' ? '（AI 判斷係純資訊，冇嘢要做）'
+                      : '（一件都拆唔到,撳 🧠 睇下 AI 究竟覆咗乜）';
+        box.appendChild(p);
+      }
+      its.forEach(function(x){
+        const li = document.createElement('div'); li.className='ni';
+        const st = document.createElement('span'); st.className='st';
+        st.textContent = x.status==='done' ? '✅' : x.status==='doing' ? '🔸' : '☐';
+        const tx = document.createElement('span'); tx.className='tx';
+        tx.textContent = x.title;
+        const dt = document.createElement('span'); dt.className='dt';
+        const _s = tdStart(x);
+        dt.textContent = x.due ? ('死線 ' + x.due + '　開工 ' + (_s||'—')) : '冇死線';
+        li.appendChild(st); li.appendChild(tx); li.appendChild(dt);
+        box.appendChild(li);
+        if(x.why){
+          const w = document.createElement('div');
+          w.style.cssText = 'margin:0 0 5px 26px;color:var(--muted);font-size:11.5px';
+          w.textContent = '↳ ' + x.why;
+          box.appendChild(w);
+        }
+      });
+      host.appendChild(box);
+    }
   });
   const back = document.createElement('div');
   back.className='aiBar'; back.style.marginTop='10px';
