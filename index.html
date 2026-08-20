@@ -1489,7 +1489,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-20b";
+const BUILD = "2026-08-21a";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -10245,38 +10245,42 @@ const SYS_TODO = [
 '       同時喺 why 第一句寫明「死線由通告入面『……』推返出嚟」。',
 '       例：通告話 9 月 1 日開學、每日供應茶點、請帶備貼咗名嘅有蓋水杯——買水杯呢件事嘅死線就係 8 月 31。',
 '       例：通告話 8 月 28 日第一次生日會，當日唔使着校服要帶書包——嗰件事嘅死線就係 8 月 28。',
-'   (c) 通告俾咗幾個可能日子（例如按班別、按學號分開），而你唔知佢屬於邊一組：',
-'       揀最早嗰個做 due，喺 why 寫明「通告分咗幾組日子，呢個係最早嗰個，請自己確認返」，',
-'       同時另出一件事叫家長去查返自己屬於邊一組。',
-'       實際出過事：茶聚通告分咗 PNA 1-14／15-28、PNB…共四組日子（6/10、7/10、12/10、13/10），',
-'       你出咗「出席 10 月家長茶聚」但 due 出 null，於是件事跌咗落「冇死線」度，永遠唔會提佢。',
-'   (d) 通告完全冇任何日子可以推——due 出 null。',
+'   (c) 通告完全冇任何日子可以推——due 出 null。',
 '   (b) 唔算作嘢：個日子係通告白紙黑字寫住嘅。真正唔准嘅係由通告以外憑空砌一個日子。',
 '   同一句嘢入面嘅死線，要罩住成句。例：「請填妥以下頁數並於 8 月 17 日或以前交回」——',
 '   「填妥」同「交回」兩件事都係 8 月 17，唔准淨係俾後半句。',
-'2) 估唔到嗰件事屬於邊一類，leadWhy 出 "unknown"。唔准夾硬揀。',
-'3) who ＝ 呢件事關於邊個小朋友，唔係「邊個做」。做嘅人幾乎一定係家長本人，唔好用呢欄講。',
+'2) 【呢條寫低咗一次仲係跟唔到，所以獨立擺喺呢度】通告俾咗幾個可能日子',
+'   （例如按班別、按學號、按組別分開），而你唔知家長屬於邊一組：',
+'   **唔准因為「唔知邊日適用」就出 null。**要做嘅係揀最早嗰個做 due，',
+'   喺 why 寫明「通告分咗幾組日子，呢個係最早嗰個，請自己確認返」，',
+'   同時另出一件事叫家長去查返自己屬於邊一組（例：查返 Jasmine 嘅班別同學號）。',
+'   實際出過事：茶聚通告分咗四組日子（6/10、7/10、12/10、13/10 按班別學號分），',
+'   你喺推理度寫「通告冇講明邊日適用，所以死線出唔到」，於是「出席 10 月家長茶聚」',
+'   due 出咗 null，件事跌咗落「冇死線」區，個 app 由頭到尾都唔會提佢,',
+'   即係等於冇拆過呢件事。一個「大約嘅早日子 ＋ 叫你去查」永遠好過一個 null。',
+'3) 估唔到嗰件事屬於邊一類，leadWhy 出 "unknown"。唔准夾硬揀。',
+'4) who ＝ 呢件事關於邊個小朋友，唔係「邊個做」。做嘅人幾乎一定係家長本人，唔好用呢欄講。',
 '   charlotte／jasmine／both／me（純粹家長自己嘅事、同小朋友冇關，例如做家長委員）／null（判唔到，唔准估）。',
 '   同一張通告入面唔准一時 jasmine 一時 me——除非件事真係唔關個小朋友事。',
 '   例：「填妥流感針同意書」係 jasmine（關於佢），唔係 me；「報名做家校小組委員」先係 me。',
-'4) 每件 item 要動詞開頭、一句講一件事，而且要有「做完」嗰一刻——做完之後剔得走。',
+'5) 每件 item 要動詞開頭、一句講一件事，而且要有「做完」嗰一刻——做完之後剔得走。',
 '   「準備旅行」唔算，要拆到「簽回條」「入錢落八達通」呢種細度。',
 '   「謹記……」「記住……」「注意……」「唔好……」呢啲係規矩唔係事，永遠剔唔走，一律唔准做 item，',
 '   要講就寫入 summary。例：「謹記唔好託老師轉送禮物」「謹記茶聚唔准影相」——兩樣都唔係 item。',
 '   「留意……」淨係喺有明確日子同對象嗰陣先算數（例：「留意 11 月 12 日前 eclass 第二針通知」算；',
 '   「留意學校 app 通知」唔算）。',
-'5) 有先後次序嘅（例如影完相先貼得落回條），用 seq 排次序，冇次序嘅全部 seq 出 1。',
-'6) 死線已經過咗嘅照出，唔准靜靜雞略過。',
-'7) 純資訊、冇嘢要做嘅通告，kind 出 "info"，items 出空 array。賣廣告嘅 kind 出 "ad"。',
-'8) title10 係你幫張通告起嘅名：十個字左右，家長一眼認得返係邊張（例：秋季旅行通告、校服訂購通知）。',
-'9) leadWhy 只准由 context 俾你嗰個表入面揀，唔准自己發明新類型。',
-'10) 同一張通告入面唔准出兩件講緊同一個動作嘅事。',
+'6) 有先後次序嘅（例如影完相先貼得落回條），用 seq 排次序，冇次序嘅全部 seq 出 1。',
+'7) 死線已經過咗嘅照出，唔准靜靜雞略過。',
+'8) 純資訊、冇嘢要做嘅通告，kind 出 "info"，items 出空 array。賣廣告嘅 kind 出 "ad"。',
+'9) title10 係你幫張通告起嘅名：十個字左右，家長一眼認得返係邊張（例：秋季旅行通告、校服訂購通知）。',
+'10) leadWhy 只准由 context 俾你嗰個表入面揀，唔准自己發明新類型。',
+'11) 同一張通告入面唔准出兩件講緊同一個動作嘅事。',
 '    實際出過事：點讀筆嗰張你同時出咗「按包裝盒內小冊子為點讀筆更新檔案」同',
 '    「連接 Windows 電腦為點讀筆更新檔案」——同一件事講咗兩次。要嘛合埋一件，',
 '    要嘛講清楚兩者做嘅嘢唔同。',
-'11) 如果件事同 context 入面「已經有嘅未完成事項」講緊同一件嘢，照出，但喺 why 第一句寫',
+'12) 如果件事同 context 入面「已經有嘅未完成事項」講緊同一件嘢，照出，但喺 why 第一句寫',
 '    「⚠ 同已有事項重複：（嗰件嘢個名）」，等家長自己揀刪邊件。唔准靜靜雞略過。',
-'12) 只准輸出 JSON，唔准有任何其他文字。',
+'13) 只准輸出 JSON，唔准有任何其他文字。',
 '',
 '輸出格式：',
 '{',
@@ -10332,6 +10336,14 @@ async function tdParseOne(text, view){
     reason:  String(AI_LAST_REASON || '')
   };
 }
+
+/* ⚠️ nt.at 係 new Date().toISOString()，即係 UTC。
+   直接 String(nt.at).slice(0,10) 出嚟嘅係 UTC 日期——香港夜晚八點之後貼嘅嘢，
+   會顯示成前一日。個檔本身早就有 fmtStamp() 處理呢件事（連段註解都寫咗），
+   但我寫待辦嗰陣冇用佢，照樣 slice 咗。
+   實際出過事：用戶 8 月 21 日凌晨貼咗兩張通告，顯示成 8 月 20 日，
+   同其餘 15 張（真係 8 月 20 貼）撞晒，我就當咗佢成批重貼，分析走錯咗方向。 */
+function tdDay(iso){ return fmtStamp(iso).slice(0,10) || String(iso||'').slice(0,10); }
 
 /* 檔名 → 睇得舒服嘅通告名 */
 function tdTidyName(fname){
@@ -10468,6 +10480,7 @@ function makePlanStream(host){
 
 /* ---------- 📋 待辦 UI ---------- */
 let tdQueue = [];        /* [{text, state:'wait|dup|sim|run|ok|err|skip', msg, dup}] */
+let tdSel = {};          /* 匯出揀咗邊幾張：{noticeId:true} */
 let tdRunning = false, tdStopFlag = false;
 
 function tdPaneShow(which){
@@ -10569,7 +10582,7 @@ async function tdRun(){
       const open = ensureTodo().items.filter(x=>x.noticeId===nt.id && x.status!=='done');
       tdBoxMsg(j.box, 'dup',
         '📄 ' + (dup.kind==='exact' ? '呢張你貼過' : '呢張同你之前貼嗰張好似') +
-        '（' + (nt.at||'').slice(0,10) + '・' + esc(nt.title) + '）' +
+        '（' + tdDay(nt.at) + '・' + esc(nt.title) + '）' +
         (open.length ? '，仲有 ' + open.length + ' 件未做完' : '，嗰批全部做晒') + '。' +
         '<div style="margin-top:5px"><button class="btn" data-a="skip">唔使拆喇</button> ' +
         '<button class="btn" data-a="force">照樣當新嘅拆</button></div>');
@@ -10854,6 +10867,17 @@ async function tdNotices(){
     row.className = 'tdNotice';
     const its = t.items.filter(x=>x.noticeId===nt.id);
     const open = its.filter(x=>x.status!=='done').length;
+    /* 剔嚟揀邊幾張匯出。用戶講過：重拆咗兩張想淨係匯出嗰兩張俾人睇，
+       但匯出一撳就成十七張一齊出。 */
+    const pick = document.createElement('input');
+    pick.type = 'checkbox';
+    pick.checked = !!tdSel[nt.id];
+    pick.title = '揀咗嘅先匯出';
+    pick.onchange = ()=>{
+      if(pick.checked) tdSel[nt.id] = true; else delete tdSel[nt.id];
+      tdExportLabel();
+    };
+    row.appendChild(pick);
     const nm = document.createElement('span'); nm.className='nm';
     nm.textContent = nt.title;
     nm.title = '撳一下改名';
@@ -10869,7 +10893,7 @@ async function tdNotices(){
       };
     };
     const meta = document.createElement('span'); meta.className='meta';
-    meta.textContent = (nt.at||'').slice(0,10) + '　' + tdWhoName(nt.who) +
+    meta.textContent = tdDay(nt.at) + '　' + tdWhoName(nt.who) +
       (nt.kind==='ad' ? '　廣告' : nt.kind==='info' ? '　純資訊' : '') +
       '　' + its.length + ' 件' + (open ? '（' + open + ' 未完）' : its.length ? '（全完成）' : '');
     const cloud = document.createElement('span');
@@ -10942,27 +10966,44 @@ async function tdNotices(){
   const back = document.createElement('div');
   back.className='aiBar'; back.style.marginTop='10px';
   back.innerHTML = '<button class="btn" id="tdNoticesBack">返去清單</button>' +
+                   '<button class="btn" id="tdSelNone">全部唔剔</button>' +
                    '<span style="flex:1"></span>' +
                    '<button class="btn" id="tdExport">⬇ 匯出分析記錄</button>';
   host.appendChild(back);
   $('tdNoticesBack').onclick = ()=>{ tdPaneShow(''); renderTodo(); };
+  $('tdSelNone').onclick = ()=>{ tdSel = {}; tdNotices(); };
   $('tdExport').onclick = tdExport;
+  tdExportLabel();
 }
 
 /* ===== ⬇ 匯出分析記錄 =====
    一張通告一節：原文、AI 推理、AI 原始回覆、拆咗乜。
    用途好明確——校 SYS_TODO 嗰陣要對住實例改，同校 PERSONA_KID 一模一樣。 */
+/* 兩粒匯出掣嘅字要跟住揀咗幾多張變,唔係用戶唔知自己撳落去會出乜。 */
+function tdExportLabel(){
+  const n = Object.keys(tdSel).length;
+  const txt = n ? ('⬇ 匯出揀咗嘅 ' + n + ' 張') : '⬇ 匯出分析記錄';
+  [$('tdExport'), $('tdExportTop')].forEach(b=>{ if(b && !b.disabled) b.textContent = txt; });
+}
 async function tdExport(){
   const t = ensureTodo();
   if(!t.notices.length && !t.items.length){ toast('一張通告、一件事都未有，冇嘢好匯'); return; }
   const btns = [$('tdExport'), $('tdExportTop')].filter(Boolean);
   btns.forEach(b=>{ b.disabled = true; b.dataset.old = b.textContent; b.textContent = '⬇ 攞緊…'; });
   const today = fmtDate(new Date());
+  /* 揀咗就淨係匯出嗰幾張（連帶佢哋拆出嚟嘅事項）；一張都冇揀就全部出。 */
+  const picked = Object.keys(tdSel).filter(id=>t.notices.some(n=>n.id===id));
+  const notices = picked.length ? t.notices.filter(n=>tdSel[n.id]) : t.notices;
+  const items   = picked.length ? t.items.filter(x=>tdSel[x.noticeId]) : t.items;
   const L = [];
   L.push('# 📋 待辦・通告分析記錄');
   L.push('');
   L.push('匯出時間：' + today + ' ' + fmtTime(new Date()) + '　｜　BUILD `' + BUILD + '`');
-  L.push('通告 ' + t.notices.length + ' 張，事項 ' + t.items.length + ' 件。');
+  if(picked.length){
+    L.push('**呢份係節錄**：淨係揀咗嘅 ' + notices.length + ' 張（全個清單有 ' + t.notices.length + ' 張、' + t.items.length + ' 件）。');
+  } else {
+    L.push('通告 ' + t.notices.length + ' 張，事項 ' + t.items.length + ' 件。');
+  }
   L.push('');
   L.push('> 每張分四節：通告原文、AI 內部推理、AI 原始回覆（JSON）、實際拆出嚟嘅事項。');
   L.push('> 想校個 prompt，就搵拆得唔啱嗰張，對住「原始回覆」睇佢究竟出咗乜。');
@@ -10973,11 +11014,11 @@ async function tdExport(){
   L.push('');
   L.push('## 總覽：而家個清單（按開工日排）');
   L.push('');
-  if(!t.items.length){
+  if(!items.length){
     L.push('（一件都冇）');
   } else {
     const qRank = {red:0, amber:1, blue:2, grey:3, '':4};
-    const sorted = t.items.slice().sort(function(a,b){
+    const sorted = items.slice().sort(function(a,b){
       const sa = tdStart(a)||'9999', sb = tdStart(b)||'9999';
       if(sa!==sb) return sa<sb ? -1 : 1;
       return (qRank[a.quad||'']||4) - (qRank[b.quad||'']||4);
@@ -11008,15 +11049,15 @@ async function tdExport(){
   L.push(SYS_TODO);
   L.push('```');
   L.push('');
-  if(t.notices.length){ L.push('## 逐張通告'); L.push(''); }
-  for(let i = t.notices.length - 1; i >= 0; i--){
-    const nt = t.notices[i];
+  if(notices.length){ L.push('## 逐張通告'); L.push(''); }
+  for(let i = notices.length - 1; i >= 0; i--){
+    const nt = notices[i];
     const its = t.items.filter(x=>x.noticeId===nt.id);
     L.push('---');
     L.push('');
     L.push('### ' + nt.title);
     L.push('');
-    L.push('- 貼落嚟：' + String(nt.at||'').slice(0,10) +
+    L.push('- 貼落嚟：' + fmtStamp(nt.at) +
            '　｜　邊個：' + (tdWhoName(nt.who)||'—') +
            '　｜　分類：' + nt.kind +
            '　｜　第 ' + (nt.attempt||1) + ' 次成功' +
@@ -11057,7 +11098,8 @@ async function tdExport(){
     L.push('');
   }
   btns.forEach(b=>{ b.disabled = false; b.textContent = b.dataset.old || '⬇ 匯出分析記錄'; });
-  const name = '待辦通告分析_' + fmtDate(new Date()).replace(/-/g,'') + '.md';
+  const name = '待辦通告分析' + (picked.length ? '_節錄' + notices.length + '張' : '')
+             + '_' + fmtDate(new Date()).replace(/-/g,'') + '.md';
   try{
     const how = await saveTextFile(name, L.join('\n'));
     toast(how==='picked' ? '匯出咗' : '下載咗 ' + name);
