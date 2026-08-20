@@ -524,6 +524,12 @@ body.readonly .chatThinkKeep{display:none!important}
 #btnAI:hover{background:var(--accent);color:#fff}
 #aiModal .modal{width:min(900px,100%)}
 #aiSetModal .modal{width:min(560px,100%)}
+/* 個設定面板好長，儲存／取消本來淨係喺最底——撳錯入咗嚟，都要碌到底先出得返。
+   頂部加一條黐住嘅 bar，碌到邊都撳得到。 */
+.setTop{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;
+  margin:-4px -4px 6px;padding:8px 4px;background:var(--card);border-bottom:1px solid var(--line)}
+.setTop h3{margin:0;flex:1;min-width:0;font-size:16px}
+.setTop .btn{padding:5px 11px;font-size:12.5px;flex:0 0 auto}
 .aiTabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:12px;flex-wrap:wrap}
 .aiTabs button{border:0;background:transparent;padding:8px 12px;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;border-radius:6px 6px 0 0}
 .aiTabs button.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:700;background:var(--accent-soft)}
@@ -1302,7 +1308,11 @@ body.hubOpen{overflow:hidden}
 
 
 <div class="overlay" id="aiSetModal"><div class="modal">
-  <h3>⚙ AI API 設定</h3>
+  <div class="setTop">
+    <h3>⚙ AI API 設定</h3>
+    <button class="btn primary" id="aiSetSaveTop">儲存</button>
+    <button class="btn" id="aiSetCancelTop" title="唔改嘢，出返去">✕ 出返去</button>
+  </div>
   <div class="aiWarn">🔒 呢三格資料淨係存喺你部電腦嘅瀏覽器入面，唔會寫入個 HTML 檔，亦都唔會上去 Google 雲端。換咗電腦、或者清咗瀏覽器資料，就要再填一次。</div>
   <div class="aiRow" style="margin-top:12px"><div><label>供應商（揀完會自動填好下面兩格）</label><select id="aiProv"></select></div></div>
   <div class="aiRow"><div><label>Base URL（網址）</label><input type="text" id="aiBase" placeholder="https://api.openai.com/v1" spellcheck="false"></div></div>
@@ -1479,7 +1489,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-20a";
+const BUILD = "2026-08-20b";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -7808,6 +7818,8 @@ function openSet(){
 $('btnAISet').onclick = openSet;
 $('aiOpenSet').onclick = openSet;
 $('aiSetCancel').onclick = ()=>hide('aiSetModal');
+/* 頂同底兩對掣做同一件事。id 唔可以撞，所以頂嗰對另外改名。 */
+$('aiSetCancelTop').onclick = ()=>hide('aiSetModal');
 $('aiKeyShow').onclick = ()=>{ const i=$('aiKey'); i.type = i.type==='password' ? 'text' : 'password'; };
 $('ttsTest').onclick = ()=>{
   const c = cfg(); readTTSForm(c); cfgSave(c);
@@ -7994,6 +8006,8 @@ $('aiSetSave').onclick = ()=>{
   $('aiHint').textContent = '而家用緊：' + c.model;
   setStatus('aiStatus','設定儲好喇。可以開始講嘢。');
 };
+/* 頂嗰粒儲存掣直接叫返底嗰粒，唔好複製一份邏輯出嚟，兩份好快就會唔同步。 */
+$('aiSetSaveTop').onclick = ()=>$('aiSetSave').click();
 $('aiSetClear').onclick = async ()=>{
   if(await confirmBox('清除 API Key 同設定？（唔會影響你嘅日程同 Data Log）')){
     localStorage.removeItem(CFG_KEY);
@@ -10114,6 +10128,8 @@ function ensureTodo(){
   if(t.ui.nodue === undefined) t.ui.nodue = false;
   if(t.ui.done  === undefined) t.ui.done  = false;
   t.items = t.items.filter(x=>x && typeof x==='object');
+  /* 掃走冇標題嘅殘骸（18e 之前「手動加一件」撳完唔填就走會留低空殼） */
+  t.items = t.items.filter(x=>String(x.title||'').trim() || x.noticeId);
   t.items.forEach(function(x){
     if(!x.id) x.id = uid();
     if(!x.status) x.status = 'todo';
@@ -10229,7 +10245,12 @@ const SYS_TODO = [
 '       同時喺 why 第一句寫明「死線由通告入面『……』推返出嚟」。',
 '       例：通告話 9 月 1 日開學、每日供應茶點、請帶備貼咗名嘅有蓋水杯——買水杯呢件事嘅死線就係 8 月 31。',
 '       例：通告話 8 月 28 日第一次生日會，當日唔使着校服要帶書包——嗰件事嘅死線就係 8 月 28。',
-'   (c) 通告完全冇任何日子可以推——due 出 null。',
+'   (c) 通告俾咗幾個可能日子（例如按班別、按學號分開），而你唔知佢屬於邊一組：',
+'       揀最早嗰個做 due，喺 why 寫明「通告分咗幾組日子，呢個係最早嗰個，請自己確認返」，',
+'       同時另出一件事叫家長去查返自己屬於邊一組。',
+'       實際出過事：茶聚通告分咗 PNA 1-14／15-28、PNB…共四組日子（6/10、7/10、12/10、13/10），',
+'       你出咗「出席 10 月家長茶聚」但 due 出 null，於是件事跌咗落「冇死線」度，永遠唔會提佢。',
+'   (d) 通告完全冇任何日子可以推——due 出 null。',
 '   (b) 唔算作嘢：個日子係通告白紙黑字寫住嘅。真正唔准嘅係由通告以外憑空砌一個日子。',
 '   同一句嘢入面嘅死線，要罩住成句。例：「請填妥以下頁數並於 8 月 17 日或以前交回」——',
 '   「填妥」同「交回」兩件事都係 8 月 17，唔准淨係俾後半句。',
@@ -10249,9 +10270,13 @@ const SYS_TODO = [
 '7) 純資訊、冇嘢要做嘅通告，kind 出 "info"，items 出空 array。賣廣告嘅 kind 出 "ad"。',
 '8) title10 係你幫張通告起嘅名：十個字左右，家長一眼認得返係邊張（例：秋季旅行通告、校服訂購通知）。',
 '9) leadWhy 只准由 context 俾你嗰個表入面揀，唔准自己發明新類型。',
-'10) 如果件事同 context 入面「已經有嘅未完成事項」講緊同一件嘢，照出，但喺 why 第一句寫',
+'10) 同一張通告入面唔准出兩件講緊同一個動作嘅事。',
+'    實際出過事：點讀筆嗰張你同時出咗「按包裝盒內小冊子為點讀筆更新檔案」同',
+'    「連接 Windows 電腦為點讀筆更新檔案」——同一件事講咗兩次。要嘛合埋一件，',
+'    要嘛講清楚兩者做嘅嘢唔同。',
+'11) 如果件事同 context 入面「已經有嘅未完成事項」講緊同一件嘢，照出，但喺 why 第一句寫',
 '    「⚠ 同已有事項重複：（嗰件嘢個名）」，等家長自己揀刪邊件。唔准靜靜雞略過。',
-'11) 只准輸出 JSON，唔准有任何其他文字。',
+'12) 只准輸出 JSON，唔准有任何其他文字。',
 '',
 '輸出格式：',
 '{',
@@ -10711,7 +10736,7 @@ function tdRowEl(it, today){
   return row;
 }
 /* 編輯：日期、預留、邊個、四象限。改 leadDays 會學埋（下次同類嘢直接建議你嗰個數）。 */
-function tdEdit(it){
+function tdEdit(it, isNew){
   const t = ensureTodo();
   const host = $('tdManualArea');
   tdPaneShow('tdManualArea');
@@ -10731,7 +10756,9 @@ function tdEdit(it){
   $('teC').onclick = ()=>{ tdPaneShow(''); renderTodo(); };
   $('teS').onclick = ()=>{
     const oldLead = it.leadDays;
-    it.title = $('teT').value.trim() || it.title;
+    const _t = $('teT').value.trim();
+    if(isNew && !_t){ toast('未填標題，冇加到'); tdPaneShow(''); renderTodo(); return; }
+    it.title = _t || it.title;
     it.who = $('teW').value || null;
     it.due = $('teD').value || null;
     const nl = parseInt($('teL').value,10);
@@ -10743,22 +10770,20 @@ function tdEdit(it){
       if(t.learned.length > 40) t.learned = t.learned.slice(-40);
       it.leadWhy = 'learned';
     }
+    if(isNew && !t.items.some(x=>x.id===it.id)) t.items.push(it);
     save(); tdPaneShow(''); renderTodo();
   };
 }
-/* 手動加一件（你話想快嗰陣用） */
+/* 手動加一件（你話想快嗰陣用）
+   ⚠️ 舊寫法係即刻 push 一個空殼落 state，再靠「取消」掣執返。
+   但你唔撳取消、直接切去第二個 tab／閂咗個面板，個空殼就留低咗——
+   你今次個清單尾就有兩件冇名、冇死線嘅嘢，就係咁嚟嘅。
+   而家唔預先 push：撳「儲存」而且真係有標題先至入 state。 */
 function tdManual(){
   const it = {id:uid(), title:'', who:null, due:null, leadDays:1, leadWhy:'manual',
               quad:'', status:'todo', doneAt:null, noticeId:'', seq:1, blockedBy:null,
               evId:null, note:'', why:'', at:new Date().toISOString()};
-  ensureTodo().items.push(it);
-  tdEdit(it);
-  /* 取消嗰陣如果標題仲係空嘅就當冇加過 */
-  const oldC = $('teC').onclick;
-  $('teC').onclick = ()=>{
-    if(!$('teT').value.trim()) ensureTodo().items = ensureTodo().items.filter(x=>x.id!==it.id);
-    oldC();
-  };
+  tdEdit(it, true);
 }
 
 function renderTodo(){
