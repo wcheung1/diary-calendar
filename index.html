@@ -1248,6 +1248,7 @@ body.hubOpen{overflow:hidden}
       <button class="btn primary" id="tdPaste">✍️ 貼通告</button>
       <button class="btn" id="tdManualBtn">＋ 手動加一件</button>
       <button class="btn" id="tdNoticesBtn">📄 通告</button>
+      <button class="btn" id="tdExportTop">⬇ 匯出分析記錄</button>
       <button class="btn" id="tdTidyBtn">🧹 執一執</button>
       <span style="flex:1"></span>
       <span class="subnote" id="tdHint" style="margin:0"></span>
@@ -1478,7 +1479,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-18d";
+const BUILD = "2026-08-18e";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -10760,6 +10761,8 @@ function renderTodo(){
     sec('做完咗', done, t.ui.done, 'done');
   }
   $('tdHint').textContent = now.length ? ('有 ' + now.length + ' 件嘢要開工喇') : '';
+  $('tdNoticesBtn').textContent = '📄 通告' + (t.notices.length ? '（' + t.notices.length + '）' : '');
+  $('tdExportTop').disabled = !(t.notices.length || t.items.length);
 }
 
 /* ===== 📄 通告清單 ===== */
@@ -10874,17 +10877,50 @@ async function tdNotices(){
    用途好明確——校 SYS_TODO 嗰陣要對住實例改，同校 PERSONA_KID 一模一樣。 */
 async function tdExport(){
   const t = ensureTodo();
-  if(!t.notices.length){ toast('未有通告'); return; }
-  const btn = $('tdExport');
-  if(btn){ btn.disabled = true; btn.textContent = '⬇ 攞緊…'; }
+  if(!t.notices.length && !t.items.length){ toast('一張通告、一件事都未有，冇嘢好匯'); return; }
+  const btns = [$('tdExport'), $('tdExportTop')].filter(Boolean);
+  btns.forEach(b=>{ b.disabled = true; b.dataset.old = b.textContent; b.textContent = '⬇ 攞緊…'; });
+  const today = fmtDate(new Date());
   const L = [];
   L.push('# 📋 待辦・通告分析記錄');
   L.push('');
-  L.push('匯出時間：' + fmtDate(new Date()) + ' ' + fmtTime(new Date()) + '　｜　BUILD `' + BUILD + '`');
+  L.push('匯出時間：' + today + ' ' + fmtTime(new Date()) + '　｜　BUILD `' + BUILD + '`');
   L.push('通告 ' + t.notices.length + ' 張，事項 ' + t.items.length + ' 件。');
   L.push('');
   L.push('> 每張分四節：通告原文、AI 內部推理、AI 原始回覆（JSON）、實際拆出嚟嘅事項。');
   L.push('> 想校個 prompt，就搵拆得唔啱嗰張，對住「原始回覆」睇佢究竟出咗乜。');
+  L.push('');
+  /* 總覽擺喺最前：睇個 prompt 拆得好唔好，最快就係睇最後個清單長成點，
+     再返轉頭查邊張通告拆錯。 */
+  L.push('---');
+  L.push('');
+  L.push('## 總覽：而家個清單（按開工日排）');
+  L.push('');
+  if(!t.items.length){
+    L.push('（一件都冇）');
+  } else {
+    const qRank = {red:0, amber:1, blue:2, grey:3, '':4};
+    const sorted = t.items.slice().sort(function(a,b){
+      const sa = tdStart(a)||'9999', sb = tdStart(b)||'9999';
+      if(sa!==sb) return sa<sb ? -1 : 1;
+      return (qRank[a.quad||'']||4) - (qRank[b.quad||'']||4);
+    });
+    L.push('| 狀態 | 開工日 | 死線 | 預留 | 象限 | 邊個 | 事項 | 出自邊張通告 |');
+    L.push('|---|---|---|---|---|---|---|---|');
+    sorted.forEach(function(x){
+      const st = tdStart(x);
+      const late = (x.status!=='done' && st && st <= today) ? ' ⚠逾期' : '';
+      const nt = t.notices.filter(y=>y.id===x.noticeId)[0];
+      L.push('| ' + (x.status==='done'?'完成':x.status==='doing'?'做緊':'未做') + late +
+             ' | ' + (st||'—') +
+             ' | ' + (x.due||'冇') +
+             ' | ' + (x.leadDays==null?'?':x.leadDays) + ' 日（' + x.leadWhy + '）' +
+             ' | ' + (x.quad||'—') +
+             ' | ' + (tdWhoName(x.who)||'—') +
+             ' | ' + String(x.title).replace(/\|/g,'／') +
+             ' | ' + (nt ? String(nt.title).replace(/\|/g,'／') : '手動加') + ' |');
+    });
+  }
   L.push('');
   L.push('---');
   L.push('');
@@ -10894,12 +10930,13 @@ async function tdExport(){
   L.push(SYS_TODO);
   L.push('```');
   L.push('');
+  if(t.notices.length){ L.push('## 逐張通告'); L.push(''); }
   for(let i = t.notices.length - 1; i >= 0; i--){
     const nt = t.notices[i];
     const its = t.items.filter(x=>x.noticeId===nt.id);
     L.push('---');
     L.push('');
-    L.push('## ' + nt.title);
+    L.push('### ' + nt.title);
     L.push('');
     L.push('- 貼落嚟：' + String(nt.at||'').slice(0,10) +
            '　｜　邊個：' + (tdWhoName(nt.who)||'—') +
@@ -10909,25 +10946,25 @@ async function tdExport(){
     if(nt.summary) L.push('- AI 一句總結：' + nt.summary);
     L.push('');
     const rec = await NoticeCloud.get(nt);
-    L.push('### 通告原文');
+    L.push('#### 通告原文');
     L.push('');
     L.push('```');
     L.push((rec && rec.text) ? rec.text : '（攞唔到——雲端冇呢張，可能係加 Firebase rules 之前貼嘅）');
     L.push('```');
     L.push('');
-    L.push('### AI 內部推理');
+    L.push('#### AI 內部推理');
     L.push('');
     L.push('```');
     L.push((rec && rec.reason) ? rec.reason : '（當時冇留低，或者個模型今次冇出推理）');
     L.push('```');
     L.push('');
-    L.push('### AI 原始回覆（JSON）');
+    L.push('#### AI 原始回覆（JSON）');
     L.push('');
     L.push('```json');
     L.push((rec && rec.raw) ? rec.raw : '（當時冇留低）');
     L.push('```');
     L.push('');
-    L.push('### 實際拆出嚟');
+    L.push('#### 實際拆出嚟');
     L.push('');
     if(!its.length){ L.push('（一件都冇）'); }
     else its.forEach(function(x){
@@ -10939,7 +10976,7 @@ async function tdExport(){
     });
     L.push('');
   }
-  if(btn){ btn.disabled = false; btn.textContent = '⬇ 匯出分析記錄'; }
+  btns.forEach(b=>{ b.disabled = false; b.textContent = b.dataset.old || '⬇ 匯出分析記錄'; });
   const name = '待辦通告分析_' + fmtDate(new Date()).replace(/-/g,'') + '.md';
   try{
     const how = await saveTextFile(name, L.join('\n'));
@@ -10982,6 +11019,9 @@ $('tdGo').onclick = tdRun;
 $('tdStop').onclick = ()=>{ tdStopFlag = true; };
 $('tdManualBtn').onclick = tdManual;
 $('tdNoticesBtn').onclick = tdNotices;
+/* ⚠️ 18c 嗰陣粒匯出掣淨係擺喺「📄 通告」最底——要入去、再碌過十幾張先見到，
+   結果等於冇。擺返出主工具列。兩粒掣叫同一個 function，但 id 唔可以撞。 */
+$('tdExportTop').onclick = tdExport;
 $('tdTidyBtn').onclick = tdTidy;
 /* ---------- 檔案入通告：一個檔案＝一張 ----------
    .md／.txt 先收。圖片同 PDF 唔收——嗰啲要行睇相線（按量收費），
