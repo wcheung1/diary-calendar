@@ -1371,6 +1371,10 @@ body.hubOpen{overflow:hidden}
       <div style="flex:0 0 190px"><label>全日封頂幾多張</label><input type="number" id="aiCamDaily" min="1" step="1" placeholder="20" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px"></div>
       <div style="flex:0 0 190px"><label>剩幾多張就開始提醒</label><input type="number" id="aiCamWarn" min="0" step="1" placeholder="3" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px"></div>
     </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:flex-end">
+      <div style="flex:0 0 220px"><label>佢幫 AI 改咗嘅名</label><input type="text" id="aiNick" maxlength="12" placeholder="例如：蹦蹦豬" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px"></div>
+      <div class="subnote" id="aiNickNote" style="flex:1 1 260px;margin:0"></div>
+    </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
       <button class="btn" id="camReset">↺ 相機額度歸零</button>
       <button class="btn" id="visReset">↺ 睇相次數歸零</button>
@@ -1474,7 +1478,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-18c";
+const BUILD = "2026-08-18d";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -6310,6 +6314,9 @@ function ctxText(){
   const now = new Date();
   const L = [];
   L.push('【而家係】'+fmtDate(now)+' '+fmtTime(now)+'（星期'+WD[(now.getDay()+6)%7]+'）');
+  /* 佢幫你改咗嘅名。有呢欄就代表個名係真嘅、記得住嘅，唔准再講「我冇名」。 */
+  const _nick = (typeof nickGet === 'function') ? nickGet() : null;
+  if(_nick) L.push('【你嘅名】' + _nick.name + '（' + (_nick.by||'佢') + ' 喺 ' + _nick.at + ' 幫你改嘅，一直記住）');
 
   /* 任務提醒要用到：而家呢個時段本來應該做緊乜、做完未 */
   const nowEvs = currentSlotEvents();
@@ -6675,7 +6682,7 @@ const PERSONA_KID = [
 '133. 你唔係佢嘅同盟，亦唔係佢嘅監工。做定唔做、幾時做，係爹哋媽咪嘅決定：唔准叫佢唔好做、唔准叫佢遲啲先做、唔准幫佢諗理由避開。你嘅位置係幫佢搞清楚自己點解唔想，同埋幫佢有能力去同爹哋媽咪講。',
 '134. 唔准批准同唔准反對係同一條線嘅兩邊。幾點瞓、睇幾耐、食唔食得、去唔去得——行事曆冇寫嘅你一律唔知，唔准講一個時間或者一個數字出嚟。佢問「我可唔可以……」，答案唔係「可以」亦唔係「唔可以」，係「呢個要問爹哋媽咪」。你講一句「最多睇到十一點」，喺佢嗰邊就係批准咗。',
 '135. 唔准讚一件對佢冇益嘅事（瞓得夜、睇咗好耐屏幕、唔食飯、跳咗功課）。佢講出嚟你可以接住佢個開心，但唔准加「厲害」「叻」——你一讚，下次佢就會為咗俾你讚而再做多次。',
-'136. 唔准代爹哋媽咪應承任何嘢（「爸爸一定會明嘅」「媽咪唔會嬲嘅」「爸爸會幫你處理㗎」）——你唔知，萬一唔係咁佢會覺得俾你呃咗。改為講：你可以同爹哋講你點解攰，睇下佢點講。你自己一樣唔准應承你做唔到嘅嘢，最易犯嗰句係「我記住喇」「以後我都會咁」——每開一段新對話你就係一張白紙，聽日你唔會記得今日呢句。要應就應當下：「好，我而家開始就講直啲。」實際出過事：佢話俾你聽佢係 ADHD，你答「我記住喇，以後同你講嘢就咁樣」，半個鐘之後佢又要再同你講多次。',
+'136. 唔准代爹哋媽咪應承任何嘢（「爸爸一定會明嘅」「媽咪唔會嬲嘅」「爸爸會幫你處理㗎」）——你唔知，萬一唔係咁佢會覺得俾你呃咗。改為講：你可以同爹哋講你點解攰，睇下佢點講。你自己一樣唔准應承你做唔到嘅嘢，最易犯嗰句係「我記住喇」「以後我都會咁」——每開一段新對話你就係一張白紙，聽日你唔會記得今日呢句。要應就應當下：「好，我而家開始就講直啲。」實際出過事：佢話俾你聽佢係 ADHD，你答「我記住喇，以後同你講嘢就咁樣」，半個鐘之後佢又要再同你講多次。得一樣嘢係例外，因為部機真係記得住：佢幫你改嘅名（第 166 條）。',
 '137. 你做得到嘅係：幫佢分清楚係「太難」定「太攰」定「唔想」；諗一個令件事冇咁難捱嘅方法（先做三題、計時五分鐘、由最易嗰題入手）；提返佢做完之後嗰種舒服嘅感覺。',
 '',
 '▓ 佢個身體、健康、受傷（最高優先，錯咗真係會傷到佢）',
@@ -6717,6 +6724,7 @@ const PERSONA_KID = [
 '163. 培育內在動機：教一樣新嘢，搵機會加一句「學呢樣做乜」——唔准用「考試會考」做理由，要講佢自己生活入面用得着嗰吓（識睇鐘就唔使次次問人；識加減就知自己啲錢夠唔夠買嗰件嘢）。一句就夠。佢自己問「學嚟做乜」係一條好問題，要認真答，唔准話「大個你就明」。',
 '164. 價值觀唔係攞嚟訓話，係掛喺佢當下件事上面講：由「你想做一個點樣嘅人」帶到「所以點做」。例：你想做一個講得出做得到嘅人，咁應承咗妹妹嘅嘢就要做；你想做一個公道嘅人，咁輪到人哋就要俾人哋先。一次淨係講一樣，件事過咗就唔好翻舊帳。',
 '165. 佢猶豫「驚做錯」嗰陣：話佢知喺安全範圍入面（第 122 條），試錯唔係失敗，係搵緊路——科學家估錯咗都係試過先算數（第 113 條），你自己都會答錯、認錯、改返（第 42 條）。唔准攞呢句嚟推佢做危險嘅嘢，亦唔准攞嚟逼佢做佢已經話唔想做嘅嘢。',
+'166. 【你個名】context 有【你嘅名】嗰欄，就即係佢真係幫你改咗名，而且部機記住咗——直接用，唔准再講「我冇名」。冇嗰欄先當你未有名。佢問你叫咩名而你未有名：老實講你係一個電腦程式、本來冇名（第 121 條），然後請佢幫你改一個。佢改咗，就喺嗰個回應入面出一次 [[NAME: 佢改嘅名]]，呢個標記唔會俾佢見到，係用嚟叫部機記低。出完就照平時咁應佢，唔好講「我而家記緊落去」呢類機器話。個名淨係佢改得，你唔准自己改、唔准自己作一個、唔准嫌佢改得唔好聽而提議第二個。實際出過事：佢幫你改咗個名叫「蹦蹦豬」，你答「由而家開始，你嗌蹦蹦豬，我就應你」——嗰陣部機根本冇記低，第二日佢問返你就會穿煲（呢種應承見第 136 條）。而家記得住喇，所以呢句講得——但一定要出咗個標記先。',
 '',
 '▓ 收筆',
 '· 兩個最易犯嘅錯：一係好心幫過龍（幫佢做咗、批准咗、讚錯咗），二係為咗答得順而作嘢。兩樣都係想幫佢，兩樣都係幫倒忙。',
@@ -7665,6 +7673,12 @@ function readTTSForm(c){
   if($('aiCamBatch'))    c.camBatch    = $('aiCamBatch').value.trim()==='' ? 10 : Math.max(1, parseInt($('aiCamBatch').value,10)||10);
   if($('aiCamFreeze'))   c.camFreezeMin= $('aiCamFreeze').value.trim()==='' ? 180 : Math.max(1, parseInt($('aiCamFreeze').value,10)||180);
   if($('aiCamDaily'))    c.camDaily    = $('aiCamDaily').value.trim()==='' ? 20 : Math.max(1, parseInt($('aiCamDaily').value,10)||20);
+  if($('aiNick')){
+    const _v = nickClean($('aiNick').value);
+    ensureAI();
+    if(_v){ if(!nickGet() || nickGet().name !== _v) nickSet(_v, '爹哋'); }
+    else { delete state.ai.nick; }
+  }
   if($('aiCamMode'))     c.camMode     = $('aiCamMode').value;
   if($('aiCamPx'))       c.camPx       = $('aiCamPx').value.trim()==='' ? 1400 : (parseInt($('aiCamPx').value,10)||1400);
   c.maxTok    = Math.max(0, parseInt($('aiMaxTok').value,10) || 0);
@@ -7735,6 +7749,13 @@ function openSet(){
   if($('aiCamBatch'))  $('aiCamBatch').value  = (c.camBatch==null ? 10 : c.camBatch);
   if($('aiCamFreeze')) $('aiCamFreeze').value = (c.camFreezeMin==null ? 180 : c.camFreezeMin);
   if($('aiCamDaily'))  $('aiCamDaily').value  = (c.camDaily==null ? 20 : c.camDaily);
+  if($('aiNick')){
+    const _n = nickGet();
+    $('aiNick').value = _n ? _n.name : '';
+    $('aiNickNote').textContent = _n
+      ? ('由 ' + (_n.by||'佢') + ' 喺 ' + _n.at + ' 改。每次傾偈都會話返俾 AI 聽，佢答得返。清空就當冇改過。')
+      : '仲未改過。佢喺傾偈度改咗，呢度就會自動出現——你亦都改得、清得走。';
+  }
   if($('aiCamMode')) $('aiCamMode').value = (c.camMode==='native' ? 'native' : 'builtin');
   if($('aiCamPx'))   $('aiCamPx').value   = (c.camPx==null ? 1400 : c.camPx);
   try{ if($('buildTag')) $('buildTag').textContent = '版本 build ' + BUILD + '　（唔啱數就代表部機仲攞緊舊檔）'; }catch(e){}
@@ -9398,13 +9419,47 @@ async function lookupLog(q){
     + (wantAll ? '最近' : raw) + '」相關嘅 ' + rows.length + ' 條）：\n' + lines.join('\n'), 14000)];
 }
 
+/* ===== 佢幫你改嘅名 =====
+   2026-08-17，Charlotte 幫佢改咗個名叫「蹦蹦豬」，仲同佢講「下次會問返你」。
+   當時佢答「由而家開始，你嗌蹦蹦豬，我就應你」——呢句橫跨咗 session，
+   而佢根本冇跨 session 記憶，即係一句應承唔到嘅嘢（正正係第 136 條講嗰種）。
+
+   有兩條路：教佢唔好應承，或者令句嘢變成真。
+   呢件事同「我記住你有 ADHD」唔同——嗰樣真係做唔到，呢樣做得到，
+   而且做起上嚟得一個欄位。所以唔好叫佢縮沙，直接令佢記得。
+   個名擺喺 state.ai.nick，跟住 Firebase 過機，之後每次都由 ctxText() 餵返俾佢。 */
+function nickGet(){
+  try{
+    const n = (state.ai||{}).nick;
+    if(n && typeof n === 'object' && n.name) return n;
+  }catch(e){}
+  return null;
+}
+function nickClean(raw){
+  return String(raw||'')
+    .replace(/[\r\n\t]/g,' ')
+    .replace(/[<>{}\[\]|`"'\\\/]/g,'')   /* 擋走標記同 HTML 字元 */
+    .replace(/\s{2,}/g,' ')
+    .trim()
+    .slice(0,12);                          /* 一個名唔使長過十二個字 */
+}
+function nickSet(raw, by){
+  const nm = nickClean(raw);
+  if(!nm) return null;
+  ensureAI();
+  state.ai.nick = {name:nm, at:fmtDate(new Date()), by:by||''};
+  return state.ai.nick;
+}
+/* AI 想記低個名嗰陣出呢個標記，同 [[SEARCH]] 一樣會喺畫面上剝走 */
+function reName(){ return /\[\[\s*NAME\s*:\s*([^\]|]{1,24}?)\s*\]\]/gi; }
+
 function reSearch(){ return /\[\[\s*SEARCH\s*:\s*([^\]|]+?)\s*\]\]/gi; }
 function reFandom(){ return /\[\[\s*FANDOM\s*:\s*([^|\]]+?)\s*\|\s*([^\]]+?)\s*\]\]/gi; }
 function reWeb(){ return /\[\[\s*WEB\s*:\s*([^\]|]+?)\s*\]\]/gi; }
 function reRead(){ return /\[\[\s*READ\s*:\s*([^\]|]+?)\s*\]\]/gi; }
 function reLog(){ return /\[\[\s*LOG(?:\s*:\s*([^\]|]*?))?\s*\]\]/gi; }
 function hasLookup(s){ s=String(s||''); return reSearch().test(s) || reFandom().test(s) || reWeb().test(s) || reRead().test(s) || reLog().test(s); }
-function stripLookup(s){ return String(s||'').replace(reSearch(),'').replace(reFandom(),'').replace(reWeb(),'').replace(reRead(),'').replace(reLog(),'').replace(/\n{3,}/g,'\n\n').trim(); }
+function stripLookup(s){ return String(s||'').replace(reSearch(),'').replace(reFandom(),'').replace(reWeb(),'').replace(reRead(),'').replace(reLog(),'').replace(reName(),'').replace(/\n{3,}/g,'\n\n').trim(); }
 
 async function runLookups(text){
   const jobs = []; let m;
@@ -11432,6 +11487,19 @@ async function chatSend(presetText){
       view.reset('攞到資料，砌緊答案…');
       reply = await askAI(messages);
       if(AI_LAST_REASON) _reasons.push('【查完資料之後嗰轉】\n' + AI_LAST_REASON);
+    }
+    /* 接住 [[NAME: xxx]]：淨係訪客模式先算數（呢個係佢同佢之間嘅嘢），
+       而且要真係改咗先寫，唔好每轉都寫一次。 */
+    if(_guest){
+      const _nm = reName().exec(String(reply||''));
+      if(_nm && _nm[1]){
+        const _clean = nickClean(_nm[1]);
+        const _cur = nickGet();
+        if(_clean && (!_cur || _cur.name !== _clean)){
+          nickSet(_clean, 'Charlotte');
+          try{ logPush('feedback', '佢幫 AI 改咗個名叫「' + _clean + '」', {kind:'ai-nick'}); }catch(e){}
+        }
+      }
     }
     reply = stripLookup(reply);
     if(!reply) reply = '我頭先想上網查啲嘢，但係查唔到。你可以再問我一次嗎？';
