@@ -1479,7 +1479,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-18e";
+const BUILD = "2026-08-20a";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -10084,13 +10084,16 @@ const NoticeCloud = {
 
 /* ---------- state.todo ----------
    Firebase 唔儲空 array／空 object，所以照 ensureAI() 嗰套逐個補。 */
+/* eg 係俾 AI 睇嘅例子。實測 17 張通告 39 件事，buy 一次都冇揀過——
+   連「準備貼咗名嘅有蓋水杯、食物盒、叉」都判咗做 prep。得四隻字嘅類型名
+   分唔開，一定要俾例。 */
 const TD_LEAD_DEFAULT = [
-  {k:'out',     name:'要出街辦',       days:7},
-  {k:'buy',     name:'要買／等寄到',   days:10},
-  {k:'wait',    name:'要等第二個人',   days:5},
-  {k:'prep',    name:'要練／要準備',   days:7},
-  {k:'self',    name:'自己坐低做得完', days:1},
-  {k:'unknown', name:'認唔到',         days:3}
+  {k:'out',     name:'要出街辦',       days:7,  eg:'影相、配眼鏡、去銀行、去舖頭辦嘢'},
+  {k:'buy',     name:'要買／等寄到',   days:10, eg:'買水杯食物盒、網購校服、訂書、買禮物'},
+  {k:'wait',    name:'要等第二個人',   days:5,  eg:'問老師、約人、等公司覆、等學校通知'},
+  {k:'prep',    name:'要練／要準備',   days:7,  eg:'背默、練琴、做 project、預備要交嘅作品'},
+  {k:'self',    name:'自己坐低做得完', days:1,  eg:'填表、簽名、喺 app 撳回覆、覆 email、轉數'},
+  {k:'unknown', name:'認唔到',         days:3,  eg:''}
 ];
 function ensureTodo(){
   if(!state.todo || typeof state.todo !== 'object') state.todo = {};
@@ -10099,6 +10102,13 @@ function ensureTodo(){
   if(!Array.isArray(t.notices)) t.notices = [];
   if(!Array.isArray(t.learned)) t.learned = [];
   if(!Array.isArray(t.lead) || !t.lead.length) t.lead = TD_LEAD_DEFAULT.map(x=>Object.assign({},x));
+  /* 舊檔嘅 lead 冇 eg，補返（唔郁你改過嘅日數） */
+  t.lead.forEach(function(x){
+    if(x.eg === undefined){
+      const d = TD_LEAD_DEFAULT.filter(y=>y.k===x.k)[0];
+      x.eg = d ? d.eg : '';
+    }
+  });
   if(!t.ui || typeof t.ui !== 'object') t.ui = {};
   if(t.ui.later === undefined) t.ui.later = false;
   if(t.ui.nodue === undefined) t.ui.nodue = false;
@@ -10116,14 +10126,36 @@ function tdLeadDays(why){
   const hit = t.lead.filter(x=>x.k===why)[0];
   return hit ? hit.days : 3;
 }
-/* 開工日 = 死線 − 預留。冇死線就 null（永遠唔會變紅）。 */
-function tdStart(it){
-  if(!it || !it.due) return null;
-  const d = new Date(it.due + 'T00:00:00');
+/* 開工日 = 死線 − 預留。冇死線就 null（永遠唔會變紅）。
+   ⚠ 但有一種情況唔可以就咁 null：件事係另一件嘢嘅前置。
+   實測撞到過——「填妥學生手冊資料」AI 出咗 due=null，「交回班主任」出咗 8 月 17。
+   於是「交回」企喺「而家要開工」度、寫住「等緊：填妥資料」，而「填妥資料」自己
+   匿咗喺「冇死線」度縮埋。即係佢見到一件塞住咗嘅嘢，但搵唔到塞住佢嗰件。
+   所以：冇死線但係人哋嘅前置 → 攞後面嗰件最早嘅開工日，再減返自己嘅預留。 */
+function tdLeadOf(it){
+  return (it.leadDays===null || it.leadDays===undefined) ? tdLeadDays('unknown') : it.leadDays;
+}
+function tdMinus(dateStr, days){
+  const d = new Date(dateStr + 'T00:00:00');
   if(isNaN(d)) return null;
-  const lead = (it.leadDays===null || it.leadDays===undefined) ? tdLeadDays('unknown') : it.leadDays;
-  d.setDate(d.getDate() - lead);
+  d.setDate(d.getDate() - days);
   return fmtDate(d);
+}
+function tdStart(it, _seen){
+  if(!it) return null;
+  if(it.due) return tdMinus(it.due, tdLeadOf(it));
+  /* 防環：A 塞住 B、B 又塞住 A 呢種爛資料唔可以拖死成個 render */
+  const seen = _seen || {};
+  if(seen[it.id]) return null;
+  seen[it.id] = 1;
+  let earliest = null;
+  ensureTodo().items.forEach(function(x){
+    if(x.blockedBy !== it.id || x.status === 'done') return;
+    const st = tdStart(x, seen);
+    if(st && (!earliest || st < earliest)) earliest = st;
+  });
+  if(!earliest) return null;
+  return tdMinus(earliest, tdLeadOf(it));
 }
 function tdBlocked(it){
   if(!it.blockedBy) return null;
@@ -10191,16 +10223,35 @@ const SYS_TODO = [
 '你會收到一張通告嘅全文。你要將佢拆成一件件做得到嘅事（actionable items）。',
 '',
 '鐵規矩（逐條跟，唔准彈性處理）：',
-'1) 通告冇寫死線嘅事，due 一律出 null。唔准自己估一個日子出嚟。',
+'1) 死線（due）＝最遲要做完嗰日。分三種情況：',
+'   (a) 通告明寫「請於 X 或以前」「X 前交回」——用 X。',
+'   (b) 通告冇明寫死線，但入面有一個日子，令件事一定要喺嗰日之前搞掂：用嗰個日子（或者前一日），',
+'       同時喺 why 第一句寫明「死線由通告入面『……』推返出嚟」。',
+'       例：通告話 9 月 1 日開學、每日供應茶點、請帶備貼咗名嘅有蓋水杯——買水杯呢件事嘅死線就係 8 月 31。',
+'       例：通告話 8 月 28 日第一次生日會，當日唔使着校服要帶書包——嗰件事嘅死線就係 8 月 28。',
+'   (c) 通告完全冇任何日子可以推——due 出 null。',
+'   (b) 唔算作嘢：個日子係通告白紙黑字寫住嘅。真正唔准嘅係由通告以外憑空砌一個日子。',
+'   同一句嘢入面嘅死線，要罩住成句。例：「請填妥以下頁數並於 8 月 17 日或以前交回」——',
+'   「填妥」同「交回」兩件事都係 8 月 17，唔准淨係俾後半句。',
 '2) 估唔到嗰件事屬於邊一類，leadWhy 出 "unknown"。唔准夾硬揀。',
-'3) 判唔到係邊個女嘅事，who 出 null。唔准估。',
-'4) 每件 item 要動詞開頭、一句講一件事。「準備旅行」唔算——要拆到「簽回條」「入錢落八達通」呢種細度。',
+'3) who ＝ 呢件事關於邊個小朋友，唔係「邊個做」。做嘅人幾乎一定係家長本人，唔好用呢欄講。',
+'   charlotte／jasmine／both／me（純粹家長自己嘅事、同小朋友冇關，例如做家長委員）／null（判唔到，唔准估）。',
+'   同一張通告入面唔准一時 jasmine 一時 me——除非件事真係唔關個小朋友事。',
+'   例：「填妥流感針同意書」係 jasmine（關於佢），唔係 me；「報名做家校小組委員」先係 me。',
+'4) 每件 item 要動詞開頭、一句講一件事，而且要有「做完」嗰一刻——做完之後剔得走。',
+'   「準備旅行」唔算，要拆到「簽回條」「入錢落八達通」呢種細度。',
+'   「謹記……」「記住……」「注意……」「唔好……」呢啲係規矩唔係事，永遠剔唔走，一律唔准做 item，',
+'   要講就寫入 summary。例：「謹記唔好託老師轉送禮物」「謹記茶聚唔准影相」——兩樣都唔係 item。',
+'   「留意……」淨係喺有明確日子同對象嗰陣先算數（例：「留意 11 月 12 日前 eclass 第二針通知」算；',
+'   「留意學校 app 通知」唔算）。',
 '5) 有先後次序嘅（例如影完相先貼得落回條），用 seq 排次序，冇次序嘅全部 seq 出 1。',
 '6) 死線已經過咗嘅照出，唔准靜靜雞略過。',
 '7) 純資訊、冇嘢要做嘅通告，kind 出 "info"，items 出空 array。賣廣告嘅 kind 出 "ad"。',
 '8) title10 係你幫張通告起嘅名：十個字左右，家長一眼認得返係邊張（例：秋季旅行通告、校服訂購通知）。',
 '9) leadWhy 只准由 context 俾你嗰個表入面揀，唔准自己發明新類型。',
-'10) 只准輸出 JSON，唔准有任何其他文字。',
+'10) 如果件事同 context 入面「已經有嘅未完成事項」講緊同一件嘢，照出，但喺 why 第一句寫',
+'    「⚠ 同已有事項重複：（嗰件嘢個名）」，等家長自己揀刪邊件。唔准靜靜雞略過。',
+'11) 只准輸出 JSON，唔准有任何其他文字。',
 '',
 '輸出格式：',
 '{',
@@ -10222,7 +10273,8 @@ function tdSlimContext(){
   const L = [];
   L.push('【今日】' + fmtDate(new Date()));
   L.push('【預留時間表】（leadWhy 只准由呢度揀）');
-  t.lead.forEach(x=>L.push('  ' + x.k + ' = ' + x.name + '（' + x.days + ' 日）'));
+  t.lead.forEach(x=>L.push('  ' + x.k + ' = ' + x.name + '（' + x.days + ' 日）' +
+                           (x.eg ? '　例：' + x.eg : '')));
   const learned = t.learned.slice(-20);
   if(learned.length){
     L.push('【家長改過嘅預留時間】（撞到同類嘢要照呢度）');
@@ -10905,8 +10957,8 @@ async function tdExport(){
       if(sa!==sb) return sa<sb ? -1 : 1;
       return (qRank[a.quad||'']||4) - (qRank[b.quad||'']||4);
     });
-    L.push('| 狀態 | 開工日 | 死線 | 預留 | 象限 | 邊個 | 事項 | 出自邊張通告 |');
-    L.push('|---|---|---|---|---|---|---|---|');
+    L.push('| 狀態 | 開工日 | 死線 | 預留 | 象限 | 邊個 | 事項 | 等緊 | 出自邊張通告 |');
+    L.push('|---|---|---|---|---|---|---|---|---|');
     sorted.forEach(function(x){
       const st = tdStart(x);
       const late = (x.status!=='done' && st && st <= today) ? ' ⚠逾期' : '';
@@ -10918,6 +10970,7 @@ async function tdExport(){
              ' | ' + (x.quad||'—') +
              ' | ' + (tdWhoName(x.who)||'—') +
              ' | ' + String(x.title).replace(/\|/g,'／') +
+             ' | ' + (x.blockedBy ? String((t.items.filter(y=>y.id===x.blockedBy)[0]||{}).title||'?').replace(/\|/g,'／') : '—') +
              ' | ' + (nt ? String(nt.title).replace(/\|/g,'／') : '手動加') + ' |');
     });
   }
@@ -10969,9 +11022,11 @@ async function tdExport(){
     if(!its.length){ L.push('（一件都冇）'); }
     else its.forEach(function(x){
       L.push('- **' + x.title + '**');
+      const _b = x.blockedBy ? t.items.filter(y=>y.id===x.blockedBy)[0] : null;
       L.push('  - 死線 ' + (x.due||'冇') + '　開工日 ' + (tdStart(x)||'—') +
              '　預留 ' + (x.leadDays==null?'?':x.leadDays) + ' 日（' + x.leadWhy + '）' +
-             '　四象限 ' + (x.quad||'—') + '　邊個 ' + (tdWhoName(x.who)||'—'));
+             '　四象限 ' + (x.quad||'—') + '　邊個 ' + (tdWhoName(x.who)||'—') +
+             (_b ? '　等緊：' + _b.title : ''));
       if(x.why) L.push('  - AI 點解咁判：' + x.why);
     });
     L.push('');
