@@ -1068,7 +1068,7 @@ body.hubOpen{overflow:hidden}
 <div class="overlay" id="tplModal"><div class="modal"><h3 id="tplModalTitle">編輯任務模板</h3><div class="frow"><div><label>標題</label><input type="text" id="tplTitle"></div></div><div class="frow"><div><label>預設顏色</label><div class="colorPick" id="tplColors"><button class="cpBtn cp-none" data-c="" title="無"></button><button class="cpBtn cp-red" data-c="red" title="緊急＋重要"></button><button class="cpBtn cp-amber" data-c="amber" title="重要但唔緊急"></button><button class="cpBtn cp-blue" data-c="blue" title="緊急但唔重要"></button><button class="cpBtn cp-grey" data-c="grey" title="唔重要唔緊急"></button></div></div></div><div class="frow"><div><label>SOP（可由 Word 貼上，自動轉 Markdown；圖片一律過濾）</label><textarea id="tplSop" class="sop"></textarea><div class="sopPreview" id="tplSopPrev"></div><button class="btn" id="tplPrevToggle" style="margin-top:6px;padding:3px 10px;font-size:12px">預覽排版</button></div></div><p class="subnote">提示：儲存後，如果將來已排程嘅項目仍然同舊模板一模一樣（未被個別修改過），會問你要唔要一次過套用新內容。已過去嘅記錄一律不受影響。</p><div class="modalActs"><button class="btn" id="tplCancel">取消</button><button class="btn primary" id="tplSave">儲存</button></div></div></div>
 <div class="overlay" id="bulkModal"><div class="modal"><h3>批量計劃／修改／刪除</h3><div class="frow"><div><label>揀選任務模板</label><select id="bulkTask"></select></div></div><div class="frow"><div><label>由（日期）</label><input type="date" id="bulkFrom"></div><div><label>至（日期）</label><input type="date" id="bulkTo"></div><div><label>時間</label><input type="time" id="bulkTime" value="09:00"></div></div><div class="frow"><div><label>動作</label><select id="bulkMode"><option value="create">建立：喺呢段日期內，每日同一時間新增呢個任務</option><option value="retime">修改：將呢段日期內同一任務全部改做新時間</option><option value="delete">刪除：將呢段日期內同一任務全部刪除</option></select></div></div><div class="frow" id="bulkNewTimeRow" style="display:none"><div><label>新時間</label><input type="time" id="bulkNewTime" value="10:00"></div></div><div class="modalActs"><button class="btn" id="bulkCancel">取消</button><button class="btn primary" id="bulkGo">執行</button></div></div></div>
 <div class="overlay" id="exportModal"><div class="modal"><h3>匯出 JSON</h3><p class="subnote">唔揀日期就預設匯出全部資料（包括模板樹）。揀咗日期就只匯出嗰段時間嘅日程（模板樹照樣包埋，方便第日還原）。</p><div class="frow"><div><label>由</label><input type="date" id="expFrom"></div><div><label>至</label><input type="date" id="expTo"></div></div><div class="modalActs"><button class="btn" id="expCancel">取消</button><button class="btn primary" id="expGo">匯出</button></div></div></div>
-<div class="overlay" id="searchModal"><div class="modal"><div class="srchTop"><input type="text" id="searchInput" placeholder="搜尋任務模板同日程…"><button id="searchClose" type="button" title="關閉搜尋，返去時間表" aria-label="關閉搜尋">✕</button></div><div class="searchOpts"><label><input type="radio" name="sscope" value="title" checked> 淨係搜尋標題</label><label><input type="radio" name="sscope" value="all"> 連埋內文（SOP）一齊搜尋</label></div><div id="searchResults"></div></div></div>
+<div class="overlay" id="searchModal"><div class="modal"><div class="srchTop"><input type="text" id="searchInput" placeholder="搜尋任務模板同日程…"><button id="searchClose" type="button" title="關閉搜尋，返去時間表" aria-label="關閉搜尋">✕</button></div><div class="searchOpts"><label><input type="radio" name="sscope" value="title" checked> 淨係搜尋標題</label><label><input type="radio" name="sscope" value="all"> 連埋內文（SOP）一齊搜尋</label><span style="flex:1"></span><button class="mini" id="searchNative" type="button" title="閂咗呢個窗，跟住你自己再撳一次 Ctrl+F，我就唔會再攔你。（網頁冇權自己叫起瀏覽器嗰條搵字列，所以要你親手撳多次）">⌕ 用返瀏覽器搜尋</button></div><div id="searchResults"></div></div></div>
 <div class="overlay" id="confirmModal"><div class="modal"><h3 id="confirmTitle">請確認</h3><p id="confirmMsg"></p><div class="modalActs"><button class="btn" id="cfNo">取消</button><button class="btn primary" id="cfYes">確定</button></div></div></div>
 
 
@@ -1501,7 +1501,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-21c";
+const BUILD = "2026-08-21d";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -3805,8 +3805,34 @@ function closeSearch(){ hide('searchModal'); }
 document.getElementById('btnSearch').onclick=openSearch;
 /* iPad 冇 Esc：唔加呢粒掣，搜尋開咗就出唔返嚟。 */
 document.getElementById('searchClose').onclick=closeSearch;
+/* Ctrl+F 以前係無條件搶。實際出過事：喺「📋 待辦」貼通告嗰個框入面想搵眼前嗰版字，
+   彈出嚟嘅係行事曆搜尋——而行事曆搜尋根本搵唔到嗰版嘢。三種情況要讓返俾瀏覽器：
+     (1) 游標喺 input／textarea／可編輯區入面 —— 嗰陣佢想搵嘅係眼前嗰版字；
+     (2) AI／待辦個 modal 開住 —— 行事曆搜尋搵唔到嗰度嘅嘢，搶嚟冇用；
+     (3) 撳過搜尋窗嗰粒「用返瀏覽器搜尋」—— 放行下一次，一次過，唔留 mode。
+   ⚠ 要講清楚做唔到嘅嘢：網頁冇任何 API 叫得起瀏覽器嗰條原生搵字列，
+   所以 (3) 只可以係「唔攔你」，唔可以係「幫你開」——粒掣同 toast 啲字要照實咁寫，
+   唔好扮到撳完就會彈條搵字列出嚟。 */
+let findPassOnce = false;
+function findLetBrowser(e){
+  if(findPassOnce){ findPassOnce = false; return true; }   /* 一次過，用完即散 */
+  const el = e.target, tag = (el && el.tagName || '').toLowerCase();
+  if(tag==='input' || tag==='textarea' || (el && el.isContentEditable)) return true;
+  const ai = document.getElementById('aiModal');
+  if(ai && ai.classList.contains('show')) return true;
+  return false;
+}
+/* ⚠ 呢度係頂層 scope，toast 住喺下面個 IIFE 入面，一定要行 window.toast 加 try
+   （交接檔 7.1：頂層直接叫 IIFE 入面嘅嘢＝ReferenceError，而且會俾 try 食咗，靜靜雞死）。 */
+document.getElementById('searchNative').onclick=function(){
+  findPassOnce = true; closeSearch();
+  try{ window.toast('好，你再撳一次 Ctrl+F，我唔會攔你。（我開唔到瀏覽器嗰條搵字列，要你自己撳）'); }catch(_e){}
+};
 document.addEventListener('keydown',e=>{
-  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='f'){ e.preventDefault(); openSearch(); }
+  if((e.ctrlKey||e.metaKey)&&String(e.key||'').toLowerCase()==='f'){
+    if(findLetBrowser(e)) return;              /* 唔 preventDefault，交返俾瀏覽器 */
+    e.preventDefault(); openSearch();
+  }
   if(e.key==='Escape'){
     /* 修正：Esc 直接隱藏 confirmModal 會令 await confirmBox() 嘅 Promise 永遠掛住，
        之後啲 code 唔會再行。要當佢撳咗「取消」咁 resolve(false)。 */
@@ -10521,7 +10547,8 @@ function makePlanStream(host){
 
 /* ---------- 📋 待辦 UI ---------- */
 let tdQueue = [];        /* [{text, state:'wait|dup|sim|run|ok|err|skip', msg, dup}] */
-let tdSel = {};          /* 匯出揀咗邊幾張：{noticeId:true} */
+let tdSel = {};          /* 剔咗邊幾張：{noticeId:true}。匯出同「淨係睇剔咗嗰啲」共用同一批剔 */
+let tdOnlySel = false;   /* 通告清單淨係顯示剔咗嗰幾張（同時自動攤開佢哋拆咗邊幾件事） */
 let tdOpenNotice = '';   /* 通告清單度攤開咗邊張 */
 let tdRunning = false, tdStopFlag = false;
 
@@ -10951,7 +10978,31 @@ async function tdNotices(){
   tdPaneShow('tdNoticesArea');
   host.innerHTML = '<p class="subnote">原文儲喺獨立雲端節點（diary_calendar_notice），唔會同 Data Log 溝埋，行事曆改嘢亦唔會拖住佢重新下載。</p>';
   if(!t.notices.length){ host.innerHTML += '<p class="hubEmpty">未有通告。</p>'; return; }
-  t.notices.slice().reverse().forEach(function(nt){
+  /* 剔咗幾多張——只計仲存在嗰啲，刪走咗嘅 id 唔應該撐住個篩選。 */
+  const selN = Object.keys(tdSel).filter(id=>t.notices.some(n=>n.id===id)).length;
+  /* 開住篩選但一張都冇剔＝篩剩零張，個畫面同「真係冇通告」一模一樣。自動閂返。 */
+  if(tdOnlySel && !selN) tdOnlySel = false;
+  const shown = tdOnlySel ? t.notices.filter(n=>!!tdSel[n.id]) : t.notices;
+  /* 粒掣擺頂唔擺底：十幾張通告碌到底先見到＝等於冇（交接檔北極星 7）。 */
+  const bar = document.createElement('div');
+  bar.className = 'aiBar'; bar.style.margin = '0 0 8px';
+  const only = document.createElement('button');
+  only.className = 'btn'; only.id = 'tdOnlyBtn';
+  only.onclick = ()=>{ tdOnlySel = !tdOnlySel; tdNotices(); };
+  bar.appendChild(only);
+  host.appendChild(bar);
+  tdOnlyLabel(selN, t.notices.length);
+  /* 篩緊就一定要喺畫面上講出嚟。靜靜雞少咗嘢，同「真係冇嘢」睇落一樣（北極星 2）。 */
+  if(tdOnlySel){
+    const note = document.createElement('p');
+    note.className = 'subnote';
+    note.style.cssText = 'border-left:3px solid var(--accent);padding:6px 9px;' +
+      'margin:0 0 8px;background:var(--panel);border-radius:0 8px 8px 0';
+    note.textContent = '而家淨係顯示剔咗嗰 ' + shown.length + ' 張，另外 ' +
+                       (t.notices.length - shown.length) + ' 張收埋咗。';
+    host.appendChild(note);
+  }
+  shown.slice().reverse().forEach(function(nt){
     const row = document.createElement('div');
     row.className = 'tdNotice';
     const its = t.items.filter(x=>x.noticeId===nt.id);
@@ -10961,14 +11012,20 @@ async function tdNotices(){
     const pick = document.createElement('input');
     pick.type = 'checkbox';
     pick.checked = !!tdSel[nt.id];
-    pick.title = '揀咗嘅先匯出';
+    pick.title = '剔咗嘅先匯出；亦都可以用頂部粒掣淨係睇剔咗嗰幾張';
     pick.onchange = ()=>{
       if(pick.checked) tdSel[nt.id] = true; else delete tdSel[nt.id];
       tdExportLabel();
+      /* 篩緊嗰陣剔或者甩剔會即刻改變顯示邊幾張，一定要重畫；
+         冇篩緊就唔好重畫——重畫會閂返你啱啱撳開嗰個 👁 原文／🧠 推理。 */
+      if(tdOnlySel) tdNotices();
+      else tdOnlyLabel(Object.keys(tdSel).filter(id=>t.notices.some(n=>n.id===id)).length,
+                       t.notices.length);
     };
     row.appendChild(pick);
     const nm = document.createElement('span'); nm.className='nm';
-    nm.innerHTML = '<span class="caret">' + (tdOpenNotice===nt.id ? '▾' : '▸') + '</span> ' + esc(nt.title);
+    const _open = tdOnlySel || tdOpenNotice===nt.id;   /* 篩緊就唔使逐張撳開 */
+    nm.innerHTML = '<span class="caret">' + (_open ? '▾' : '▸') + '</span> ' + esc(nt.title);
     nm.title = '撳一下睇佢拆咗邊幾件事（雙撳改名）';
     nm.style.cursor = 'pointer';
     nm.onclick = function(){
@@ -11066,7 +11123,7 @@ async function tdNotices(){
     row.appendChild(view); row.appendChild(brain); row.appendChild(del);
     host.appendChild(row);
     /* 攤開:呢張通告究竟拆咗邊幾件事。用戶原話：「每一張通告，佢拆咗邊幾個行動事項，我又 check 唔到」。 */
-    if(tdOpenNotice === nt.id){
+    if(_open){
       const box = document.createElement('div');
       box.className = 'tdNoticeItems';
       if(nt.summary){
@@ -11111,7 +11168,8 @@ async function tdNotices(){
                    '<button class="btn" id="tdExport">⬇ 匯出分析記錄</button>';
   host.appendChild(back);
   $('tdNoticesBack').onclick = ()=>{ tdPaneShow(''); renderTodo(); };
-  $('tdSelNone').onclick = ()=>{ tdSel = {}; tdNotices(); };
+  /* 全部唔剔＝零張被剔。唔順手閂埋個篩選，就會篩剩零張，個畫面變咗一片白。 */
+  $('tdSelNone').onclick = ()=>{ tdSel = {}; tdOnlySel = false; tdNotices(); };
   $('tdExport').onclick = tdExport;
   tdExportLabel();
 }
@@ -11120,6 +11178,15 @@ async function tdNotices(){
    一張通告一節：原文、AI 推理、AI 原始回覆、拆咗乜。
    用途好明確——校 SYS_TODO 嗰陣要對住實例改，同校 PERSONA_KID 一模一樣。 */
 /* 兩粒匯出掣嘅字要跟住揀咗幾多張變,唔係用戶唔知自己撳落去會出乜。 */
+/* 粒篩選掣啲字要話得返俾人知撳落去會點，同埋而家剔咗幾多張。 */
+function tdOnlyLabel(selN, total){
+  const b = $('tdOnlyBtn'); if(!b) return;
+  b.textContent = tdOnlySel ? ('👁 睇返全部 ' + total + ' 張')
+                            : ('👁 淨係睇剔咗嗰 ' + selN + ' 張');
+  b.disabled = !tdOnlySel && !selN;
+  b.title = b.disabled ? '一張都未剔：先喺左邊個格仔剔返你想睇嗰幾張'
+                       : '剔咗嘅先顯示，同時會自動攤開佢哋拆咗邊幾件事';
+}
 function tdExportLabel(){
   const n = Object.keys(tdSel).length;
   const txt = n ? ('⬇ 匯出揀咗嘅 ' + n + ' 張') : '⬇ 匯出分析記錄';
