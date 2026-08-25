@@ -498,6 +498,36 @@ body.readonly .chatThinkKeep{display:none!important}
 }
 .sosFoot .send:disabled{opacity:.45;cursor:default}
 .sosNote{font-size:11.5px;color:var(--muted);padding:6px 14px 0}
+/* ── Charlotte 自己排時間表 ── */
+#btnKidNew{display:none}
+body.readonly #btnKidNew{
+  display:inline-block;border-color:var(--accent);color:var(--accent);font-weight:700;
+}
+body.readonly #btnKidNew:hover{background:var(--accent);color:#fff}
+.kidLbl{display:block;font-size:13px;font-weight:700;color:var(--ink);margin:10px 0 5px}
+#kidEvModal input[type=text],#kidEvModal input[type=date],#kidEvModal input[type=time]{
+  width:100%;font-size:16px;padding:9px 10px;border:1px solid var(--line);
+  border-radius:8px;background:var(--panel);color:var(--ink);
+}
+.kidChips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.kidChips button{
+  border:1px solid var(--line);background:var(--panel);color:var(--ink);
+  border-radius:999px;padding:7px 13px;font-size:14px;cursor:pointer;min-height:38px;
+}
+.kidChips button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.kidWarn{
+  margin-top:12px;border-left:3px solid var(--overdue);background:#fdecec;
+  color:var(--overdue);border-radius:0 8px 8px 0;padding:9px 11px;font-size:13.5px;line-height:1.6;
+}
+/* 佢自己排嗰啲，爹哋一眼要認得出 */
+.evRow.kidOwn .evTtl::before{
+  content:"🧒";margin-right:5px;font-size:12px;
+}
+.evRow.kidOwn{border-left:3px solid var(--accent)}
+.evKidEdit{
+  border:1px solid var(--accent);background:var(--panel);color:var(--accent);
+  border-radius:7px;padding:2px 9px;font-size:12px;cursor:pointer;margin-left:6px;min-height:30px;
+}
 /* ── 🆘 送相 ── */
 .sosFoot .pic{
   border:1px solid var(--line);background:var(--panel);border-radius:9px;
@@ -949,6 +979,7 @@ body.hubOpen{overflow:hidden}
   <div class="spacer"></div>
   <button class="hbtn" id="btnUndo" disabled title="復原上一步（Ctrl+Z）">↩ 復原</button>
   <button class="hbtn" id="btnRedo" disabled title="重做（Ctrl+Y）">↪ 重做</button>
+  <button class="hbtn" id="btnKidNew" title="自己加一格落時間表">＋ 我自己加一格</button>
   <button class="hbtn" id="btnAI">🤖 AI 排程 (Ctrl+K)</button>
   <button class="hbtn" id="btnAISet">⚙ AI 設定</button>
   <button class="hbtn" id="btnKw">🎨 關鍵字顏色</button>
@@ -1094,6 +1125,35 @@ body.hubOpen{overflow:hidden}
     <div class="hvMsg" id="hvMsg"></div>
   </div>
 </div>
+<div class="overlay" id="kidEvModal">
+  <div class="modal" style="width:min(94vw,430px)">
+    <h3 id="kidEvTitleTxt" style="margin:0 0 4px">＋ 加一格落我嘅時間表</h3>
+    <p class="subnote" id="kidEvHint" style="margin:0 0 12px"></p>
+
+    <label class="kidLbl">做乜？</label>
+    <input id="kidEvWhat" type="text" maxlength="24" placeholder="例如：砌 LEGO、練琴、執書包">
+
+    <label class="kidLbl">邊日？</label>
+    <div class="kidChips" id="kidEvDayChips"></div>
+    <input id="kidEvDate" type="date">
+
+    <label class="kidLbl">幾點開始？</label>
+    <input id="kidEvTime" type="time" step="300">
+
+    <label class="kidLbl">做幾耐？</label>
+    <div class="kidChips" id="kidEvDurChips"></div>
+
+    <div id="kidEvWarn" class="kidWarn" style="display:none"></div>
+
+    <div class="modalActs" style="margin-top:14px">
+      <button class="btn danger" id="kidEvDel" style="display:none">🗑 刪咗佢</button>
+      <span style="flex:1"></span>
+      <button class="btn" id="kidEvCancel">唔加住</button>
+      <button class="btn primary" id="kidEvSave">✓ 加落去</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="eventModal"><div class="modal"><h3 id="evModalTitle">編輯項目</h3><div class="frow"><div style="flex:2"><label>標題</label><input type="text" id="evTitle"></div></div><div class="frow"><div><label>日期</label><input type="date" id="evDate"></div><div><label>開始時間</label><input type="time" id="evTimeInp"></div><div><label>指定完結時間（背景／平行任務先需要）</label><div style="display:flex;gap:6px"><input type="time" id="evEnd"><button class="btn" id="evEndClear" title="清除" style="padding:4px 8px">✕</button></div></div></div><div class="frow"><div><label><input type="checkbox" id="evHwSlot" style="margin-right:6px;vertical-align:-1px">呢個係「做功課／練習」嘅時段，唔係上堂</label><div class="subnote" style="margin-top:2px">剔咗之後，系統就唔會當佢係一堂而再派多一份功課出嚟。</div></div></div><div class="frow"><div><label>顏色（艾森豪四象限，可以唔揀）</label><div class="colorPick" id="evColors"><button class="cpBtn cp-none" data-c="" title="無"></button><button class="cpBtn cp-red" data-c="red" title="緊急＋重要"></button><button class="cpBtn cp-amber" data-c="amber" title="重要但唔緊急"></button><button class="cpBtn cp-blue" data-c="blue" title="緊急但唔重要"></button><button class="cpBtn cp-grey" data-c="grey" title="唔重要唔緊急"></button></div></div></div><div class="frow"><div><label>SOP／內文（可以直接由 Word 貼上，會自動變 Markdown 純文字，圖片一律過濾）</label><textarea id="evSop" class="sop"></textarea><div class="sopPreview" id="evSopPrev"></div><button class="btn" id="evPrevToggle" style="margin-top:6px;padding:3px 10px;font-size:12px">預覽排版</button></div></div><div class="modalActs"><button class="btn danger" id="evDelete">刪除</button><span style="flex:1"></span><button class="btn" id="evCancel">取消</button><button class="btn primary" id="evSave">儲存</button></div></div></div>
 <div class="overlay" id="tplModal"><div class="modal"><h3 id="tplModalTitle">編輯任務模板</h3><div class="frow"><div><label>標題</label><input type="text" id="tplTitle"></div></div><div class="frow"><div><label>預設顏色</label><div class="colorPick" id="tplColors"><button class="cpBtn cp-none" data-c="" title="無"></button><button class="cpBtn cp-red" data-c="red" title="緊急＋重要"></button><button class="cpBtn cp-amber" data-c="amber" title="重要但唔緊急"></button><button class="cpBtn cp-blue" data-c="blue" title="緊急但唔重要"></button><button class="cpBtn cp-grey" data-c="grey" title="唔重要唔緊急"></button></div></div></div><div class="frow"><div><label>SOP（可由 Word 貼上，自動轉 Markdown；圖片一律過濾）</label><textarea id="tplSop" class="sop"></textarea><div class="sopPreview" id="tplSopPrev"></div><button class="btn" id="tplPrevToggle" style="margin-top:6px;padding:3px 10px;font-size:12px">預覽排版</button></div></div><p class="subnote">提示：儲存後，如果將來已排程嘅項目仍然同舊模板一模一樣（未被個別修改過），會問你要唔要一次過套用新內容。已過去嘅記錄一律不受影響。</p><div class="modalActs"><button class="btn" id="tplCancel">取消</button><button class="btn primary" id="tplSave">儲存</button></div></div></div>
 <div class="overlay" id="bulkModal"><div class="modal"><h3>批量計劃／修改／刪除</h3><div class="frow"><div><label>揀選任務模板</label><select id="bulkTask"></select></div></div><div class="frow"><div><label>由（日期）</label><input type="date" id="bulkFrom"></div><div><label>至（日期）</label><input type="date" id="bulkTo"></div><div><label>時間</label><input type="time" id="bulkTime" value="09:00"></div></div><div class="frow"><div><label>動作</label><select id="bulkMode"><option value="create">建立：喺呢段日期內，每日同一時間新增呢個任務</option><option value="retime">修改：將呢段日期內同一任務全部改做新時間</option><option value="delete">刪除：將呢段日期內同一任務全部刪除</option></select></div></div><div class="frow" id="bulkNewTimeRow" style="display:none"><div><label>新時間</label><input type="time" id="bulkNewTime" value="10:00"></div></div><div class="modalActs"><button class="btn" id="bulkCancel">取消</button><button class="btn primary" id="bulkGo">執行</button></div></div></div>
@@ -1539,7 +1599,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-21i";
+const BUILD = "2026-08-25b";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -3290,7 +3350,7 @@ function renderDay(){
     const isNow = isNowEvent(ev, all);
     if(isNow) nowIdx = i;
     const row=document.createElement('div');
-    row.className='evRow'+(ev.color?' c-'+ev.color:'')+(isOverdue(ev, isNow)?' overdue':'')+(ev.guestPending?' guestPending':'')+(ev.guestDel?' guestDel':'')+(isNow?' now':'');
+    row.className='evRow'+(ev.color?' c-'+ev.color:'')+(isOverdue(ev, isNow)?' overdue':'')+(ev.guestPending?' guestPending':'')+(ev.guestDel?' guestDel':'')+(isNow?' now':'')+(ev.kid?' kidOwn':'');
     const main=document.createElement('div'); main.className='evMain';
 
     const tEl=document.createElement('span');
@@ -3342,6 +3402,16 @@ function renderDay(){
     const tags=document.createElement('span'); tags.className='evTags';
     tags.innerHTML=(isNow? '<span class="badge now">▶ 而家</span> ' : '')+evStatusBadge(ev, isNow);
     main.appendChild(tags);
+
+    /* 🧒 訪客模式之下，佢自己排嗰啲格有粒 ✎。爹哋嗰啲一律冇——
+       唔係靠 CSS 收埋，係根本冇整過粒掣出嚟（CSS 收埋＝改個 style 就撳得返）。 */
+    if(ev.kid === true && document.body.classList.contains('readonly')){
+      const kb=document.createElement('button');
+      kb.type='button'; kb.className='evKidEdit'; kb.textContent='✎ 改';
+      kb.title='呢格係你自己排嘅，你改得刪得';
+      kb.onclick=e=>{ e.stopPropagation(); kidOpen(ev); };
+      main.appendChild(kb);
+    }
 
     main.onclick=()=>{ expanded.has(ev.id)? expanded.delete(ev.id):expanded.add(ev.id); renderCal(); };
     row.appendChild(main);
@@ -3642,6 +3712,245 @@ const resetEvPrev=bindPreview('evPrevToggle','evSop','evSopPrev');
 const resetTplPrev=bindPreview('tplPrevToggle','tplSop','tplSopPrev');
 
 let editingEv=null;
+/* ============================================================
+   🧒 Charlotte 自己排時間表
+   ------------------------------------------------------------
+   點解要special處理：呢個係成個 app 第一次俾訪客直接寫入共用 state。
+   之前所有訪客改動都要行 guestPending（提出 → 爹哋批准）。而家佢自己
+   排嘅嘢唔使批准——目的係訓練佢自己編排，事事要批就冇咗個訓練意義。
+   所以個安全網唔係「攔住佢」，係「圈死佢郁得邊啲」：
+     · 佢淨係加得／改得／刪得 kid===true 嗰啲，爹哋嗰啲一律郁唔到；
+     · 寫入只可以經 kidWrite() 呢一個窄口，其餘時間 save() 照舊全封鎖；
+     · 過咗 48 鐘頭（唔屬於今日／尋日）嘅，改同刪都要行返 guestPending；
+     · 爹哋有生殺大權：佢嗰啲，爹哋照改照刪。
+   ============================================================ */
+const KID_MAX_PER_DAY = 10;      /* 一日最多自己排幾多格 */
+const KID_MAX_AHEAD   = 14;      /* 最多排到幾多日之後 */
+const KID_DUR_CHOICES = [15, 30, 45, 60];
+const KID_OPEN_END_MIN = 30;     /* 冇寫幾點完嘅格，當佢佔住半個鐘（見 kidWin） */
+
+/* 個 keyword 由爹哋張關鍵字表攞，唔寫死——噉先跟到佢自己嘅拼法同大細楷。
+   搵唔到就退返 'Charlotte'。 */
+function kidKw(){
+  try{
+    const hit = (kwList()||[]).map(function(x){ return String((x&&x.kw)||'').trim(); })
+      .filter(Boolean)
+      .filter(function(k){ return k.toLowerCase().indexOf('charlotte') >= 0; })[0];
+    if(hit) return hit;
+  }catch(e){}
+  return 'Charlotte';
+}
+function kidHasKw(title){
+  return String(title||'').toLowerCase().indexOf(kidKw().toLowerCase()) >= 0;
+}
+function kidTitle(what){
+  const w = String(what||'').trim();
+  return kidHasKw(w) ? w : (kidKw() + ' ' + w);
+}
+function kidIsMine(ev){ return !!(ev && ev.kid === true); }
+
+/* 唯一嘅寫入窄口。用 try/finally，掟錯都一定閂返——一個冇閂返嘅旗
+   就等於訪客模式由嗰刻起完全冇咗封鎖。 */
+let kidWriteOn = false;
+function kidWrite(fn){
+  kidWriteOn = true;
+  try{ return fn(); }
+  finally{ kidWriteOn = false; }
+}
+
+/* 一格佔住嘅時段。冇填「指定完結時間」嗰啲，computeEnd() 會攞下一件事
+   嘅開始時間；當日最後一件就會變成 23:59，即係佢一格就霸晒成晚，
+   Charlotte 之後乜都加唔到。所以：計到 23:59 而又冇明確完結時間，
+   當佢佔住 KID_OPEN_END_MIN 分鐘。佢自己排嘅格一律有明確時長。 */
+function kidWin(ev, dayAll){
+  const st = ev.start.slice(11);
+  let en = ev.endOverride || computeEnd(ev, dayAll);
+  if(!ev.endOverride && en === '23:59'){
+    const m = Math.min(23*60+59, minutes(st) + KID_OPEN_END_MIN);
+    en = pad(Math.floor(m/60)) + ':' + pad(m%60);
+  }
+  return [st, en];
+}
+function kidOverlap(aSt, aEn, bSt, bEn){ return aSt < bEn && bSt < aEn; }
+
+/* 撞唔撞。只同「標題含 Charlotte」嗰啲比——爹哋排嘅「Charlotte 返學」
+   一樣算，因為嗰格都係佢嘅時間。 */
+function kidClash(dateStr, st, en, selfId){
+  const all = eventsOnAll(dateStr);
+  for(let i = 0; i < all.length; i++){
+    const ev = all[i];
+    if(!ev || ev.id === selfId) continue;
+    if(!kidHasKw(ev.title)) continue;
+    const w = kidWin(ev, all);
+    if(kidOverlap(st, en, w[0], w[1])) return {ev:ev, from:w[0], to:w[1]};
+  }
+  return null;
+}
+function kidCountOn(dateStr){
+  return (state.events||[]).filter(function(e){
+    return e && e.kid === true && typeof e.start === 'string' && e.start.slice(0,10) === dateStr;
+  }).length;
+}
+/* 尋日或者之後 = 自由改自由刪；前日或者更早 = 要爹哋批。
+   ⚠️ 舊寫法係 (dateStr === today || dateStr === yest)，即係聽日、下星期嗰啲
+      將來嘅格都會當成「太舊」而要爹哋批——佢啱啱先自己排咗落去，跟住想改
+      就要等批准，完全講唔通。爹哋原話講嘅係「再早啲」，管嘅係過去，唔係將來。 */
+function kidFreshEnough(dateStr){
+  const d = new Date(); d.setDate(d.getDate() - 1);
+  return String(dateStr||'') >= fmtDate(d);
+}
+function kidAddMin(hhmm, mins){
+  const m = Math.min(23*60+59, minutes(hhmm) + mins);
+  return pad(Math.floor(m/60)) + ':' + pad(m%60);
+}
+
+/* ---------- 視窗 ---------- */
+let kidEditing = null, kidDur = 30;
+function kidOpen(ev){
+  kidEditing = ev || null;
+  const $k = function(id){ return document.getElementById(id); };
+  const today = new Date();
+  $k('kidEvTitleTxt').textContent = ev ? '改我自己排嗰格' : '＋ 加一格落我嘅時間表';
+  $k('kidEvHint').textContent = ev
+    ? '呢格係你自己排嘅，所以你改得刪得。'
+    : ('你排嘅嘢會自動記住係你嘅。同你自己其他嘢撞時間就加唔到，一日最多 '
+       + KID_MAX_PER_DAY + ' 格。');
+  $k('kidEvWhat').value = ev ? String(ev.title||'').replace(kidKw(), '').trim() : '';
+  $k('kidEvDate').value = ev ? ev.start.slice(0,10) : fmtDate(today);
+  $k('kidEvTime').value = ev ? ev.start.slice(11) : fmtTime(new Date());
+  $k('kidEvDate').min = ev ? ev.start.slice(0,10) : fmtDate(today);
+  const max = new Date(); max.setDate(max.getDate() + KID_MAX_AHEAD);
+  $k('kidEvDate').max = fmtDate(max);
+  kidDur = ev && ev.endOverride
+    ? Math.max(5, minutes(ev.endOverride) - minutes(ev.start.slice(11)))
+    : 30;
+  $k('kidEvDel').style.display = ev ? '' : 'none';
+  kidChips();
+  kidWarnOff();
+  show('kidEvModal');
+  setTimeout(function(){ try{ $k('kidEvWhat').focus(); }catch(e){} }, 60);
+}
+function kidChips(){
+  const dayBox = document.getElementById('kidEvDayChips');
+  const durBox = document.getElementById('kidEvDurChips');
+  const dateIn = document.getElementById('kidEvDate');
+  dayBox.innerHTML = ''; durBox.innerHTML = '';
+  /* 日子快撳：唔改得嘅時候（編輯緊）就唔出，免得佢以為撳得而其實撳唔郁 */
+  if(!kidEditing){
+    [['今日',0],['聽日',1],['後日',2]].forEach(function(p){
+      const d = new Date(); d.setDate(d.getDate() + p[1]);
+      const ds = fmtDate(d);
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = p[0];
+      if(dateIn.value === ds) b.className = 'on';
+      b.onclick = function(){ dateIn.value = ds; kidChips(); kidCheck(); };
+      dayBox.appendChild(b);
+    });
+  }
+  KID_DUR_CHOICES.forEach(function(mn){
+    const b = document.createElement('button'); b.type = 'button';
+    b.textContent = mn + ' 分鐘';
+    if(kidDur === mn) b.className = 'on';
+    b.onclick = function(){ kidDur = mn; kidChips(); kidCheck(); };
+    durBox.appendChild(b);
+  });
+  if(KID_DUR_CHOICES.indexOf(kidDur) < 0){
+    const b = document.createElement('button'); b.type = 'button';
+    b.className = 'on'; b.textContent = kidDur + ' 分鐘';
+    durBox.appendChild(b);
+  }
+}
+function kidWarnOff(){ const w = document.getElementById('kidEvWarn'); w.style.display = 'none'; w.textContent = ''; }
+function kidWarn(msg){ const w = document.getElementById('kidEvWarn'); w.textContent = msg; w.style.display = ''; }
+
+/* 驗一次，順手即場出紅字。回傳 null＝冇問題。
+   ⚠ 畫面上出咗警告，唔等於儲存嗰陣冇再驗——kidSave() 會再行一次同一個 function。
+     淨係靠畫面攔＝隨時俾人改個 input 就繞得過。 */
+function kidCheck(silent){
+  const what = document.getElementById('kidEvWhat').value.trim();
+  const date = document.getElementById('kidEvDate').value;
+  const time = document.getElementById('kidEvTime').value;
+  if(!silent) kidWarnOff();
+  if(!what) return {msg:'仲未寫低你想做乜。', quiet:true};
+  if(!date || !time) return {msg:'日期同時間都要揀。', quiet:true};
+
+  const today = fmtDate(new Date());
+  const max = new Date(); max.setDate(max.getDate() + KID_MAX_AHEAD);
+  if(!kidEditing && date < today) return {msg:'過咗嘅日子加唔到新嘢喇。揀今日或者之後。'};
+  if(date > fmtDate(max)) return {msg:'最遠排到 ' + fmtDate(max) + '，唔好排咁遠住。'};
+
+  if(!kidEditing && kidCountOn(date) >= KID_MAX_PER_DAY)
+    return {msg:'呢日你已經自己排咗 ' + KID_MAX_PER_DAY + ' 格喇，夠晒喇。想加就要刪返一格先。'};
+
+  const en = kidAddMin(time, kidDur);
+  if(en <= time) return {msg:'過咗半夜就排唔到喇，揀早啲嘅時間。'};
+  const cl = kidClash(date, time, en, kidEditing ? kidEditing.id : null);
+  if(cl) return {msg:'呢個時段撞咗「' + cl.ev.title + '」（' + cl.from + '–' + cl.to + '）。' +
+                     '揀第二個時間，或者做短啲。'};
+  if(!silent) kidWarnOff();
+  return null;
+}
+
+function kidSave(){
+  const bad = kidCheck();
+  if(bad){ kidWarn(bad.msg); return; }
+  const what = document.getElementById('kidEvWhat').value.trim();
+  const date = document.getElementById('kidEvDate').value;
+  const time = document.getElementById('kidEvTime').value;
+  const en   = kidAddMin(time, kidDur);
+  const start = date + 'T' + time;
+
+  if(kidEditing){
+    if(!kidIsMine(kidEditing)){ kidWarn('呢格唔係你排嘅，你改唔到。'); return; }
+    const oldDate = kidEditing.start.slice(0,10);
+    const needAsk = !kidFreshEnough(oldDate) || !kidFreshEnough(date);
+    kidWrite(function(){
+      Object.assign(kidEditing, {title:kidTitle(what), start:start, endOverride:en});
+      if(needAsk) kidEditing.guestPending = true;   /* 太舊：要爹哋批 */
+      save();
+    });
+    hide('kidEvModal');
+    toast(needAsk ? '✋ 呢格過咗尋日，改動要等爹哋批准。' : '✓ 改好喇。');
+  }else{
+    kidWrite(function(){
+      state.events.push({
+        id:uid(), title:kidTitle(what), start:start, endOverride:en, sop:'', color:'',
+        templateId:null, planned:(start > nowStr()), done:false, hwSlot:false,
+        kid:true, kidAt:Date.now()
+      });
+      save();
+    });
+    hide('kidEvModal');
+    toast('✓ 加咗落你嘅時間表。');
+  }
+  cursor = new Date(date + 'T00:00'); renderCal();
+}
+
+async function kidDelete(){
+  const ev = kidEditing;
+  if(!ev) return;
+  if(!kidIsMine(ev)){ kidWarn('呢格唔係你排嘅，你刪唔到。'); return; }
+  if(!await confirmBox('確定要刪走「' + ev.title + '」？')) return;
+  const fresh = kidFreshEnough(ev.start.slice(0,10));
+  kidWrite(function(){
+    if(fresh){ state.events = state.events.filter(function(x){ return x.id !== ev.id; }); }
+    else     { ev.guestPending = true; ev.guestDel = true; }   /* 太舊：提出刪，等爹哋批 */
+    save();
+  });
+  hide('kidEvModal'); renderCal();
+  toast(fresh ? '✓ 刪咗喇。' : '✋ 呢格過咗尋日，我幫你話咗俾爹哋知，等佢批。');
+}
+
+document.getElementById('kidEvCancel').onclick = function(){ hide('kidEvModal'); };
+document.getElementById('kidEvSave').onclick   = kidSave;
+document.getElementById('kidEvDel').onclick    = kidDelete;
+document.getElementById('btnKidNew').onclick   = function(){ kidOpen(null); };
+['kidEvWhat','kidEvDate','kidEvTime'].forEach(function(id){
+  const el2 = document.getElementById(id);
+  if(el2) el2.oninput = function(){
+    const bad = kidCheck(); if(bad && !bad.quiet) kidWarn(bad.msg); else kidWarnOff();
+  };
+});
+
 function openEvent(ev,defaults){
   editingEv=ev;
   resetEvPrev();
@@ -4604,10 +4913,14 @@ function diffSnap(){
   const now = Date.now();
   edits.forEach(function(x){
     const isAI = x.b.ai || x.c.ai;
+    const isKid = x.c.kid || x.b.kid;
     const last = _lastManual[x.id];
-    const txt = (isAI ? '我將 AI 排嘅「' : '我將「') + x.b.title + '」由 ' + x.b.start.replace('T',' ') +
+    const txt = (isKid ? 'Charlotte 改咗自己排嘅「' : isAI ? '我將 AI 排嘅「' : '我將「')
+                + x.b.title + '」由 ' + x.b.start.replace('T',' ') +
                 ' 改做「' + x.c.title + '」' + x.c.start.replace('T',' ');
-    const meta = {kind: isAI ? 'edit' : 'manual-edit', title:x.c.title, from:x.b.start, to:x.c.start};
+    const meta = {kind: isKid ? 'kid-edit' : isAI ? 'edit' : 'manual-edit',
+                  title:x.c.title, from:x.b.start, to:x.c.start};
+    if(isKid) meta.by = 'kid';
     if(last && (now - last.at) < MANUAL_MERGE_MS && last.logId){
       /* 十秒之內再改同一件事：蓋返上一條，唔好逐下拖曳都出一條 */
       const prev = (state.ai.log||[]).filter(function(l){ return l && l.id === last.logId; })[0];
@@ -4617,11 +4930,23 @@ function diffSnap(){
     _lastManual[x.id] = {at:now, logId: ent && ent.id};
   });
   gone.forEach(function(b){
+    if(b.kid){
+      logPush('correction', 'Charlotte 刪咗自己排嘅「' + b.title + '」（原本 ' + b.start.replace('T',' ') + '）',
+        {kind:'kid-delete', title:b.title, from:b.start, by:'kid'});
+      return;
+    }
     logPush('correction', (b.ai ? '我刪咗 AI 排嘅「' : '我刪咗「') + b.title + '」（原本 ' + b.start.replace('T',' ') + '）',
       {kind: b.ai ? 'delete' : 'manual-delete', title:b.title, from:b.start});
   });
   born.forEach(function(c){
     if(c.ai) return;                                   /* AI 加嘅已經有 plan 記錄，唔使重複 */
+    /* ⚠ 呢句以前一律寫「我自己加咗」。Charlotte 自己排時間表之後，爹哋翻本
+       Data Log 就會見到一堆「我自己加咗」而其實唔係佢加嘅——本簿變咗呃佢。 */
+    if(c.kid){
+      logPush('feedback', 'Charlotte 自己排咗「' + c.title + '」' + String(c.start||'').replace('T',' '),
+        {kind:'kid-add', title:c.title, to:c.start, by:'kid'});
+      return;
+    }
     logPush('feedback', '我自己加咗「' + c.title + '」' + String(c.start||'').replace('T',' '),
       {kind:'manual-add', title:c.title, to:c.start});
   });
@@ -6685,6 +7010,8 @@ const PERSONA_KID = [
 '67. 相機係影嘢，唔係影人。相入面主要係人（佢自己、妹妹、同學、大人），唔准描述個樣、身型、著咩衫，唔准講靚唔靚、得唔得意。輕鬆講一句「相機留返影得意嘅嘢啦，本書、隻蟲、你砌嘅嘢」，跟住問返佢想知乜。讚佢個樣，就係教緊佢影多啲自己。例外：佢影嘅如果係佢正正喺度問緊嗰個身體部位（隻牙、撞親嗰浸、痕嗰笪），咁張相係資料，唔係影自己，相機嗰句一個字都唔好提，直接答佢個問題。更加大條嘅界線：佢講緊痛、驚、唔舒服、唔開心嗰陣，第一句一定要係關心佢，任何規矩、提醒、額度都唔准擺喺佢前面。實際出過事：佢話隻牙好唔舒服，你第一句係「相機留返影得意嘅嘢啦」。',
 '68. 相入面有人冇著衫、淨係著住底衫、或者影住私隱部位：即刻停低。唔准描述、唔准分析、唔准講笑帶過。平靜咁講：呢類相唔影得，亦唔可以 send 俾任何人，包括我。跟住叫佢即刻話俾爹哋媽咪知。之後嗰幾轉都唔准自己返去講嗰張相。',
 '69. 唔准估相入面啲人係邊個、幾多歲、係咪佢屋企人。',
+
+'69a. 你手上嗰份【呢張相抄咗落文字】唔係張相。佢問嘅嘢係關於張相嘅擺位、大細、數量、邊個喺邊個隔籬——而份抄寫入面搵唔到——嗰陣第一步唔係叫佢自己望，係出標記 [[LOOKAGAIN: 你想望真啲嗰樣]]，一句、具體、一次問一樣。呢個係第 31 條唯一嘅例外：第 31 條講嘅係佢望到而你望唔到嘅嘢（張紙印咗幾多條底線、堂改咗期），呢度講嘅係你手上嗰份嘢淨係抄漏咗，而你係有得再望一眼嘅——有得望而唔望，反而推個工作返去佢度，就係躲懶。一張相最多兩次，用完就照第 34 條老實講你邊部分睇唔到。實際出過事：佢問「第八題右上角嗰幅圖係乜嚟」，你喺思考入面寫住「the transcription doesn\u2019t specify positions」，跟住你冇出標記，改為叫佢自己望——由頭到尾冇同佢講過你其實睇唔到嗰個位。',
 '70. 相入面有唔啱佢年紀嘅嘢（暴力、成人、恐怖）：唔描述，唔解釋你略過咗，直接轉去問佢想知乜。',
 '71. context 有【相機額度】。剩返兩張或者以下，就要喺嗰個回應入面主動講一次仲有幾多張、用完會點（要抖幾耐、幾時再有），語氣似朋友報數唔似督察。講一次就夠，唔准同一個回應講兩次，亦唔准每次影相都重複。',
 '72. context 講【相機狀態】鎖咗：唔准扮唔知，唔准嬲，亦唔准幫佢諗辦法繞過。平靜講一次：相機今日收咗，等爹哋返到嚟一齊睇下點做。跟住如常同佢傾偈、如常幫佢——鎖咗嘅係相機，唔係你。唔准用罰嘅語氣。',
@@ -10121,7 +10448,15 @@ function guestThinkLine(think, txt){
   const n = String(think||'').replace(/\s+/g,'').length;
   let bit = '';
   if(/\[\[\s*(SEARCH|FANDOM|WEB|WIKI)/i.test(String(txt||''))) bit = '🔍 我去搵緊資料　';
-  else if(typeof imgLastUsed !== 'undefined' && imgLastUsed) bit = '👀 我望緊你張相　';
+  /* ⚠️ 舊 bug（已修）：淨係睇 imgLastUsed，於是「用返之前抄低嘅嘢」嗰啲轉
+     都會寫「👀 我望緊你張相」——而同一版下面條 📎 bar 就寫住「我用返頭先抄低
+     嘅嘢」。兩個標籤喺同一個畫面度打對台，而且上面嗰個係假嘅。
+     實際出過事：8/25 第 10 輪，佢淨係追問，根本冇再叫過睇相 model。 */
+  else if(typeof imgLastUsed !== 'undefined' && imgLastUsed){
+    bit = (typeof imgLastTr !== 'undefined' && imgLastTr)
+      ? '📄 我睇緊頭先抄低你張相嗰份嘢　'
+      : '👀 我望緊你張相　';
+  }
   if(n < 20) return bit + '我個腦喺度轉緊…';
   return bit + '我個腦喺度轉緊，已經諗咗 <span class="gThinkN">' + n + '</span> 個字';
 }
@@ -12793,7 +13128,12 @@ save = function(){
   if(guestMode){
     /* AI Modal 開啟期間允許寫入（訪客可以透過 AI 排程同傾偈改嘢，改動會被標記為 guestPending） */
     const aiModalOpen = document.getElementById('aiModal') && document.getElementById('aiModal').classList.contains('show');
-    if(!aiModalOpen){ toast('🔒 訪客模式：已經封鎖修改'); return; }
+    /* 🧒 Charlotte 自己排時間表：唯一另一個開口。
+       ⚠ 呢個旗淨係喺 kidWrite(fn) 個同步 body 入面為真，finally 即刻閂返。
+         唔可以改成一粒「訪客編輯模式」掣——嗰種一旦冇閂返，訪客模式由嗰刻起
+         就完全冇咗封鎖，而且畫面上睇唔出。窄口要窄到冇得忘記閂。 */
+    const kidOK = (typeof kidWriteOn !== 'undefined') && kidWriteOn;
+    if(!aiModalOpen && !kidOK){ toast('🔒 訪客模式：已經封鎖修改'); return; }
   }
   return _saveBeforeGuest.apply(this, arguments);
 };
@@ -13251,6 +13591,15 @@ const S2T = {
    第 29 輪成段答案簡體化（帮、紧、虽、见、话、太阳），推理入面反而係乾淨繁體，
    即係簡體係喺出字嗰層漏出嚟，唔係諗嘢嗰層。呢六個字喺繁體度根本唔存在，
    唔會好似「面」「准」「里」「复」「历」咁撞，所以放得落字級表。 */
+/* 2026-08-25：8/22 第 2 輪出咗「细细隻」「交叉纹」。查表先發現唔係漏一兩隻字，
+   係糸部（纟）成家人都唔喺表入面——红、绿、细、纹、经、练、级⋯⋯全部冇。
+   呢張表一路都係「見一隻捉一隻」咁砌，即係一定會一路漏。糸部呢批喺繁體度
+   根本唔存在，唔會好似「面」「准」「里」「复」「历」咁撞，所以安全補得。
+   同場補埋幾隻同樣唔會撞、而細路日常一定會用到嘅。 */
+'红':'紅','绿':'綠','细':'細','纹':'紋','经':'經','练':'練','级':'級','绳':'繩',
+'织':'織','绝':'絕','绍':'紹','纯':'純','缩':'縮','绕':'繞','缝':'縫',
+'绵':'綿','绢':'絹','纱':'紗','绑':'綁','纽':'鈕','绣':'繡','缓':'緩','缤':'繽',
+'马':'馬','鸟':'鳥',
 '见':'見','虽':'雖','紧':'緊','帮':'幫','话':'話','阳':'陽','脑':'腦','闹':'鬧',
 '蓝':'藍','轻':'輕','温':'溫','说':'說','这':'這','没':'沒','会':'會','个':'個','们':'們',
 '时':'時','间':'間','对':'對','错':'錯','问':'問','题':'題','实':'實','际':'際','应':'應',
