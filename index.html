@@ -1539,7 +1539,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-21h";
+const BUILD = "2026-08-21i";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -13377,6 +13377,9 @@ const KID_CHIPS   = ['我唔識做功課', '我做完功課喇', '屋企有事�
 const SEEN_KEY    = 'diarycal_sos_seen_v1';
 const MAX_KEEP    = 60;
 const SEND_MS     = 12000;
+/* SEND_MS 當年係為住九十幾 byte 嘅純文字訂嘅。一張相係二十萬 byte——
+   屋企 WiFi 死角或者出街用流動數據，12 秒好容易唔夠。 */
+const PIC_SEND_MS = 45000;
 const OUT_KEY     = 'diarycal_sos_outbox_v1';
 
 /* ── 送相 ──
@@ -13500,9 +13503,15 @@ function note(msg, bad){
   n.textContent = msg || '';
   n.style.color = bad ? 'var(--overdue)' : '';
 }
+/* ⚠ timeout ≠ 失敗。Firebase 個 promise 網絡差嗰陣唔會 reject，佢會掛住——
+   啲寫入排咗喺本機隊列，接返線就會自己補送。所以「等咗好耐」同「真係寫唔到」
+   要分得開，唔係就會做錯善後（見 pushOut 嗰個刪相決定）。 */
 function withTimeout(p, ms, what){
   return Promise.race([ p, new Promise(function(_, rej){
-    setTimeout(function(){ rej(new Error((what||'呢一步') + '　等咗 ' + Math.round(ms/1000) + ' 秒都冇回音')); }, ms);
+    setTimeout(function(){
+      const e = new Error((what||'呢一步') + '　等咗 ' + Math.round(ms/1000) + ' 秒都冇回音');
+      e.timeout = true; rej(e);
+    }, ms);
   })]);
 }
 
@@ -13670,11 +13679,16 @@ function pushOut(item){
   }
   item.state = 'sending'; renderThread();
   /* 次序：先寫相，成功先寫留言。倒轉嘅話，留言會指住一張未上到雲嘅相，
-     對面就見到一個永遠攞唔到嘅灰格。留言寫唔到就要即刻清走張孤兒相。 */
-  const picId = item.d ? ('p' + Date.now().toString(36) + Math.random().toString(36).slice(2,7)) : '';
+     對面就見到一個永遠攞唔到嘅灰格。
+     ⚠ picId 記喺 item 上面，重試要用返同一個：唔係每撳一次「↻ 再試」
+       就喺雲端度多一張孤兒相。 */
+  if(item.d && !item.picId){
+    item.picId = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+  }
+  const picId = item.d ? item.picId : '';
   const step1 = picId
     ? withTimeout(sosRef.child('pics/' + picId).set({ d:item.d, at:item.at, who:item.who }),
-                  SEND_MS, '上載張相')
+                  PIC_SEND_MS, '上載張相')
     : Promise.resolve();
   step1.then(function(){
     if(picId) picCache[picId] = item.d;
@@ -13685,10 +13699,18 @@ function pushOut(item){
     outbox = outbox.filter(function(x){ return x.tmp !== item.tmp; });
     markSeen(); saveOut(); renderThread(); note('');
   }).catch(function(err){
-    if(picId){ try{ sosRef.child('pics/' + picId).remove(); }catch(_e){} }   /* 唔好留孤兒相 */
+    /* ⚠️ 舊 bug（已修）：以前一撞錯就刪張相。但 timeout 唔係失敗——
+       條 message 好可能之後仲會補送到，嗰陣佢就會指住一張俾我哋自己刪咗嘅相，
+       對面永遠見到「張相冇咗」。而張相二十萬 byte，timeout 係大機會撞到嘅路，
+       唔係罕見情況。所以：真係錯（權限、參數）先刪，等唔切就留返。 */
+    const to = !!(err && err.timeout);
+    if(picId && !to){ try{ sosRef.child('pics/' + picId).remove(); }catch(_e){} }
     item.state = 'fail'; item.err = errTxt(err);
     saveOut(); renderThread();
-    note('送唔到：' + errTxt(err) + '。撳「🔧 自我檢查」睇下邊一步出事。', true);
+    note(to
+      ? ('等緊 Firebase 回音，等咗好耐都未覆。接返線佢會自己補送——' +
+         '撳「↻ 再試」都得，唔會send兩次（用返同一個編號）。')
+      : ('送唔到：' + errTxt(err) + '。撳「🔧 自我檢查」睇下邊一步出事。'), true);
   });
 }
 function retry(tmp){
