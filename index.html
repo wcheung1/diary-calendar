@@ -499,11 +499,11 @@ body.readonly .chatThinkKeep{display:none!important}
 .sosFoot .send:disabled{opacity:.45;cursor:default}
 .sosNote{font-size:11.5px;color:var(--muted);padding:6px 14px 0}
 /* ── Charlotte 自己排時間表 ── */
-#btnKidNew{display:none}
-body.readonly #btnKidNew{
+#btnKidNew,#btnKidClock{display:none}
+body.readonly #btnKidNew,body.readonly #btnKidClock{
   display:inline-block;border-color:var(--accent);color:var(--accent);font-weight:700;
 }
-body.readonly #btnKidNew:hover{background:var(--accent);color:#fff}
+body.readonly #btnKidNew:hover,body.readonly #btnKidClock:hover{background:var(--accent);color:#fff}
 .kidLbl{display:block;font-size:13px;font-weight:700;color:var(--ink);margin:10px 0 5px}
 #kidEvModal input[type=text],#kidEvModal input[type=date],#kidEvModal input[type=time]{
   width:100%;font-size:16px;padding:9px 10px;border:1px solid var(--line);
@@ -539,6 +539,20 @@ body.readonly #btnKidNew:hover{background:var(--accent);color:#fff}
 .kidLegend .mm{background:var(--q-amber)}
 #kidClockBox{touch-action:none;user-select:none;-webkit-user-select:none;margin:4px 0 0}
 #kidClockBox svg{display:block;margin:0 auto;max-width:100%;height:auto}
+.kidNowBox{position:relative;text-align:center;padding-top:34px}
+.kidNowX{
+  position:absolute;top:10px;right:10px;border:1px solid var(--line);background:var(--panel);
+  color:var(--muted);border-radius:8px;width:34px;height:34px;font-size:15px;cursor:pointer;line-height:1;
+}
+.kidNowX:hover{border-color:var(--overdue);color:var(--overdue)}
+.kidNowLbl{font-size:13px;color:var(--muted);margin:0}
+.kidNowDigi{
+  font-size:54px;font-weight:800;line-height:1.1;color:var(--ink);
+  font-variant-numeric:tabular-nums;letter-spacing:1px;
+}
+.kidNowAp{font-size:19px;font-weight:700;color:var(--accent);margin-bottom:6px}
+#kidNowClockBox svg{display:block;margin:0 auto;max-width:100%;height:auto}
+.kidLegend .ss{background:var(--overdue)}
 .kidWarn{
   margin-top:12px;border-left:3px solid var(--overdue);background:#fdecec;
   color:var(--overdue);border-radius:0 8px 8px 0;padding:9px 11px;font-size:13.5px;line-height:1.6;
@@ -1004,6 +1018,7 @@ body.hubOpen{overflow:hidden}
   <button class="hbtn" id="btnUndo" disabled title="復原上一步（Ctrl+Z）">↩ 復原</button>
   <button class="hbtn" id="btnRedo" disabled title="重做（Ctrl+Y）">↪ 重做</button>
   <button class="hbtn" id="btnKidNew" title="自己加一格落時間表">＋ 我自己加一格</button>
+  <button class="hbtn" id="btnKidClock" title="睇下而家幾點">🕐 睇時鐘</button>
   <button class="hbtn" id="btnAI">🤖 AI 排程 (Ctrl+K)</button>
   <button class="hbtn" id="btnAISet">⚙ AI 設定</button>
   <button class="hbtn" id="btnKw">🎨 關鍵字顏色</button>
@@ -1149,6 +1164,22 @@ body.hubOpen{overflow:hidden}
     <div class="hvMsg" id="hvMsg"></div>
   </div>
 </div>
+<div class="overlay" id="kidNowModal">
+  <div class="modal kidNowBox" style="width:min(94vw,360px)">
+    <button class="kidNowX" id="kidNowClose" type="button" aria-label="閂咗個鐘">✕</button>
+    <p class="kidNowLbl">而家係</p>
+    <div class="kidNowDigi" id="kidNowDigi">--:--</div>
+    <div class="kidNowAp" id="kidNowAp">　</div>
+    <div id="kidNowClockBox"></div>
+    <p class="kidLegend">
+      <span class="hh"></span>短針＝<b>點</b>　
+      <span class="mm"></span>長針＝<b>分</b>　
+      <span class="ss"></span>幼針＝<b>秒</b>
+    </p>
+    <p class="subnote" style="margin:6px 0 0">撳外面任何位，或者撳右上角個 ✕，就會閂返。</p>
+  </div>
+</div>
+
 <div class="overlay" id="kidEvModal">
   <div class="modal" style="width:min(94vw,430px)">
     <h3 id="kidEvTitleTxt" style="margin:0 0 4px">＋ 加一格落我嘅時間表</h3>
@@ -1641,7 +1672,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-25d";
+const BUILD = "2026-08-25e";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -3884,8 +3915,11 @@ function kidTxt12(hhmm){
   const m = parseInt(String(hhmm).slice(3,5), 10) || 0;
   return ((h % 12) || 12) + ':' + pad(m) + '　' + (h >= 12 ? '下午' : '早上');
 }
-function kidClockBuild(){
-  const box = document.getElementById('kidClockBox'); if(!box) return;
+/* 鐘面（刻度＋數字）兩處要用：揀時間嗰個、同睇實時嗰個。
+   特登抽出嚟做一個 function——兩份鐘面 code 就係兩個會行開嘅版本，
+   改一次面就要記住改兩處，而遲早會漏。支針嘅 id 由呼叫者俾，
+   冇俾 idS 就唔畫秒針（揀時間嗰個唔需要秒）。 */
+function kidClockSVG(idH, idM, idS){
   const R = KID_CK, C = R, face = R - 10;
   let g = '';
   for(let i = 0; i < 60; i++){                       /* 刻度：五分一格粗啲 */
@@ -3903,14 +3937,27 @@ function kidClockBuild(){
     g += '<text x="' + (C + r2*Math.sin(a)).toFixed(1) + '" y="' + (C - r2*Math.cos(a) + 4).toFixed(1) +
          '" text-anchor="middle" font-size="10" fill="var(--q-amber)">' + (n*5 === 60 ? 0 : n*5) + '</text>';
   }
-  box.innerHTML =
-    '<svg viewBox="0 0 ' + (R*2) + ' ' + (R*2) + '" width="' + (R*2) + '" role="img" aria-label="圓形時鐘">' +
+  return '<svg viewBox="0 0 ' + (R*2) + ' ' + (R*2) + '" width="' + (R*2) + '" role="img" aria-label="圓形時鐘">' +
       '<circle cx="' + C + '" cy="' + C + '" r="' + face + '" fill="var(--bg)" stroke="var(--line)" stroke-width="2"/>' +
       g +
-      '<line id="kidHandH" stroke="var(--accent)" stroke-width="9" stroke-linecap="round"/>' +
-      '<line id="kidHandM" stroke="var(--q-amber)" stroke-width="6" stroke-linecap="round"/>' +
+      '<line id="' + idH + '" stroke="var(--accent)" stroke-width="9" stroke-linecap="round"/>' +
+      '<line id="' + idM + '" stroke="var(--q-amber)" stroke-width="6" stroke-linecap="round"/>' +
+      (idS ? '<line id="' + idS + '" stroke="var(--overdue)" stroke-width="2.5" stroke-linecap="round"/>' : '') +
       '<circle cx="' + C + '" cy="' + C + '" r="7" fill="var(--ink)"/>' +
+      (idS ? '<circle cx="' + C + '" cy="' + C + '" r="3.5" fill="var(--overdue)"/>' : '') +
     '</svg>';
+}
+/* 一支針指去邊。tail＝尾巴長度（秒針有尾先似真鐘）。 */
+function kidHandSet(id, ang, len, tail){
+  const el2 = document.getElementById(id); if(!el2) return;
+  const C = KID_CK, a = ang * Math.PI / 180, t = (tail == null ? 14 : tail);
+  el2.setAttribute('x1', C - t*Math.sin(a));  el2.setAttribute('y1', C + t*Math.cos(a));
+  el2.setAttribute('x2', C + len*Math.sin(a)); el2.setAttribute('y2', C - len*Math.cos(a));
+}
+function kidClockBuild(){
+  const box = document.getElementById('kidClockBox'); if(!box) return;
+  const R = KID_CK, C = R;
+  box.innerHTML = kidClockSVG('kidHandH', 'kidHandM', '');
   const svg = box.querySelector('svg');
   const pt = function(e){
     const r = svg.getBoundingClientRect();
@@ -3942,16 +3989,9 @@ function kidClockBuild(){
   svg.addEventListener('pointercancel', drop);
 }
 function kidClockDraw(){
-  const C = KID_CK;
-  const hand = function(id, ang, len){
-    const el2 = document.getElementById(id); if(!el2) return;
-    const a = ang * Math.PI / 180;
-    el2.setAttribute('x1', C - 14*Math.sin(a)); el2.setAttribute('y1', C + 14*Math.cos(a));
-    el2.setAttribute('x2', C + len*Math.sin(a)); el2.setAttribute('y2', C - len*Math.cos(a));
-  };
   /* 短針要跟埋分鐘行（9:30 停喺 9 同 10 中間）——呢個係佢學校教緊嗰個重點 */
-  hand('kidHandH', ((kidH12 % 12) * 30 + kidMin * 0.5) % 360, KID_CK - 72);
-  hand('kidHandM', kidMin * 6, KID_CK - 34);
+  kidHandSet('kidHandH', ((kidH12 % 12) * 30 + kidMin * 0.5) % 360, KID_CK - 72);
+  kidHandSet('kidHandM', kidMin * 6, KID_CK - 34);
   const hn = document.getElementById('kidHNum'), mn = document.getElementById('kidMNum'),
         ap = document.getElementById('kidApTxt');
   if(hn) hn.textContent = kidH12;
@@ -3972,6 +4012,65 @@ function kidStep(what, delta){
   }
   kidClockDraw(); kidAfterTime();
 }
+
+/* ============================================================
+   🕐 睇時鐘（實時）
+   ------------------------------------------------------------
+   純粹俾佢睇而家幾點，唔改到任何嘢。同揀時間嗰個鐘共用同一個鐘面
+   （kidClockSVG），所以佢喺兩處見到嘅刻度、數字、顏色完全一樣——
+   唔係嘅話佢就要重新認一次個面。
+   秒針係一秒一格咁跳，唔係順滑咁掃：佢學緊「一秒一秒」呢件事，
+   跳格先數得到。
+   ⚠ 個 timer 一定要閂返。一個冇閂嘅 setInterval 喺 iPad 度會一路
+     食電、一路寫 DOM，而且畫面上完全睇唔出。所以除咗閂窗嗰刻清，
+     每一 tick 自己再驗多次個窗仲喺唔喺度，唔喺就自己了斷。
+   ============================================================ */
+let kidNowTimer = null, kidNowLastSec = -1;
+function kidNowTick(force){
+  const box = document.getElementById('kidNowModal');
+  if(!box || !box.classList.contains('show')){ kidNowStop(); return; }   /* 自我了斷 */
+  const d = new Date(), sec = d.getSeconds();
+  if(!force && sec === kidNowLastSec) return;      /* 同一秒唔使重畫 */
+  kidNowLastSec = sec;
+  const h = d.getHours(), m = d.getMinutes();
+  kidHandSet('kidNowH', ((h % 12) * 30 + m * 0.5 + sec / 120) % 360, KID_CK - 72);
+  kidHandSet('kidNowM', (m * 6 + sec * 0.1) % 360, KID_CK - 34);
+  kidHandSet('kidNowS', sec * 6, KID_CK - 22, 26);
+  const hhmm = pad(h) + ':' + pad(m);
+  const dg = document.getElementById('kidNowDigi'), ap = document.getElementById('kidNowAp');
+  if(dg) dg.textContent = ((h % 12) || 12) + ':' + pad(m);   /* 電子鐘唔顯示秒 */
+  if(ap) ap.textContent = (h >= 12 ? '下午 PM' : '早上 AM');
+  if(dg) dg.setAttribute('aria-label', kidTxt12(hhmm));
+}
+function kidNowStop(){
+  if(kidNowTimer){ clearInterval(kidNowTimer); kidNowTimer = null; }
+  kidNowLastSec = -1;
+}
+function kidNowOpen(){
+  const box = document.getElementById('kidNowClockBox');
+  if(box) box.innerHTML = kidClockSVG('kidNowH', 'kidNowM', 'kidNowS');
+  show('kidNowModal');
+  kidNowStop();
+  kidNowTick(true);
+  /* 250 毫秒行一次、只喺秒數變咗先重畫：咁樣支秒針最遲慢四分一秒就跳，
+     肉眼對唔到出嚟，但又唔使好似每秒一次咁同系統嘅秒邊界漂開。 */
+  kidNowTimer = setInterval(function(){ kidNowTick(false); }, 250);
+}
+function kidNowCloseNow(){ kidNowStop(); hide('kidNowModal'); }
+
+(function(){
+  const b = document.getElementById('btnKidClock');
+  if(b) b.onclick = kidNowOpen;
+  const x = document.getElementById('kidNowClose');
+  if(x) x.onclick = kidNowCloseNow;
+  const ov = document.getElementById('kidNowModal');
+  /* 撳背景先閂，撳個鐘本身唔閂。呢度特登唔改全部 overlay 嘅行為——
+     其他窗有輸入格，撳錯背景就冇咗成單嘢。 */
+  if(ov) ov.onclick = function(e){ if(e.target === ov) kidNowCloseNow(); };
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && ov && ov.classList.contains('show')) kidNowCloseNow();
+  });
+})();
 
 function kidOpen(ev){
   kidEditing = ev || null;
