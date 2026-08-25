@@ -515,6 +515,30 @@ body.readonly #btnKidNew:hover{background:var(--accent);color:#fff}
   border-radius:999px;padding:7px 13px;font-size:14px;cursor:pointer;min-height:38px;
 }
 .kidChips button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.kidClockWrap{
+  border:1px solid var(--line);border-radius:12px;padding:10px 10px 6px;
+  background:var(--panel);text-align:center;
+}
+.kidDigi{display:flex;align-items:center;justify-content:center;gap:2px;flex-wrap:nowrap}
+.kidDigi .num{
+  font-size:38px;font-weight:800;line-height:1;color:var(--ink);
+  font-variant-numeric:tabular-nums;min-width:52px;display:inline-block;
+}
+.kidDigi .colon{font-size:34px;font-weight:800;line-height:1;color:var(--ink);margin:0 2px}
+.kidDigi .stp{
+  border:1px solid var(--line);background:var(--panel);color:var(--accent);
+  border-radius:7px;width:34px;min-height:30px;font-size:13px;cursor:pointer;padding:0;
+}
+.kidDigi .stp:hover{background:var(--accent-soft)}
+.kidDigi .ap{font-size:15px;font-weight:700;color:var(--accent);margin-left:10px;white-space:nowrap}
+.kidLegend{font-size:11.5px;color:var(--muted);margin:2px 0 0;line-height:1.7}
+.kidLegend .hh,.kidLegend .mm{
+  display:inline-block;width:16px;height:4px;border-radius:2px;vertical-align:middle;margin-right:4px;
+}
+.kidLegend .hh{background:var(--accent)}
+.kidLegend .mm{background:var(--q-amber)}
+#kidClockBox{touch-action:none;user-select:none;-webkit-user-select:none;margin:4px 0 0}
+#kidClockBox svg{display:block;margin:0 auto;max-width:100%;height:auto}
 .kidWarn{
   margin-top:12px;border-left:3px solid var(--overdue);background:#fdecec;
   color:var(--overdue);border-radius:0 8px 8px 0;padding:9px 11px;font-size:13.5px;line-height:1.6;
@@ -1138,10 +1162,28 @@ body.hubOpen{overflow:hidden}
     <input id="kidEvDate" type="date">
 
     <label class="kidLbl">幾點開始？</label>
-    <input id="kidEvTime" type="time" step="300">
+    <div class="kidChips" id="kidEvApChips"></div>
+    <div class="kidClockWrap">
+      <div class="kidDigi">
+        <button class="stp" id="kidHUp" type="button" aria-label="加一個鐘">▲</button>
+        <span class="num" id="kidHNum">9</span>
+        <button class="stp" id="kidHDn" type="button" aria-label="減一個鐘">▼</button>
+        <span class="colon">:</span>
+        <button class="stp" id="kidMUp" type="button" aria-label="加五分鐘">▲</button>
+        <span class="num" id="kidMNum">00</span>
+        <button class="stp" id="kidMDn" type="button" aria-label="減五分鐘">▼</button>
+        <span class="ap" id="kidApTxt">早上 AM</span>
+      </div>
+      <div id="kidClockBox"></div>
+      <p class="kidLegend">
+        <span class="hh"></span>短針＝<b>點</b>　
+        <span class="mm"></span>長針＝<b>分</b>　·　撳住支針拖，或者撳上下箭嘴
+      </p>
+    </div>
 
     <label class="kidLbl">做幾耐？</label>
     <div class="kidChips" id="kidEvDurChips"></div>
+    <p class="subnote" id="kidEvSpan" style="margin:2px 0 0"></p>
 
     <div id="kidEvWarn" class="kidWarn" style="display:none"></div>
 
@@ -1599,7 +1641,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-25c";
+const BUILD = "2026-08-25d";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -3727,6 +3769,7 @@ let editingEv=null;
 const KID_MAX_PER_DAY = 10;      /* 一日最多自己排幾多格 */
 const KID_MAX_AHEAD   = 14;      /* 最多排到幾多日之後 */
 const KID_DUR_CHOICES = [15, 30, 45, 60];
+const KID_DUR_DEFAULT = 30;      /* 佢唔揀時長就當半個鐘 */
 const KID_OPEN_END_MIN = 30;     /* 冇寫幾點完嘅格，當佢佔住半個鐘（見 kidWin） */
 
 /* 個 keyword 由爹哋張關鍵字表攞，唔寫死——噉先跟到佢自己嘅拼法同大細楷。
@@ -3805,7 +3848,131 @@ function kidAddMin(hhmm, mins){
 }
 
 /* ---------- 視窗 ---------- */
-let kidEditing = null, kidDur = 30;
+/* kidDur === null ＝ 佢特登唔揀，當 KID_DUR_DEFAULT。
+   唔用 0 或者 undefined 做「冇揀」，因為嗰兩個同「未初始化」分唔開。 */
+let kidEditing = null, kidDur = null;
+function kidDurMin(){ return kidDur == null ? KID_DUR_DEFAULT : kidDur; }
+
+/* ============================================================
+   🕐 圓鐘（教具）
+   ------------------------------------------------------------
+   佢學校而家教緊時針分針，所以呢度唔係「揀個時間」咁簡單，
+   係要佢見到數字同兩支針係同一件事。兩邊互通：
+     · 撳上下箭嘴改數字 → 兩支針即刻郁
+     · 拖支針 → 上面個數字即刻跳
+   刻意做嘅幾件事：
+     · 短針唔係只指住整點——9:30 嗰陣佢要停喺 9 同 10 中間，
+       因為真鐘就係咁，而呢個正正係細路最易讀錯嗰個位；
+     · 分針拖嘅時候鎖死喺 5 分一格（即係啱啱好指住 1 至 12 嗰啲數字），
+       等佢建立到「指住 3 ＝ 15 分」呢個對應；
+     · 早上／下午係另一個掣，唔會因為拖過咗 12 就自己跳——
+       自己跳嘅話佢永遠唔會知道發生咗咩事。
+   ============================================================ */
+const KID_CK = 132;                       /* SVG viewBox 半邊長 */
+let kidH12 = 9, kidMin = 0, kidPM = false, kidDragHand = '';
+function kidTime24(){
+  let h = kidH12 % 12; if(kidPM) h += 12;
+  return pad(h) + ':' + pad(kidMin);
+}
+function kidSetFrom24(hhmm){
+  const h = parseInt(String(hhmm).slice(0,2), 10) || 0;
+  const m = parseInt(String(hhmm).slice(3,5), 10) || 0;
+  kidPM = h >= 12; kidH12 = (h % 12) || 12; kidMin = m;
+}
+function kidTxt12(hhmm){
+  const h = parseInt(String(hhmm).slice(0,2), 10) || 0;
+  const m = parseInt(String(hhmm).slice(3,5), 10) || 0;
+  return ((h % 12) || 12) + ':' + pad(m) + '　' + (h >= 12 ? '下午' : '早上');
+}
+function kidClockBuild(){
+  const box = document.getElementById('kidClockBox'); if(!box) return;
+  const R = KID_CK, C = R, face = R - 10;
+  let g = '';
+  for(let i = 0; i < 60; i++){                       /* 刻度：五分一格粗啲 */
+    const a = i * 6 * Math.PI / 180, big = (i % 5 === 0);
+    const r1 = face - (big ? 13 : 6), r2 = face - 1;
+    g += '<line x1="' + (C + r1*Math.sin(a)).toFixed(1) + '" y1="' + (C - r1*Math.cos(a)).toFixed(1) +
+         '" x2="' + (C + r2*Math.sin(a)).toFixed(1) + '" y2="' + (C - r2*Math.cos(a)).toFixed(1) +
+         '" stroke="var(--line)" stroke-width="' + (big ? 3 : 1.4) + '" stroke-linecap="round"/>';
+  }
+  for(let n = 1; n <= 12; n++){                      /* 1–12 同埋外圈嘅分鐘數 */
+    const a = n * 30 * Math.PI / 180, rr = face - 30;
+    g += '<text x="' + (C + rr*Math.sin(a)).toFixed(1) + '" y="' + (C - rr*Math.cos(a) + 7).toFixed(1) +
+         '" text-anchor="middle" font-size="20" font-weight="700" fill="var(--ink)">' + n + '</text>';
+    const r2 = face - 52;
+    g += '<text x="' + (C + r2*Math.sin(a)).toFixed(1) + '" y="' + (C - r2*Math.cos(a) + 4).toFixed(1) +
+         '" text-anchor="middle" font-size="10" fill="var(--q-amber)">' + (n*5 === 60 ? 0 : n*5) + '</text>';
+  }
+  box.innerHTML =
+    '<svg viewBox="0 0 ' + (R*2) + ' ' + (R*2) + '" width="' + (R*2) + '" role="img" aria-label="圓形時鐘">' +
+      '<circle cx="' + C + '" cy="' + C + '" r="' + face + '" fill="var(--bg)" stroke="var(--line)" stroke-width="2"/>' +
+      g +
+      '<line id="kidHandH" stroke="var(--accent)" stroke-width="9" stroke-linecap="round"/>' +
+      '<line id="kidHandM" stroke="var(--q-amber)" stroke-width="6" stroke-linecap="round"/>' +
+      '<circle cx="' + C + '" cy="' + C + '" r="7" fill="var(--ink)"/>' +
+    '</svg>';
+  const svg = box.querySelector('svg');
+  const pt = function(e){
+    const r = svg.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width  * (R*2) - C;
+    const y = (e.clientY - r.top ) / r.height * (R*2) - C;
+    return {ang:(Math.atan2(x, -y) * 180 / Math.PI + 360) % 360, d:Math.sqrt(x*x + y*y)};
+  };
+  const angDiff = function(a, b){ const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
+  const grab = function(e){
+    const p = pt(e);
+    if(p.d < 12) return;                             /* 撳正中心唔算 */
+    /* 邊支針近就拖邊支。純靠距離分唔到（兩支針都由中心出發），所以比角度。 */
+    const ah = ((kidH12 % 12) * 30 + kidMin * 0.5) % 360, am = kidMin * 6;
+    kidDragHand = (angDiff(p.ang, ah) <= angDiff(p.ang, am)) ? 'h' : 'm';
+    move(e);
+  };
+  const move = function(e){
+    if(!kidDragHand) return;
+    e.preventDefault();
+    const p = pt(e);
+    if(kidDragHand === 'm'){ kidMin = (Math.round(p.ang / 30) * 5) % 60; }
+    else { kidH12 = (Math.round(p.ang / 30) % 12) || 12; }
+    kidClockDraw(); kidAfterTime();
+  };
+  const drop = function(){ kidDragHand = ''; };
+  svg.addEventListener('pointerdown', function(e){ grab(e); svg.setPointerCapture(e.pointerId); });
+  svg.addEventListener('pointermove', move);
+  svg.addEventListener('pointerup', drop);
+  svg.addEventListener('pointercancel', drop);
+}
+function kidClockDraw(){
+  const C = KID_CK;
+  const hand = function(id, ang, len){
+    const el2 = document.getElementById(id); if(!el2) return;
+    const a = ang * Math.PI / 180;
+    el2.setAttribute('x1', C - 14*Math.sin(a)); el2.setAttribute('y1', C + 14*Math.cos(a));
+    el2.setAttribute('x2', C + len*Math.sin(a)); el2.setAttribute('y2', C - len*Math.cos(a));
+  };
+  /* 短針要跟埋分鐘行（9:30 停喺 9 同 10 中間）——呢個係佢學校教緊嗰個重點 */
+  hand('kidHandH', ((kidH12 % 12) * 30 + kidMin * 0.5) % 360, KID_CK - 72);
+  hand('kidHandM', kidMin * 6, KID_CK - 34);
+  const hn = document.getElementById('kidHNum'), mn = document.getElementById('kidMNum'),
+        ap = document.getElementById('kidApTxt');
+  if(hn) hn.textContent = kidH12;
+  if(mn) mn.textContent = pad(kidMin);
+  if(ap) ap.textContent = kidPM ? '下午 PM' : '早上 AM';
+}
+/* 時間一郁就重畫上下晝掣、更新「由幾點做到幾點」、再驗一次撞唔撞 */
+function kidAfterTime(){
+  kidChips();
+  const bad = kidCheck();
+  if(bad && !bad.quiet) kidWarn(bad.msg); else kidWarnOff();
+}
+function kidStep(what, delta){
+  if(what === 'h'){ kidH12 = ((kidH12 - 1 + delta + 12) % 12) + 1; }
+  else{
+    const m = kidMin + delta * 5;
+    kidMin = ((m % 60) + 60) % 60;
+  }
+  kidClockDraw(); kidAfterTime();
+}
+
 function kidOpen(ev){
   kidEditing = ev || null;
   const $k = function(id){ return document.getElementById(id); };
@@ -3817,14 +3984,21 @@ function kidOpen(ev){
        + KID_MAX_PER_DAY + ' 格。');
   $k('kidEvWhat').value = ev ? String(ev.title||'').replace(kidKw(), '').trim() : '';
   $k('kidEvDate').value = ev ? ev.start.slice(0,10) : fmtDate(today);
-  $k('kidEvTime').value = ev ? ev.start.slice(11) : fmtTime(new Date());
   $k('kidEvDate').min = ev ? ev.start.slice(0,10) : fmtDate(today);
   const max = new Date(); max.setDate(max.getDate() + KID_MAX_AHEAD);
   $k('kidEvDate').max = fmtDate(max);
+  /* 新開嗰陣由而家嘅鐘數起，但要湊夠五分一格——唔係支分針會停喺刻度中間，
+     佢望住個鐘讀出嚟嘅數會同上面個數字對唔上。 */
+  if(ev){ kidSetFrom24(ev.start.slice(11)); }
+  else{
+    const n = new Date(); n.setMinutes(Math.ceil(n.getMinutes()/5)*5, 0, 0);
+    kidSetFrom24(pad(n.getHours()) + ':' + pad(n.getMinutes()));
+  }
   kidDur = ev && ev.endOverride
     ? Math.max(5, minutes(ev.endOverride) - minutes(ev.start.slice(11)))
-    : 30;
+    : null;
   $k('kidEvDel').style.display = ev ? '' : 'none';
+  kidClockBuild(); kidClockDraw();
   kidChips();
   kidWarnOff();
   show('kidEvModal');
@@ -3850,14 +4024,44 @@ function kidChips(){
     const b = document.createElement('button'); b.type = 'button';
     b.textContent = mn + ' 分鐘';
     if(kidDur === mn) b.className = 'on';
-    b.onclick = function(){ kidDur = mn; kidChips(); kidCheck(); };
+    b.onclick = function(){ kidDur = mn; kidChips(); kidAfterTime2(); };
     durBox.appendChild(b);
   });
-  if(KID_DUR_CHOICES.indexOf(kidDur) < 0){
+  if(kidDur != null && KID_DUR_CHOICES.indexOf(kidDur) < 0){
     const b = document.createElement('button'); b.type = 'button';
     b.className = 'on'; b.textContent = kidDur + ' 分鐘';
     durBox.appendChild(b);
   }
+  /* 「唔揀」係一粒睇得見嘅掣，唔係「撳多次取消」——匿咗嘅操作等於冇。 */
+  const nb = document.createElement('button'); nb.type = 'button';
+  nb.textContent = '唔揀（當半個鐘）';
+  if(kidDur == null) nb.className = 'on';
+  nb.onclick = function(){ kidDur = null; kidChips(); kidAfterTime2(); };
+  durBox.appendChild(nb);
+
+  /* 上下晝 */
+  const apBox = document.getElementById('kidEvApChips');
+  if(apBox){
+    apBox.innerHTML = '';
+    [['早上 AM', false], ['下午 PM', true]].forEach(function(p){
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = p[0];
+      if(kidPM === p[1]) b.className = 'on';
+      b.onclick = function(){ kidPM = p[1]; kidClockDraw(); kidAfterTime(); };
+      apBox.appendChild(b);
+    });
+  }
+  /* 由幾點做到幾點：佢揀嘅嘢即刻見到結果，唔使自己心算 */
+  const sp = document.getElementById('kidEvSpan');
+  if(sp){
+    const st = kidTime24(), en = kidAddMin(st, kidDurMin());
+    sp.textContent = '由 ' + kidTxt12(st) + '　做到 ' + kidTxt12(en) +
+                     '（' + kidDurMin() + ' 分鐘' + (kidDur == null ? '，因為你冇揀' : '') + '）';
+  }
+}
+/* 淨係改咗時長（唔使重畫個鐘）嗰陣行呢個 */
+function kidAfterTime2(){
+  const bad = kidCheck();
+  if(bad && !bad.quiet) kidWarn(bad.msg); else kidWarnOff();
 }
 function kidWarnOff(){ const w = document.getElementById('kidEvWarn'); w.style.display = 'none'; w.textContent = ''; }
 function kidWarn(msg){ const w = document.getElementById('kidEvWarn'); w.textContent = msg; w.style.display = ''; }
@@ -3868,10 +4072,10 @@ function kidWarn(msg){ const w = document.getElementById('kidEvWarn'); w.textCon
 function kidCheck(silent){
   const what = document.getElementById('kidEvWhat').value.trim();
   const date = document.getElementById('kidEvDate').value;
-  const time = document.getElementById('kidEvTime').value;
+  const time = kidTime24();
   if(!silent) kidWarnOff();
   if(!what) return {msg:'仲未寫低你想做乜。', quiet:true};
-  if(!date || !time) return {msg:'日期同時間都要揀。', quiet:true};
+  if(!date) return {msg:'仲要揀邊日。', quiet:true};
 
   const today = fmtDate(new Date());
   const max = new Date(); max.setDate(max.getDate() + KID_MAX_AHEAD);
@@ -3881,7 +4085,7 @@ function kidCheck(silent){
   if(!kidEditing && kidCountOn(date) >= KID_MAX_PER_DAY)
     return {msg:'呢日你已經自己排咗 ' + KID_MAX_PER_DAY + ' 格喇，夠晒喇。想加就要刪返一格先。'};
 
-  const en = kidAddMin(time, kidDur);
+  const en = kidAddMin(time, kidDurMin());
   if(en <= time) return {msg:'過咗半夜就排唔到喇，揀早啲嘅時間。'};
   const cl = kidClash(date, time, en, kidEditing ? kidEditing.id : null);
   if(cl) return {msg:'呢個時段撞咗「' + cl.ev.title + '」（' + cl.from + '–' + cl.to + '）。' +
@@ -3895,8 +4099,8 @@ function kidSave(){
   if(bad){ kidWarn(bad.msg); return; }
   const what = document.getElementById('kidEvWhat').value.trim();
   const date = document.getElementById('kidEvDate').value;
-  const time = document.getElementById('kidEvTime').value;
-  const en   = kidAddMin(time, kidDur);
+  const time = kidTime24();
+  const en   = kidAddMin(time, kidDurMin());
   const start = date + 'T' + time;
 
   if(kidEditing){
@@ -3944,7 +4148,11 @@ document.getElementById('kidEvCancel').onclick = function(){ hide('kidEvModal');
 document.getElementById('kidEvSave').onclick   = kidSave;
 document.getElementById('kidEvDel').onclick    = kidDelete;
 document.getElementById('btnKidNew').onclick   = function(){ kidOpen(null); };
-['kidEvWhat','kidEvDate','kidEvTime'].forEach(function(id){
+[['kidHUp','h',1],['kidHDn','h',-1],['kidMUp','m',1],['kidMDn','m',-1]].forEach(function(p){
+  const b = document.getElementById(p[0]);
+  if(b) b.onclick = function(){ kidStep(p[1], p[2]); };
+});
+['kidEvWhat','kidEvDate'].forEach(function(id){
   const el2 = document.getElementById(id);
   if(el2) el2.oninput = function(){
     const bad = kidCheck(); if(bad && !bad.quiet) kidWarn(bad.msg); else kidWarnOff();
