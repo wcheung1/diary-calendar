@@ -1539,7 +1539,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-21f";
+const BUILD = "2026-08-21h";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -11069,7 +11069,8 @@ async function tdNotices(){
     const nm = document.createElement('span'); nm.className='nm';
     const _open = tdOnlySel || tdOpenNotice===nt.id;   /* 篩緊就唔使逐張撳開 */
     nm.innerHTML = '<span class="caret">' + (_open ? '▾' : '▸') + '</span> ' + esc(nt.title);
-    nm.title = '撳一下睇佢拆咗邊幾件事（雙撳改名）';
+    nm.title = tdOnlySel ? '而家篩緊，佢已經自動攤開咗（雙撳改名）'
+                         : '撳一下睇佢拆咗邊幾件事（雙撳改名）';
     nm.style.cursor = 'pointer';
     nm.onclick = function(){
       tdOpenNotice = (tdOpenNotice===nt.id) ? '' : nt.id;
@@ -11598,13 +11599,15 @@ const VIS_TR_CALLS = 2;      /* 一張相最多俾睇相 model 望幾多次（�
 const VIS_TR_SYS = [
   '你係一個抄寫員，唔係老師。你唯一嘅工作係將張相入面見到嘅嘢，原原本本抄成文字。',
   '嚴禁：解題、俾答案、俾提示、評論做得好唔好、估相入面啲人係邊個。',
-  '照住下面格式出，唔准加開場白，唔准用 Markdown：',
+  '照住下面格式出，唔准加開場白，唔准用 Markdown。',
+  '⚠ 【我睇唔清】一定要排第一個寫，唔准擺去最尾——寫到一半爆字數嘅話，擺尾就係佢第一個冇咗，',
+  '而下游個模型會以為你乜都望到，跟住就作嘢。',
+  '【我睇唔清】列出你認唔到嘅字、矇咗嘅位、影唔晒嘅邊。呢節唔准寫「冇」除非你真係成張相都睇得一清二楚。',
   '【逐字抄】每一句印刷字、每一句手寫字，原樣抄。錯字照抄唔准改，寫唔齊照抄唔准補。',
   '【題目】總共幾多題；逐題寫題號同題目文字。',
   '【空格】逐題有幾多個空格；逐格寫明「空白」定係「填咗：＜填咗乜＞」。',
   '【圖形】每幅圖由咩線同形狀砌成、點樣擺、有咩箭嘴或者標示。講形狀同位置，唔好講佢想考乜。',
   '【版面】分隔線、頁碼、印住嘅指示（例如「答案可多於一個」）擺喺邊。',
-  '【我睇唔清】列出你認唔到嘅字、矇咗嘅位、影唔晒嘅邊。呢節唔准寫「冇」除非你真係成張相都睇得一清二楚。',
   '相入面主要係人、或者有人冇著衫：唔准描述個樣同身型，淨係寫一句「呢張相係影人，唔係影嘢」，其餘唔好寫。'
 ].join('\n');
 function imgToTextOn(){ return cfg().imgToText !== false; }   /* 預設開；⚙ 度熄得返 */
@@ -11750,14 +11753,22 @@ function imgKeepSet(useImgs){
      而家由 imgDecide() 逐句判斷關唔關事，答案由 useImgs 傳入嚟，呢度唔再自己估。 */
   imgKeepIdx(useImgs).forEach(function(i){ keep[i] = true; });
   const msgs = [];
+  /* ⚠️ 舊 bug（已修）：hasImg 以前係 Object.keys(keep).length > 0，即係「有相喺場」。
+     加咗抄寫線之後呢個就變咗錯：啲相全部變成文字送出去、payload 一張相都冇，
+     hasImg 仍然係 true，於是 useVis 照樣 true，成份人格設定照樣上按量嗰條線——
+     抄寫嗰次錢照付，跟住又付多次，比冇抄寫仲貴。
+     而家由「真係 push 咗 image_url 落去」嗰一刻決定，同 payload 一定夾。 */
+  let anyImg = false;
   hist.forEach(function(m, i){
     if(!m || m.error) return;                                  /* 先用原本編號判斷，後濾 */
-    /* 已經抄咗落文字 → 送抄寫，唔再上載張相。呢條要行喺 keep 前面：
-       就算張相仲「喺場」，有咗抄寫就唔應該再燒一次 vision token。 */
-    if(m.imgs && m.imgs.length && m.tr){
+    /* ⚠️ 舊 bug（已修）：呢個分支以前唔睇 keep[i]，即係抄寫一寫低就永遠跟住成段對話，
+       就算 imgDecide() 判咗「轉咗話題」都照塞。佢問緊今晚食乜，個模型仲對住一版
+       功課紙嘅抄寫。抄寫要跟返張相本身嘅生死，唔可以自己長生不老。 */
+    if(m.imgs && m.imgs.length && keep[i] && m.tr){
       msgs.push({role:m.role, content:(m.content||'') +
         '\n【呢張相抄咗落文字】\n' + m.tr});
     }else if(m.imgs && m.imgs.length && keep[i]){
+      anyImg = true;
       msgs.push({role:m.role, content:[{type:'text', text:m.content||''}].concat(
         m.imgs.map(function(u){ return {type:'image_url', image_url:{url:u}}; }))});
     }else if(m.imgs && m.imgs.length){
@@ -11766,7 +11777,7 @@ function imgKeepSet(useImgs){
       msgs.push({role:m.role, content:m.content});
     }
   });
-  return {msgs:msgs, hasImg:Object.keys(keep).length > 0};
+  return {msgs:msgs, hasImg:anyImg};
 }
 
 /* 叫睇相 model 抄一次。特登唔帶 PERSONA_KID、唔帶 ctxText、唔帶對話歷史——
@@ -11785,12 +11796,21 @@ async function imgTranscribe(imgs, ask){
   ];
   const r = await callVision(msgs, {json:false, temp:0, max:VIS_TR_MAX, noThink:true,
     base:String(cfg().visionBase||'').trim(), apiKey:String(cfg().visionKey||'').trim()}, list, null);
-  return String(r||'').trim();
+  let out = String(r||'').trim();
+  /* 爆咗 max_tokens 會喺句子中間斬斷，而且唔會有任何訊號。下游個模型
+     見到一份睇落幾齊全嘅抄寫，就會以為自己乜都望到——正正係第 26、30、34 條
+     想擋嗰種作嘢。所以：認唔到【我睇唔清】就當佢斬咗，明文寫返落去。 */
+  if(out && !ask && out.indexOf('【我睇唔清】') < 0){
+    out += '\n【我睇唔清】呢份抄寫寫到一半就爆咗字數上限，斬斷咗。' +
+           '未抄到嗰截當你完全冇望過，唔准靠估補返。';
+  }
+  return out;
 }
 /* 幫「仲喺場」而又未抄過嗰幾條 message 補抄。抄唔到就照舊上載張相，
    唔可以靜靜雞當冇相——寧願貴，都好過個 AI 突然乜都見唔到。 */
 async function imgEnsureTr(idxs, note){
   const hist = chatHistory || [];
+  const notes = [];
   let did = 0;
   for(let k = 0; k < idxs.length; k++){
     const m = hist[idxs[k]];
@@ -11799,15 +11819,21 @@ async function imgEnsureTr(idxs, note){
     try{
       if(note) note('望緊你張相，抄低入面有咩…');
       m.trN = (m.trN||0) + 1;
-      m.tr = await imgTranscribe(m.imgs, '');
+      const _t = await imgTranscribe(m.imgs, '');
+      /* 抄返嚟係空白＝呢次冇用。唔可以留低個 falsy 嘅 m.tr 就算數，
+         唔係之後每一轉都會再試一次，白白燒多一次先至肯放棄。
+         直接封頂，今轉同之後都照舊上載張相。 */
+      if(!_t){ m.trN = VIS_TR_CALLS; return {ok:false, err:new Error('抄寫返嚟係空白'), notes:notes}; }
+      m.tr = _t;
+      notes.push('【張相抄咗落文字（' + _t.length + ' 字）】\n' + _t);
       did++;
     }catch(e){
       console.warn('抄寫失敗，今轉照舊上載張相', e);
       m.trN = Math.max(0, (m.trN||1) - 1);   /* 抄唔到唔應該食咗個額度 */
-      return {ok:false, err:e};
+      return {ok:false, err:e, notes:notes};
     }
   }
-  return {ok:true, did:did};
+  return {ok:true, did:did, notes:notes};
 }
 /* 429／斷線之後重發同一句：上一次張相唔可以當「已經傾過」。
    實際出過事：8/21 個披薩 429 死咗，重發嗰次張相被判「同張相冇關」冇送上去，
@@ -11905,6 +11931,11 @@ async function chatSend(presetText){
       const _r = await imgEnsureTr(_keepIdx, function(t){
         try{ loadingEl.innerHTML = '<span class="aiSpin"></span> ' + t; }catch(e){}
       });
+      /* ⚠ 份抄寫一定要入 _reasons。_reasons 就係 🧠 同「匯出訪客對話」入面
+         嗰個推理 block 嘅來源——唔入嘅話，成套設計最要緊嗰件事（份抄寫夠唔夠
+         用嚟教功課）你根本冇途徑親眼睇。 */
+      if(_r.notes && _r.notes.length) _reasons.push(_r.notes.join('\n\n'));
+      if(!_r.ok) _reasons.push('【抄寫唔成功，今轉照舊上載張相】' + String((_r.err && _r.err.message) || _r.err || ''));
       /* 一張都唔使新抄＝全部都係讀返之前抄低嗰份，冇再望過張相。條 bar 要照實講。 */
       if(_r.ok && !_need.length) imgLastTr = true;
     }
@@ -12016,19 +12047,27 @@ async function chatSend(presetText){
        ⚠ 一定要封頂（VIS_TR_CALLS）。冇封頂就變返「一張相 N 次睇相 call」，
          即係我哋想斬走嗰個問題原封不動搬咗個名。
        封咗頂之後唔准靜靜雞算數：要明文話返佢知望唔到，逼佢照第 34 條老實講。 */
-    for(let la = 0; la < VIS_TR_CALLS; la++){
+    /* ⚠️ 兩個 gate 缺一不可：
+       ① 熄咗抄寫線就唔准入嚟兜——嗰陣 useVis 係 true，askAI 會行 callVision，
+          即係為咗一個冇用嘅標記再上載多次張相 + 成份人格設定。
+       ② 要用返今轉真正喺場嗰批相（_keepIdx），唔可以自己 imgKeepIdx(true) 搵過：
+          佢會攞到幾個鐘之前一張唔關事嘅舊相，然後去抄佢。 */
+    for(let la = 0; imgToTextOn() && la < VIS_TR_CALLS; la++){
       const _lm = reLookAgain().exec(String(reply||''));
       if(!_lm) break;
       const _q = String(_lm[1]||'').trim();
-      const _ti = imgKeepIdx(true)[0];
+      const _ti = _keepIdx.length ? _keepIdx[0] : null;
       const _tm = (_ti == null) ? null : chatHistory[_ti];
       let _got = '';
-      if(_tm && _tm.imgs && _tm.imgs.length && (_tm.trN||0) < VIS_TR_CALLS && imgToTextOn()){
+      if(_tm && _tm.imgs && _tm.imgs.length && (_tm.trN||0) < VIS_TR_CALLS){
         try{
           view.reset('等我望真啲你張相…');
           _tm.trN = (_tm.trN||0) + 1;
           _got = await imgTranscribe(_tm.imgs, _q);
-          if(_got) _tm.tr = String(_tm.tr||'') + '\n【望真啲：' + _q + '】\n' + _got;
+          if(_got){
+            _tm.tr = String(_tm.tr||'') + '\n【望真啲：' + _q + '】\n' + _got;
+            _reasons.push('【望真啲：' + _q + '】\n' + _got);
+          }
         }catch(e){ _tm.trN = Math.max(0, (_tm.trN||1) - 1); }
       }
       messages.push({role:'assistant', content:reply});
@@ -12042,7 +12081,8 @@ async function chatSend(presetText){
       if(AI_LAST_REASON) _reasons.push('【望真啲之後嗰轉】\n' + AI_LAST_REASON);
     }
     /* 兜完仲有標記（例如佢死都要出）＝一定唔可以流到 Charlotte 眼前。 */
-    reply = String(reply||'').replace(new RegExp(reLookAgain().source, 'gi'), '').trim();
+    const _rawReply = String(reply||'');
+    reply = _rawReply.replace(new RegExp(reLookAgain().source, 'gi'), '').trim();
 
     /* 接住 [[NAME: xxx]]：淨係訪客模式先算數（呢個係佢同佢之間嘅嘢），
        而且要真係改咗先寫，唔好每轉都寫一次。 */
@@ -12057,8 +12097,12 @@ async function chatSend(presetText){
         }
       }
     }
+    const _hadLA = reLookAgain().test(_rawReply);
     reply = stripLookup(reply);
-    if(!reply) reply = '我頭先想上網查啲嘢，但係查唔到。你可以再問我一次嗎？';
+    /* 空白嘅原因唔止一個，唔可以一律賴上網查唔到——講錯原因等於呃佢。 */
+    if(!reply) reply = _hadLA
+      ? '我望咗你張相好幾次都仲係睇唔清楚。你讀返俾我聽，或者影近啲再試多次好唔好？'
+      : '我頭先想上網查啲嘢，但係查唔到。你可以再問我一次嗎？';
     /* Persona 講咗唔准 Markdown、唔准簡體、唔准斜線，但實測佢照出。
        規則守唔守由佢，洗唔洗由我哋——訪客見到嘅嘢一律洗一次。 */
     if(_guest && typeof window.kidClean === 'function'){
@@ -13423,7 +13467,10 @@ const loadOut  = function(){ try{ return JSON.parse(localStorage.getItem(OUT_KEY
 /* 攞一張相返嚟。攞完 renderThread() 一次令佢即刻出到畫面。
    攞唔到唔准靜靜雞留一嚿灰色——要寫返點解攞唔到。 */
 function fetchPic(id){
-  if(!id || picCache[id] || picBusy[id] || picBad[id] || !sosRef) return;
+  if(!id || picCache[id] || picBusy[id] || picBad[id]) return;
+  /* 未接駁到就要即刻講，唔可以留住個「攞緊張相…」轉到天光。
+     picBad 唔標死——接返線之後 attach() 會清返，可以再試。 */
+  if(!sosRef){ picBad[id] = '仲未接駁到 Firebase，攞唔到張相'; return; }
   picBusy[id] = true;
   withTimeout(sosRef.child('pics/' + id).once('value'), SEND_MS, '攞張相')
     .then(function(sn){
@@ -13659,17 +13706,40 @@ function send(){
   ta.value = ''; ta.style.height = 'auto';
   setPending(null);
   pushOut(item);
-  /* 太多就剪走最舊嗰啲，唔好等佢無限咁長。
-     ⚠ 剪留言嘅同時一定要剪埋張相，唔係啲相會永遠留喺 Firebase 度谷大個 project。 */
-  if(thread.length > MAX_KEEP + 20 && sosRef){
-    const upd = {}, updP = {};
-    thread.slice(0, thread.length - MAX_KEEP).forEach(function(m){
-      upd[m.id] = null;
-      if(m.pic) updP[m.pic] = null;
+  if(item.d) pruneOld();       /* 送咗相就順手剪一次，唔好等啲相喺雲端度積 */
+}
+
+/* ⚠️ 舊 bug（已修）：以前剪舊留言係寫喺 send() 度，條件 thread.length > MAX_KEEP + 20。
+   但 thread 係由 sosQuery = child('thread').limitToLast(MAX_KEEP) 嚟嘅，
+   即係 thread.length 永遠 ≤ 60，而條件要 > 80 —— 呢段 code 由寫出嚟嗰日起
+   一次都冇行過，雲端啲留言一直無限咁積落去。
+   （純文字嗰陣睇唔出，一條先九十幾 byte；而家加咗相就唔同講法，
+     所以呢個窿要即刻補。）
+   而家：唔靠個「望到嘅」thread 嚟數，直接問返雲端本身有幾多條。
+   thread/ 入面冇 base64（張相住喺 pics/），成個節點拉落嚟都係幾十 KB，
+   所以唔怕。但唔可以每句都做——開機一次 + 送相之後先做。 */
+let pruning = false;
+async function pruneOld(){
+  if(!sosRef || pruning) return;
+  pruning = true;
+  try{
+    const sn = await withTimeout(sosRef.child('thread').once('value'), SEND_MS, '數留言');
+    const all = [];
+    sn.forEach(function(c){
+      const v = c.val() || {};
+      all.push({ id:c.key, at:Number(v.at) || 0, pic:String(v.pic || '') });
     });
-    sosRef.child('thread').update(upd).catch(function(){});
-    if(Object.keys(updP).length) sosRef.child('pics').update(updP).catch(function(){});
-  }
+    if(all.length <= MAX_KEEP) return;
+    all.sort(function(a, b){ return (a.at||0) - (b.at||0); });
+    const cut = all.slice(0, all.length - MAX_KEEP);
+    const upd = {}, updP = {};
+    cut.forEach(function(m){ upd[m.id] = null; if(m.pic) updP[m.pic] = null; });
+    await sosRef.child('thread').update(upd);
+    if(Object.keys(updP).length) await sosRef.child('pics').update(updP);
+    cut.forEach(function(m){ if(m.pic) delete picCache[m.pic]; });
+    console.log('SOS 剪咗 ' + cut.length + ' 條舊留言、' + Object.keys(updP).length + ' 張相');
+  }catch(e){ console.warn('SOS 剪舊留言', e); }
+  finally{ pruning = false; }
 }
 
 /* ── 揀相／影相 ── */
@@ -13829,6 +13899,9 @@ function attach(user){
      中間有一剎那 thread 係空嘅，畫面會閃或者當咗「乜都冇」。 */
   if(uid === curUid && role === myRole && (uid ? !!sosRef : true)) return;
   myRole = role; curUid = uid;
+  /* 切角色（訪客 ⇄ 主人）一定要清走揀咗但未送嘅相：Charlotte 揀咗一張，
+     爹哋跟住切返主人模式再撳送出，張相就會用「爹哋」個名送出去。 */
+  try{ setPending(null); }catch(e){}
   detach(); thread = [];
   if(!outbox.length) outbox = loadOut().map(function(m){ m.state='fail'; return m; });
 
@@ -13858,6 +13931,9 @@ function attach(user){
       if(panelOpen) renderThread();
     });
   }catch(e){}
+  /* 接返線：之前因為未接駁而標低嘅「攞唔到」要清返，唔係嗰幾張相永遠都出唔到。 */
+  Object.keys(picBad).forEach(function(k){ delete picBad[k]; });
+  pruneOld();                                  /* 開機剪一次舊嘢，唔會阻住下面 */
   sosQuery = sosRef.child('thread').limitToLast(MAX_KEEP);
   sosCb = sosQuery.on('value', function(snap){
     const prevLast = thread.length ? thread[thread.length-1].id : '';
