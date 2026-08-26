@@ -1699,7 +1699,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-25g";
+const BUILD = "2026-08-25h";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -3828,6 +3828,7 @@ const KID_MAX_PER_DAY = 10;      /* 一日最多自己排幾多格 */
 const KID_MAX_AHEAD   = 14;      /* 最多排到幾多日之後 */
 const KID_DUR_CHOICES = [15, 30, 45, 60];
 const KID_DUR_DEFAULT = 30;      /* 佢唔揀時長就當半個鐘 */
+const KID_MIN_MIN     = 5;       /* 最短排幾多分鐘。同個鐘嘅五分一格對齊 */
 const KID_OPEN_END_MIN = 30;     /* 冇寫幾點完嘅格，當佢佔住半個鐘（見 kidWin） */
 
 /* 個 keyword 由爹哋張關鍵字表攞，唔寫死——噉先跟到佢自己嘅拼法同大細楷。
@@ -3886,6 +3887,45 @@ function kidClash(dateStr, st, en, selfId){
     if(kidOverlap(st, en, w[0], w[1])) return {ev:ev, from:w[0], to:w[1]};
   }
   return null;
+}
+/* 佢揀嗰個「開始時間」本身係咪已經喺另一件事入面。
+   呢個同「尾巴過咗界」係兩件完全唔同嘅事，一定要分開：
+     · 開始時間撞咗 ＝ 嗰一刻佢真係有第二樣嘢做緊，冇得救；
+     · 淨係尾巴過咗界 ＝ 佢嗰一刻係得閒嘅，只不過做唔夠佢揀嗰個鐘數。
+   以前兩種一律當「撞咗」擋返，於是 8:20 想食早餐、8:30 要出門口游水，
+   佢就完全加唔到——但佢嗰十分鐘係真係喺度食緊早餐。 */
+function kidStartBusy(dateStr, st, selfId){
+  const all = eventsOnAll(dateStr);
+  for(let i = 0; i < all.length; i++){
+    const ev = all[i];
+    if(!ev || ev.id === selfId) continue;
+    if(!kidHasKw(ev.title)) continue;
+    const w = kidWin(ev, all);
+    if(st >= w[0] && st < w[1]) return {ev:ev, from:w[0], to:w[1]};
+  }
+  return null;
+}
+/* 由 st 起計，去到下一件 Charlotte 嘅嘢開始為止，仲有幾多位。 */
+function kidRoom(dateStr, st, selfId){
+  const all = eventsOnAll(dateStr);
+  let nx = null;
+  for(let i = 0; i < all.length; i++){
+    const ev = all[i];
+    if(!ev || ev.id === selfId) continue;
+    if(!kidHasKw(ev.title)) continue;
+    const w = kidWin(ev, all);
+    if(w[0] > st && (!nx || w[0] < nx.at)) nx = {at:w[0], title:ev.title};
+  }
+  return {room: (nx ? minutes(nx.at) : (23*60+59)) - minutes(st), next: nx};
+}
+/* 佢揀咗做 want 分鐘，實際排得幾多。爹哋原話：「如果唔夠時間，其實應該盡量
+   唔好卡佢」——所以呢度唔擋，係自動收短，然後照實話返佢知收短咗同點解。 */
+function kidFitDur(dateStr, st, want, selfId){
+  const busy = kidStartBusy(dateStr, st, selfId);
+  if(busy) return {mins:0, why:'busy', busy:busy};
+  const r = kidRoom(dateStr, st, selfId);
+  if(r.room < KID_MIN_MIN) return {mins:0, why:'tight', room:r.room, next:r.next};
+  return {mins: Math.min(want, r.room), why:'', fitted: want > r.room, room:r.room, next:r.next};
 }
 function kidCountOn(dateStr){
   return (state.events||[]).filter(function(e){
@@ -4317,9 +4357,19 @@ function kidChips(){
   /* 由幾點做到幾點：佢揀嘅嘢即刻見到結果，唔使自己心算 */
   const sp = document.getElementById('kidEvSpan');
   if(sp){
-    const st = kidTime24(), en = kidAddMin(st, kidDurMin());
-    sp.textContent = '由 ' + kidTxt12(st) + '　做到 ' + kidTxt12(en) +
-                     '（' + kidDurMin() + ' 分鐘' + (kidDur == null ? '，因為你冇揀' : '') + '）';
+    const st = kidTime24(), f = kidRealDur();
+    if(f.mins <= 0){ sp.textContent = ''; sp.style.color = ''; }
+    else{
+      const en = kidAddMin(st, f.mins);
+      let tail = '（' + f.mins + ' 分鐘' + (kidDur == null && !f.fitted ? '，因為你冇揀' : '') + '）';
+      /* 幫佢收短咗就一定要講，而且要講埋點解——靜靜雞改咗佢揀嘅嘢，
+         佢下次就唔信呢個畫面。 */
+      if(f.fitted) tail = '（' + f.mins + ' 分鐘——你揀咗 ' + kidDurMin() + ' 分鐘，但 ' +
+                          (f.next ? (kidTxt12(f.next.at).replace('　',' ') + ' 就到「' + f.next.title + '」') : '就到半夜') +
+                          '，所以幫你收短咗）';
+      sp.textContent = '由 ' + kidTxt12(st) + '　做到 ' + kidTxt12(en) + tail;
+      sp.style.color = f.fitted ? 'var(--accent)' : '';
+    }
   }
 }
 /* 淨係改咗時長（唔使重畫個鐘）嗰陣行呢個 */
@@ -4349,13 +4399,23 @@ function kidCheck(silent){
   if(!kidEditing && kidCountOn(date) >= KID_MAX_PER_DAY)
     return {msg:'呢日你已經自己排咗 ' + KID_MAX_PER_DAY + ' 格喇，夠晒喇。想加就要刪返一格先。'};
 
-  const en = kidAddMin(time, kidDurMin());
-  if(en <= time) return {msg:'過咗半夜就排唔到喇，揀早啲嘅時間。'};
-  const cl = kidClash(date, time, en, kidEditing ? kidEditing.id : null);
-  if(cl) return {msg:'呢個時段撞咗「' + cl.ev.title + '」（' + cl.from + '–' + cl.to + '）。' +
-                     '揀第二個時間，或者做短啲。'};
+  const f = kidFitDur(date, time, kidDurMin(), kidEditing ? kidEditing.id : null);
+  if(f.why === 'busy')
+    return {msg:'呢個時間你已經有嘢做緊：「' + f.busy.ev.title + '」（' +
+                f.busy.from + '–' + f.busy.to + '）。揀第二個時間啦。'};
+  if(f.why === 'tight')
+    return {msg:'由 ' + kidTxt12(time).replace('　',' ') + ' 到 ' +
+                (f.next ? f.next.title : '半夜') + ' 得返 ' + Math.max(0, f.room) +
+                ' 分鐘，太短喇。揀早少少開始。'};
+  if(kidAddMin(time, f.mins) <= time) return {msg:'過咗半夜就排唔到喇，揀早啲嘅時間。'};
   if(!silent) kidWarnOff();
   return null;
+}
+/* 實際會排幾多分鐘（畫面同儲存都行呢一個，唔可以各自計）。 */
+function kidRealDur(){
+  const date = document.getElementById('kidEvDate').value;
+  const f = kidFitDur(date, kidTime24(), kidDurMin(), kidEditing ? kidEditing.id : null);
+  return f;
 }
 
 function kidSave(){
@@ -4364,7 +4424,8 @@ function kidSave(){
   const what = document.getElementById('kidEvWhat').value.trim();
   const date = document.getElementById('kidEvDate').value;
   const time = kidTime24();
-  const en   = kidAddMin(time, kidDurMin());
+  const fit  = kidRealDur();
+  const en   = kidAddMin(time, fit.mins);
   const start = date + 'T' + time;
 
   if(kidEditing){
@@ -4388,7 +4449,10 @@ function kidSave(){
       save();
     });
     hide('kidEvModal');
-    toast('✓ 加咗落你嘅時間表。');
+    toast(fit.fitted
+      ? ('✓ 加咗喇——不過幫你收短咗做 ' + fit.mins + ' 分鐘，因為跟住就到「' +
+         (fit.next ? fit.next.title : '半夜') + '」。')
+      : '✓ 加咗落你嘅時間表。');
   }
   cursor = new Date(date + 'T00:00'); renderCal();
 }
