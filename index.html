@@ -546,6 +546,21 @@ body.readonly #btnKidNew:hover,body.readonly #btnKidClock:hover{background:var(-
 }
 .kidNowX:hover{border-color:var(--overdue);color:var(--overdue)}
 .kidNowLbl{font-size:13px;color:var(--muted);margin:0}
+.kidNowNext{
+  margin:10px 0 0;border-radius:10px;background:var(--accent-soft);
+  padding:9px 11px;font-size:14px;line-height:1.75;color:var(--ink);text-align:left;
+}
+.kidNowNext b{color:var(--accent)}
+.kidNowNext .none{color:var(--muted)}
+.kidNowIdle{
+  margin:8px 0 0;border-radius:10px;background:var(--panel);border:1px solid var(--overdue);
+  padding:8px 10px;font-size:13.5px;color:var(--overdue);
+  display:flex;align-items:center;gap:9px;justify-content:space-between;
+}
+.kidNowIdle button{
+  border:1px solid var(--accent);background:var(--panel);color:var(--accent);
+  border-radius:8px;padding:5px 12px;font-size:13px;cursor:pointer;min-height:34px;white-space:nowrap;
+}
 .kidNowDigi{
   font-size:54px;font-weight:800;line-height:1.1;color:var(--ink);
   font-variant-numeric:tabular-nums;letter-spacing:1px;
@@ -1171,6 +1186,8 @@ body.hubOpen{overflow:hidden}
     <div class="kidNowDigi" id="kidNowDigi">--:--</div>
     <div class="kidNowAp" id="kidNowAp">　</div>
     <div id="kidNowClockBox"></div>
+    <div class="kidNowNext" id="kidNowNext"></div>
+    <div class="kidNowIdle" id="kidNowIdle" style="display:none"></div>
     <p class="kidLegend">
       <span class="hh"></span>短針＝<b>點</b>　
       <span class="mm"></span>長針＝<b>分</b>　
@@ -1672,7 +1689,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-25e";
+const BUILD = "2026-08-25f";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -4026,6 +4043,44 @@ function kidStep(what, delta){
      每一 tick 自己再驗多次個窗仲喺唔喺度，唔喺就自己了斷。
    ============================================================ */
 let kidNowTimer = null, kidNowLastSec = -1;
+/* 唔郁咗好耐就閂——純粹衛生，處理「開咗個鐘就走咗去食飯，部 iPad 開足成個下晝」。
+   ⚠ 特登唔用「開咗 N 秒就閂」：佢學緊讀鐘，讀一次要停低諗、數返轉頭、出聲讀，
+     慢嗰個先係做得認真嗰個。硬閂會喺佢諗到一半嗰陣咬到佢，即係專門懲罰細心。
+     佢一撳、一掂、一望（郁下部機）就重新計。
+   ⚠ 亦都唔准無聲無息消失：最後 10 秒要出聲，而且要有粒「睇多陣」。
+     一個自己唔見咗而佢唔知點解嘅畫面，同呃佢係同一族。 */
+const KID_NOW_IDLE_MS = 5 * 60 * 1000;
+const KID_NOW_WARN_MS = 10 * 1000;
+let kidNowOpenAt = 0, kidNowTouchAt = 0;
+
+/* 接返佢自己嘅時間表：個鐘由「望住會發呆嘅嘢」變成「話你知跟住點嘅嘢」。
+   順便教埋時距——讀完鐘之後就係算「仲有幾耐」。 */
+function kidNowNextTxt(d){
+  const cur = pad(d.getHours()) + ':' + pad(d.getMinutes());
+  let all = [];
+  try{ all = eventsOnAll(fmtDate(d)) || []; }catch(e){ return ''; }
+  let now = null, nxt = null;
+  for(let i = 0; i < all.length; i++){
+    const ev = all[i], st = ev.start.slice(11);
+    const en = ev.endOverride || computeEnd(ev, all);
+    if(st <= cur && cur < en){ now = ev; }
+    if(st > cur && (!nxt || st < nxt.start.slice(11))){ nxt = ev; }
+  }
+  let h = '';
+  if(now) h += '你嘅時間表寫住：<b>' + esc(now.title) + '</b>';
+  else    h += '<span class="none">你嘅時間表而家冇特別安排。</span>';
+  if(nxt){
+    const gap = minutes(nxt.start.slice(11)) - minutes(cur);
+    const gt  = gap >= 60
+      ? (Math.floor(gap/60) + ' 個鐘' + (gap%60 ? ' ' + (gap%60) + ' 分鐘' : ''))
+      : (gap + ' 分鐘');
+    h += '<br>仲有 <b>' + gt + '</b> 就到 <b>' + esc(nxt.title) + '</b>（' +
+         kidTxt12(nxt.start.slice(11)).replace('　', ' ') + '）';
+  }else{
+    h += '<br><span class="none">今日之後冇嘢排喇。</span>';
+  }
+  return h;
+}
 function kidNowTick(force){
   const box = document.getElementById('kidNowModal');
   if(!box || !box.classList.contains('show')){ kidNowStop(); return; }   /* 自我了斷 */
@@ -4041,6 +4096,30 @@ function kidNowTick(force){
   if(dg) dg.textContent = ((h % 12) || 12) + ':' + pad(m);   /* 電子鐘唔顯示秒 */
   if(ap) ap.textContent = (h >= 12 ? '下午 PM' : '早上 AM');
   if(dg) dg.setAttribute('aria-label', kidTxt12(hhmm));
+  /* 接續行：一分鐘更新一次就夠（秒數唔影響「仲有幾多分鐘」）。 */
+  const nb = document.getElementById('kidNowNext');
+  if(nb && (force || sec === 0)) nb.innerHTML = kidNowNextTxt(d);
+  /* 唔郁計時 */
+  const idle = Date.now() - kidNowTouchAt, left = KID_NOW_IDLE_MS - idle;
+  const ib = document.getElementById('kidNowIdle');
+  if(ib){
+    if(left <= 0){ kidNowCloseNow('idle'); return; }
+    if(left <= KID_NOW_WARN_MS){
+      ib.style.display = '';
+      ib.innerHTML = '<span>仲有 ' + Math.ceil(left/1000) + ' 秒就會自己閂返</span>';
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = '睇多陣';
+      b.onclick = function(e){ e.stopPropagation(); kidNowTouch(); };
+      ib.appendChild(b);
+    }else if(ib.style.display !== 'none'){
+      ib.style.display = 'none'; ib.innerHTML = '';
+    }
+  }
+}
+function kidNowTouch(){
+  kidNowTouchAt = Date.now();
+  const ib = document.getElementById('kidNowIdle');
+  if(ib){ ib.style.display = 'none'; ib.innerHTML = ''; }
 }
 function kidNowStop(){
   if(kidNowTimer){ clearInterval(kidNowTimer); kidNowTimer = null; }
@@ -4051,24 +4130,49 @@ function kidNowOpen(){
   if(box) box.innerHTML = kidClockSVG('kidNowH', 'kidNowM', 'kidNowS');
   show('kidNowModal');
   kidNowStop();
+  kidNowOpenAt = Date.now(); kidNowTouch();
   kidNowTick(true);
   /* 250 毫秒行一次、只喺秒數變咗先重畫：咁樣支秒針最遲慢四分一秒就跳，
      肉眼對唔到出嚟，但又唔使好似每秒一次咁同系統嘅秒邊界漂開。 */
   kidNowTimer = setInterval(function(){ kidNowTick(false); }, 250);
 }
-function kidNowCloseNow(){ kidNowStop(); hide('kidNowModal'); }
+/* 每次開／閂都記低望咗幾耐。點解要記：你問「佢會唔會望住個鐘發呆」——
+   我估唔到，你都係估。行一個星期就有真數：平均三十秒＝冇事；平均八分鐘＝
+   要落限制；一日開十二次每次十五秒＝嗰個係重複確認，唔係發呆，要處理嘅
+   係另一件事。冇呢啲數，個「幾多分鐘」就係憑空作出嚟。 */
+function kidNowCloseNow(why){
+  const secs = kidNowOpenAt ? Math.round((Date.now() - kidNowOpenAt) / 1000) : 0;
+  kidNowStop(); hide('kidNowModal');
+  const ib = document.getElementById('kidNowIdle');
+  if(ib){ ib.style.display = 'none'; ib.innerHTML = ''; }
+  if(kidNowOpenAt && secs >= 0){
+    try{
+      logPush('feedback',
+        'Charlotte 睇咗個時鐘 ' + secs + ' 秒（' +
+        (why === 'idle' ? '冇郁自動閂' : why === 'esc' ? '撳 Esc' :
+         why === 'back' ? '撳出面' : '撳 ✕') + '）',
+        {kind:'kid-clock', secs:secs, why:why || 'x', by:'kid'});
+    }catch(e){}
+  }
+  kidNowOpenAt = 0;
+}
 
 (function(){
   const b = document.getElementById('btnKidClock');
   if(b) b.onclick = kidNowOpen;
   const x = document.getElementById('kidNowClose');
-  if(x) x.onclick = kidNowCloseNow;
+  if(x) x.onclick = function(){ kidNowCloseNow('x'); };
   const ov = document.getElementById('kidNowModal');
   /* 撳背景先閂，撳個鐘本身唔閂。呢度特登唔改全部 overlay 嘅行為——
      其他窗有輸入格，撳錯背景就冇咗成單嘢。 */
-  if(ov) ov.onclick = function(e){ if(e.target === ov) kidNowCloseNow(); };
+  if(ov) ov.onclick = function(e){ if(e.target === ov) kidNowCloseNow('back'); };
+  /* 喺個窗入面撳／掂／郁 ＝ 佢仲喺度，唔郁計時重新計。
+     用 capture，咁樣就算下面啲掣自己 stopPropagation 都攔得到。 */
+  ['pointerdown','pointermove','wheel','keydown'].forEach(function(t){
+    if(ov) ov.addEventListener(t, function(){ if(ov.classList.contains('show')) kidNowTouch(); }, true);
+  });
   document.addEventListener('keydown', function(e){
-    if(e.key === 'Escape' && ov && ov.classList.contains('show')) kidNowCloseNow();
+    if(e.key === 'Escape' && ov && ov.classList.contains('show')) kidNowCloseNow('esc');
   });
 })();
 
