@@ -546,10 +546,17 @@ body.readonly #btnKidNew:hover,body.readonly #btnKidClock:hover{background:var(-
 }
 .kidNowX:hover{border-color:var(--overdue);color:var(--overdue)}
 .kidNowLbl{font-size:13px;color:var(--muted);margin:0}
+.kidNowNextRow{display:flex;align-items:stretch;gap:8px;margin:10px 0 0}
 .kidNowNext{
-  margin:10px 0 0;border-radius:10px;background:var(--accent-soft);
+  flex:1;border-radius:10px;background:var(--accent-soft);
   padding:9px 11px;font-size:14px;line-height:1.75;color:var(--ink);text-align:left;
 }
+.kidNowSpk{
+  flex:0 0 auto;border:1px solid var(--accent);background:var(--panel);color:var(--accent);
+  border-radius:10px;width:46px;font-size:19px;cursor:pointer;line-height:1;
+}
+.kidNowSpk:hover{background:var(--accent);color:#fff}
+.kidNowSpk.speaking{background:var(--accent);color:#fff}
 .kidNowNext b{color:var(--accent)}
 .kidNowNext .none{color:var(--muted)}
 .kidNowIdle{
@@ -1186,7 +1193,10 @@ body.hubOpen{overflow:hidden}
     <div class="kidNowDigi" id="kidNowDigi">--:--</div>
     <div class="kidNowAp" id="kidNowAp">　</div>
     <div id="kidNowClockBox"></div>
-    <div class="kidNowNext" id="kidNowNext"></div>
+    <div class="kidNowNextRow">
+      <div class="kidNowNext" id="kidNowNext"></div>
+      <button class="kidNowSpk" id="kidNowSpk" type="button" title="讀出嚟俾我聽（再撳一次＝停）" aria-label="讀出時間表">🔊</button>
+    </div>
     <div class="kidNowIdle" id="kidNowIdle" style="display:none"></div>
     <p class="kidLegend">
       <span class="hh"></span>短針＝<b>點</b>　
@@ -1689,7 +1699,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-25f";
+const BUILD = "2026-08-25g";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -4116,6 +4126,38 @@ function kidNowTick(force){
     }
   }
 }
+/* 俾 TTS 讀嗰段字要另外砌，唔可以攞 innerHTML 去讀：
+   入面有 <b>、<br>、<span>，讀出嚟會變晒亂碼。
+   而且讀出嚟同睇落去嘅寫法唔同——「9:30 早上」睇得明，讀出嚟要係「早上九點三十分」。 */
+function kidNowSayTxt(d){
+  const cur = pad(d.getHours()) + ':' + pad(d.getMinutes());
+  let all = [];
+  try{ all = eventsOnAll(fmtDate(d)) || []; }catch(e){ all = []; }
+  let now = null, nxt = null;
+  for(let i = 0; i < all.length; i++){
+    const ev = all[i], st = ev.start.slice(11);
+    const en = ev.endOverride || computeEnd(ev, all);
+    if(st <= cur && cur < en) now = ev;
+    if(st > cur && (!nxt || st < nxt.start.slice(11))) nxt = ev;
+  }
+  const say12 = function(hhmm){
+    const h = parseInt(hhmm.slice(0,2),10) || 0, m = parseInt(hhmm.slice(3,5),10) || 0;
+    return (h >= 12 ? '下午' : '早上') + ((h % 12) || 12) + '點' +
+           (m === 0 ? '正' : (m === 30 ? '半' : m + '分'));
+  };
+  const bits = ['而家係' + say12(cur) + '。'];
+  bits.push(now ? ('你嘅時間表寫住：' + now.title + '。') : '你嘅時間表而家冇特別安排。');
+  if(nxt){
+    const gap = minutes(nxt.start.slice(11)) - minutes(cur);
+    const gt = gap >= 60
+      ? (Math.floor(gap/60) + '個鐘' + (gap%60 ? (gap%60) + '分鐘' : ''))
+      : (gap + '分鐘');
+    bits.push('仲有' + gt + '就到' + nxt.title + '，' + say12(nxt.start.slice(11)) + '開始。');
+  }else{
+    bits.push('今日之後冇嘢排喇。');
+  }
+  return bits.join('');
+}
 function kidNowTouch(){
   kidNowTouchAt = Date.now();
   const ib = document.getElementById('kidNowIdle');
@@ -4143,6 +4185,8 @@ function kidNowOpen(){
 function kidNowCloseNow(why){
   const secs = kidNowOpenAt ? Math.round((Date.now() - kidNowOpenAt) / 1000) : 0;
   kidNowStop(); hide('kidNowModal');
+  /* 閂咗個窗把聲仲喺度讀，佢會唔知邊度出聲。 */
+  try{ if(typeof ttsStop === 'function') ttsStop(); }catch(e){}
   const ib = document.getElementById('kidNowIdle');
   if(ib){ ib.style.display = 'none'; ib.innerHTML = ''; }
   if(kidNowOpenAt && secs >= 0){
@@ -4162,6 +4206,23 @@ function kidNowCloseNow(why){
   if(b) b.onclick = kidNowOpen;
   const x = document.getElementById('kidNowClose');
   if(x) x.onclick = function(){ kidNowCloseNow('x'); };
+  const spk = document.getElementById('kidNowSpk');
+  if(spk){
+    /* 觸控機淨靠 click 唔穩陣（手指郁少少就判咗 scroll），跟返行事曆嗰粒
+       🔊 嘅做法：touchend 直接處理，再擋走跟住嗰個合成 click。 */
+    let spkAt = 0;
+    const doSay = function(e){
+      const t = Date.now();
+      if(t - spkAt < 400) return;
+      spkAt = t;
+      e.stopPropagation(); e.preventDefault();
+      kidNowTouch();                     /* 撳咗＝佢仲喺度，唔郁計時重新計 */
+      if(typeof window.ttsSpeak === 'function') window.ttsSpeak(kidNowSayTxt(new Date()), spk);
+      else console.warn('ttsSpeak 未載入');
+    };
+    spk.addEventListener('touchend', doSay, {passive:false});
+    spk.addEventListener('click', doSay);
+  }
   const ov = document.getElementById('kidNowModal');
   /* 撳背景先閂，撳個鐘本身唔閂。呢度特登唔改全部 overlay 嘅行為——
      其他窗有輸入格，撳錯背景就冇咗成單嘢。 */
