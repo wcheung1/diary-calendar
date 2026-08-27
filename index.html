@@ -499,11 +499,12 @@ body.readonly .chatThinkKeep{display:none!important}
 .sosFoot .send:disabled{opacity:.45;cursor:default}
 .sosNote{font-size:11.5px;color:var(--muted);padding:6px 14px 0}
 /* ── Charlotte 自己排時間表 ── */
-#btnKidNew,#btnKidClock{display:none}
-body.readonly #btnKidNew,body.readonly #btnKidClock{
+#btnKidNew,#btnKidClock,#btnKidPoint{display:none}
+body.readonly #btnKidNew,body.readonly #btnKidClock,body.readonly #btnKidPoint{
   display:inline-block;border-color:var(--accent);color:var(--accent);font-weight:700;
 }
-body.readonly #btnKidNew:hover,body.readonly #btnKidClock:hover{background:var(--accent);color:#fff}
+body.readonly #btnKidNew:hover,body.readonly #btnKidClock:hover,
+body.readonly #btnKidPoint:hover{background:var(--accent);color:#fff}
 .kidLbl{display:block;font-size:13px;font-weight:700;color:var(--ink);margin:10px 0 5px}
 #kidEvModal input[type=text],#kidEvModal input[type=date],#kidEvModal input[type=time]{
   width:100%;font-size:16px;padding:9px 10px;border:1px solid var(--line);
@@ -580,6 +581,12 @@ body.readonly #btnKidNew:hover,body.readonly #btnKidClock:hover{background:var(-
   color:var(--overdue);border-radius:0 8px 8px 0;padding:9px 11px;font-size:13.5px;line-height:1.6;
 }
 /* 佢自己排嗰啲，爹哋一眼要認得出 */
+.evRow.kidPoint{
+  border-left:3px dashed var(--accent);background:transparent;
+  opacity:.9;padding-top:2px;padding-bottom:2px;
+}
+.evRow.kidPoint .evTtl{font-weight:400}
+.evRow.kidPoint .evDur{color:var(--accent);font-weight:700}
 .evRow.kidOwn .evTtl::before{
   content:"🧒";margin-right:5px;font-size:12px;
 }
@@ -1040,6 +1047,7 @@ body.hubOpen{overflow:hidden}
   <button class="hbtn" id="btnUndo" disabled title="復原上一步（Ctrl+Z）">↩ 復原</button>
   <button class="hbtn" id="btnRedo" disabled title="重做（Ctrl+Y）">↪ 重做</button>
   <button class="hbtn" id="btnKidNew" title="自己加一格落時間表">＋ 我自己加一格</button>
+  <button class="hbtn" id="btnKidPoint" title="話俾爹哋知你而家做緊乜">📍 我而家做緊</button>
   <button class="hbtn" id="btnKidClock" title="睇下而家幾點">🕐 睇時鐘</button>
   <button class="hbtn" id="btnAI">🤖 AI 排程 (Ctrl+K)</button>
   <button class="hbtn" id="btnAISet">⚙ AI 設定</button>
@@ -1186,6 +1194,22 @@ body.hubOpen{overflow:hidden}
     <div class="hvMsg" id="hvMsg"></div>
   </div>
 </div>
+<div class="overlay" id="kidPtModal">
+  <div class="modal" style="width:min(94vw,400px)">
+    <h3 style="margin:0 0 4px">📍 我而家做緊…</h3>
+    <p class="subnote" id="kidPtHint" style="margin:0 0 12px"></p>
+    <label class="kidLbl">你而家做緊乜？</label>
+    <input id="kidPtWhat" type="text" maxlength="24" placeholder="例如：食早餐、執書包、飲水">
+    <div class="kidChips" id="kidPtChips"></div>
+    <div id="kidPtWarn" class="kidWarn" style="display:none"></div>
+    <div class="modalActs" style="margin-top:14px">
+      <span style="flex:1"></span>
+      <button class="btn" id="kidPtCancel">唔打住</button>
+      <button class="btn primary" id="kidPtSave">📍 打卡</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="kidNowModal">
   <div class="modal kidNowBox" style="width:min(94vw,360px)">
     <button class="kidNowX" id="kidNowClose" type="button" aria-label="閂咗個鐘">✕</button>
@@ -1699,7 +1723,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-25h";
+const BUILD = "2026-08-25i";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -3255,6 +3279,10 @@ function computeEnd(ev, dayEvs){
   let next=null;
   for(const o of dayEvs){
     if(o.id===ev.id) continue;
+    /* ⚠ 打卡（Charlotte 喺某一刻話「我而家做緊乜」）係一個點，唔係一格。
+       唔跳過佢，爹哋排嘅「做功課 9:00–10:00」就會俾佢 9:23 嗰個打卡
+       截短成 9:00–9:23——即係個細路打一次卡，就改到你張表。 */
+    if(o.kidPoint) continue;
     const ot=o.start.slice(11);
     if(ot>t && (!next || ot<next)) next=ot;
   }
@@ -3450,7 +3478,7 @@ function renderDay(){
     const isNow = isNowEvent(ev, all);
     if(isNow) nowIdx = i;
     const row=document.createElement('div');
-    row.className='evRow'+(ev.color?' c-'+ev.color:'')+(isOverdue(ev, isNow)?' overdue':'')+(ev.guestPending?' guestPending':'')+(ev.guestDel?' guestDel':'')+(isNow?' now':'')+(ev.kid?' kidOwn':'');
+    row.className='evRow'+(ev.color?' c-'+ev.color:'')+(isOverdue(ev, isNow)?' overdue':'')+(ev.guestPending?' guestPending':'')+(ev.guestDel?' guestDel':'')+(isNow?' now':'')+(ev.kid?' kidOwn':'')+(ev.kidPoint?' kidPoint':'');
     const main=document.createElement('div'); main.className='evMain';
 
     const tEl=document.createElement('span');
@@ -3461,6 +3489,7 @@ function renderDay(){
     const end=computeEnd(ev,all);
     const dur=document.createElement('span'); dur.className='evDur';
     const mins=minutes(end)-minutes(ev.start.slice(11));
+
     /* 冇填「指定完結時間」嘅事，個結束時間係由下一件事嘅開始時間推算出嚟嘅，
        唔係佢真係做咁耐。今日淨係得朝早一件事嘅話，就會變成「→ 23:59（15 小時 59 分鐘）」，
        睇落好似做足成日。所以：推算出嚟、而又長過 3 個鐘嘅，唔顯示時長，改為明講未定。
@@ -3472,6 +3501,12 @@ function renderDay(){
     }else{
       dur.textContent='→ '+end+(mins>0? '（'+durText(mins)+'）':'');
       if(implied) dur.title='結束時間由下一件事嘅開始時間推算，唔係你填嘅。';
+    }
+    /* 打卡係一個點，冇時長好講。硬顯示「→ 09:23（0 分鐘）」會令人以為佢係一格。 */
+    if(ev.kidPoint){
+      dur.textContent='📍 打卡';
+      dur.title='Charlotte 喺呢一刻話佢做緊呢樣嘢。呢個係紀錄，唔係一段排咗嘅時間。';
+      dur.removeAttribute('style');
     }
     main.appendChild(dur);
 
@@ -3507,9 +3542,21 @@ function renderDay(){
        唔係靠 CSS 收埋，係根本冇整過粒掣出嚟（CSS 收埋＝改個 style 就撳得返）。 */
     if(ev.kid === true && document.body.classList.contains('readonly')){
       const kb=document.createElement('button');
-      kb.type='button'; kb.className='evKidEdit'; kb.textContent='✎ 改';
-      kb.title='呢格係你自己排嘅，你改得刪得';
-      kb.onclick=e=>{ e.stopPropagation(); kidOpen(ev); };
+      kb.type='button'; kb.className='evKidEdit';
+      /* 打卡冇嘢好改（時間就係嗰一刻、內容就係嗰句話），淨係刪得。
+         照開排時間表個視窗會出一堆同佢無關嘅嘢（做幾耐、邊日）。 */
+      kb.textContent = ev.kidPoint ? '✕ 刪' : '✎ 改';
+      kb.title = ev.kidPoint ? '撳一下刪走呢個打卡紀錄' : '呢格係你自己排嘅，你改得刪得';
+      kb.onclick = async e => {
+        e.stopPropagation();
+        if(!ev.kidPoint){ kidOpen(ev); return; }
+        if(!await confirmBox('刪走「' + ev.title + '」呢個打卡紀錄？')) return;
+        kidWrite(function(){
+          state.events = state.events.filter(function(x){ return x.id !== ev.id; });
+          save();
+        });
+        renderCal();
+      };
       main.appendChild(kb);
     }
 
@@ -3829,6 +3876,7 @@ const KID_MAX_AHEAD   = 14;      /* 最多排到幾多日之後 */
 const KID_DUR_CHOICES = [15, 30, 45, 60];
 const KID_DUR_DEFAULT = 30;      /* 佢唔揀時長就當半個鐘 */
 const KID_MIN_MIN     = 5;       /* 最短排幾多分鐘。同個鐘嘅五分一格對齊 */
+const KID_POINT_MAX   = 20;      /* 一日最多打幾多次卡（同排時間表嗰 10 格分開計）*/
 const KID_OPEN_END_MIN = 30;     /* 冇寫幾點完嘅格，當佢佔住半個鐘（見 kidWin） */
 
 /* 個 keyword 由爹哋張關鍵字表攞，唔寫死——噉先跟到佢自己嘅拼法同大細楷。
@@ -3878,7 +3926,7 @@ function kidOverlap(aSt, aEn, bSt, bEn){ return aSt < bEn && bSt < aEn; }
 /* 撞唔撞。只同「標題含 Charlotte」嗰啲比——爹哋排嘅「Charlotte 返學」
    一樣算，因為嗰格都係佢嘅時間。 */
 function kidClash(dateStr, st, en, selfId){
-  const all = eventsOnAll(dateStr);
+  const all = eventsOnAll(dateStr).filter(function(e){ return !e.kidPoint; });
   for(let i = 0; i < all.length; i++){
     const ev = all[i];
     if(!ev || ev.id === selfId) continue;
@@ -3895,7 +3943,7 @@ function kidClash(dateStr, st, en, selfId){
    以前兩種一律當「撞咗」擋返，於是 8:20 想食早餐、8:30 要出門口游水，
    佢就完全加唔到——但佢嗰十分鐘係真係喺度食緊早餐。 */
 function kidStartBusy(dateStr, st, selfId){
-  const all = eventsOnAll(dateStr);
+  const all = eventsOnAll(dateStr).filter(function(e){ return !e.kidPoint; });
   for(let i = 0; i < all.length; i++){
     const ev = all[i];
     if(!ev || ev.id === selfId) continue;
@@ -3907,7 +3955,7 @@ function kidStartBusy(dateStr, st, selfId){
 }
 /* 由 st 起計，去到下一件 Charlotte 嘅嘢開始為止，仲有幾多位。 */
 function kidRoom(dateStr, st, selfId){
-  const all = eventsOnAll(dateStr);
+  const all = eventsOnAll(dateStr).filter(function(e){ return !e.kidPoint; });
   let nx = null;
   for(let i = 0; i < all.length; i++){
     const ev = all[i];
@@ -3928,9 +3976,52 @@ function kidFitDur(dateStr, st, want, selfId){
   return {mins: Math.min(want, r.room), why:'', fitted: want > r.room, room:r.room, next:r.next};
 }
 function kidCountOn(dateStr){
+  /* 排時間表嗰 10 格唔計打卡——兩樣嘢唔應該爭同一個額度。 */
   return (state.events||[]).filter(function(e){
-    return e && e.kid === true && typeof e.start === 'string' && e.start.slice(0,10) === dateStr;
+    return e && e.kid === true && !e.kidPoint &&
+           typeof e.start === 'string' && e.start.slice(0,10) === dateStr;
   }).length;
+}
+function kidPointCountOn(dateStr){
+  return (state.events||[]).filter(function(e){
+    return e && e.kidPoint === true &&
+           typeof e.start === 'string' && e.start.slice(0,10) === dateStr;
+  }).length;
+}
+
+/* ============================================================
+   📍 打卡：「我而家做緊乜」
+   ------------------------------------------------------------
+   點解要有：爹哋排咗「Charlotte 做功課 9:00–10:00」，佢喺中間根本
+   declare 唔到任何嘢——連如實講返自己而家做緊乜都唔得。
+   點解係「一個時間點」而唔係「一段時間」：
+     一段時間 ＝ 佢要宣佈「我做完咗」，然後個 app 照住呢個宣佈改張表。
+       嗰個係一個六歲人核實唔到、而且有誘因講大話（早啲講完就攞返時間玩）
+       嘅判斷，唔應該由部機接。
+     一個時間點 ＝ 純粹一條紀錄：9:23 佢話佢做緊乜。
+       唔改張表、唔攞走任何時間、唔放寬任何嘢，所以冇誘因，亦冇風險。
+   換返嚟嘅係：佢嘅主動性有地方擺，而爹哋多咗一條而家完全冇嘅時間線——
+   佢喺你排嗰格入面實際做過乜。
+   ============================================================ */
+function kidPointAdd(what){
+  const w = String(what || '').trim();
+  if(!w) return {ok:false, msg:'仲未寫低你做緊乜。'};
+  const d = new Date();
+  const date = fmtDate(d), time = pad(d.getHours()) + ':' + pad(d.getMinutes());
+  if(kidPointCountOn(date) >= KID_POINT_MAX)
+    return {ok:false, msg:'今日已經打咗 ' + KID_POINT_MAX + ' 次卡喇，夠晒喇。'};
+  const start = date + 'T' + time;
+  kidWrite(function(){
+    state.events.push({
+      id:uid(), title:kidTitle(w), start:start,
+      endOverride:time,            /* 同開始時間一樣＝零長度，永遠唔會當佢係一格 */
+      sop:'', color:'', templateId:null,
+      planned:false, done:false, hwSlot:false,
+      kid:true, kidPoint:true, kidAt:Date.now()
+    });
+    save();
+  });
+  return {ok:true, time:time, title:kidTitle(w)};
 }
 /* 尋日或者之後 = 自由改自由刪；前日或者更早 = 要爹哋批。
    ⚠️ 舊寫法係 (dateStr === today || dateStr === yest)，即係聽日、下星期嗰啲
@@ -4275,6 +4366,45 @@ function kidNowCloseNow(why){
   document.addEventListener('keydown', function(e){
     if(e.key === 'Escape' && ov && ov.classList.contains('show')) kidNowCloseNow('esc');
   });
+})();
+
+/* 打卡視窗。要快——佢係喺做緊嘢中間撳嘅，唔係坐低慢慢填表。
+   所以：時間唔使佢揀（就係而家），只需要打幾隻字或者撳個快揀。 */
+const KID_PT_QUICK = ['食早餐', '食飯', '飲水', '去廁所', '執書包', '收拾玩具', '睇書', '休息一陣'];
+function kidPtOpen(){
+  const d = new Date();
+  const t = pad(d.getHours()) + ':' + pad(d.getMinutes());
+  document.getElementById('kidPtHint').textContent =
+    '而家係 ' + kidTxt12(t).replace('　', ' ') +
+    '。呢個係一條紀錄，唔會改到你張時間表，亦都唔會攞走任何時間。';
+  document.getElementById('kidPtWhat').value = '';
+  const w = document.getElementById('kidPtWarn'); w.style.display = 'none'; w.textContent = '';
+  const box = document.getElementById('kidPtChips'); box.innerHTML = '';
+  KID_PT_QUICK.forEach(function(x){
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = x;
+    b.onclick = function(){ document.getElementById('kidPtWhat').value = x; };
+    box.appendChild(b);
+  });
+  show('kidPtModal');
+  setTimeout(function(){ try{ document.getElementById('kidPtWhat').focus(); }catch(e){} }, 60);
+}
+function kidPtSave(){
+  const r = kidPointAdd(document.getElementById('kidPtWhat').value);
+  if(!r.ok){
+    const w = document.getElementById('kidPtWarn');
+    w.textContent = r.msg; w.style.display = '';
+    return;
+  }
+  hide('kidPtModal');
+  try{ renderCal(); }catch(e){}
+  toast('📍 ' + kidTxt12(r.time).replace('　', ' ') + ' 打咗卡：' + r.title);
+}
+(function(){
+  const b = document.getElementById('btnKidPoint'); if(b) b.onclick = kidPtOpen;
+  const c = document.getElementById('kidPtCancel'); if(c) c.onclick = function(){ hide('kidPtModal'); };
+  const sv = document.getElementById('kidPtSave'); if(sv) sv.onclick = kidPtSave;
+  const inp = document.getElementById('kidPtWhat');
+  if(inp) inp.onkeydown = function(e){ if(e.key === 'Enter'){ e.preventDefault(); kidPtSave(); } };
 })();
 
 function kidOpen(ev){
@@ -5466,6 +5596,12 @@ function diffSnap(){
     _lastManual[x.id] = {at:now, logId: ent && ent.id};
   });
   gone.forEach(function(b){
+    if(b.kidPoint){
+      logPush('correction',
+        'Charlotte 刪咗 ' + String(b.start||'').slice(11) + ' 嗰個打卡「' + b.title + '」',
+        {kind:'kid-point-del', title:b.title, from:b.start, by:'kid'});
+      return;
+    }
     if(b.kid){
       logPush('correction', 'Charlotte 刪咗自己排嘅「' + b.title + '」（原本 ' + b.start.replace('T',' ') + '）',
         {kind:'kid-delete', title:b.title, from:b.start, by:'kid'});
@@ -5478,6 +5614,12 @@ function diffSnap(){
     if(c.ai) return;                                   /* AI 加嘅已經有 plan 記錄，唔使重複 */
     /* ⚠ 呢句以前一律寫「我自己加咗」。Charlotte 自己排時間表之後，爹哋翻本
        Data Log 就會見到一堆「我自己加咗」而其實唔係佢加嘅——本簿變咗呃佢。 */
+    if(c.kidPoint){
+      logPush('feedback',
+        'Charlotte 喺 ' + String(c.start||'').slice(11) + ' 打卡：「' + c.title + '」',
+        {kind:'kid-point', title:c.title, to:c.start, by:'kid'});
+      return;
+    }
     if(c.kid){
       logPush('feedback', 'Charlotte 自己排咗「' + c.title + '」' + String(c.start||'').replace('T',' '),
         {kind:'kid-add', title:c.title, to:c.start, by:'kid'});
