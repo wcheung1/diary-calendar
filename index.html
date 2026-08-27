@@ -1748,7 +1748,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-25k";
+const BUILD = "2026-08-25l";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -6829,7 +6829,19 @@ function hwPattern(rule){
     let best=0;
     Object.keys(gaps).forEach(function(g){ if(gaps[g]>best){ best=gaps[g]; interval=+g; } });
   }
-  return {interval:interval, time:time, title:last.title,
+  /* 正堂幾耐：由過往有填完結時間嗰啲堂度攞，用出現得最多嗰個。
+     以前完全冇偵測呢樣，於是每續一堂出嚟都係得開始時間、冇結束時間——
+     半個鐘嘅堂同三個鐘嘅堂喺行事曆上面睇落一模一樣。 */
+  let mainDur = 0;
+  const durs = {};
+  days.forEach(function(e){
+    if(!e.endOverride) return;
+    const m = minutes(e.endOverride) - minutes(e.start.slice(11));
+    if(m > 0 && m <= 600) durs[m] = (durs[m]||0) + 1;
+  });
+  let bestD = 0;
+  Object.keys(durs).forEach(function(m){ if(durs[m] > bestD){ bestD = durs[m]; mainDur = +m; } });
+  return {interval:interval, time:time, title:last.title, mainDur:mainDur,
           weekday: WD[(new Date(last.start.slice(0,10)).getDay()+6)%7],
           lastStart:last.start};
 }
@@ -6849,10 +6861,15 @@ function hwMakeDraft(rule, dateStr){
   const p = hwPattern(rule);
   const tplInp = document.getElementById('hwTpl_' + rule.id);
   const tmInp  = document.getElementById('hwTime_' + rule.id);
+  const drInp  = document.getElementById('hwDur_' + rule.id);
   const title = (tplInp && tplInp.value.trim()) || (p ? p.title : (rule.name||'新堂'));
   const time  = (tmInp && tmInp.value) || (p ? p.time : '16:00');
+  /* 三個來源，由近到遠：畫面上填緊嗰個 → 呢個班記低咗嘅 → 由過往堂偵測返嚟。
+     全部都冇就當 0（＝唔設定完結時間，同以前一樣）。 */
+  const dur = drInp ? Math.max(0, parseInt(drInp.value, 10) || 0)
+            : (rule.dur != null ? Math.max(0, rule.dur|0) : (p && p.mainDur ? p.mainDur : 0));
   const base  = minutes(time);
-  const parts = [{title:title, start:dateStr + 'T' + time, main:true}];
+  const parts = [{title:title, start:dateStr + 'T' + time, main:true, dur:dur || 0}];
   (rule.bundle||[]).forEach(function(b){
     parts.push({title:b.title, start:dateStr + 'T' + hhmm(base + b.off), dur:b.dur});
   });
@@ -7146,7 +7163,9 @@ function renderHwCourses(){
       bPost.onclick = (e)=>{ e.stopPropagation();
         rule.bundle = rule.bundle || [];
         const p2 = hwPattern(rule);
-        const mainDur = 60;
+        /* 以前呢度寫死 60。三個鐘嘅堂就會喺開波後一個鐘就話「返屋企」。 */
+        const mainDur = (rule.dur != null && rule.dur > 0) ? (rule.dur|0)
+                      : ((p2 && p2.mainDur) ? p2.mainDur : 60);
         rule.bundle.push({title:'返屋企', off:mainDur, dur:10});
         save(); renderHw(); };
       const bDet = document.createElement('button'); bDet.className='btn';
@@ -7180,8 +7199,34 @@ function renderHwCourses(){
         '<div class="aiRow" style="gap:8px;align-items:flex-end">' +
           '<div style="flex:3"><label>新堂用嘅標題</label><input type="text" id="hwTpl_' + rule.id + '" value="' + esc(p ? p.title : (rule.name||'')) + '"></div>' +
           '<div style="flex:0 0 100px"><label>幾點上</label><input type="time" id="hwTime_' + rule.id + '" value="' + (p ? p.time : '16:00') + '"></div>' +
+          '<div style="flex:0 0 116px"><label>一堂幾耐（分鐘）</label>' +
+            '<input type="number" min="0" step="5" id="hwDur_' + rule.id + '" value="' +
+            (rule.dur != null ? (rule.dur|0) : (p && p.mainDur ? p.mainDur : 0)) +
+            '" title="0 ＝ 唔設定完結時間（同以前一樣，由下一格自己頂住）"></div>' +
           '<div style="flex:0 0 150px"><label>一路排到邊日</label><input type="date" id="hwUntil_' + rule.id + '"></div>' +
-        '</div>';
+        '</div>' +
+        '<p class="hwSub" id="hwDurNote_' + rule.id + '" style="margin:4px 0 0"></p>';
+      /* 佢改完就即刻記落個班度，唔使等佢再撳第二粒掣——中間隔一步就會漏。
+         同時喺下面寫返「X:XX 上到 Y:YY」，唔使佢自己心算。 */
+      setTimeout(function(){
+        const di = document.getElementById('hwDur_' + rule.id);
+        const ti = document.getElementById('hwTime_' + rule.id);
+        const nt = document.getElementById('hwDurNote_' + rule.id);
+        const refresh = function(){
+          if(!nt) return;
+          const mv = di ? Math.max(0, parseInt(di.value, 10) || 0) : 0;
+          const st = (ti && ti.value) || (p ? p.time : '16:00');
+          nt.textContent = mv > 0
+            ? ('每堂 ' + st + ' 上到 ' + endHHMM(minutes(st) + mv) + '（' + mv + ' 分鐘）')
+            : '冇設定完結時間 —— 行事曆上會由下一格自己頂住個結尾。';
+        };
+        if(di) di.onchange = function(){
+          rule.dur = Math.max(0, parseInt(di.value, 10) || 0);
+          save(); refresh();
+        };
+        if(ti) ti.addEventListener('change', refresh);
+        refresh();
+      }, 0);
       const bar2 = document.createElement('div'); bar2.className = 'hwBar';
       const g1 = document.createElement('button'); g1.className='btn';
       g1.textContent = '＋ 推算多一堂';
@@ -7240,7 +7285,10 @@ function renderHwCourses(){
           hd.appendChild(xB);
           box.appendChild(hd);
           const pl = document.createElement('div'); pl.className='hwSub'; pl.style.padding='2px 10px 8px';
-          pl.textContent = L.parts.map(function(x){ return x.start.slice(11) + ' ' + short(x.title,18); }).join('　→　');
+          pl.textContent = L.parts.map(function(x){
+            const st = x.start.slice(11);
+            return st + (x.dur ? ('–' + endHHMM(minutes(st) + x.dur)) : '') + ' ' + short(x.title,18);
+          }).join('　→　');
           box.appendChild(pl);
           dv.appendChild(box);
         });
