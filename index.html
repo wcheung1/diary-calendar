@@ -579,7 +579,16 @@ body.readonly #btnKidPoint:hover{background:var(--accent);color:#fff}
 .kidWarn{
   margin-top:12px;border-left:3px solid var(--overdue);background:#fdecec;
   color:var(--overdue);border-radius:0 8px 8px 0;padding:9px 11px;font-size:13.5px;line-height:1.6;
+  display:flex;align-items:flex-start;gap:9px;
 }
+.kidWarn #kidEvWarnTxt{flex:1}
+.kidWarnSpk{
+  flex:0 0 auto;border:1px solid var(--overdue);background:#fff;color:var(--overdue);
+  border-radius:8px;width:38px;min-height:36px;font-size:16px;cursor:pointer;line-height:1;
+}
+.kidWarnSpk:hover,.kidWarnSpk.speaking{background:var(--overdue);color:#fff}
+.kidChips button.hw{border-color:var(--accent);color:var(--accent)}
+.kidChips button.hw.over{border-color:var(--overdue);color:var(--overdue)}
 /* 佢自己排嗰啲，爹哋一眼要認得出 */
 .evRow.kidPoint{
   border-left:3px dashed var(--accent);background:transparent;
@@ -1237,7 +1246,11 @@ body.hubOpen{overflow:hidden}
     <p class="subnote" id="kidEvHint" style="margin:0 0 12px"></p>
 
     <label class="kidLbl">做乜？</label>
-    <input id="kidEvWhat" type="text" maxlength="24" placeholder="例如：砌 LEGO、練琴、執書包">
+    <input id="kidEvWhat" type="text" maxlength="40" placeholder="例如：砌 LEGO、練琴、執書包">
+    <div id="kidHwWrap" style="display:none">
+      <p class="subnote" style="margin:8px 0 4px">又或者揀一份功課嚟排：</p>
+      <div class="kidChips" id="kidHwChips"></div>
+    </div>
 
     <label class="kidLbl">邊日？</label>
     <div class="kidChips" id="kidEvDayChips"></div>
@@ -1267,7 +1280,11 @@ body.hubOpen{overflow:hidden}
     <div class="kidChips" id="kidEvDurChips"></div>
     <p class="subnote" id="kidEvSpan" style="margin:2px 0 0"></p>
 
-    <div id="kidEvWarn" class="kidWarn" style="display:none"></div>
+    <div id="kidEvWarn" class="kidWarn" style="display:none">
+      <span id="kidEvWarnTxt"></span>
+      <button class="kidWarnSpk" id="kidEvWarnSpk" type="button"
+              title="讀出嚟俾我聽（再撳一次＝停）" aria-label="讀出提示">🔊</button>
+    </div>
 
     <div class="modalActs" style="margin-top:14px">
       <button class="btn danger" id="kidEvDel" style="display:none">🗑 刪咗佢</button>
@@ -1723,7 +1740,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-25i";
+const BUILD = "2026-08-25j";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -4040,6 +4057,33 @@ function kidAddMin(hhmm, mins){
 /* kidDur === null ＝ 佢特登唔揀，當 KID_DUR_DEFAULT。
    唔用 0 或者 undefined 做「冇揀」，因為嗰兩個同「未初始化」分唔開。 */
 let kidEditing = null, kidDur = null;
+/* 佢喺 AI 排程度見到張功課清單，但排時間表嗰陣就要自己打返個名——
+   打錯少少就同功課對唔返，個格亦都唔會當係做功課時段。
+   所以直接俾佢喺呢度揀。認做功課時段係靠 hwSlot 呢個明確旗（isHwSlot 首先睇佢），
+   唔係靠標題格式，所以夾埋個 Charlotte keyword 都唔會撞。 */
+let kidHwPick = null;
+function kidHwChips(){
+  const wrap = document.getElementById('kidHwWrap'), box = document.getElementById('kidHwChips');
+  if(!wrap || !box) return;
+  let list = [];
+  try{ list = (pendingHomework() || []).slice(0, 8); }catch(e){ list = []; }
+  if(!list.length){ wrap.style.display = 'none'; box.innerHTML = ''; return; }
+  wrap.style.display = ''; box.innerHTML = '';
+  list.forEach(function(o){
+    const b = document.createElement('button'); b.type = 'button';
+    b.className = 'hw' + (o.overdue ? ' over' : '') +
+                  (kidHwPick && kidHwPick.key === o.key ? ' on' : '');
+    b.textContent = (o.overdue ? '⚠ ' : '') + o.label;
+    b.title = (o.due ? ('要喺 ' + o.due + ' 之前做完') : '') + (o.overdue ? '（已經過咗期）' : '');
+    b.onclick = function(){
+      kidHwPick = {key:o.key, label:o.label};
+      document.getElementById('kidEvWhat').value = '做功課：' + o.label;
+      kidHwChips(); kidChips();
+      const bad = kidCheck(); if(bad && !bad.quiet) kidWarn(bad.msg); else kidWarnOff();
+    };
+    box.appendChild(b);
+  });
+}
 function kidDurMin(){ return kidDur == null ? KID_DUR_DEFAULT : kidDur; }
 
 /* ============================================================
@@ -4432,7 +4476,9 @@ function kidOpen(ev){
     ? Math.max(5, minutes(ev.endOverride) - minutes(ev.start.slice(11)))
     : null;
   $k('kidEvDel').style.display = ev ? '' : 'none';
+  kidHwPick = (ev && ev.hwFor) ? {key:ev.hwFor, label:''} : null;
   kidClockBuild(); kidClockDraw();
+  kidHwChips();
   kidChips();
   kidWarnOff();
   show('kidEvModal');
@@ -4507,8 +4553,19 @@ function kidAfterTime2(){
   const bad = kidCheck();
   if(bad && !bad.quiet) kidWarn(bad.msg); else kidWarnOff();
 }
-function kidWarnOff(){ const w = document.getElementById('kidEvWarn'); w.style.display = 'none'; w.textContent = ''; }
-function kidWarn(msg){ const w = document.getElementById('kidEvWarn'); w.textContent = msg; w.style.display = ''; }
+function kidWarnOff(){
+  const w = document.getElementById('kidEvWarn'); if(!w) return;
+  w.style.display = 'none';
+  const t = document.getElementById('kidEvWarnTxt'); if(t) t.textContent = '';
+}
+/* ⚠ 唔可以再寫 w.textContent = msg——噉會連粒喇叭一齊抹走。
+   紅字要讀得出嚟：佢見到一大段紅色字，第一個反應係唔想睇。 */
+function kidWarn(msg){
+  const w = document.getElementById('kidEvWarn'); if(!w) return;
+  const t = document.getElementById('kidEvWarnTxt');
+  if(t) t.textContent = msg;
+  w.style.display = '';
+}
 
 /* 驗一次，順手即場出紅字。回傳 null＝冇問題。
    ⚠ 畫面上出咗警告，唔等於儲存嗰陣冇再驗——kidSave() 會再行一次同一個 function。
@@ -4564,6 +4621,7 @@ function kidSave(){
     const needAsk = !kidFreshEnough(oldDate) || !kidFreshEnough(date);
     kidWrite(function(){
       Object.assign(kidEditing, {title:kidTitle(what), start:start, endOverride:en});
+      if(kidHwPick){ kidEditing.hwSlot = true; kidEditing.hwFor = kidHwPick.key; }
       if(needAsk) kidEditing.guestPending = true;   /* 太舊：要爹哋批 */
       save();
     });
@@ -4571,11 +4629,13 @@ function kidSave(){
     toast(needAsk ? '✋ 呢格過咗尋日，改動要等爹哋批准。' : '✓ 改好喇。');
   }else{
     kidWrite(function(){
-      state.events.push({
+      const _e = {
         id:uid(), title:kidTitle(what), start:start, endOverride:en, sop:'', color:'',
-        templateId:null, planned:(start > nowStr()), done:false, hwSlot:false,
+        templateId:null, planned:(start > nowStr()), done:false, hwSlot:!!kidHwPick,
         kid:true, kidAt:Date.now()
-      });
+      };
+      if(kidHwPick) _e.hwFor = kidHwPick.key;
+      state.events.push(_e);
       save();
     });
     hide('kidEvModal');
@@ -4613,9 +4673,25 @@ document.getElementById('btnKidNew').onclick   = function(){ kidOpen(null); };
 ['kidEvWhat','kidEvDate'].forEach(function(id){
   const el2 = document.getElementById(id);
   if(el2) el2.oninput = function(){
+    /* 佢自己改咗個標題，就唔可以仲當佢係嗰份功課——唔係本功課記錄會對錯數。 */
+    if(id === 'kidEvWhat' && kidHwPick &&
+       el2.value.trim() !== ('做功課：' + kidHwPick.label)){ kidHwPick = null; kidHwChips(); }
     const bad = kidCheck(); if(bad && !bad.quiet) kidWarn(bad.msg); else kidWarnOff();
   };
 });
+/* 紅字嘅小喇叭 */
+(function(){
+  const b = document.getElementById('kidEvWarnSpk'); if(!b) return;
+  let at = 0;
+  const say = function(e){
+    const t = Date.now(); if(t - at < 400) return; at = t;
+    e.stopPropagation(); e.preventDefault();
+    const txt = (document.getElementById('kidEvWarnTxt') || {}).textContent || '';
+    if(txt && typeof window.ttsSpeak === 'function') window.ttsSpeak(txt, b);
+  };
+  b.addEventListener('touchend', say, {passive:false});
+  b.addEventListener('click', say);
+})();
 
 function openEvent(ev,defaults){
   editingEv=ev;
