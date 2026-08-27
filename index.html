@@ -268,6 +268,12 @@ header .spacer{flex:1}
 .hwSlot{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px;
   font-size:12px;color:var(--muted);background:var(--bg);border-radius:6px;padding:6px 9px}
 .hwSlot.on{background:var(--accent-soft);color:var(--accent)}
+.hwSlot .hwGo{
+  border:1px solid var(--accent);background:var(--panel);color:var(--accent);
+  border-radius:8px;padding:5px 11px;font-size:12.5px;font-weight:700;
+  cursor:pointer;min-height:34px;white-space:nowrap;
+}
+.hwSlot .hwGo:hover{background:var(--accent);color:#fff}
 .hwSlot input{padding:4px 7px;border:1px solid var(--line);border-radius:5px;font-size:12px}
 .hwSlot input[type=number]{width:52px;text-align:center}
 .hwSlot .hwDur{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
@@ -506,6 +512,7 @@ body.readonly #btnKidNew,body.readonly #btnKidClock,body.readonly #btnKidPoint{
 body.readonly #btnKidNew:hover,body.readonly #btnKidClock:hover,
 body.readonly #btnKidPoint:hover{background:var(--accent);color:#fff}
 .kidLbl{display:block;font-size:13px;font-weight:700;color:var(--ink);margin:10px 0 5px}
+.kidWd{color:var(--accent);font-weight:800;margin-left:6px}
 #kidEvModal input[type=text],#kidEvModal input[type=date],#kidEvModal input[type=time]{
   width:100%;font-size:16px;padding:9px 10px;border:1px solid var(--line);
   border-radius:8px;background:var(--panel);color:var(--ink);
@@ -588,6 +595,7 @@ body.readonly #btnKidPoint:hover{background:var(--accent);color:#fff}
 }
 .kidWarnSpk:hover,.kidWarnSpk.speaking{background:var(--overdue);color:#fff}
 .kidChips button.hw{border-color:var(--accent);color:var(--accent)}
+.subnote.hwBad{color:var(--overdue);font-weight:700}
 .kidChips button.hw.over{border-color:var(--overdue);color:var(--overdue)}
 /* 佢自己排嗰啲，爹哋一眼要認得出 */
 .evRow.kidPoint{
@@ -1248,11 +1256,11 @@ body.hubOpen{overflow:hidden}
     <label class="kidLbl">做乜？</label>
     <input id="kidEvWhat" type="text" maxlength="40" placeholder="例如：砌 LEGO、練琴、執書包">
     <div id="kidHwWrap" style="display:none">
-      <p class="subnote" style="margin:8px 0 4px">又或者揀一份功課嚟排：</p>
+      <p class="subnote" id="kidHwNote" style="margin:8px 0 4px">又或者揀一份功課嚟排：</p>
       <div class="kidChips" id="kidHwChips"></div>
     </div>
 
-    <label class="kidLbl">邊日？</label>
+    <label class="kidLbl">邊日？<span class="kidWd" id="kidEvWd"></span></label>
     <div class="kidChips" id="kidEvDayChips"></div>
     <input id="kidEvDate" type="date">
 
@@ -1740,7 +1748,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-25j";
+const BUILD = "2026-08-25k";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -4062,13 +4070,49 @@ let kidEditing = null, kidDur = null;
    所以直接俾佢喺呢度揀。認做功課時段係靠 hwSlot 呢個明確旗（isHwSlot 首先睇佢），
    唔係靠標題格式，所以夾埋個 Charlotte keyword 都唔會撞。 */
 let kidHwPick = null;
+/* 由「課後功課」張卡撳「🗓 排時間」入嚟：開排程視窗，順手揀定咗嗰份功課。 */
+function kidOpenForHw(o){
+  if(!o) return;
+  kidOpen(null);
+  kidHwPick = {key:o.key, label:o.label};
+  const w = document.getElementById('kidEvWhat');
+  if(w) w.value = '做功課：' + o.label;
+  /* 有死線就跳去死線嗰日，慳返佢揀——但唔准跳去過咗嘅日子。 */
+  const dEl = document.getElementById('kidEvDate');
+  if(dEl && o.due && o.due >= fmtDate(new Date()) && o.due <= dEl.max) dEl.value = o.due;
+  kidHwChips(); kidChips();
+  const bad = kidCheck(); if(bad && !bad.quiet) kidWarn(bad.msg); else kidWarnOff();
+}
+function kidWd(ds){
+  const d = new Date(String(ds) + 'T00:00');
+  return isNaN(d) ? '' : ['日','一','二','三','四','五','六'][d.getDay()];
+}
 function kidHwChips(){
   const wrap = document.getElementById('kidHwWrap'), box = document.getElementById('kidHwChips');
   if(!wrap || !box) return;
-  let list = [];
-  try{ list = (pendingHomework() || []).slice(0, 8); }catch(e){ list = []; }
-  if(!list.length){ wrap.style.display = 'none'; box.innerHTML = ''; return; }
-  wrap.style.display = ''; box.innerHTML = '';
+  /* ⚠️ 呢度以前係「攞唔到就靜靜雞收埋成塊嘢」。結果佢見到嘅同「今日冇功課」
+     一模一樣，冇人知道其實係壞咗定係真係冇嘢——查咗成輪先知係邊個原因。
+     而家分三種狀態，逐種寫出嚟：真係冇、攞唔到（連錯誤一齊寫）、有。 */
+  let list = null, err = '';
+  try{
+    const fn = (typeof pendingHomework === 'function') ? pendingHomework
+             : (typeof window !== 'undefined' ? window.pendingHomework : null);
+    if(typeof fn !== 'function') throw new Error('搵唔到 pendingHomework()');
+    list = fn() || [];
+  }catch(e){ err = String((e && e.message) || e); console.warn('攞唔到功課清單', e); }
+  wrap.style.display = '';
+  box.innerHTML = '';
+  const note = document.getElementById('kidHwNote');
+  if(err){
+    if(note){ note.textContent = '⚠ 攞唔到功課清單（' + err + '）。撳「🩺 機器自我檢查」睇下。'; note.className = 'subnote hwBad'; }
+    return;
+  }
+  if(!list.length){
+    if(note){ note.textContent = '而家冇未做完嘅功課——所以呢度冇嘢好揀。'; note.className = 'subnote'; }
+    return;
+  }
+  if(note){ note.textContent = '又或者揀一份功課嚟排：'; note.className = 'subnote'; }
+  list = list.slice(0, 8);
   list.forEach(function(o){
     const b = document.createElement('button'); b.type = 'button';
     b.className = 'hw' + (o.overdue ? ' over' : '') +
@@ -4489,6 +4533,22 @@ function kidChips(){
   const durBox = document.getElementById('kidEvDurChips');
   const dateIn = document.getElementById('kidEvDate');
   dayBox.innerHTML = ''; durBox.innerHTML = '';
+  /* 邊日 → 星期幾。佢學緊睇日曆，凈係得一串數字對佢嚟講冇意思。
+     ⚠ 特登唔叫 wdOf()：嗰個住喺另一個 IIFE 入面，喺呢度係攞唔到嘅。
+       而呢段 code 冇 try 包住，一 ReferenceError 就成個視窗開唔到。
+       就一行嘢，寧願自己計，唔好為咗慳一行而拉一條跨 IIFE 嘅線。 */
+  const wd = document.getElementById('kidEvWd');
+  if(wd){
+    const v = dateIn.value;
+    let lab = '';
+    if(v){
+      const today = fmtDate(new Date());
+      const tm = new Date(); tm.setDate(tm.getDate() + 1);
+      const nice = (v === today) ? '今日' : (v === fmtDate(tm) ? '聽日' : '');
+      lab = '（星期' + kidWd(v) + (nice ? '·' + nice : '') + '）';
+    }
+    wd.textContent = lab;
+  }
   /* 日子快撳：唔改得嘅時候（編輯緊）就唔出，免得佢以為撳得而其實撳唔郁 */
   if(!kidEditing){
     [['今日',0],['聽日',1],['後日',2]].forEach(function(p){
@@ -4496,7 +4556,7 @@ function kidChips(){
       const ds = fmtDate(d);
       const b = document.createElement('button'); b.type = 'button'; b.textContent = p[0];
       if(dateIn.value === ds) b.className = 'on';
-      b.onclick = function(){ dateIn.value = ds; kidChips(); kidCheck(); };
+      b.onclick = function(){ dateIn.value = ds; kidChips(); kidAfterTime2(); };
       dayBox.appendChild(b);
     });
   }
@@ -4676,6 +4736,7 @@ document.getElementById('btnKidNew').onclick   = function(){ kidOpen(null); };
     /* 佢自己改咗個標題，就唔可以仲當佢係嗰份功課——唔係本功課記錄會對錯數。 */
     if(id === 'kidEvWhat' && kidHwPick &&
        el2.value.trim() !== ('做功課：' + kidHwPick.label)){ kidHwPick = null; kidHwChips(); }
+    if(id === 'kidEvDate') kidChips();          /* 換咗日期，星期幾要跟住改 */
     const bad = kidCheck(); if(bad && !bad.quiet) kidWarn(bad.msg); else kidWarnOff();
   };
 });
@@ -6267,6 +6328,15 @@ function homeworkBoard(){
 
 /* ctxText 用嘅：淨係要未做完嗰批 */
 function pendingHomework(){ return homeworkBoard().pending; }
+/* ⚠️ 舊 bug（已修）：呢個 function 住喺呢個 IIFE 入面，而 Charlotte 排時間表
+   嗰段 code 喺頂層——即係佢由頭到尾攞唔到，而我仲用 try{}catch 包住，
+   於是變成「靜靜雞出一張空清單」，畫面上完全睇唔出有嘢壞咗。
+   （交接檔第一號地雷，今次係我自己踩中。）
+   跟返 window.toast／window.ttsSpeak 嗰個現成做法，明明白白出返去。 */
+window.pendingHomework = pendingHomework;
+window.hwOpenKidSlot = function(o){        /* 功課卡撳「排時間」→ 開返佢個排程視窗 */
+  try{ if(typeof kidOpenForHw === 'function') kidOpenForHw(o); }catch(e){ console.warn('kidOpenForHw', e); }
+};
 
 /* 一份功課撳到「做完」嗰刻，點下佢啲做功課時段仲有咩手尾。
 
@@ -6455,11 +6525,25 @@ function hwCard(o, finished){
     if(guest){
       const sl = document.createElement('div');
       sl.className = 'hwSlot' + (slots.length ? ' on' : '');
-      sl.innerHTML = slots.length
+      const txt = document.createElement('span');
+      txt.style.flex = '1';
+      txt.innerHTML = slots.length
         ? '🗓 排咗 ' + slots.map(function(s){
             return '<b>' + s.start.slice(0,10) + ' ' + s.start.slice(11) + '</b>';
           }).join('　同　') + ' 做'
         : '🗓 未排時間';
+      sl.appendChild(txt);
+      /* 佢喺呢度見到張功課清單，但排時間要走去第二度自己打返個名——
+         所以直接喺張卡度俾佢排。 */
+      const go = document.createElement('button');
+      go.type = 'button'; go.className = 'hwGo';
+      go.textContent = slots.length ? '＋ 再排一節' : '🗓 排時間';
+      go.onclick = function(e){
+        e.stopPropagation();
+        try{ hide('aiModal'); }catch(_e){}
+        if(typeof window.hwOpenKidSlot === 'function') window.hwOpenKidSlot(o);
+      };
+      sl.appendChild(go);
       d.appendChild(sl);
     }else{
       const mkRow = function(slot, idx){
