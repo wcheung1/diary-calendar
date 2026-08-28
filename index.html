@@ -1023,6 +1023,10 @@ body.readonly #hubStoryAdmin{display:none!important}
 .stCardT{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:0 0 7px}
 .stCardT input[type=text]{flex:1 1 220px;min-width:0;padding:5px 7px;font-size:14px;font-weight:600}
 .stCardT .stMeta{font-size:11.5px;color:var(--muted);flex:0 0 auto}
+.stCardT .stDup{font-size:11.5px;flex:0 0 auto;color:var(--overdue);font-weight:700;
+  border:1px solid var(--overdue);border-radius:7px;padding:1px 6px}
+.stGist{font-size:12px;color:var(--muted);line-height:1.6;margin:0 0 7px;
+  padding:5px 8px;border-left:3px solid var(--line);background:var(--hover);border-radius:0 7px 7px 0}
 .stCard textarea{width:100%;min-height:150px;font-size:13.5px;line-height:1.75;padding:8px;
   border:1px solid var(--line);border-radius:8px;background:var(--card);color:inherit;resize:vertical}
 .stOps{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
@@ -1919,7 +1923,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-28e";
+const BUILD = "2026-08-28f";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -11737,8 +11741,12 @@ const SYS_STORY = [
 '',
 '【輸出】',
 '淨係輸出一個 JSON object，唔准開場白、唔准解釋、唔准圍欄：',
-'{"title": "…", "text": "…"}',
+'{"title": "…", "gist": "…", "text": "…"}',
 'title 五至十二個字，講得出篇稿講乜，唔好用問號扮神秘。',
+'gist 一句，二十至四十字，講清楚兩樣：你今次用咗咩具體例子或者場景，同埋個重點係乜。',
+'  呢句唔會俾細路睇，係用嚟同以前寫過嗰啲比對，睇下有冇撞。所以要具體。',
+'  好例子：用雪櫃冰格入面嗰杯水做例，講水凍到某個溫度啲粒粒會企定。',
+'  壞例子：講水嘅科學知識。（太空泛，比對唔到。）',
 'text 係成篇稿，段與段之間用一個換行。'
 ].join('\n');
 
@@ -11791,6 +11799,19 @@ const StoryCloud = {
       this.lastError = ''; return true;
     }catch(e){ this.lastError = String((e && e.message) || e); return false; }
   },
+  /* 指紋擺喺自己一格，唔擺 idx——idx 每次開 app 都會落機，
+     三百幾條指紋 × 220 字元 ＝ 80KB，唔應該為咗一個爹哋先用到嘅功能
+     俾 Charlotte 部機每次開都下載一次。呢格只係寫故事嗰陣讀一次。 */
+  async sigAll(){
+    const r = this.ref(); if(!r) return {};
+    try{ const sn = await r.child('sig').once('value'); return sn.val() || {}; }
+    catch(e){ this.lastError = String((e && e.message) || e); return {}; }
+  },
+  async putSig(id, sig){
+    const r = this.ref(); if(!r) return false;
+    try{ await r.child('sig/' + id).set(sig); return true; }
+    catch(e){ this.lastError = String((e && e.message) || e); return false; }
+  },
   async getText(id){
     if(this.cache[id] != null) return this.cache[id];
     const r = this.ref(); if(!r){ this.lastError = '未登入 Google'; return null; }
@@ -11808,6 +11829,7 @@ const StoryCloud = {
     try{
       /* 兩邊都要刪。淨係刪 idx 會留低一個永遠冇人搵得返嘅 doc。 */
       await r.child('doc/' + id).remove();
+      await r.child('sig/' + id).remove();
       await r.child('idx/' + id).remove();
       if(this.idx) delete this.idx[id];
       delete this.cache[id];
@@ -11846,6 +11868,78 @@ function stWhenTxt(rec){
     : ('爹哋 ' + (d.getMonth()+1) + '月' + d.getDate() + '號擺嘅');
 }
 function stCount(s){ return String(s||'').replace(/\s/g,'').length; }
+
+/* ---------- 撞唔撞：一個唔使 call API 嘅指紋 ----------
+   一年三百幾篇，一定會撞。靠 prompt 提佢「唔好重複」係唔夠嘅——
+   模型好容易換個殼寫返同一篇（同一個例子、同一個結論、只係改咗啲字）。
+   所以除咗喺 prompt 度俾佢睇返以前寫過乜，仲要寫完之後**真係量度過**。
+
+   量法：中文冇詞界，所以行字元 bigram（每兩個字一組），
+   雜湊之後留最細嗰 32 個做 sketch，兩篇比 sketch 就估到 Jaccard。
+   好處係唔使 embedding、唔使多一個 API、唔使夾埋成篇舊文入 prompt。
+
+   實測（四篇手寫廣東話短文）：
+     同一題目但完全唔同角度（結冰 vs 蒸發）  0.09
+     唔同題目（結冰 vs 烏龜）                0.03
+     換咗個殼、其實同一篇                    0.66
+   所以門檻擺 0.35，落喺中間好闊嗰條罅度。
+   ⚠ 呢三個數係我手寫嘅樣本度度出嚟，唔係真 AI 出品。
+     跑過一批真嘢之後可能要調——調呢兩個常數就得。 */
+const ST_SIG_K = 32;
+const ST_DUP_HI = 0.35;      /* 過咗＝太似，叫佢重寫一次 */
+const ST_DUP_SHOW = 0.25;    /* 過咗＝喺爹哋張審核卡度標返出嚟 */
+function stGrams(s){
+  /* 淨係留中文、英數。標點同空白唔要——同一篇文改咗標點唔應該當成兩篇。 */
+  const t = String(s || '').replace(/[^\u4e00-\u9fffA-Za-z0-9]+/g, '');
+  const o = new Set();
+  for(let i = 0; i + 1 < t.length; i++) o.add(t.slice(i, i + 2));
+  return o;
+}
+function stHash(s){
+  let h = 2166136261;                       /* FNV-1a，夠散又夠快 */
+  for(let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function stSig(text){
+  const g = stGrams(text);
+  /* 唔夠 K 個 bigram＝篇嘢太短，個 sketch 唔係一個抽樣，係全部。
+     兩篇咁短嘅文只要有一兩個字撞就會計到好高分——測試度就中過：
+     兩篇假故事「內容 1」「內容 2」俾判咗做重複，白白多 call 咗一次。
+     一篇正常故事四五百字，實有幾百個 bigram，行到呢度即係出咗事。 */
+  if(g.size < ST_SIG_K) return '';
+  const a = [];
+  g.forEach(function(x){ a.push(stHash(x)); });
+  a.sort(function(x, y){ return x - y; });
+  return a.slice(0, ST_SIG_K).map(function(x){ return x.toString(36); }).join(',');
+}
+function stSim(a, b){
+  if(!a || !b) return 0;
+  const A = String(a).split(','), B = String(b).split(',');
+  const sa = new Set(A), sb = new Set(B);
+  if(!sa.size || !sb.size) return 0;
+  /* bottom-k 嘅標準估法：喺兩個 sketch 嘅聯集入面再攞最細嗰 k 個，
+     數下有幾多個兩邊都有。直接拎兩個 sketch 交／並會低估。 */
+  const uni = Array.from(new Set(A.concat(B)))
+    .sort(function(x, y){ return parseInt(x, 36) - parseInt(y, 36); })
+    .slice(0, Math.min(ST_SIG_K, sa.size, sb.size));
+  let hit = 0;
+  uni.forEach(function(x){ if(sa.has(x) && sb.has(x)) hit++; });
+  return uni.length ? hit / uni.length : 0;
+}
+/* 同邊篇最似？回 {id, title, score}，冇得比就回 null。 */
+function stNearest(sig, sigMap, skipId){
+  if(!sig || !sigMap) return null;
+  let best = null;
+  const idx = StoryCloud.idx || {};
+  Object.keys(sigMap).forEach(function(id){
+    if(id === skipId) return;
+    const s = stSim(sig, sigMap[id]);
+    if(!best || s > best.score){
+      best = {id:id, title:(idx[id] && idx[id].title) || '（已經刪咗）', score:s};
+    }
+  });
+  return best;
+}
 
 /* ---------- 讀故事嗰版嘅字級 ----------
    三段，記喺 localStorage（同「聽過未」一樣，唔開第二條訪客寫入路徑）。
@@ -12286,8 +12380,25 @@ async function storyGen(n, topicKey, note){
   const pick = ST_TOPICS.filter(x=>x.k === topicKey)[0];
   const topics = pick ? Array.from({length:n}, () => pick) : stNextTopics(n);
   note = String(note || '').trim();
-  const recent = stAll().sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')))
-                        .slice(0,20).map(x=>x.title).filter(Boolean);
+  /* 指紋表一次過攞（唔係每篇攞一次）。攞唔到就照寫，淨係冇得量度——
+     唔可以因為查唔到重複而寫唔到故事。 */
+  let sigMap = {};
+  try{ sigMap = await StoryCloud.sigAll(); }catch(e){ sigMap = {}; }
+  /* 舊做法：最近 20 個標題。兩個窿——
+     ① 標題太短，佢睇唔出上次用過咩例子，所以照樣可以用返同一個例子改個名；
+     ② 一年三百幾篇，20 個之後就跌出視窗，隔幾個月一定會寫返同一篇。
+     新做法：撞得最犀利係同一個題目入面，而九個題目分完，同題目嘅數量好細。
+     所以同題目嘅**全部**都俾佢睇（連 gist），跨題目就淨係俾標題防撞名。 */
+  const _all = stAll().sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));
+  const sameTopic = function(k){
+    return _all.filter(x=>x.topic === k)
+               .map(function(x, i){
+                 return (i+1) + '.《' + (x.title||'') + '》—— ' + (x.gist || '（早期嗰批冇記低用過咩例子）');
+               });
+  };
+  const otherTitles = function(k){
+    return _all.filter(x=>x.topic !== k).slice(0, 40).map(x=>x.title).filter(Boolean);
+  };
   const lines = [];
   let ok = 0;
   for(let i=0;i<topics.length;i++){
@@ -12310,36 +12421,79 @@ async function storyGen(n, topicKey, note){
     try{
       /* 逐篇一個 call。⚠ 唔好一次過叫佢寫三篇：一爆 token 就三篇齊冇。
          同 SYS_TODO 嗰條「一張通告一次 call，一張死咗唔准拖冧成隊」一樣。 */
-      const got = await callAIJSON([
-        {role:'system', content:SYS_STORY},
-        {role:'user', content:
-          '【今次寫呢個題目】\n' + tp.name + '：' + tp.hint +
+      const _same = sameTopic(tp.k), _other = otherTitles(tp.k);
+      const mkMsg = function(extra){
+        return '【今次寫呢個題目】\n' + tp.name + '：' + tp.hint +
           (note ? '\n\n【爹哋今次想要嘅嘢——呢段要跟，但唔准為咗佢而破上面啲底線】\n' + note : '') +
           (pick && topics.length > 1
             ? '\n\n（同一個題目今次要寫 ' + topics.length + ' 篇，呢篇係第 ' + (i+1) +
               ' 篇，切入點要同上面寫過嗰啲完全唔同。）' : '') +
-          '\n\n【呢啲寫過喇，唔好重複】\n' + (recent.length ? recent.join('\n') : '（未有）')}
-      ], {want:['title','text'], temp:0.7, max:4000,
+          '\n\n【同一個題目以前寫過嘅——呢啲最容易撞，每一篇嘅例子同結論都唔准再用】\n' +
+          (_same.length ? _same.join('\n') : '（呢個題目仲未寫過）') +
+          '\n\n【其他題目用過嘅標題，唔好撞名】\n' +
+          (_other.length ? _other.join('、') : '（未有）') +
+          (extra || '');
+      };
+      let got = await callAIJSON([
+        {role:'system', content:SYS_STORY},
+        {role:'user', content:mkMsg('')}
+      ], {want:['title','gist','text'], temp:0.7, max:4000,
           onDelta:view || undefined, longThink:true});
       /* ⚠ 地雷 6.7：callAIJSON 回嘅係殼 {json, attempt, raw}，唔係內容本身 */
-      const o = got.json || {};
+      let o = got.json || {};
       let text = String(o.text || '').trim();
-      const title = String(o.title || '').trim();
+      let title = String(o.title || '').trim();
+      let gist = String(o.gist || '').trim();
       if(!text || !title) throw new Error('AI 冇出到 title 或者 text');
-      /* 簡→繁 ＋ 剝 Markdown。模型一定會出簡體字，S2T 就係為咗呢個。 */
       if(typeof window.kidClean === 'function') text = window.kidClean(text);
+
+      /* 量度撞唔撞。提佢「唔好重複」係防唔到嘅——真正捉到嘅係呢一步。
+         太似就俾返個名佢，叫佢換過一個角度重寫。只重寫一次：
+         第二次仲係似就照收，但喺爹哋張卡度標返出嚟，由佢決定。 */
+      let sig = stSig(text);
+      let near = stNearest(sig, sigMap, '');
+      if(near && near.score >= ST_DUP_HI){
+        lines.push('↻ ' + (i+1) + '. 撞到《' + near.title + '》（' +
+                   Math.round(near.score * 100) + '%），叫佢換個角度重寫…');
+        stProgSet(lines.join('\n'));
+        if(view) try{ view.reset('AI 重寫緊（' + tp.name + '）…'); }catch(e){}
+        got = await callAIJSON([
+          {role:'system', content:SYS_STORY},
+          {role:'user', content:mkMsg(
+            '\n\n【⚠ 你頭先寫嗰篇同《' + near.title + '》太似】\n' +
+            '嗰篇嘅切入點係：' + (((StoryCloud.idx||{})[near.id]||{}).gist || '（冇記低）') +
+            '\n換一個完全唔同嘅具體例子同場景，唔准淨係改字。' +
+            '同一個道理可以有好多入口，揀第二個入口。')}
+        ], {want:['title','gist','text'], temp:0.9, max:4000,
+            onDelta:view || undefined, longThink:true});
+        o = got.json || {};
+        const t2 = String(o.text || '').trim(), n2 = String(o.title || '').trim();
+        if(t2 && n2){
+          text = (typeof window.kidClean === 'function') ? window.kidClean(t2) : t2;
+          title = n2; gist = String(o.gist || '').trim();
+          sig = stSig(text);
+          near = stNearest(sig, sigMap, '');
+        }
+      }
       const id = uid(), at = nowISO();
       /* 逐篇做完即刻入庫，唔好等成批完先寫——中途斷網至少留低前面嗰幾篇。
          doc 先，idx 後：反轉嘅話一爆就有一條指住空氣嘅 idx。 */
       if(!await StoryCloud.putDoc(id, text, cfg().model, at))
         throw new Error('正文上唔到雲：' + short(StoryCloud.lastError, 70));
       const rec = {id:id, title:title, topic:tp.k, status:'draft',
-                   len:stCount(text), at:at, edited:false};
+                   len:stCount(text), at:at, edited:false, gist:gist};
+      /* 重寫完仲係似就照收，但要留低證據俾爹哋睇——唔可以靜靜雞當冇事。 */
+      if(near && near.score >= ST_DUP_SHOW){
+        rec.dupT = near.title;
+        rec.dupP = Math.round(near.score * 100);
+      }
       if(!await StoryCloud.putIdx(rec))
         throw new Error('索引上唔到雲：' + short(StoryCloud.lastError, 70));
-      recent.unshift(title);
+      await StoryCloud.putSig(id, sig);
+      sigMap[id] = sig;                 /* 同一批入面，後面幾篇要同前面幾篇比 */
       ok++;
-      lines.push('✅ ' + (i+1) + '. ' + tp.name + '：' + title + '（' + rec.len + ' 字）');
+      lines.push('✅ ' + (i+1) + '. ' + tp.name + '：' + title + '（' + rec.len + ' 字' +
+                 (rec.dupP ? '，⚠ 同《' + rec.dupT + '》似 ' + rec.dupP + '%' : '') + '）');
       logPush('story', title, {kind:'gen', sid:id, topic:tp.k, len:rec.len});
       if(view) try{ view.done(); }catch(e){}
     }catch(err){
@@ -12368,6 +12522,13 @@ function stCard(rec){
   ti.type = 'text'; ti.value = rec.title || ''; ti.maxLength = 40;
   ti.disabled = !editable;
   head.appendChild(ti);
+  if(rec.dupT){
+    const w = document.createElement('span');
+    w.className = 'stDup';
+    w.textContent = '⚠ 同《' + rec.dupT + '》似 ' + (rec.dupP || 0) + '%';
+    w.title = '重寫過一次之後仲係似。收貨之前睇真啲，或者撳「✕ 唔要」叫佢再寫過。';
+    head.appendChild(w);
+  }
   const meta = document.createElement('span');
   meta.className = 'stMeta';
   meta.textContent = stTopicName(rec.topic) + ' · ' + (rec.len||0) + ' 字 · ' + fmtStamp(rec.at) +
@@ -12376,6 +12537,14 @@ function stCard(rec){
   head.appendChild(meta);
   box.appendChild(head);
 
+  if(rec.gist){
+    /* gist 唔係俾細路睇嘅，但爹哋審核嗰陣一眼掃到「今次用咗咩例子」，
+       快過成篇睇。撞唔撞，好多時你一睇呢句就知。 */
+    const g = document.createElement('div');
+    g.className = 'stGist';
+    g.textContent = '切入點：' + rec.gist;
+    box.appendChild(g);
+  }
   const ops = document.createElement('div');
   ops.className = 'stOps';
   const mk = function(lab, cls, fn){
