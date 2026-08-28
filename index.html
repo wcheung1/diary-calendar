@@ -946,6 +946,64 @@ body.readonly #hubManage{display:none!important}
 .hubRow .hrBad{color:var(--overdue);font-size:11.5px;flex:1 1 100%;margin:0}
 .hubRow .hrOps{display:flex;gap:4px;flex:0 0 auto}
 .hubRow .hrOps button{padding:3px 8px;font-size:12px}
+/* ===== 📖 聽故事 =====
+   爹哋審核完先放出去。draft／ready 喺訪客模式根本唔會入 DOM
+   （唔係靠下面呢啲 class 收埋——storyRenderKid 壓根唔會畫佢哋出嚟）。 */
+#storyModal{z-index:60}
+#storyAdmin{z-index:59}
+body.readonly #hubStoryAdmin{display:none!important}
+.stSec{margin:2px 0 14px;padding:0 0 12px;border-bottom:1px dashed var(--line)}
+.stSecT{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;margin:10px 0 8px}
+.stBig{display:flex;align-items:center;gap:10px;text-align:left;
+  padding:16px 14px;border:1px solid var(--accent);border-left-width:6px;border-radius:12px;
+  background:var(--hover);cursor:pointer;font-size:17px;line-height:1.5;min-height:64px}
+.stBig .stT{flex:1;min-width:0;font-weight:700}
+.stBig .stWhen{display:block;font-weight:400;font-size:12.5px;color:var(--muted);margin-top:3px}
+.stSpk{flex:0 0 auto;border:1px solid var(--line);background:var(--card);
+  border-radius:10px;width:46px;height:46px;font-size:20px;line-height:1;padding:0;cursor:pointer}
+.stSpk:hover{border-color:var(--accent)}
+.stOld{margin-top:9px}
+.stOld summary{cursor:pointer;font-size:13.5px;color:var(--muted);padding:5px 0}
+.stOldList{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.stOldRow{display:flex;align-items:center;gap:8px;padding:9px 11px;border:1px solid var(--line);
+  border-radius:9px;background:var(--card);cursor:pointer;font-size:14.5px}
+.stOldRow:hover{background:var(--hover)}
+.stOldRow .stT{flex:1;min-width:0}
+/* 三態嘅顯示。⚠「真係冇」同「攞唔到」要一眼分得開——
+   對一個六歲人嚟講，白畫面同「我撳錯咗」係同一件事。 */
+.stMsg{padding:14px 4px;color:var(--muted);font-size:13.5px;line-height:1.75}
+.stMsg.bad{color:var(--overdue)}
+.stMsg .stErr{display:block;font-size:11.5px;margin-top:5px;opacity:.85}
+.stMsg button{margin-top:9px;border:1px solid var(--accent);background:var(--card);
+  color:var(--accent);border-radius:9px;padding:7px 15px;font-size:13.5px;cursor:pointer}
+/* 讀故事嗰版：字大、行距鬆、冇嘢分心。粒掣喺段字上面，唔係碌到底先見到。 */
+#stText{white-space:pre-wrap;font-size:18.5px;line-height:2.05;margin:10px 0 0;
+  max-height:56vh;overflow:auto;padding:2px 2px 8px}
+.stBar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 0}
+.stBar .chatCopyBtn{font-size:16px;padding:11px 20px;border-radius:11px}
+.stWhenTop{font-size:12.5px;color:var(--muted);margin:2px 0 0}
+/* 爹哋嗰版 */
+.stCard{border:1px solid var(--line);border-radius:10px;padding:10px 11px;margin:0 0 10px}
+.stCard.draft{border-left:5px solid var(--q-amber)}
+.stCard.ready{border-left:5px solid var(--accent)}
+.stCard.out{border-left:5px solid #2f9e44}
+.stCard.off{opacity:.55}
+.stCardT{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:0 0 7px}
+.stCardT input[type=text]{flex:1 1 220px;min-width:0;padding:5px 7px;font-size:14px;font-weight:600}
+.stCardT .stMeta{font-size:11.5px;color:var(--muted);flex:0 0 auto}
+.stCard textarea{width:100%;min-height:150px;font-size:13.5px;line-height:1.75;padding:8px;
+  border:1px solid var(--line);border-radius:8px;background:var(--card);color:inherit;resize:vertical}
+.stOps{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.stOps button{padding:5px 11px;font-size:12.5px}
+.stGenBar{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:0 0 8px}
+.stGenBar select{padding:4px 7px;font-size:13px}
+.stProg{font-size:12.5px;color:var(--muted);margin:6px 0 10px;white-space:pre-wrap;line-height:1.65}
+/* 時間表頂嗰條橫額。淨係喺有「已經放出、但佢未聽過」嗰篇先出——
+   成日掛住就會變咗佈景板，同冇一樣（北極星 7）。 */
+#stBanner{display:none;align-items:center;gap:9px;margin:0;padding:10px 14px;
+  border-bottom:1px solid var(--line);background:var(--hover);cursor:pointer;font-size:14.5px}
+#stBanner.show{display:flex}
+#stBanner .stbT{flex:1;min-width:0;font-weight:600}
 /* ===== 📚 學習角：睇緊嘢嗰個框 =====
    蓋晒成塊 iPad。點解唔用普通 .overlay：嗰啲係中間一個細窗，
    而佢要睇嘅係 Three.js 場景，愈大愈好。 */
@@ -1085,6 +1143,10 @@ body.hubOpen{overflow:hidden}
   <span class="roTxt">👤 訪客模式：可以用 AI 排程同傾偈，改動會標記為「待確認」；撳「解鎖編輯」輸入密碼先可以完全修改</span>
   <button class="roMin" id="roMin" title="收埋呢個提示">−</button>
 </div>
+<div id="stBanner" role="button" tabindex="0">
+  <span class="stbT">📖 爹哋擺咗一個新故事俾你</span>
+  <span aria-hidden="true">›</span>
+</div>
 
 <div id="main">
   <div id="leftPane">
@@ -1187,8 +1249,9 @@ body.hubOpen{overflow:hidden}
 </div></div>
 <div class="overlay" id="hubModal"><div class="modal" style="width:min(760px,100%)"><h3>📚 學習角</h3>
   <p class="subnote" id="hubIntro"></p>
+  <div id="stHubBox"></div>
   <div id="hubList"></div>
-  <div class="modalActs"><button class="btn" id="hubManage">⚙ 管理連結</button><span style="flex:1"></span><button class="btn primary" id="hubClose">完成</button></div>
+  <div class="modalActs"><button class="btn" id="hubManage">⚙ 管理連結</button><button class="btn" id="hubStoryAdmin">📖 故事</button><span style="flex:1"></span><button class="btn primary" id="hubClose">完成</button></div>
 </div></div>
 <div class="overlay" id="hubEditModal"><div class="modal" style="width:min(940px,100%)"><h3>⚙ 管理學習連結</h3>
   <p class="subnote">Charlotte 只會見到「科目 ＋ 分類 ＋ 標題」，條網址佢見唔到，亦都改唔到。<br>
@@ -1198,6 +1261,34 @@ body.hubOpen{overflow:hidden}
   <div class="aiBar" style="margin-top:8px"><button class="btn" id="hubAdd">＋ 加一條</button></div>
   <p class="subnote" id="hubEditNote" style="margin-top:8px"></p>
   <div class="modalActs"><span style="flex:1"></span><button class="btn primary" id="hubEditDone">完成</button></div>
+</div></div>
+<!-- 📖 聽故事：Charlotte 讀嗰版。粒 🔊 擺喺段字上面，撳落去讀，
+     讀緊嗰陣撳段字入面任何一隻字就由嗰隻字讀起（ttsAttachSeek）。 -->
+<div class="overlay" id="storyModal"><div class="modal" style="width:min(720px,100%)">
+  <h3 id="stTitle">📖 聽故事</h3>
+  <p class="stWhenTop" id="stWhen"></p>
+  <div class="stBar" id="stBar"></div>
+  <div id="stText"></div>
+  <div class="modalActs"><span style="flex:1"></span><button class="btn primary" id="stClose">聽完喇</button></div>
+</div></div>
+<!-- 📖 聽故事：爹哋審核嗰版。訪客模式 CSS 收埋 ＋ storyAdminOpen 再擋一次。 -->
+<div class="overlay" id="storyAdmin"><div class="modal" style="width:min(980px,100%)">
+  <h3>📖 故事（爹哋審核）</h3>
+  <p class="subnote">AI 一次過寫幾篇入「待審」。你逐篇睇，想改就直接喺下面改段字，收貨之後入池；<b>幾時放出去俾 Charlotte 睇，由你撳</b>。<br>
+    未放出嘅故事，Charlotte 部機連正文都唔會落過去。<br>
+    AI 唔准讚佢又唔准彈佢，亦都唔會提病名——但事實有冇錯，最後一道防線係你。</p>
+  <div class="stGenBar">
+    <button class="btn" id="stGenBtn" type="button">✍ 叫 AI 寫</button>
+    <select id="stGenN">
+      <option value="1">1 篇</option>
+      <option value="3" selected>3 篇</option>
+      <option value="5">5 篇</option>
+    </select>
+    <span class="stMeta" id="stPoolN"></span>
+  </div>
+  <p class="stProg" id="stProg"></p>
+  <div id="stAdminList"></div>
+  <div class="modalActs"><span style="flex:1"></span><button class="btn primary" id="stAdminDone">完成</button></div>
 </div></div>
 <div id="hubView" aria-hidden="true">
   <div class="hvBar">
@@ -1748,7 +1839,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-25l";
+const BUILD = "2026-08-28a";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -1772,13 +1863,19 @@ console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;p
          "diary_calendar_cost":   { "$uid": { ".read": "$uid === auth.uid",
                                               ".write": "$uid === auth.uid" } },
          "diary_calendar_notice": { "$uid": { ".read": "$uid === auth.uid",
+                                              ".write": "$uid === auth.uid" } },
+         "diary_calendar_story":  { "$uid": { ".read": "$uid === auth.uid",
                                               ".write": "$uid === auth.uid" } }
        }
      }
    邊個節點做乜：data＝主 state；think＝AI 推理記錄；sos＝「🆘 搵爹哋」；
-   log＝Data Log；cost＝用量計數；notice＝📋 待辦嘅通告原文。
+   log＝Data Log；cost＝用量計數；notice＝📋 待辦嘅通告原文；
+   story＝📖 聽故事（idx＝索引，doc＝逐篇正文）。
    ⚠ 少咗邊個節點，邊嚿嘢就上唔到雲——sos 會出紅字，notice 會喺通告行
-     顯示「☁ 原文上唔到雲」。
+     顯示「☁ 原文上唔到雲」，story 會喺學習角同管理版出「⚠ 攞唔到」。
+   ⚠ 訪客模式係同一個 uid，所以規則層面攔唔到 Charlotte。「未放出嘅故事
+     佢見唔到」係喺 JS 做嘅（storyRenderKid 只攞 status==="out"，
+     連 doc 都唔會 fetch），同其餘六個節點一樣。
 
    即係：淨係本人先讀寫得到自己 uid 下面嗰份資料；root 同其他路徑冇寫
    .read/.write，預設一律拒絕。未登入嗰陣 auth 係 null，條式永遠唔成立。
@@ -1829,6 +1926,9 @@ auth.onAuthStateChanged(user => {
     // 咁樣就唔會影響你原本嘅資料
     dbRef = db.ref('diary_calendar_data/' + user.uid);
     loadFromFirebase();
+    /* 📖 聽故事：索引係另一個節點，唔跟主 state 落嚟，要自己攞一次。
+       fire-and-forget——攞唔到就係三態嘅第三態，唔會阻住行事曆載入。 */
+    try{ if(typeof window.storyBoot === 'function') window.storyBoot(true); }catch(e){}
   } else {
     currentUser = null;
     btnLogin.textContent = '👤 Google 登入';
@@ -1837,6 +1937,8 @@ auth.onAuthStateChanged(user => {
     aiLogLegacy = false;
     CostCloud.stop();       /* 同上：用量單據監聽都要熄埋 */
     aiCostLegacy = false;
+    /* 故事索引都要清返，唔係登出咗條橫額仲掛住上一個帳號嘅故事 */
+    try{ if(typeof window.storyBoot === 'function') window.storyBoot(true); }catch(e){}
     
     // 登出後讀取 LocalStorage (離線版)
     state = sanitizeState(LocalStore.load());
@@ -4994,6 +5096,10 @@ document.addEventListener('keydown',e=>{
        個 MediaStream 仲開住，鏡頭燈會一路著。 */
     const cam=document.getElementById('camModal');
     if(cam && cam.classList.contains('show') && typeof window.closeCam==='function'){ try{ window.closeCam(); }catch(_e){} }
+    /* 📖 聽故事同相機一樣要特別處理：淨係 remove('show') 只係收埋咗個畫面，
+       把聲會繼續讀落去，而粒「⏹ 停」已經冇咗，佢想停都停唔到。 */
+    const _stM=document.getElementById('storyModal');
+    if(_stM && _stM.classList.contains('show') && typeof window.storyCloseRead==='function'){ try{ window.storyCloseRead(); }catch(_e){} }
     document.querySelectorAll('.overlay.show').forEach(o=>o.classList.remove('show'));
   }
 });
@@ -5623,7 +5729,7 @@ async function callAIJSON(messages, opt){
 }
 
 /* ---------- 2. Data Log ---------- */
-const TYPE_NAME = {request:'我講嘅嘢', plan:'AI 嘅安排', correction:'我嘅糾正', feedback:'我教佢', rule:'規則更新'};
+const TYPE_NAME = {request:'我講嘅嘢', plan:'AI 嘅安排', correction:'我嘅糾正', feedback:'我教佢', rule:'規則更新', story:'📖 聽故事'};
 
 /* ===== 兩個上限 =====
    原本 300／2000 係硬上限，超咗就 slice() 靜靜雞剷走最舊嗰啲，用戶完全冇提示。
@@ -7710,7 +7816,15 @@ function ctxText(){
      唔好搞到成段「最近嘅對話同糾正」變空白。 */
   /* 主人對話（owner-chat）剔走：入面可能有 API key、屋企私事、大人之間嘅事，
      唔應該餵返做 context——訪客模式之下呢段 context 係俾 Charlotte 嗰個 AI 讀嘅。 */
-  const _all = (state.ai.log||[]).filter(x=>!(x && (x.kind || (x.meta||{}).kind) === 'owner-chat'));
+  /* 📖 聽故事嘅記錄一樣要剔走，但理由同 owner-chat 唔同：
+     佢唔係私隱問題，係「呢啲唔係佢哋屋企嘅習慣」。餵返入去嘅話，
+     最近 14 條好易俾「聽咗一篇故事」佔晒，真正嘅糾正記錄反而擠咗出去。
+     記錄照樣留喺 Data Log 俾爹哋睇（北極星 6），淨係唔餵返個 AI。 */
+  const _all = (state.ai.log||[]).filter(function(x){
+    if(!x) return true;
+    if(x.type === 'story') return false;
+    return (x.kind || (x.meta||{}).kind) !== 'owner-chat';
+  });
   const _fresh = _all.filter(x=>x && !x.digested);
   const lg = (_fresh.length ? _fresh : _all).slice(-14);
   L.push('\n【最近嘅對話同糾正（要學返嚟）——注意：呢度只係 Data Log 最近 ' + lg.length
@@ -8862,7 +8976,13 @@ async function genRules(silent){
      慳返嘅 token 可以留俾新嘅糾正。全部都 digested 就照用返最新嗰批做保險。 */
   const mkLog = (n,cut)=>{
     /* 同 ctxText() 一樣剔走主人對話：提煉「你哋屋企嘅習慣」唔應該讀你同 AI 嘅私人傾偈。 */
-    const all = (state.ai.log||[]).filter(x=>!(x && (x.kind || (x.meta||{}).kind) === 'owner-chat'));
+    /* 📖 聽故事同樣剔走（同 ctxText 一致）。唔剔嘅話，
+       「Charlotte 8月28號聽咗一篇故事」會經 SYS_RULE 寫成一條屋企規則。 */
+    const all = (state.ai.log||[]).filter(function(x){
+      if(!x) return true;
+      if(x.type === 'story') return false;
+      return (x.kind || (x.meta||{}).kind) !== 'owner-chat';
+    });
     const fresh = all.filter(x=>x && !x.digested);
     return (fresh.length ? fresh : all).slice(-n)
       .map(x=>'('+(TYPE_NAME[x.type]||x.type)+') '+fmtStamp(x.at)+' '+digest(x,cut)).join('\n');
@@ -11399,6 +11519,620 @@ const NoticeCloud = {
     catch(e){ this.lastError = String((e&&e.message)||e); return false; }
   }
 };
+
+/* =========================================================
+   📖 聽故事
+   爹哋叫 AI 一次過寫幾篇入待審池，逐篇審核（可以直接改段字），
+   收貨入池，之後幾時放出去俾 Charlotte 睇，由爹哋自己撳。
+
+   三條底線：
+   ① 未放出嘅嘢（draft／ready）喺訪客模式**連正文都唔會 fetch**。
+      唔係 render 咗先用 CSS 收埋——佢部機根本冇落過嗰段字。
+   ② 唔准扮「今日」。outAt 唔係今日就寫返真日期。爹哋唔放新嘢嗰日，
+      個 app 唔可以扮咗有。（北極星 2）
+   ③ 唔准白畫面。有／真係冇／攞唔到，三句要分得開。
+
+   點解住喺呢個 IIFE：佢要用 callAIJSON／logPush／cfg／short／makeTTSBtn／
+   ttsStop／fmtStamp／nowISO，呢啲全部係呢個 IIFE 入面嘅嘢，外面叫會
+   ReferenceError，然後俾其中一個空 catch 食咗，畫面上乜都睇唔出（地雷 6.2）。
+   所以模組擺入嚟，反而將要俾學習角個 IIFE 同頂層 Esc 用嗰幾個掛上 window。
+
+   ⚠ 主 state 一個字都冇加。設定全部係呢度嘅 const，篇數揀完就喺個 select 度，
+   唔使經 save()。咁樣 sanitizeState／遷移／undo 快照全部唔使郁。
+
+   ⚠ Data Log：story 記錄係**故意唔餵返 AI** 嘅。ctxText() 同 genRules()
+   兩處都剔走咗（同 owner-chat 一樣嘅做法）。唔剔走嘅話，「Charlotte 8月28號
+   聽咗一篇故事」會經 SYS_RULE 提煉成你哋屋企嘅「習慣」寫入 General Rules，
+   仲會喺 ctxText 嗰最近 14 條入面擠走真正嘅糾正記錄。
+========================================================= */
+
+const ST_TOPICS = [
+  {k:'chi',    name:'中文',       hint:'一隻字或者一個詞點解會咁寫、咁講'},
+  {k:'eng',    name:'英文',       hint:'一個英文字點嚟、同中文有咩唔同、點樣記得住'},
+  {k:'math',   name:'數學',       hint:'一個數字或者形狀嘅小發現，用手指或者屋企啲嘢就試得到'},
+  {k:'sci',    name:'科學',       hint:'屋企或者街上見到嘅一件事，同埋點樣試出答案'},
+  {k:'people', name:'待人處事',   hint:'一件同人相處嘅細事，講埋對方嗰邊嘅感受'},
+  {k:'why',    name:'追問點解',   hint:'一種問問題同試驗嘅方法：控制變數、隔一日再試、問多一次。佢已經識基本嗰幾招，可以講深一層'},
+  {k:'plan',   name:'計劃',       hint:'拆步驟、排先後、預留時間、預想會撞到咩、做唔完點算'},
+  {k:'focus',  name:'專注小遊戲', hint:'一次做一件事、計時、坐唔定就起身行一圈。全部寫成遊戲'},
+  {k:'life',   name:'人生道理',   hint:'一個關於選擇、努力、失敗、興趣嘅細故事'}
+];
+function stTopicName(k){
+  const t = ST_TOPICS.filter(x=>x.k===k)[0];
+  return t ? t.name : '其他';
+}
+
+/* ⚠ 呢份 prompt 同其餘五份一樣係單引號字串 array，入面一個單引號都唔可以有。 */
+const SYS_STORY = [
+'你嘅工作：幫一個六至七歲、講廣東話嘅香港小朋友寫一篇聽故事逐字稿。',
+'呢篇稿會直接由語音讀出嚟俾佢聽，冇人喺旁邊解釋，所以要一聽就明。',
+'',
+'【格式】',
+'· 純文字。唔准 Markdown、唔准井號星號橫線、唔准編號清單、唔准表情符號。',
+'· 全部用繁體字。',
+'· 廣東話口語，即係平時同細路講嘢嗰種，唔係書面語。',
+'· 400 至 600 字，讀出嚟大約一分半到兩分鐘。',
+'· 唔准分小標題。一段一個意思，每段三至五句。',
+'',
+'【內容形狀，一定要跟】',
+'1. 由一個好具體嘅畫面開始，一件細路自己見過或者做過嘅事。唔好由道理開始。',
+'2. 中間要有一個「咦，點解會咁」嘅位。',
+'3. 講出一個答案，或者講出點樣先試得出答案。',
+'4. 最後一句係一件佢今日就做得到嘅細動作，講到好易，唔使人幫。',
+'',
+'【唔准做嘅嘢】',
+'· 唔准讚佢、唔准彈佢、唔准話佢做得啱定做得唔啱。你唔係佢家長。',
+'· 唔准用命令句。唔好寫「你要」「你應該」「你唔好」。改成「有啲人會咁樣試」。',
+'· 唔准提 ADHD、專注力失調、過度活躍，或者任何病名。',
+'· 唔准將聽故事嗰個人寫成有問題要修理。主角要係故事入面另一個人或者動物。',
+'· 唔准教點樣說服人、點樣扭計、點樣繞過大人定落嘅規矩。',
+'· 唔准借大人嘅權威。唔好寫「爹哋話」「老師話」「媽咪唔准」。',
+'· 唔准嚇人。唔好講死、病、意外、鬼、走失。',
+'· 唔肯定嘅事實一律唔好寫。寧願寫少啲都唔好靠估。數字要簡單同啱。',
+'',
+'【輸出】',
+'淨係輸出一個 JSON object，唔准開場白、唔准解釋、唔准圍欄：',
+'{"title": "…", "text": "…"}',
+'title 五至十二個字，講得出篇稿講乜，唔好用問號扮神秘。',
+'text 係成篇稿，段與段之間用一個換行。'
+].join('\n');
+
+/* ---------- 故事嘅獨立雲端節點 ----------
+   一定唔可以擺入 diary_calendar_data/<uid>：嗰度有 dbRef.on('value') 全樹監聽，
+   行事曆每改一格就會將成年嘅故事重新下載一次。同通告原文搬走係同一個理由。
+
+   分 idx／doc 兩層：idx 每次開 app 讀一次（橫額要知有冇新嘢），
+   doc 一年三百幾篇，唔應該跟住上機。 */
+const StoryCloud = {
+  ROOT:'diary_calendar_story', lastError:'',
+  idx:null,          /* {id: rec}。null ＝ 未載入 */
+  idxOK:null,        /* null＝未試過　true＝讀到　false＝讀唔到（三態嘅第三態） */
+  cache:{},          /* id → text。純記憶體，同睇相抄寫嗰個 m.tr 一樣作風 */
+  ref(){
+    try{
+      if(!currentUser || !currentUser.uid || typeof db === 'undefined') return null;
+      return db.ref(this.ROOT + '/' + currentUser.uid);
+    }catch(e){ return null; }
+  },
+  async loadIdx(){
+    const r = this.ref();
+    if(!r){ this.idx = {}; this.idxOK = false; this.lastError = '未登入 Google'; return false; }
+    try{
+      const sn = await r.child('idx').once('value');
+      this.idx = sn.val() || {};
+      this.idxOK = true; this.lastError = '';
+      return true;
+    }catch(e){
+      this.idx = this.idx || {};
+      this.idxOK = false;
+      this.lastError = String((e && e.message) || e);
+      return false;
+    }
+  },
+  async putIdx(rec){
+    const r = this.ref(); if(!r){ this.lastError = '未登入 Google'; return false; }
+    try{
+      await r.child('idx/' + rec.id).set(rec);
+      if(!this.idx) this.idx = {};
+      this.idx[rec.id] = rec;
+      this.lastError = ''; return true;
+    }catch(e){ this.lastError = String((e && e.message) || e); return false; }
+  },
+  async putDoc(id, text, model, at){
+    const r = this.ref(); if(!r){ this.lastError = '未登入 Google'; return false; }
+    try{
+      await r.child('doc/' + id).set({id:id, text:text, model:String(model||''), at:at});
+      this.cache[id] = text;
+      this.lastError = ''; return true;
+    }catch(e){ this.lastError = String((e && e.message) || e); return false; }
+  },
+  async getText(id){
+    if(this.cache[id] != null) return this.cache[id];
+    const r = this.ref(); if(!r){ this.lastError = '未登入 Google'; return null; }
+    try{
+      const sn = await r.child('doc/' + id).once('value');
+      const v = sn.val();
+      const t = v && typeof v.text === 'string' ? v.text : null;
+      if(t != null) this.cache[id] = t;
+      this.lastError = '';
+      return t;
+    }catch(e){ this.lastError = String((e && e.message) || e); return null; }
+  },
+  async del(id){
+    const r = this.ref(); if(!r) return false;
+    try{
+      /* 兩邊都要刪。淨係刪 idx 會留低一個永遠冇人搵得返嘅 doc。 */
+      await r.child('doc/' + id).remove();
+      await r.child('idx/' + id).remove();
+      if(this.idx) delete this.idx[id];
+      delete this.cache[id];
+      return true;
+    }catch(e){ this.lastError = String((e && e.message) || e); return false; }
+  }
+};
+
+function stAll(){
+  const o = StoryCloud.idx || {};
+  return Object.keys(o).map(k=>o[k]).filter(x=>x && typeof x === 'object' && x.id);
+}
+function stByStatus(st){
+  return stAll().filter(x=>x.status===st)
+                .sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));
+}
+/* Charlotte 見得到嘅：淨係 out。draft／ready／off 一律唔會入到佢部機。 */
+function stPublic(){
+  return stAll().filter(x=>x.status==='out')
+    .sort((a,b)=>String(b.outAt||b.at||'').localeCompare(String(a.outAt||a.at||'')));
+}
+function stHeard(id){
+  try{ return !!localStorage.getItem('st_heard_' + id); }catch(e){ return false; }
+}
+function stMarkHeard(id){
+  try{ localStorage.setItem('st_heard_' + id, '1'); }catch(e){}
+}
+/* 「幾時擺嘅」。⚠ 今日先可以叫今日——爹哋唔放新嘢嗰日，唔准扮咗有。 */
+function stWhenTxt(rec){
+  const iso = (rec && (rec.outAt || rec.at)) || '';
+  if(!iso) return '';
+  const d = new Date(iso);
+  if(isNaN(d.getTime())) return '';
+  return (fmtDate(d) === fmtDate(new Date()))
+    ? '爹哋今日擺嘅'
+    : ('爹哋 ' + (d.getMonth()+1) + '月' + d.getDate() + '號擺嘅');
+}
+function stCount(s){ return String(s||'').replace(/\s/g,'').length; }
+
+/* ---------- 細件嘢 ---------- */
+function stMsgBox(cls, txt, err, retry){
+  const p = document.createElement('div');
+  p.className = 'stMsg' + (cls ? ' ' + cls : '');
+  p.appendChild(document.createTextNode(txt));
+  if(err){
+    const s = document.createElement('span');
+    s.className = 'stErr'; s.textContent = err;
+    p.appendChild(s);
+  }
+  if(retry){
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = '再試一次';
+    b.onclick = retry;
+    p.appendChild(document.createElement('br'));
+    p.appendChild(b);
+  }
+  return p;
+}
+function stSpkBtn(getText, lab){
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'stSpk'; b.textContent = '🔊';
+  b.setAttribute('aria-label', '讀出：' + lab);
+  b.title = '讀出「' + lab + '」';
+  /* 觸控機淨靠 click 唔穩陣：手指郁少少就判咗做撳咗成張卡。
+     照學習角 hcSpk 嗰套——touchend 處理 ＋ 擋走跟住嗰個合成 click。 */
+  let fired = 0;
+  const go = function(e){
+    const now = Date.now();
+    if(now - fired < 400) return;
+    fired = now;
+    e.stopPropagation(); e.preventDefault();
+    if(typeof window.ttsSpeak === 'function') window.ttsSpeak(getText(), b);
+  };
+  b.addEventListener('touchend', go, {passive:false});
+  b.addEventListener('click', go);
+  return b;
+}
+
+/* ================= Charlotte 嗰版（畫入學習角） ================= */
+function storyRenderKid(box){
+  if(!box) return;
+  box.innerHTML = '';
+  const sec = document.createElement('div');
+  sec.className = 'stSec';
+  const h = document.createElement('div');
+  h.className = 'stSecT';
+  h.textContent = '📖 聽故事';
+  sec.appendChild(h);
+  box.appendChild(sec);
+
+  /* 三態：有／真係冇／攞唔到。第三種唔准同第二種撞埋一齊——
+     對一個六歲人嚟講，「真係冇」同「我撳錯咗」係兩件唔同嘅事。 */
+  if(StoryCloud.idxOK === null){
+    sec.appendChild(stMsgBox('', '載入緊…', '', null));
+    return;
+  }
+  if(StoryCloud.idxOK === false){
+    sec.appendChild(stMsgBox('bad', '⚠ 而家攞唔到啲故事。撳一下再試。',
+      short(StoryCloud.lastError || '（唔知咩事）', 120),
+      function(){ storyBoot(true); }));
+    return;
+  }
+  const list = stPublic();
+  if(!list.length){
+    sec.appendChild(stMsgBox('', '爹哋仲未擺故事入嚟。等佢擺咗你就會見到。', '', null));
+    return;
+  }
+  const top = list[0];
+  const card = document.createElement('div');
+  card.className = 'stBig';
+  const t = document.createElement('span');
+  t.className = 'stT';
+  t.appendChild(document.createTextNode(top.title || '故事'));
+  const w = document.createElement('span');
+  w.className = 'stWhen';
+  w.textContent = stWhenTxt(top);
+  t.appendChild(w);
+  card.appendChild(t);
+  card.appendChild(stSpkBtn(function(){ return top.title || ''; }, top.title || '故事'));
+  card.onclick = function(){ storyOpen(top.id); };
+  sec.appendChild(card);
+
+  if(list.length > 1){
+    const d = document.createElement('details');
+    d.className = 'stOld';
+    const sm = document.createElement('summary');
+    sm.textContent = '以前嘅故事（' + (list.length - 1) + ' 篇）';
+    d.appendChild(sm);
+    const ul = document.createElement('div');
+    ul.className = 'stOldList';
+    list.slice(1, 41).forEach(function(x){
+      const row = document.createElement('div');
+      row.className = 'stOldRow';
+      const tt = document.createElement('span');
+      tt.className = 'stT';
+      tt.textContent = x.title || '故事';
+      row.appendChild(tt);
+      row.appendChild(stSpkBtn(function(){ return x.title || ''; }, x.title || '故事'));
+      row.onclick = function(){ storyOpen(x.id); };
+      ul.appendChild(row);
+    });
+    d.appendChild(ul);
+    sec.appendChild(d);
+  }
+}
+
+/* ================= 讀故事嗰版 ================= */
+let stCur = null, stOpenAt = 0;
+async function storyOpen(id){
+  const rec = (StoryCloud.idx || {})[id];
+  if(!rec) return;
+  /* 保險：就算邊度接錯線，未放出嘅嘢都唔會開得到 */
+  if(rec.status !== 'out') return;
+  stCur = rec; stOpenAt = Date.now();
+  const T = document.getElementById('stTitle');
+  const W = document.getElementById('stWhen');
+  const B = document.getElementById('stBar');
+  const X = document.getElementById('stText');
+  if(!T || !X) return;
+  T.textContent = rec.title || '📖 聽故事';
+  if(W) W.textContent = stWhenTxt(rec);
+  if(B) B.innerHTML = '';
+  X.textContent = '載入緊…';
+  show('storyModal');
+  const text = await StoryCloud.getText(id);
+  if(stCur !== rec) return;                    /* 佢已經撳咗第二篇 */
+  if(!text || !String(text).trim()){
+    X.textContent = '';
+    X.appendChild(stMsgBox('bad', '⚠ 呢篇故事而家攞唔到。撳一下再試。',
+      short(StoryCloud.lastError || '（讀到嘅係空嘅）', 120),
+      function(){ storyOpen(id); }));
+    return;
+  }
+  /* textContent 唔係 innerHTML：段字入面有咩都好，一律當字睇 */
+  X.textContent = text;
+  /* 🔊 ＋ 撳邊隻字就由邊隻字讀起。第三個參數就係跳位嗰個元素。 */
+  if(B) B.appendChild(makeTTSBtn(function(){ return text; }, '🔊 聽', X));
+  stMarkHeard(id);
+  storyBanner();
+  logPush('story', rec.title || '（冇標題）', {kind:'open', sid:id, topic:rec.topic||''});
+}
+function storyCloseRead(){
+  /* 停低把聲。唔停嘅話閂咗個窗佢仲喺度讀，而粒掣已經冇咗。 */
+  try{ ttsStop(); }catch(e){}
+  if(stCur){
+    const sec = Math.round((Date.now() - stOpenAt) / 1000);
+    if(sec >= 5) logPush('story', stCur.title || '（冇標題）',
+                         {kind:'read', sid:stCur.id, sec:sec});
+  }
+  stCur = null;
+  hide('storyModal');
+}
+
+/* ================= 橫額 ================= */
+function storyBanner(){
+  const el = document.getElementById('stBanner');
+  if(!el) return;
+  const fresh = stPublic().filter(x=>!stHeard(x.id))[0];
+  if(!fresh){ el.classList.remove('show'); el.dataset.sid = ''; return; }
+  el.dataset.sid = fresh.id;
+  const t = el.querySelector('.stbT');
+  if(t) t.textContent = '📖 爹哋擺咗一個新故事俾你：' + short(fresh.title || '', 20);
+  el.classList.add('show');
+}
+
+/* ================= 開機 ================= */
+async function storyBoot(force){
+  if(!force && StoryCloud.idxOK === true) return;
+  await StoryCloud.loadIdx();
+  storyBanner();
+  /* 學習角開住嘅話即刻重畫，唔好留低一句「載入緊…」喺度 */
+  const box = document.getElementById('stHubBox');
+  const hub = document.getElementById('hubModal');
+  if(box && hub && hub.classList.contains('show')) storyRenderKid(box);
+  const ad = document.getElementById('storyAdmin');
+  if(ad && ad.classList.contains('show')) storyAdminRender();
+}
+
+/* ================= 生成 ================= */
+let stGenBusy = false;
+function stProgSet(txt){
+  const p = document.getElementById('stProg');
+  if(p) p.textContent = txt || '';
+}
+/* 輪換：邊個 topic 最耐冇出過就寫邊個。唔好求其 random——
+   random 會連續兩日都係數學。 */
+function stNextTopics(n){
+  const last = {};
+  stAll().forEach(function(x){
+    const k = x.topic || '';
+    if(!last[k] || String(x.at||'') > last[k]) last[k] = String(x.at||'');
+  });
+  const sorted = ST_TOPICS.slice().sort(function(a,b){
+    return String(last[a.k] || '').localeCompare(String(last[b.k] || ''));
+  });
+  const out = [];
+  for(let i=0;i<n;i++) out.push(sorted[i % sorted.length]);
+  return out;
+}
+async function storyGen(n){
+  if(stGenBusy) return;
+  if(!currentUser){ toast('要先登入 Google，篇故事先有地方擺。'); return; }
+  stGenBusy = true;
+  const btn = document.getElementById('stGenBtn');
+  if(btn) btn.disabled = true;
+  const topics = stNextTopics(n);
+  const recent = stAll().sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')))
+                        .slice(0,20).map(x=>x.title).filter(Boolean);
+  const lines = [];
+  let ok = 0;
+  for(let i=0;i<topics.length;i++){
+    const tp = topics[i];
+    stProgSet(lines.concat(['⏳ 第 ' + (i+1) + '／' + topics.length +
+                            ' 篇（' + tp.name + '）寫緊…']).join('\n'));
+    try{
+      /* 逐篇一個 call。⚠ 唔好一次過叫佢寫三篇：一爆 token 就三篇齊冇。
+         同 SYS_TODO 嗰條「一張通告一次 call，一張死咗唔准拖冧成隊」一樣。 */
+      const got = await callAIJSON([
+        {role:'system', content:SYS_STORY},
+        {role:'user', content:
+          '【今次寫呢個題目】\n' + tp.name + '：' + tp.hint +
+          '\n\n【呢啲寫過喇，唔好重複】\n' + (recent.length ? recent.join('\n') : '（未有）')}
+      ], {want:['title','text'], temp:0.7, max:4000});
+      /* ⚠ 地雷 6.7：callAIJSON 回嘅係殼 {json, attempt, raw}，唔係內容本身 */
+      const o = got.json || {};
+      let text = String(o.text || '').trim();
+      const title = String(o.title || '').trim();
+      if(!text || !title) throw new Error('AI 冇出到 title 或者 text');
+      /* 簡→繁 ＋ 剝 Markdown。模型一定會出簡體字，S2T 就係為咗呢個。 */
+      if(typeof window.kidClean === 'function') text = window.kidClean(text);
+      const id = uid(), at = nowISO();
+      /* 逐篇做完即刻入庫，唔好等成批完先寫——中途斷網至少留低前面嗰幾篇。
+         doc 先，idx 後：反轉嘅話一爆就有一條指住空氣嘅 idx。 */
+      if(!await StoryCloud.putDoc(id, text, cfg().model, at))
+        throw new Error('正文上唔到雲：' + short(StoryCloud.lastError, 70));
+      const rec = {id:id, title:title, topic:tp.k, status:'draft',
+                   len:stCount(text), at:at, edited:false};
+      if(!await StoryCloud.putIdx(rec))
+        throw new Error('索引上唔到雲：' + short(StoryCloud.lastError, 70));
+      recent.unshift(title);
+      ok++;
+      lines.push('✅ ' + (i+1) + '. ' + tp.name + '：' + title + '（' + rec.len + ' 字）');
+      logPush('story', title, {kind:'gen', sid:id, topic:tp.k, len:rec.len});
+    }catch(err){
+      /* 一篇死咗唔准拖冧成隊：出返紅字講明，繼續做落一篇 */
+      lines.push('❌ ' + (i+1) + '. ' + tp.name + '：' +
+                 short(String((err && err.message) || err), 90));
+    }
+    stProgSet(lines.join('\n'));
+  }
+  stProgSet(lines.concat(['—— 寫完，' + ok + '／' + topics.length + ' 篇入咗待審。']).join('\n'));
+  stGenBusy = false;
+  if(btn) btn.disabled = false;
+  storyAdminRender();
+}
+
+/* ================= 爹哋嗰版 ================= */
+function stCard(rec){
+  const box = document.createElement('div');
+  box.className = 'stCard ' + rec.status;
+  const editable = (rec.status === 'draft' || rec.status === 'ready');
+
+  const head = document.createElement('div');
+  head.className = 'stCardT';
+  const ti = document.createElement('input');
+  ti.type = 'text'; ti.value = rec.title || ''; ti.maxLength = 40;
+  ti.disabled = !editable;
+  head.appendChild(ti);
+  const meta = document.createElement('span');
+  meta.className = 'stMeta';
+  meta.textContent = stTopicName(rec.topic) + ' · ' + (rec.len||0) + ' 字 · ' + fmtStamp(rec.at) +
+                     (rec.edited ? ' · 改過' : '') +
+                     (rec.outAt ? ' · 放咗出去 ' + fmtStamp(rec.outAt) : '');
+  head.appendChild(meta);
+  box.appendChild(head);
+
+  const ops = document.createElement('div');
+  ops.className = 'stOps';
+  const mk = function(lab, cls, fn){
+    const b = document.createElement('button');
+    b.className = 'btn' + (cls ? ' ' + cls : '');
+    b.type = 'button'; b.textContent = lab; b.onclick = fn;
+    ops.appendChild(b);
+    return b;
+  };
+
+  let ta = null, loaded = false;
+  if(editable){
+    /* 只有 draft／ready 先自動攞正文——已經放出去嗰啲一年三百幾篇，
+       每次開個管理版都逐篇 fetch 一次係嘥嘢。 */
+    ta = document.createElement('textarea');
+    ta.value = '載入緊…'; ta.disabled = true;
+    ta.oninput = function(){ ta.dataset.dirty = '1'; };
+    box.appendChild(ta);
+    StoryCloud.getText(rec.id).then(function(t){
+      if(t != null){ ta.value = t; ta.disabled = false; loaded = true; }
+      else ta.value = '⚠ 攞唔到正文：' + short(StoryCloud.lastError || '（讀到嘅係空嘅）', 100);
+    });
+    mk('🔊 試聽', '', function(){
+      if(!loaded){ toast('等佢載入咗先。'); return; }
+      if(typeof window.ttsSpeak === 'function') window.ttsSpeak(ta.value, null);
+    });
+  }
+
+  /* 存返改動 ＋（可選）轉狀態。⚠ 未載入完唔准存，唔係就會將
+     「載入緊…」四隻字當咗篇故事寫返上去。 */
+  const commit = async function(nextStatus){
+    if(editable){
+      if(!loaded){ toast('段字仲未載入完，等一等先。'); return false; }
+      const t = ti.value.trim(), x = ta.value.trim();
+      if(!t || !x){ toast('標題同內容都唔可以空。'); return false; }
+      if(ta.dataset.dirty === '1' || t !== rec.title){
+        if(!await StoryCloud.putDoc(rec.id, x, '(爹哋改過)', rec.at)){
+          toast('⚠ 存唔到：' + short(StoryCloud.lastError, 80)); return false;
+        }
+        rec.title = t; rec.len = stCount(x); rec.edited = true;
+        ta.dataset.dirty = '';
+      }
+    }
+    if(nextStatus){
+      rec.status = nextStatus;
+      if(nextStatus === 'out') rec.outAt = nowISO();
+    }
+    if(!await StoryCloud.putIdx(rec)){
+      toast('⚠ 存唔到：' + short(StoryCloud.lastError, 80)); return false;
+    }
+    return true;
+  };
+  const drop = async function(){
+    if(!await confirmBox('刪咗呢篇？\n\n' + (rec.title||'（冇標題）') + '\n\n刪咗就攞唔返。')) return;
+    await StoryCloud.del(rec.id);
+    storyAdminRender(); storyBanner();
+  };
+
+  if(rec.status === 'draft'){
+    mk('✓ 收貨（入池）', 'primary', async function(){
+      if(await commit('ready')){ toast('入咗池。幾時放出去，你自己撳。'); storyAdminRender(); }
+    });
+    mk('💾 淨係存返', '', async function(){
+      if(await commit('')){ toast('存咗。'); storyAdminRender(); }
+    });
+    mk('✕ 唔要', 'danger', drop);
+  }else if(rec.status === 'ready'){
+    mk('▶ 放出去俾 Charlotte 睇', 'primary', async function(){
+      if(await commit('out')){ toast('放咗出去。'); storyBanner(); storyAdminRender(); }
+    });
+    mk('💾 存返改動', '', async function(){
+      if(await commit('')){ toast('存咗。'); storyAdminRender(); }
+    });
+    mk('✕ 唔要', 'danger', drop);
+  }else if(rec.status === 'out'){
+    mk('↩ 收返（Charlotte 就見唔到）', '', async function(){
+      if(await commit('off')){ storyBanner(); storyAdminRender(); }
+    });
+  }else{
+    mk('▶ 再放出去', '', async function(){
+      if(await commit('out')){ storyBanner(); storyAdminRender(); }
+    });
+    mk('✕ 刪走', 'danger', drop);
+  }
+  box.appendChild(ops);
+  return box;
+}
+function storyAdminRender(){
+  const host = document.getElementById('stAdminList');
+  if(!host) return;
+  host.innerHTML = '';
+  const pn = document.getElementById('stPoolN');
+  if(pn) pn.textContent = '待審 ' + stByStatus('draft').length +
+                          ' · 池入面 ' + stByStatus('ready').length +
+                          ' · 放咗出去 ' + stByStatus('out').length;
+  if(StoryCloud.idxOK === false){
+    host.appendChild(stMsgBox('bad', '⚠ 攞唔到雲端嘅故事清單。',
+      short(StoryCloud.lastError, 140), function(){ storyBoot(true); }));
+    return;
+  }
+  const groups = [
+    ['draft', '① 待審（AI 寫咗，等你睇）'],
+    ['ready', '② 池入面（審咗，Charlotte 仲未見到）'],
+    ['out',   '③ 放咗出去'],
+    ['off',   '④ 收返咗']
+  ];
+  let any = false;
+  groups.forEach(function(g){
+    const list = stByStatus(g[0]);
+    if(!list.length) return;
+    any = true;
+    const h = document.createElement('div');
+    h.className = 'stSecT';
+    h.textContent = g[1] + '（' + list.length + '）';
+    host.appendChild(h);
+    list.forEach(function(r){ host.appendChild(stCard(r)); });
+  });
+  if(!any) host.appendChild(stMsgBox('', '一篇都未有。撳上面「✍ 叫 AI 寫」開始。', '', null));
+}
+function storyAdminOpen(){
+  if(document.body.classList.contains('readonly')) return;   /* CSS 收埋咗，呢度再擋一次 */
+  show('storyAdmin');
+  storyAdminRender();
+  if(StoryCloud.idxOK !== true) storyBoot(true);
+}
+
+/* ---------- 對外（學習角個 IIFE、頂層 Esc、auth 開機都要用） ---------- */
+Object.assign(window, {
+  storyRenderKid: storyRenderKid,
+  storyAdminOpen: storyAdminOpen,
+  storyCloseRead: storyCloseRead,
+  storyBanner: storyBanner,
+  storyBoot: storyBoot
+});
+
+/* ---------- 掛掣 ---------- */
+(function stWire(){
+  const g = function(id){ return document.getElementById(id); };
+  const cl = g('stClose'); if(cl) cl.onclick = storyCloseRead;
+  const ov = g('storyModal');
+  if(ov) ov.addEventListener('click', function(e){ if(e.target === ov) storyCloseRead(); });
+  const gb = g('stGenBtn');
+  if(gb) gb.onclick = function(){
+    const sel = g('stGenN');
+    storyGen(parseInt(sel && sel.value, 10) || 3);
+  };
+  const ad = g('stAdminDone');
+  if(ad) ad.onclick = function(){ hide('storyAdmin'); };
+  const bn = g('stBanner');
+  if(bn) bn.onclick = function(){
+    const id = bn.dataset.sid;
+    if(id) storyOpen(id);
+  };
+})();
 
 /* ---------- state.todo ----------
    Firebase 唔儲空 array／空 object，所以照 ensureAI() 嗰套逐個補。 */
@@ -15331,6 +16065,12 @@ function urlProblem(u){
 function renderHubList(){
   const box = el('hubList'); if(!box) return;
   const guest = isGuest();
+  /* 📖 聽故事擺喺所有科目之上。佢住喺另一個 div（stHubBox），
+     所以唔會俾下面嗰句 box.innerHTML='' 抹走。
+     ⚠ 個 module 住喺 AI 嗰個 IIFE 入面，呢度係另一個 IIFE，
+        一定要行 window.——直接叫會 ReferenceError（地雷 6.2）。 */
+  try{ if(typeof window.storyRenderKid === 'function') window.storyRenderKid(el('stHubBox')); }
+  catch(e){ console.warn('storyRenderKid', e); }
   box.innerHTML = '';
   const items = hubItems(true);
   const intro = el('hubIntro');
@@ -15645,6 +16385,10 @@ el('btnHub').onclick = function(){
   show('hubModal');
 };
 el('hubClose').onclick = function(){ hide('hubModal'); };
+el('hubStoryAdmin').onclick = function(){
+  if(isGuest()) return;                 /* CSS 已經收埋咗，呢度再擋一次 */
+  if(typeof window.storyAdminOpen === 'function') window.storyAdminOpen();
+};
 el('hubManage').onclick = function(){
   if(isGuest()) return;                 /* CSS 已經收埋咗，呢度再擋一次 */
   ensureHub(); renderHubRows(); show('hubEditModal');
