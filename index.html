@@ -979,8 +979,23 @@ body.readonly #hubStoryAdmin{display:none!important}
 /* 讀故事嗰版：字大、行距鬆、冇嘢分心。粒掣喺段字上面，唔係碌到底先見到。
    字級由 stApplyFont() 落 inline style（三段，記喺 localStorage）——
    呢度個 24px 係「未揀過」嘅底，唔係最終值。 */
-#stText{white-space:pre-wrap;font-size:24px;line-height:2.1;margin:10px 0 0;
-  max-height:56vh;overflow:auto;padding:2px 2px 8px;letter-spacing:.02em}
+#stText{font-size:24px;line-height:2.1;margin:10px 0 0;
+  max-height:56vh;overflow:auto;padding:2px 2px 8px;letter-spacing:.02em;
+  counter-reset:stp}
+/* 一段一個號碼，加縮排。號碼行 CSS counter，唔入 DOM——
+   ⚠ 呢點好重要：入咗 DOM 就會俾 TTS 讀埋「一」「二」出嚟，
+     亦都會令撳字跳位嗰個 offset 計錯。 */
+#stText .stP{counter-increment:stp;text-indent:2em;margin:0 0 .85em;position:relative}
+#stText .stP::before{content:counter(stp) ". ";
+  font-weight:700;color:var(--accent);font-size:.82em;letter-spacing:0}
+#stText .stP:last-child{margin-bottom:0}
+/* 跟讀：讀到邊句就螢光邊句。用句唔用字——
+   一個字一個字跳會閃到眼花，一句一句反而睇得到自己去到邊。 */
+#stText .stS{border-radius:5px;padding:1px 0}
+#stText .stS.on{background:#ffe8a3;box-shadow:0 0 0 3px #ffe8a3}
+@media (prefers-color-scheme: dark){
+  #stText .stS.on{background:#6b5a1f;box-shadow:0 0 0 3px #6b5a1f}
+}
 .stAA{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:inherit;
   border-radius:10px;min-width:44px;height:44px;font-size:15px;cursor:pointer;padding:0 10px}
 .stAA:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
@@ -989,9 +1004,15 @@ body.readonly #hubStoryAdmin{display:none!important}
 .stBar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 0}
 .stBar .chatCopyBtn{font-size:16px;padding:11px 20px;border-radius:11px}
 .stWhenTop{font-size:12.5px;color:var(--muted);margin:2px 0 0}
+.stOwnerNote{font-size:12px;line-height:1.6;margin:6px 0 0;padding:6px 9px;
+  border:1px dashed var(--accent);border-radius:8px;color:var(--muted)}
 /* 💬 一齊傾吓呢個故事 */
 #stTalk{margin:14px 0 0;border-top:1px dashed var(--line);padding-top:10px}
-#stTalk > summary{cursor:pointer;font-size:16px;font-weight:600;padding:6px 0;list-style:none}
+#stTalk > summary{cursor:pointer;font-size:17px;font-weight:700;padding:9px 11px;
+  list-style:none;border-radius:11px;background:var(--hover);
+  border:1px solid var(--line);border-left:5px solid var(--accent)}
+#stTalk > summary .stTalkSub{display:block;font-size:12.5px;font-weight:400;
+  color:var(--muted);margin-top:3px}
 #stTalk > summary::-webkit-details-marker{display:none}
 #stTalk > summary::before{content:"▸ ";color:var(--accent)}
 #stTalk[open] > summary::before{content:"▾ "}
@@ -1332,13 +1353,14 @@ body.hubOpen{overflow:hidden}
 <div class="overlay" id="storyModal"><div class="modal" style="width:min(720px,100%)">
   <h3 id="stTitle">📖 聽故事</h3>
   <p class="stWhenTop" id="stWhen"></p>
+  <p class="stOwnerNote" id="stOwnerNote" style="display:none">🧑 你而家係主人身份。下面傾偈嗰個 AI 用緊 <b>Charlotte 嗰套語氣</b>（唔係你平時嗰個），呢輪對話會入<b>主人</b>記錄，唔會撈落佢嗰份。</p>
   <div class="stBar" id="stBar"></div>
   <div id="stText"></div>
-  <details id="stTalk">
-    <summary>💬 一齊傾吓呢個故事</summary>
+  <details id="stTalk" open>
+    <summary>💬 一齊傾吓呢個故事<span class="stTalkSub">問我啲嘢，或者叫我出條問題考吓你</span></summary>
     <div class="stTalkOps">
-      <button type="button" id="stAsk">🙋 出啲問題我試吓</button>
-      <button type="button" id="stTalkDunno">唔識喎，話我知答案</button>
+      <button type="button" id="stAsk">🙋 出一條問題我試吓</button>
+      <button type="button" id="stTalkDunno">🤔 唔識喎，話我知答案</button>
       <button type="button" id="stTalkStop" class="stStop" style="display:none">⏹ 停</button>
     </div>
     <div id="stTalkHist"></div>
@@ -1923,7 +1945,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-28f";
+const BUILD = "2026-08-28g";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -10115,7 +10137,15 @@ function mdToWhatsApp(md){
        想喺 Chrome 都用到微軟語音，就要行渠道 2（官方 Azure）。
 ========================================================= */
 const TTSV = {list:[], btn:null, audio:null, keep:0, seq:0,
-              paused:false, pause:null, resume:null, pauseBtn:null, srcEl:null};
+              paused:false, pause:null, resume:null, pauseBtn:null, srcEl:null,
+              prog:null};
+/* 讀到邊？俾人掛個 callback 上嚟跟住 highlight。
+   idx ＝ 讀緊嗰個字喺 plain 入面嘅位置；idx < 0 ＝ 停咗／讀完。
+   ⚠ 呢個 callback 唔准掟嘢出嚟——佢喺 audio 個 timeupdate 度行，
+     一秒好幾次，炸咗就會連把聲都停埋。 */
+function ttsProg(idx, plain){
+  try{ if(typeof TTSV.prog === 'function') TTSV.prog(idx, plain || ''); }catch(e){}
+}
 
 function ttsSupported(){ return (typeof window!=='undefined') && ('speechSynthesis' in window); }
 function ttsLoadVoices(){
@@ -10295,6 +10325,7 @@ function ttsDetachSeek(){
 
 function ttsStop(){
   TTSV.seq++;
+  ttsProg(-1, '');
   if(ttsSupported()){ try{ window.speechSynthesis.cancel(); }catch(e){} }
   if(TTSV.audio){ try{ TTSV.audio.pause(); }catch(e){} TTSV.audio = null; }
   if(TTSV.keep){ clearInterval(TTSV.keep); TTSV.keep = 0; }
@@ -10315,11 +10346,12 @@ function webSpeak(plain, btn, mySeq){
   const v = pickVoice();
   const rate = parseFloat(c.ttsRate||'1') || 1;
   const chunks = ttsChunks(plain);
-  let i = 0;
+  let i = 0, chunkAt = 0;
 
   const clearWatch = function(){ if(TTSV.keep){ clearInterval(TTSV.keep); TTSV.keep = 0; } };
   const finish = function(){
     clearWatch();
+    ttsProg(-1, '');
     ttsBtnReset(btn);
     if(TTSV.btn===btn) TTSV.btn = null;
     ttsKillPauseBtn();
@@ -10333,7 +10365,15 @@ function webSpeak(plain, btn, mySeq){
     if(i >= chunks.length){ finish(); return; }
 
     const text = chunks[i++];
+    /* 每一嚿嘅起點：由上一嚿收尾嗰度搵起，唔會俾重複嘅句子搞亂。 */
+    const base = Math.max(0, plain.indexOf(text, chunkAt));
+    chunkAt = base + text.length;
+    ttsProg(base, plain);
     const u = new SpeechSynthesisUtterance(text);
+    u.onboundary = function(ev){
+      if(mySeq !== TTSV.seq) return;
+      ttsProg(base + (ev && ev.charIndex || 0), plain);
+    };
     if(v){ u.voice = v; u.lang = v.lang; } else { u.lang = 'zh-HK'; }
     u.rate = rate; u.pitch = 1; u.volume = 1;
 
@@ -10439,7 +10479,16 @@ async function azureSpeak(plain, btn, mySeq){
     if(TTSV.btn===btn) TTSV.btn=null;
     ttsKillPauseBtn(); ttsDetachSeek();
   };
-  a.onended = fin; a.onerror = fin;
+  /* Azure 係一次過攞成段聲，冇 word boundary event。
+     用播放進度按比例推個字位——粗，但夠一個六歲人知道讀到邊一行。 */
+  a.ontimeupdate = function(){
+    if(mySeq !== TTSV.seq) return;
+    const d = a.duration;
+    if(!d || !isFinite(d)) return;
+    ttsProg(Math.floor(a.currentTime / d * plain.length), plain);
+  };
+  const fin2 = function(){ ttsProg(-1, ''); fin(); };
+  a.onended = fin2; a.onerror = fin2;
   if(!TTSV.paused) await a.play();   /* 上緊網嗰陣已經撳咗暫停？就唔好自己開聲住 */
 }
 
@@ -10492,6 +10541,7 @@ async function ttsStart(plain, btn, srcEl){
     ttsAddPauseBtn(btn);
   }
   if(srcEl) ttsAttachSeek(srcEl);
+  ttsProg(0, plain);
   const c = cfg();
   /* 只要有 key 就行 Azure。Region 交俾 azRegion() 補（留空＝eastasia）。 */
   if(c.ttsAzKey){
@@ -11722,6 +11772,15 @@ const SYS_STORY = [
 '· 400 至 600 字，讀出嚟大約一分半到兩分鐘。',
 '· 唔准分小標題。一段一個意思，每段三至五句。',
 '',
+'【深淺】',
+'· 下面會俾你屋企嘅 General Rules，入面寫住聽故事嗰個細路幾時出世。',
+'  自己計返佢而家幾歲，寫返一篇啱佢嗰個歲數嘅嘢。',
+'· 中文、英文、數學、科學呢四科，程度大致跟香港小學同一個年級嘅範圍。',
+'  唔使跟足教育局嘅字眼，但唔可以深過或者淺過佢一個年級咁多。',
+'· 如果呢個題目喺佢個年級已經寫到冇嘢好寫，可以行高一級，或者攞第二個地方',
+'  同齡細路學緊嘅嘢嚟寫。行高一級嗰陣，例子要更加具體、更加睇得見掂得到。',
+'· 唔准用超出佢年級嘅字詞而唔解釋。要用就即場用一句話解清楚。',
+'',
 '【內容形狀，一定要跟】',
 '1. 由一個好具體嘅畫面開始，一件細路自己見過或者做過嘅事。唔好由道理開始。',
 '2. 中間要有一個「咦，點解會咁」嘅位。',
@@ -11868,6 +11927,73 @@ function stWhenTxt(rec){
     : ('爹哋 ' + (d.getMonth()+1) + '月' + d.getDate() + '號擺嘅');
 }
 function stCount(s){ return String(s||'').replace(/\s/g,'').length; }
+
+/* ---------- 一段一個號碼、一句一個 span ----------
+   兩個目的：
+   ① 佢要學咩叫「一段」。有號碼、有縮排，形狀先睇得出。
+   ② AI 傾偈嗰邊成日講「第三段度講…」——冇號碼嘅話呢句係空嘅。
+
+   號碼行 CSS counter（::before），唔入 DOM。入咗 DOM 就會俾 TTS
+   讀埋「一」「二」出嚟，撳字跳位嗰個 offset 亦都會計錯。 */
+let stSpans = [], stPlain = '', stHiOn = null;
+function stRenderText(host, text){
+  host.innerHTML = '';
+  stSpans = []; stHiOn = null;
+  const paras = String(text || '').split(/\n+/).map(function(s){ return s.trim(); })
+                                  .filter(Boolean);
+  /* 畫幾多就讀幾多：DOM 同餵俾 TTS 嗰段字一定要係同一份，
+     唔係 highlight 個位置會慢慢愈飄愈遠。 */
+  stPlain = paras.join('\n');
+  let off = 0;
+  paras.forEach(function(p, pi){
+    const el = document.createElement('p');
+    el.className = 'stP';
+    const bits = p.match(/[^。！？!?]*[。！？!?]+|[^。！？!?]+/g) || [p];
+    bits.forEach(function(s){
+      const sp = document.createElement('span');
+      sp.className = 'stS';
+      sp.textContent = s;
+      el.appendChild(sp);
+      stSpans.push({a:off, b:off + s.length, el:sp});
+      off += s.length;
+    });
+    host.appendChild(el);
+    if(pi < paras.length - 1) off += 1;          /* 段與段之間嗰個 \n */
+  });
+  return stPlain;
+}
+function stHiClear(){
+  if(stHiOn){ try{ stHiOn.classList.remove('on'); }catch(e){} stHiOn = null; }
+}
+function stHiAt(idx, plain){
+  const host = document.getElementById('stText');
+  if(!host || !stSpans.length){ stHiClear(); return; }
+  if(idx < 0){ stHiClear(); return; }
+  /* 撳字跳位之後，餵俾 TTS 嗰段係後半截。佢一定係全文嘅尾，
+     所以個起點就係「全文長度減佢嘅長度」。 */
+  let base = 0;
+  if(plain && plain.length < stPlain.length && stPlain.endsWith(plain)){
+    base = stPlain.length - plain.length;
+  }
+  const at = base + idx;
+  let hit = null;
+  for(let i = 0; i < stSpans.length; i++){
+    const s = stSpans[i];
+    if(at >= s.a && at < s.b){ hit = s.el; break; }
+    if(at < s.a){ hit = s.el; break; }            /* 落喺罅度就當下一句 */
+  }
+  if(!hit || hit === stHiOn) return;
+  stHiClear();
+  stHiOn = hit;
+  hit.classList.add('on');
+  /* 讀到落咗畫面外面就自己捲返上嚟，唔使佢自己搵 */
+  try{
+    const hr = hit.getBoundingClientRect(), br = host.getBoundingClientRect();
+    if(hr.top < br.top + 8 || hr.bottom > br.bottom - 8){
+      host.scrollTop += (hr.top - br.top) - host.clientHeight / 3;
+    }
+  }catch(e){}
+}
 
 /* ---------- 撞唔撞：一個唔使 call API 嘅指紋 ----------
    一年三百幾篇，一定會撞。靠 prompt 提佢「唔好重複」係唔夠嘅——
@@ -12083,6 +12209,13 @@ let stCur = null, stOpenAt = 0;
 async function storyOpen(id){
   const rec = (StoryCloud.idx || {})[id];
   if(!rec) return;
+  /* 爹哋自己開嚟睇：要講明佢見到嘅係 Charlotte 嗰套語氣，唔係佢平時嗰個 AI。
+     唔講嘅話，佢會以為個 AI 對住佢都係咁講嘢。 */
+  try{
+    const _n = document.getElementById('stOwnerNote');
+    if(_n) _n.style.display =
+      ((typeof isGuestNow === 'function') && isGuestNow()) ? 'none' : '';
+  }catch(e){}
   /* 保險：就算邊度接錯線，未放出嘅嘢都唔會開得到 */
   if(rec.status !== 'out') return;
   stCur = rec; stOpenAt = Date.now();
@@ -12106,11 +12239,19 @@ async function storyOpen(id){
       function(){ storyOpen(id); }));
     return;
   }
-  /* textContent 唔係 innerHTML：段字入面有咩都好，一律當字睇 */
-  X.textContent = text;
-  /* 🔊 ＋ 撳邊隻字就由邊隻字讀起。第三個參數就係跳位嗰個元素。 */
+  /* 一段一個號碼、一句一個 span。逐個 textContent 入去，
+     唔用 innerHTML——段字入面有咩都好，一律當字睇。 */
+  const shown = stRenderText(X, text);
+  /* 跟讀：呢個 callback 一路掛住，但只喺讀緊 #stText 嗰陣先做嘢。 */
+  TTSV.prog = function(idx, plain){
+    if(TTSV.srcEl && TTSV.srcEl !== X){ stHiClear(); return; }
+    stHiAt(idx, plain);
+  };
+  /* 🔊 ＋ 撳邊隻字就由邊隻字讀起。第三個參數就係跳位嗰個元素。
+     讀埋個標題落去——佢撳粒掣多數係想由頭聽，個標題本身就係第一句。 */
   if(B){
-    B.appendChild(makeTTSBtn(function(){ return text; }, '🔊 聽', X));
+    B.appendChild(makeTTSBtn(function(){ return (rec.title || '') + '。\n' + shown; },
+                             '🔊 聽', X));
     const mkAA = function(id, lab, d){
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'stAA'; b.id = id; b.textContent = lab;
@@ -12139,6 +12280,8 @@ function storyCloseRead(){
                          {kind:'read', sid:stCur.id, sec:sec});
   }
   stCur = null;
+  TTSV.prog = null;
+  stHiClear();
   stTalkClear(null, '');
   hide('storyModal');
 }
@@ -12205,12 +12348,19 @@ const SYS_STORY_TALK = [
 '· 講完加一句好平常嘅，例如：呢條我都要返去睇多次先諗到。',
 '',
 '【佢叫你出問題嗰陣】',
-'· 一次出三條，一條一行，由淺到深：',
+'· ⚠ 一次淨係出一條。唔准一口氣出兩條或者三條。',
+'  出過事：一次出三條，佢揀咗其中一條答，其餘兩條你自己答埋，',
+'  佢覺得自己答唔切，之後就唔想再玩。一條就係一條。',
+'· 出完嗰一條就停。唔准自問自答，唔准喺同一個回應度預告下一條。',
+'· 佢答完（或者撳咗想知答案）之後，你先問佢仲想唔想再嚟一條。',
+'  佢話唔想，就即刻收，唔准再提，亦都唔准問「點解唔想」。',
+'· 由淺到深，一條一條咁行：',
 '  第一條：答案直接喺故事度搵得返。',
 '  第二條：要將故事入面兩件事駁埋一齊先答到。',
-'  第三條：故事冇寫，要佢自己諗。',
-'· 第三條唔可以有標準答案，所以第三條根本唔存在答錯。',
-'· 每條一句，唔好超過二十五個字。出完問題就停，唔好順手自問自答。',
+'  第三條：故事冇寫，要佢自己諗（呢條冇標準答案，所以根本唔存在答錯）。',
+'· 每條一句，唔好超過二十五個字。',
+'· 記住佢頭先講過想唔想玩。佢一講過唔想，之後嗰輪就唔准再出問題，',
+'  除非佢自己再撳。',
 ''
 ].join('\n');
 
@@ -12292,12 +12442,20 @@ async function stTalkSay(sendText, showText){
         而你要好耐之後先發現）。
        q／a 擺全文：條 text 剪到 500 字係為咗 Data Log 個 tab 睇得舒服，
        但匯出俾人分析嗰陣剪咗就係斷尾。同傾偈嗰邊一模一樣嘅做法。 */
+    /* ⚠ 爹哋自己撳入嚟試，唔可以入 Charlotte 嗰份匯出。
+       上一版一律寫 guest:true，即係你試十次，佢嗰份用嚟 refine persona
+       嘅記錄就多咗十段唔係佢講嘅嘢——一個比「漏網」更難察覺嘅污染。
+       而家按實際模式分流：訪客入訪客嗰份，主人入主人嗰份，兩份都唔會漏。 */
+    const _g = (typeof isGuestNow === 'function') ? isGuestNow() : true;
     const _ent = logPush('story',
-      '📖 聽故事對話（' + (rec.title || '') + '）：\n我：' + (showText || sendText) +
-      '\n\nAI：' + short(clean, 500),
-      {kind:'talk', guest:true, sid:stTalkSid, story:(rec.title || ''),
-       q:(showText || sendText), a:clean,
-       brief:'(聽故事傾偈) ' + short(showText || sendText, 200)});
+      (_g ? '📖 聽故事對話（' : '🧑 主人對話記錄 · 試用聽故事（') + (rec.title || '') +
+      '）：\n我：' + (showText || sendText) + '\n\nAI：' + short(clean, 500),
+      Object.assign({sid:stTalkSid, story:(rec.title || ''),
+                     q:(showText || sendText), a:clean,
+                     brief:(_g ? '(聽故事傾偈) ' : '(爹哋試用聽故事) ') +
+                            short(showText || sendText, 200)},
+                    _g ? {kind:'talk', guest:true}
+                       : {kind:'owner-chat', owner:true}));
     try{ save(); }catch(e){}
     /* 推理過程照傾偈嗰邊嘅做法掟入 IndexedDB：唔入 state，但匯出攞得返。
        份 HANDOVER 講到明「推理一定要睇」——refine persona 嗰陣就係靠佢。 */
@@ -12422,8 +12580,28 @@ async function storyGen(n, topicKey, note){
       /* 逐篇一個 call。⚠ 唔好一次過叫佢寫三篇：一爆 token 就三篇齊冇。
          同 SYS_TODO 嗰條「一張通告一次 call，一張死咗唔准拖冧成隊」一樣。 */
       const _same = sameTopic(tp.k), _other = otherTitles(tp.k);
+      /* 佢幾時出世寫咗喺 General Rules 度（自由文字，冇固定格式），
+         所以成段餵落去由模型自己讀，好過我喺度估佢用邊種寫法。
+         順手自己試 parse 一次年月：parse 到就明寫佢而家幾歲，
+         parse 唔到就唔講——唔准靠估一個年齡出嚟。 */
+      const _rules = String((state.ai && state.ai.rules) || '').trim();
+      let _ageLine = '';
+      try{
+        const m = _rules.match(/((?:19|20)\d{2})\s*年?\s*[-\/年]?\s*(1[0-2]|0?[1-9])\s*月/);
+        if(m){
+          const by = +m[1], bm = +m[2], now = new Date();
+          let mo = (now.getFullYear() - by) * 12 + (now.getMonth() + 1 - bm);
+          if(mo > 0 && mo < 300){
+            _ageLine = '\n（我幫你計咗：佢 ' + by + ' 年 ' + bm + ' 月出世，' +
+                       '而家 ' + Math.floor(mo / 12) + ' 歲 ' + (mo % 12) + ' 個月。' +
+                       '如果 General Rules 入面寫得同我唔同，以 General Rules 為準。）';
+          }
+        }
+      }catch(e){}
       const mkMsg = function(extra){
         return '【今次寫呢個題目】\n' + tp.name + '：' + tp.hint +
+          (_rules ? '\n\n【屋企嘅 General Rules——聽故事嗰個細路幾時出世寫咗喺入面，' +
+                    '按返佢實際年齡調校深淺】\n' + _rules + _ageLine : '') +
           (note ? '\n\n【爹哋今次想要嘅嘢——呢段要跟，但唔准為咗佢而破上面啲底線】\n' + note : '') +
           (pick && topics.length > 1
             ? '\n\n（同一個題目今次要寫 ' + topics.length + ' 篇，呢篇係第 ' + (i+1) +
@@ -12706,7 +12884,7 @@ Object.assign(window, {
   if(ad) ad.onclick = function(){ hide('storyAdmin'); };
   const ask = g('stAsk');
   if(ask) ask.onclick = function(){
-    stTalkSay('出三條問題俾我試吓。', '🙋 出啲問題我試吓');
+    stTalkSay('出一條問題俾我試吓。淨係一條。', '🙋 出一條問題我試吓');
   };
   const dun = g('stTalkDunno');
   if(dun) dun.onclick = function(){
