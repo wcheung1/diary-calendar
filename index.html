@@ -992,10 +992,13 @@ body.readonly #hubStoryAdmin{display:none!important}
 /* 跟讀：讀到邊句就螢光邊句。用句唔用字——
    一個字一個字跳會閃到眼花，一句一句反而睇得到自己去到邊。 */
 #stText .stS{border-radius:5px;padding:1px 0}
-#stText .stS.on{background:#ffe8a3;box-shadow:0 0 0 3px #ffe8a3}
-@media (prefers-color-scheme: dark){
-  #stText .stS.on{background:#6b5a1f;box-shadow:0 0 0 3px #6b5a1f}
-}
+/* ⚠ 第一版做錯咗兩樣：
+   ① 用咗 #ffe8a3（淺啡黃）——同黑字撞埋，對比唔夠。改用鮮黃 #ffe600。
+   ② 加咗 @media (prefers-color-scheme: dark) 出深啡底。但成個 app
+      根本冇深色主題，字永遠係黑色；用戶部機開咗深色模式，就變成
+      黑字啡底，比原本仲難睇。呢條 media query 已經整條拆走。
+   個 color 寫死 #111：唔理將來有冇深色主題，螢光嗰句都一定睇得清。 */
+#stText .stS.on{background:#ffe600;color:#111;box-shadow:0 0 0 3px #ffe600}
 .stAA{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:inherit;
   border-radius:10px;min-width:44px;height:44px;font-size:15px;cursor:pointer;padding:0 10px}
 .stAA:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
@@ -1035,6 +1038,30 @@ body.readonly #hubStoryAdmin{display:none!important}
 #stTalkInput{flex:1 1 220px;min-width:0;min-height:46px;font-size:16px;line-height:1.6;
   padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:var(--card);
   color:inherit;resize:vertical}
+/* 📚 課程框架 */
+#stSyl{margin:0 0 10px;border:1px solid var(--line);border-radius:11px;padding:8px 10px}
+#stSyl > summary{cursor:pointer;font-size:15px;font-weight:700;list-style:none;padding:3px 0}
+#stSyl > summary::-webkit-details-marker{display:none}
+#stSyl > summary::before{content:"▸ ";color:var(--accent)}
+#stSyl[open] > summary::before{content:"▾ "}
+.sylBar{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:8px 0}
+.sylBar select{padding:4px 7px;font-size:13px}
+.sylBar button{padding:4px 10px;font-size:12.5px}
+.sylRow{display:flex;gap:7px;align-items:flex-start;padding:6px 0;
+  border-bottom:1px dashed var(--line)}
+.sylRow.done{opacity:.5}
+.sylRow.done .sylT{text-decoration:line-through}
+.sylNo{flex:0 0 auto;font-size:12px;color:var(--muted);padding-top:7px;min-width:22px}
+.sylMid{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.sylMid input{width:100%;padding:4px 7px;border:1px solid var(--line);border-radius:7px;
+  background:var(--card);color:inherit}
+.sylT{font-size:13.5px;font-weight:600}
+.sylD{font-size:12px;color:var(--muted)}
+.sylOps{flex:0 0 auto;display:flex;gap:3px;padding-top:3px}
+.sylOps button{border:1px solid var(--line);background:var(--card);color:inherit;
+  border-radius:6px;width:26px;height:26px;font-size:12px;padding:0;cursor:pointer}
+.sylOps button:hover{border-color:var(--accent);color:var(--accent)}
+.stSylTag{font-size:12px;color:var(--accent);font-weight:600;margin:0 0 5px}
 /* 爹哋嗰版 */
 .stCard{border:1px solid var(--line);border-radius:10px;padding:10px 11px;margin:0 0 10px}
 .stCard.draft{border-left:5px solid var(--q-amber)}
@@ -1377,7 +1404,19 @@ body.hubOpen{overflow:hidden}
   <p class="subnote">AI 一次過寫幾篇入「待審」。你逐篇睇，想改就直接喺下面改段字，收貨之後入池；<b>幾時放出去俾 Charlotte 睇，由你撳</b>。<br>
     未放出嘅故事，Charlotte 部機連正文都唔會落過去。<br>
     AI 唔准讚佢又唔准彈佢，亦都唔會提病名——但事實有冇錯，最後一道防線係你。</p>
+  <details id="stSyl">
+    <summary>📚 課程框架<span class="stTalkSub">先定方向，再寫故事。唔使每次抽盲盒。</span></summary>
+    <div class="sylBar">
+      <select id="stSylSubj"></select>
+      <span class="stMeta" id="stSylCnt"></span>
+      <button class="btn" type="button" id="stSylGen">✨ 叫 AI 排 10 個</button>
+      <button class="btn" type="button" id="stSylAdd">＋ 加一個</button>
+    </div>
+    <p class="stProg" id="stSylMsg"></p>
+    <div id="stSylList"></div>
+  </details>
   <div class="stGenBar">
+    <label class="stLbl"><input type="checkbox" id="stUseSyl" checked> 跟課程框架</label>
     <span class="stLbl">題目</span>
     <select id="stGenTopic"><option value="">🔀 自動輪換（揀最耐冇寫嗰個）</option></select>
     <span class="stLbl">寫幾多篇</span>
@@ -1945,7 +1984,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-28g";
+const BUILD = "2026-08-28h";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -11773,8 +11812,11 @@ const SYS_STORY = [
 '· 唔准分小標題。一段一個意思，每段三至五句。',
 '',
 '【深淺】',
-'· 下面會俾你屋企嘅 General Rules，入面寫住聽故事嗰個細路幾時出世。',
-'  自己計返佢而家幾歲，寫返一篇啱佢嗰個歲數嘅嘢。',
+'· 聽故事嗰個係 Charlotte。下面會俾你屋企嘅 General Rules，',
+'  入面寫住佢幾時出世。自己計返佢而家幾歲，寫返一篇啱佢嗰個歲數嘅嘢。',
+'· ⚠ General Rules 入面可能仲有其他人嘅出世日期（例如妹妹 Jasmine）。',
+'  你要攞嘅係 Charlotte 嗰個。攞錯咗就成篇深淺都會錯，而且冇人會即刻發現。',
+'  如果分唔清邊個係邊個，就當佢係小學低年級，唔好靠估一個歲數出嚟。',
 '· 中文、英文、數學、科學呢四科，程度大致跟香港小學同一個年級嘅範圍。',
 '  唔使跟足教育局嘅字眼，但唔可以深過或者淺過佢一個年級咁多。',
 '· 如果呢個題目喺佢個年級已經寫到冇嘢好寫，可以行高一級，或者攞第二個地方',
@@ -11807,6 +11849,26 @@ const SYS_STORY = [
 '  好例子：用雪櫃冰格入面嗰杯水做例，講水凍到某個溫度啲粒粒會企定。',
 '  壞例子：講水嘅科學知識。（太空泛，比對唔到。）',
 'text 係成篇稿，段與段之間用一個換行。'
+].join('\n');
+
+/* ⚠ 同其餘幾份一樣，入面一個單引號都唔可以有。 */
+const SYS_SYL = [
+'你嘅工作：幫一個香港小學生排一個學習主題清單，做佢之後幾個月嘅課程框架。',
+'',
+'【要求】',
+'· 由淺到深排。第一個係佢而家就跟得上嘅，最後一個要行前少少。',
+'· 程度按返下面俾你嗰個年紀，大致跟香港小學同一個年級嘅範圍。',
+'  呢一科喺佢個年級真係冇嘢好排先至行高一級，或者攞第二個地方同齡細路學緊嘅嘢。',
+'· 每一個主題要細到可以用一篇五百字嘅故事講完。太大嘅要拆細。',
+'  好例子：點解有啲字要加多兩點。　壞例子：認識中文字。',
+'· 唔准同下面【已經有嘅主題】重複，亦都唔准換個講法扮新。',
+'· 唔准出 Markdown、唔准開場白、唔准解釋。全部用繁體字。',
+'',
+'【輸出】',
+'淨係輸出一個 JSON object：',
+'{"items": [{"t": "…", "d": "…"}, …]}',
+'t 係主題名，六至十四個字，一睇就知講乜。',
+'d 係一句，二十至四十字，講清楚呢個主題要教識佢啲乜、可以用咩嚟做例。'
 ].join('\n');
 
 /* ---------- 故事嘅獨立雲端節點 ----------
@@ -11861,6 +11923,18 @@ const StoryCloud = {
   /* 指紋擺喺自己一格，唔擺 idx——idx 每次開 app 都會落機，
      三百幾條指紋 × 220 字元 ＝ 80KB，唔應該為咗一個爹哋先用到嘅功能
      俾 Charlotte 部機每次開都下載一次。呢格只係寫故事嗰陣讀一次。 */
+  /* 課程框架：一科一格。同 sig 一樣，開機唔會落機，
+     淨係喺爹哋開管理版或者寫故事嗰陣讀。 */
+  async sylGet(k){
+    const r = this.ref(); if(!r) return null;
+    try{ const sn = await r.child('syl/' + k).once('value'); return sn.val() || null; }
+    catch(e){ this.lastError = String((e && e.message) || e); return null; }
+  },
+  async sylPut(k, obj){
+    const r = this.ref(); if(!r){ this.lastError = '未登入 Google'; return false; }
+    try{ await r.child('syl/' + k).set(obj); return true; }
+    catch(e){ this.lastError = String((e && e.message) || e); return false; }
+  },
   async sigAll(){
     const r = this.ref(); if(!r) return {};
     try{ const sn = await r.child('sig').once('value'); return sn.val() || {}; }
@@ -11935,7 +12009,15 @@ function stCount(s){ return String(s||'').replace(/\s/g,'').length; }
 
    號碼行 CSS counter（::before），唔入 DOM。入咗 DOM 就會俾 TTS
    讀埋「一」「二」出嚟，撳字跳位嗰個 offset 亦都會計錯。 */
-let stSpans = [], stPlain = '', stHiOn = null;
+/* stSpans 入面每格記兩套座標：
+   a／b 係喺 stPlain 入面嘅位，ba／bb 係「剝走晒空白之後」嘅位。
+   ⚠ 一定要有第二套。撳字跳位嗰陣，ttsTextFromPoint() 係行 DOM 嘅
+     text node 砌返段字出嚟——而段落之間嗰個 \n 唔係 text node，
+     所以佢砌返出嚟嗰段冇換行；再經 mdToPlain() 又會再變一次。
+     用原文座標對，一跳位就對唔返，highlight 會彈返去開頭。
+     剝走空白之後兩邊就一定夾得返。 */
+let stSpans = [], stPlain = '', stBare = '', stHiOn = null;
+function stBareOf(s){ return String(s || '').replace(/\s+/g, ''); }
 function stRenderText(host, text){
   host.innerHTML = '';
   stSpans = []; stHiOn = null;
@@ -11944,7 +12026,8 @@ function stRenderText(host, text){
   /* 畫幾多就讀幾多：DOM 同餵俾 TTS 嗰段字一定要係同一份，
      唔係 highlight 個位置會慢慢愈飄愈遠。 */
   stPlain = paras.join('\n');
-  let off = 0;
+  stBare = stBareOf(stPlain);
+  let off = 0, boff = 0;
   paras.forEach(function(p, pi){
     const el = document.createElement('p');
     el.className = 'stP';
@@ -11954,8 +12037,9 @@ function stRenderText(host, text){
       sp.className = 'stS';
       sp.textContent = s;
       el.appendChild(sp);
-      stSpans.push({a:off, b:off + s.length, el:sp});
-      off += s.length;
+      const bs = stBareOf(s);
+      stSpans.push({a:off, b:off + s.length, ba:boff, bb:boff + bs.length, el:sp});
+      off += s.length; boff += bs.length;
     });
     host.appendChild(el);
     if(pi < paras.length - 1) off += 1;          /* 段與段之間嗰個 \n */
@@ -11969,19 +12053,26 @@ function stHiAt(idx, plain){
   const host = document.getElementById('stText');
   if(!host || !stSpans.length){ stHiClear(); return; }
   if(idx < 0){ stHiClear(); return; }
-  /* 撳字跳位之後，餵俾 TTS 嗰段係後半截。佢一定係全文嘅尾，
-     所以個起點就係「全文長度減佢嘅長度」。 */
+  /* 全部喺「剝走空白」嘅座標度計。
+     ① 餵俾 TTS 嗰段（可能係跳位之後嘅後半截）喺全文嘅邊度開始
+     ② idx 喺嗰段入面，剝走空白之後係第幾個字 */
+  const pb = stBareOf(plain);
   let base = 0;
-  if(plain && plain.length < stPlain.length && stPlain.endsWith(plain)){
-    base = stPlain.length - plain.length;
+  if(pb && pb.length < stBare.length){
+    base = stBare.endsWith(pb) ? (stBare.length - pb.length)
+                               : Math.max(0, stBare.lastIndexOf(pb));
   }
-  const at = base + idx;
+  let bi = 0;
+  const lim = Math.min(idx, plain.length);
+  for(let i = 0; i < lim; i++){ if(!/\s/.test(plain[i])) bi++; }
+  const at = base + bi;
   let hit = null;
   for(let i = 0; i < stSpans.length; i++){
     const s = stSpans[i];
-    if(at >= s.a && at < s.b){ hit = s.el; break; }
-    if(at < s.a){ hit = s.el; break; }            /* 落喺罅度就當下一句 */
+    if(at >= s.ba && at < s.bb){ hit = s.el; break; }
+    if(at < s.ba){ hit = s.el; break; }           /* 落喺罅度就當下一句 */
   }
+  if(!hit && stSpans.length) hit = stSpans[stSpans.length - 1].el;
   if(!hit || hit === stHiOn) return;
   stHiClear();
   stHiOn = hit;
@@ -12526,7 +12617,7 @@ function stNextTopics(n){
   for(let i=0;i<n;i++) out.push(sorted[i % sorted.length]);
   return out;
 }
-async function storyGen(n, topicKey, note){
+async function storyGen(n, topicKey, note, useSyl){
   if(stGenBusy) return;
   if(!currentUser){ toast('要先登入 Google，篇故事先有地方擺。'); return; }
   stGenBusy = true;
@@ -12580,19 +12671,54 @@ async function storyGen(n, topicKey, note){
       /* 逐篇一個 call。⚠ 唔好一次過叫佢寫三篇：一爆 token 就三篇齊冇。
          同 SYS_TODO 嗰條「一張通告一次 call，一張死咗唔准拖冧成隊」一樣。 */
       const _same = sameTopic(tp.k), _other = otherTitles(tp.k);
+      /* 跟課程框架：攞嗰科第一個仲未寫過嘅主題。
+         框架未排就照舊自由發揮——唔可以因為冇框架就寫唔到故事。 */
+      let _syl = null;
+      if(useSyl){
+        try{ await stSylLoad(tp.k, false); _syl = stSylNext(tp.k); }catch(e){ _syl = null; }
+      }
       /* 佢幾時出世寫咗喺 General Rules 度（自由文字，冇固定格式），
          所以成段餵落去由模型自己讀，好過我喺度估佢用邊種寫法。
          順手自己試 parse 一次年月：parse 到就明寫佢而家幾歲，
          parse 唔到就唔講——唔准靠估一個年齡出嚟。 */
       const _rules = String((state.ai && state.ai.rules) || '').trim();
+      /* ⚠ General Rules 入面唔止一個出世日期——仲有妹妹 Jasmine 嘅。
+         第一版求其抽第一個撞到嘅年月，即係好可能攞咗妹妹嗰個，
+         然後成篇故事照住細三年嘅程度嚟寫，而畫面上完全睇唔出。
+         而家：淨係認「Charlotte」呢個名附近嗰個日期。
+         搵唔到就一個字都唔講——寧願冇，都好過講錯。 */
       let _ageLine = '';
       try{
-        const m = _rules.match(/((?:19|20)\d{2})\s*年?\s*[-\/年]?\s*(1[0-2]|0?[1-9])\s*月/);
-        if(m){
-          const by = +m[1], bm = +m[2], now = new Date();
-          let mo = (now.getFullYear() - by) * 12 + (now.getMonth() + 1 - bm);
+        /* 點樣分邊個日期係邊個人：**睇個日期前面最近嗰個名**。
+           人寫嘢係「Charlotte 2019年3月出世」，個名行先。
+           第一版行「呢個日期前後 60 個字之內有冇 Charlotte」——
+           兩姊妹寫喺同一句嗰陣，兩個日期嘅窗口一模一樣，
+           結果攞咗排前面嗰個（妹妹）。呢個係我第一次寫錯咗嘅地方。 */
+        const NAMES = /charlotte|jasmine|妹妹|細妹|家姐|姐姐/gi;
+        const hits = [];
+        let nm;
+        while((nm = NAMES.exec(_rules))) hits.push({i:nm.index, who:nm[0].toLowerCase()});
+        const DATE = /((?:19|20)\d{2})\s*[-\/年]?\s*(1[0-2]|0?[1-9])\s*月/g;
+        let best = null, mm;
+        while((mm = DATE.exec(_rules))){
+          let own = null;
+          for(let k = 0; k < hits.length; k++){          /* 前面最近嗰個 */
+            if(hits[k].i < mm.index && mm.index - hits[k].i <= 40) own = hits[k];
+          }
+          if(!own){                                      /* 前面冇，睇後面近嗰個 */
+            for(let k = 0; k < hits.length; k++){
+              if(hits[k].i >= mm.index && hits[k].i - mm.index <= 20){ own = hits[k]; break; }
+            }
+          }
+          if(!own || own.who !== 'charlotte') continue;
+          const d = Math.abs(own.i - mm.index);
+          if(!best || d < best.d) best = {y:+mm[1], m:+mm[2], d:d};
+        }
+        if(best){
+          const now = new Date();
+          const mo = (now.getFullYear() - best.y) * 12 + (now.getMonth() + 1 - best.m);
           if(mo > 0 && mo < 300){
-            _ageLine = '\n（我幫你計咗：佢 ' + by + ' 年 ' + bm + ' 月出世，' +
+            _ageLine = '\n（我幫你計咗：Charlotte ' + best.y + ' 年 ' + best.m + ' 月出世，' +
                        '而家 ' + Math.floor(mo / 12) + ' 歲 ' + (mo % 12) + ' 個月。' +
                        '如果 General Rules 入面寫得同我唔同，以 General Rules 為準。）';
           }
@@ -12600,8 +12726,12 @@ async function storyGen(n, topicKey, note){
       }catch(e){}
       const mkMsg = function(extra){
         return '【今次寫呢個題目】\n' + tp.name + '：' + tp.hint +
-          (_rules ? '\n\n【屋企嘅 General Rules——聽故事嗰個細路幾時出世寫咗喺入面，' +
-                    '按返佢實際年齡調校深淺】\n' + _rules + _ageLine : '') +
+          (_syl ? '\n\n【今次要跟嘅課程框架主題——呢篇故事要教到呢一樣嘢】\n《' +
+                  _syl.t + '》' + (_syl.d ? '\n' + _syl.d : '') +
+                  '\n（上面啲底線照樣要守。教唔到呢一樣，呢篇就係寫錯咗。）' : '') +
+          (_rules ? '\n\n【屋企嘅 General Rules——聽故事嗰個係 Charlotte，' +
+                    '佢幾時出世寫咗喺入面。入面可能仲有妹妹或者其他人嘅日期，唔好攞錯】\n' +
+                    _rules + _ageLine : '') +
           (note ? '\n\n【爹哋今次想要嘅嘢——呢段要跟，但唔准為咗佢而破上面啲底線】\n' + note : '') +
           (pick && topics.length > 1
             ? '\n\n（同一個題目今次要寫 ' + topics.length + ' 篇，呢篇係第 ' + (i+1) +
@@ -12669,6 +12799,13 @@ async function storyGen(n, topicKey, note){
         throw new Error('索引上唔到雲：' + short(StoryCloud.lastError, 70));
       await StoryCloud.putSig(id, sig);
       sigMap[id] = sig;                 /* 同一批入面，後面幾篇要同前面幾篇比 */
+      /* 剔走框架嗰個主題。⚠ 一定要喺入庫成功之後先剔——
+         反轉嘅話上唔到雲嗰陣個主題已經冇咗，你再寫都寫唔返。 */
+      if(_syl){
+        _syl.used = id; _syl.usedAt = at;
+        try{ await stSylSave(tp.k); }catch(e){}
+        rec.syl = _syl.t;
+      }
       ok++;
       lines.push('✅ ' + (i+1) + '. ' + tp.name + '：' + title + '（' + rec.len + ' 字' +
                  (rec.dupP ? '，⚠ 同《' + rec.dupT + '》似 ' + rec.dupP + '%' : '') + '）');
@@ -12686,6 +12823,148 @@ async function storyGen(n, topicKey, note){
   stGenBusy = false;
   if(btn) btn.disabled = false;
   storyAdminRender();
+}
+
+/* ================= 📚 課程框架 =================
+   點解要有：之前每次寫故事都係抽盲盒——AI 揀個角度，你事後審。
+   有咗框架，方向係你事先定嘅，重複亦都由「事後捉」變成「事前唔會撞」，
+   而且你可以手打返學校下星期要教嘅嘢，用故事做預習。
+
+   我揀咗嘅預設（全部改得）：
+   · AI 排咗先，你逐個改／刪／插／上下移。由零手打九科係一件唔會發生嘅事。
+   · 一批 10 個。10 個 ≈ 10 篇 ≈ 兩個星期，係一個睇得完、改得起嘅份量。
+     一次過出 20 個，你會 skim 過就算——咁就等於冇審過。
+   · 用完標住，唔刪。進度睇得見（7／20），而且隔半年想再講一次同一個
+     主題其實係好事，撳返「用得返」就得。預設唔會自動重用。 */
+let stSylCache = {};                 /* topicKey → {at, items:[…]} */
+function stSylNew(){ return {at:nowISO(), items:[]}; }
+async function stSylLoad(k, force){
+  if(!force && stSylCache[k]) return stSylCache[k];
+  const v = await StoryCloud.sylGet(k);
+  stSylCache[k] = (v && Array.isArray(v.items)) ? v : stSylNew();
+  return stSylCache[k];
+}
+async function stSylSave(k){
+  const v = stSylCache[k] || stSylNew();
+  v.at = nowISO();
+  const ok = await StoryCloud.sylPut(k, v);
+  if(!ok) toast('⚠ 存唔到課程框架：' + short(StoryCloud.lastError, 80));
+  return ok;
+}
+function stSylNext(k){
+  const v = stSylCache[k];
+  if(!v || !v.items) return null;
+  return v.items.filter(function(x){ return x && !x.used; })[0] || null;
+}
+function stSylDone(k){
+  const v = stSylCache[k];
+  if(!v || !v.items) return 0;
+  return v.items.filter(function(x){ return x && x.used; }).length;
+}
+async function stSylGen(k, n){
+  const tp = ST_TOPICS.filter(function(x){ return x.k === k; })[0];
+  if(!tp) return;
+  const v = await stSylLoad(k, true);
+  const have = v.items.map(function(x){ return x.t; }).filter(Boolean);
+  const box = document.getElementById('stSylMsg');
+  if(box) box.textContent = '⏳ AI 排緊…';
+  try{
+    const got = await callAIJSON([
+      {role:'system', content:SYS_SYL},
+      {role:'user', content:
+        '【科目】' + tp.name + '：' + tp.hint +
+        '\n\n【排幾多個】' + n +
+        '\n\n【佢幾多歲】\n' + (String((state.ai && state.ai.rules) || '').trim() ||
+                                   '（General Rules 未填，當佢係小學低年級）') +
+        '\n（聽故事嗰個係 Charlotte。入面可能仲有妹妹或者其他人嘅出世日期，唔好攞錯。）' +
+        '\n\n【已經有嘅主題，唔准重複】\n' +
+        (have.length ? have.join('\n') : '（未有）')}
+    ], {want:['items'], temp:0.6, max:4000, longThink:true});
+    const items = ((got.json || {}).items) || [];
+    if(!items.length) throw new Error('AI 冇排到嘢出嚟');
+    let add = 0;
+    items.forEach(function(x){
+      const t = String((x && x.t) || '').trim();
+      if(!t || have.indexOf(t) >= 0) return;
+      v.items.push({id:uid(), t:t, d:String((x && x.d) || '').trim(), src:'ai', used:''});
+      have.push(t); add++;
+    });
+    await stSylSave(k);
+    if(box) box.textContent = '✅ 加咗 ' + add + ' 個。';
+  }catch(err){
+    if(box) box.textContent = '❌ 排唔到：' + short(String((err && err.message) || err), 100);
+  }
+  stSylRender();
+}
+function stSylRender(){
+  const host = document.getElementById('stSylList');
+  const sel = document.getElementById('stSylSubj');
+  if(!host || !sel) return;
+  const k = sel.value;
+  const v = stSylCache[k];
+  host.innerHTML = '';
+  const cnt = document.getElementById('stSylCnt');
+  if(cnt) cnt.textContent = v ? (stSylDone(k) + '／' + v.items.length + ' 寫咗') : '';
+  if(!v){ host.appendChild(stMsgBox('', '載入緊…', '', null)); return; }
+  if(!v.items.length){
+    host.appendChild(stMsgBox('', '呢科仲未有框架。撳「✨ 叫 AI 排 10 個」，或者自己撳「＋ 加一個」手打。', '', null));
+    return;
+  }
+  v.items.forEach(function(it, i){
+    const row = document.createElement('div');
+    row.className = 'sylRow' + (it.used ? ' done' : '');
+    const no = document.createElement('span');
+    no.className = 'sylNo'; no.textContent = (i + 1) + '.';
+    row.appendChild(no);
+    const mid = document.createElement('div');
+    mid.className = 'sylMid';
+    const t = document.createElement('input');
+    t.type = 'text'; t.value = it.t || ''; t.className = 'sylT'; t.maxLength = 40;
+    t.onchange = function(){ it.t = t.value.trim(); stSylSave(k); };
+    const d = document.createElement('input');
+    d.type = 'text'; d.value = it.d || ''; d.className = 'sylD'; d.maxLength = 120;
+    d.placeholder = '一句講清楚要教乜';
+    d.onchange = function(){ it.d = d.value.trim(); stSylSave(k); };
+    mid.appendChild(t); mid.appendChild(d);
+    row.appendChild(mid);
+    const ops = document.createElement('div');
+    ops.className = 'sylOps';
+    const mk = function(lab, tip, fn){
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = lab; b.title = tip; b.onclick = fn;
+      ops.appendChild(b);
+    };
+    mk('↑', '調上', function(){
+      if(i === 0) return;
+      v.items.splice(i - 1, 0, v.items.splice(i, 1)[0]);
+      stSylSave(k); stSylRender();
+    });
+    mk('↓', '調落', function(){
+      if(i >= v.items.length - 1) return;
+      v.items.splice(i + 1, 0, v.items.splice(i, 1)[0]);
+      stSylSave(k); stSylRender();
+    });
+    if(it.used){
+      mk('↺', '標返做未寫（想再講一次呢個主題）', function(){
+        it.used = ''; stSylSave(k); stSylRender();
+      });
+    }
+    mk('✕', '刪走', async function(){
+      if(!await confirmBox('刪咗呢個主題？\n\n' + (it.t || ''))) return;
+      v.items.splice(i, 1); stSylSave(k); stSylRender();
+    });
+    row.appendChild(ops);
+    host.appendChild(row);
+  });
+}
+async function stSylPick(k){
+  const sel = document.getElementById('stSylSubj');
+  if(sel && k) sel.value = k;
+  const kk = (sel && sel.value) || k;
+  const host = document.getElementById('stSylList');
+  if(host) host.innerHTML = '';
+  await stSylLoad(kk, false);
+  stSylRender();
 }
 
 /* ================= 爹哋嗰版 ================= */
@@ -12715,6 +12994,12 @@ function stCard(rec){
   head.appendChild(meta);
   box.appendChild(head);
 
+  if(rec.syl){
+    const sy = document.createElement('div');
+    sy.className = 'stSylTag';
+    sy.textContent = '📚 跟框架：《' + rec.syl + '》';
+    box.appendChild(sy);
+  }
   if(rec.gist){
     /* gist 唔係俾細路睇嘅，但爹哋審核嗰陣一眼掃到「今次用咗咩例子」，
        快過成篇睇。撞唔撞，好多時你一睇呢句就知。 */
@@ -12873,12 +13158,36 @@ Object.assign(window, {
     o.value = t.k; o.textContent = t.name;
     tsel.appendChild(o);
   });
+  const ssel = g('stSylSubj');
+  if(ssel){
+    ST_TOPICS.forEach(function(t){
+      const o = document.createElement('option');
+      o.value = t.k; o.textContent = t.name;
+      ssel.appendChild(o);
+    });
+    ssel.onchange = function(){ stSylPick(ssel.value); };
+  }
+  const sdet = g('stSyl');
+  if(sdet) sdet.addEventListener('toggle', function(){
+    if(sdet.open && ssel) stSylPick(ssel.value);
+  });
+  const sgen = g('stSylGen');
+  if(sgen) sgen.onclick = function(){ if(ssel) stSylGen(ssel.value, 10); };
+  const sadd = g('stSylAdd');
+  if(sadd) sadd.onclick = async function(){
+    if(!ssel) return;
+    const k = ssel.value;
+    const v = await stSylLoad(k, false);
+    v.items.push({id:uid(), t:'', d:'', src:'dad', used:''});
+    await stSylSave(k); stSylRender();
+  };
   const gb = g('stGenBtn');
   if(gb) gb.onclick = function(){
-    const sel = g('stGenN'), tp = g('stGenTopic'), nt = g('stGenNote');
+    const sel = g('stGenN'), tp = g('stGenTopic'), nt = g('stGenNote'), us = g('stUseSyl');
     storyGen(parseInt(sel && sel.value, 10) || 1,
              (tp && tp.value) || '',
-             (nt && nt.value) || '');
+             (nt && nt.value) || '',
+             !!(us && us.checked));
   };
   const ad = g('stAdminDone');
   if(ad) ad.onclick = function(){ hide('storyAdmin'); };
