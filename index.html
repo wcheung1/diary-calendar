@@ -989,6 +989,30 @@ body.readonly #hubStoryAdmin{display:none!important}
 .stBar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 0}
 .stBar .chatCopyBtn{font-size:16px;padding:11px 20px;border-radius:11px}
 .stWhenTop{font-size:12.5px;color:var(--muted);margin:2px 0 0}
+/* 💬 一齊傾吓呢個故事 */
+#stTalk{margin:14px 0 0;border-top:1px dashed var(--line);padding-top:10px}
+#stTalk > summary{cursor:pointer;font-size:16px;font-weight:600;padding:6px 0;list-style:none}
+#stTalk > summary::-webkit-details-marker{display:none}
+#stTalk > summary::before{content:"▸ ";color:var(--accent)}
+#stTalk[open] > summary::before{content:"▾ "}
+.stTalkOps{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0}
+.stTalkOps button{border:1px solid var(--line);background:var(--card);color:inherit;
+  border-radius:11px;padding:10px 15px;font-size:15px;cursor:pointer;min-height:44px}
+.stTalkOps button:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.stTalkOps button:disabled{opacity:.4;cursor:default}
+#stTalkHist{display:flex;flex-direction:column;gap:10px;margin:8px 0;
+  max-height:40vh;overflow:auto}
+.stB{border-radius:12px;padding:11px 13px;line-height:1.85;font-size:17px;white-space:pre-wrap}
+.stB.me{background:var(--hover);border:1px solid var(--line);align-self:flex-end;
+  max-width:85%;font-size:16px}
+.stB.ai{border:1px solid var(--line);border-left:4px solid var(--accent)}
+.stB.bad{border-color:var(--overdue);color:var(--overdue);font-size:14.5px}
+.stBTop{display:flex;gap:8px;align-items:flex-start}
+.stBTop .stBTxt{flex:1;min-width:0}
+.stTalkIn{display:flex;gap:7px;flex-wrap:wrap;align-items:flex-end;margin-top:8px}
+#stTalkInput{flex:1 1 220px;min-width:0;min-height:46px;font-size:16px;line-height:1.6;
+  padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:var(--card);
+  color:inherit;resize:vertical}
 /* 爹哋嗰版 */
 .stCard{border:1px solid var(--line);border-radius:10px;padding:10px 11px;margin:0 0 10px}
 .stCard.draft{border-left:5px solid var(--q-amber)}
@@ -1283,6 +1307,18 @@ body.hubOpen{overflow:hidden}
   <p class="stWhenTop" id="stWhen"></p>
   <div class="stBar" id="stBar"></div>
   <div id="stText"></div>
+  <details id="stTalk">
+    <summary>💬 一齊傾吓呢個故事</summary>
+    <div class="stTalkOps">
+      <button type="button" id="stAsk">🙋 出啲問題我試吓</button>
+      <button type="button" id="stTalkDunno">唔識喎，話我知答案</button>
+    </div>
+    <div id="stTalkHist"></div>
+    <div class="stTalkIn">
+      <textarea id="stTalkInput" placeholder="我有嘢想問…"></textarea>
+      <button type="button" id="stTalkSend" class="btn primary">講</button>
+    </div>
+  </details>
   <div class="modalActs"><span style="flex:1"></span><button class="btn primary" id="stClose">聽完喇</button></div>
 </div></div>
 <!-- 📖 聽故事：爹哋審核嗰版。訪客模式 CSS 收埋 ＋ storyAdminOpen 再擋一次。 -->
@@ -1858,7 +1894,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-28b";
+const BUILD = "2026-08-28d";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -7835,6 +7871,26 @@ function ctxText(){
      唔好搞到成段「最近嘅對話同糾正」變空白。 */
   /* 主人對話（owner-chat）剔走：入面可能有 API key、屋企私事、大人之間嘅事，
      唔應該餵返做 context——訪客模式之下呢段 context 係俾 Charlotte 嗰個 AI 讀嘅。 */
+  /* 📖 聽故事：報返有邊幾篇，但**一個字內容都唔畀**。
+     點解要報：唔報嘅話佢喺傾偈度問「今日有咩故事」，個 AI 唔知有呢樣嘢存在，
+     就會靠估，甚至作一篇出嚟氹佢——直接撞北極星第二條。
+     報咗篇名，佢就有嘢可以指返轉頭：叫佢去學習角撳返嗰篇。
+     兩邊唔互通內容係預咗嘅，但要做得到互相 referral，唔好夾硬作。 */
+  let _stL = '（暫時攞唔到）';
+  try{
+    const _sp = stPublic().slice(0, 3);
+    _stL = _sp.length
+      ? _sp.map(function(s){
+          const _d = new Date(s.outAt || s.at || '');
+          return '- 《' + (s.title || '') + '》' +
+                 (isNaN(_d.getTime()) ? '' : '（' + fmtDate(_d) + ' 擺出）');
+        }).join('\n')
+      : '（爹哋暫時一篇都未擺出嚟）';
+  }catch(e){}
+  L.push('\n【📖 聽故事——你淨係知道有邊幾篇，篇入面寫乜、佢喺嗰邊同 AI 傾過乜，你一個字都睇唔到】\n'
+    + _stL
+    + '\n佢問起故事嘅內容或者佢喺嗰邊傾過嘅嘢：照直講你睇唔到，叫佢去「📚 學習角」撳「📖 聽故事」喺嗰度問返。唔准靠估，唔准作。');
+
   /* 📖 聽故事嘅記錄一樣要剔走，但理由同 owner-chat 唔同：
      佢唔係私隱問題，係「呢啲唔係佢哋屋企嘅習慣」。餵返入去嘅話，
      最近 14 條好易俾「聽咗一篇故事」佔晒，真正嘅糾正記錄反而擠咗出去。
@@ -11868,6 +11924,7 @@ async function storyOpen(id){
   const B = document.getElementById('stBar');
   const X = document.getElementById('stText');
   if(!T || !X) return;
+  stTalkClear(rec, '');          /* 未攞到正文之前，唔准俾佢傾上一篇嘅嘢 */
   T.textContent = rec.title || '📖 聽故事';
   if(W) W.textContent = stWhenTxt(rec);
   if(B) B.innerHTML = '';
@@ -11901,6 +11958,7 @@ async function storyOpen(id){
     B.appendChild(mkAA('stAAup', 'A＋', 1));
   }
   stApplyFont();
+  stTalkClear(rec, text);        /* 換咗一篇＝由頭傾過，唔好撈埋上一篇 */
   stMarkHeard(id);
   storyBanner();
   logPush('story', rec.title || '（冇標題）', {kind:'open', sid:id, topic:rec.topic||''});
@@ -11914,7 +11972,176 @@ function storyCloseRead(){
                          {kind:'read', sid:stCur.id, sec:sec});
   }
   stCur = null;
+  stTalkClear(null, '');
   hide('storyModal');
+}
+
+
+/* ---------- 💬 一齊傾吓呢個故事 ----------
+   爹哋定咗嘅界線：**可以講個答案夾唔夾，但要用成長型思維同正向教育**。
+   （前一版係「完全唔准判對錯」，佢覆核咗，話咁樣個 AI 太難做，
+     而且達唔到教育目的。呢一版跟返佢個決定。）
+
+   落到 prompt 度唔可以寫「請用成長型思維」——同「六十至一百八十字」一樣，
+   模型會逐字覆述然後照樣做唔到。所以拆成數得到、睇得到嘅動作：
+     · 評個答案，唔准評個人（第 3 步嗰句「呢個位仲未夾到」）
+     · 一張講能力嘅禁詞表（叻／聰明／蠢／差／冇天分）
+     · 認可要指住一個睇得到嘅動作，唔准講佢係一個點樣嘅人
+     · 估錯當資料唔當失敗，而且明文禁「唔緊要啦」——安慰唔係教嘢
+     · 同一轉入面唔夾嗰個位只准講一次
+
+   兩條保留落嚟嘅：【追問最多一轉】同【唔識答就直接講】。
+   冇追問上限嘅話，一個好有耐性嘅 AI 會追住佢問到佢講中為止；
+   對一個「用嚟安心嘅動作會製造新擔心」嘅細路嚟講（HANDOVER 第十節），
+   「我答完仲有得答」＝「我一直都未答啱」。
+
+   用返 PERSONA_KID（唔行 personaBlock()：呢個場合永遠係對住細路，
+   就算爹哋自己撳入嚟試都應該見到同一個語氣）。 */
+const SYS_STORY_TALK = [
+'【今次呢個場合】',
+'你同佢一齊睇緊一篇故事。上面份人格設定全部照計，以下係今次多出嚟嘅嘢。',
+'',
+'【今次冇嘅嘢】',
+'· 冇相機、冇行事曆、冇功課、冇時間表。唔准輸出任何用方括號包住嘅標記。',
+'· 你睇唔到佢，亦都唔知佢今日做過乜。唔准扮知。',
+'· 你手上得篇故事。故事度冇寫嘅嘢，你就話你唔知，唔准靠估。',
+'· 佢喺傾偈嗰邊同 AI 講過乜，你一個字都睇唔到。佢問起就照直講你唔知道，叫佢返去傾偈嗰邊問。唔准作。',
+'',
+'【點樣講一個唔夾嘅答案】',
+'呢度嘅目標係幫佢諗多一步，唔係考起佢。你可以講佢個答案同故事夾唔夾，',
+'但要跟足以下四步，次序唔准調亂：',
+'1. 先講返佢啱啱做咗嘅一個具體動作，唔好講佢個人。',
+'   例：你返咗去故事度搵證據。唔好講：你好叻。',
+'2. 講返佢個答案入面，邊一部分係故事真係有嘅。',
+'3. 然後講出唔夾嗰個位，講埋係第幾段。用「呢個位仲未夾到」呢種講法。',
+'   評個答案，唔准評個人。唔好用「你錯咗」「你唔係咁樣㗎」。',
+'4. 問多一句，帶佢返去嗰一段自己再睇一次。',
+'',
+'【講能力嘅字一律唔准用】',
+'· 唔准用：叻、聰明、醒目、蠢、笨、差、冇天分、唔夠料。',
+'· 呢啲字講嘅係佢係一個點樣嘅人。你要講嘅係佢啱啱做咗啲乜。',
+'· 想認可佢就認可一個睇得到嘅動作：你留意到第二段講過…／你將兩件事駁埋一齊…',
+'',
+'【估錯係資料，唔係失敗】',
+'· 佢估錯嗰陣，當佢做咗一件有用嘅事——因為佢而家知道要返去睇邊一段。',
+'· 可以照直講：估錯先知要返去睇邊度，呢個係好正常嘅做法。',
+'· 唔准講「唔緊要啦」「冇所謂」。嗰啲係安慰唔係教嘢，而且暗示咗佢頭先做咗件唔好嘅事。',
+'· 同一轉入面，唔夾嗰個位講一次就夠，唔准講兩次。',
+'',
+'【追問最多一轉】',
+'· 同一條問題追問過一次，佢仲係去唔到，就直接講你嘅諗法，講埋你喺第幾段見到。',
+'· 講完就收，轉去第二樣。追到第三次，你就由幫佢諗變成一路追住佢，',
+'  佢會覺得自己一直都未答到。',
+'',
+'【佢話唔識答嗰陣】',
+'· 即刻直接講答案。唔准反問你估吓呢，唔准講你試吓先，唔准講慢慢諗。',
+'· 講完加一句好平常嘅，例如：呢條我都要返去睇多次先諗到。',
+'',
+'【佢叫你出問題嗰陣】',
+'· 一次出三條，一條一行，由淺到深：',
+'  第一條：答案直接喺故事度搵得返。',
+'  第二條：要將故事入面兩件事駁埋一齊先答到。',
+'  第三條：故事冇寫，要佢自己諗。',
+'· 第三條唔可以有標準答案，所以第三條根本唔存在答錯。',
+'· 每條一句，唔好超過二十五個字。出完問題就停，唔好順手自問自答。',
+''
+].join('\n');
+
+let stTalkMsgs = [], stTalkBusy = false, stTalkSid = '', stTalkText = '';
+
+function stTalkClear(rec, text){
+  stTalkMsgs = []; stTalkSid = (rec && rec.id) || ''; stTalkText = text || '';
+  const h = document.getElementById('stTalkHist');
+  if(h) h.innerHTML = '';
+  const d = document.getElementById('stTalk');
+  if(d) d.open = false;
+  const i = document.getElementById('stTalkInput');
+  if(i) i.value = '';
+}
+function stTalkBubble(who, txt, withTTS){
+  const h = document.getElementById('stTalkHist');
+  if(!h) return null;
+  const b = document.createElement('div');
+  b.className = 'stB ' + who;
+  if(who === 'ai' && withTTS){
+    const row = document.createElement('div');
+    row.className = 'stBTop';
+    const tx = document.createElement('div');
+    tx.className = 'stBTxt'; tx.textContent = txt;
+    row.appendChild(tx);
+    /* 佢主要係聽，唔係睇。每句都要有得讀，而且照樣撳字跳位。 */
+    row.appendChild(makeTTSBtn(function(){ return txt; }, '🔊', tx));
+    b.appendChild(row);
+  }else{
+    b.textContent = txt;
+  }
+  h.appendChild(b);
+  try{ h.scrollTop = h.scrollHeight; }catch(e){}
+  return b;
+}
+function stTalkBusySet(v){
+  stTalkBusy = v;
+  ['stAsk','stTalkDunno','stTalkSend'].forEach(function(id){
+    const e = document.getElementById(id);
+    if(e) e.disabled = v;
+  });
+}
+async function stTalkSay(sendText, showText){
+  if(stTalkBusy || !stTalkText) return;
+  const d = document.getElementById('stTalk');
+  if(d) d.open = true;
+  stTalkBusySet(true);
+  stTalkBubble('me', showText || sendText, false);
+  const h = document.getElementById('stTalkHist');
+  const box = document.createElement('div');
+  box.className = 'stB ai';
+  if(h){ h.appendChild(box); try{ h.scrollTop = h.scrollHeight; }catch(e){} }
+  const view = makeStreamView(box, true);          /* 訪客款：一條走馬燈，唔會嚇親佢 */
+  stTalkMsgs.push({role:'user', content:sendText});
+  /* 只留最近幾轉：篇故事本身已經喺 system 度，舊對話留耐咗淨係會谷大 token */
+  if(stTalkMsgs.length > 12) stTalkMsgs = stTalkMsgs.slice(-12);
+  const rec = (StoryCloud.idx || {})[stTalkSid] || {};
+  try{
+    const reply = await callAI([
+      {role:'system', content: PERSONA_KID + '\n\n' + SYS_STORY_TALK +
+        '\n\n【今次一齊睇緊嘅故事】\n標題：' + (rec.title || '') + '\n\n' + stTalkText}
+    ].concat(stTalkMsgs), {json:false, temp:0.6,
+      max:(cfg().maxTok || CHAT_MAX_DEFAULT), onDelta:view});
+    const clean = (typeof window.kidClean === 'function') ? window.kidClean(reply) : reply;
+    if(!String(clean || '').trim()) throw new Error('佢覆咗等於冇覆。');
+    stTalkMsgs.push({role:'assistant', content:clean});
+    if(h) h.removeChild(box);
+    stTalkBubble('ai', clean, true);
+    /* ⚠ 一條都唔准漏網。呢條記錄要同時做到三件事：
+       ① Data Log 個 tab 睇得到　② 「👧 匯出訪客對話」倒得返出嚟
+       ③ 但**唔准**餵返個 AI（ctxText／genRules 兩處靠 type==='story' 剔走）
+
+       所以：type 用 story（負責 ②以外嘅隔離），guest 用 true
+       （guestChatsInRange() 認人係認 x.guest，唔係認 type——
+        唔加呢個欄位，呢啲對話就會靜靜雞唔喺匯出入面出現，
+        而你要好耐之後先發現）。
+       q／a 擺全文：條 text 剪到 500 字係為咗 Data Log 個 tab 睇得舒服，
+       但匯出俾人分析嗰陣剪咗就係斷尾。同傾偈嗰邊一模一樣嘅做法。 */
+    const _ent = logPush('story',
+      '📖 聽故事對話（' + (rec.title || '') + '）：\n我：' + (showText || sendText) +
+      '\n\nAI：' + short(clean, 500),
+      {kind:'talk', guest:true, sid:stTalkSid, story:(rec.title || ''),
+       q:(showText || sendText), a:clean,
+       brief:'(聽故事傾偈) ' + short(showText || sendText, 200)});
+    try{ save(); }catch(e){}
+    /* 推理過程照傾偈嗰邊嘅做法掟入 IndexedDB：唔入 state，但匯出攞得返。
+       份 HANDOVER 講到明「推理一定要睇」——refine persona 嗰陣就係靠佢。 */
+    if(AI_LAST_REASON && _ent && _ent.id){
+      try{ saveThink({id:_ent.id, at:_ent.at, model:(cfg().model || ''),
+                      q:(showText || sendText), reason:AI_LAST_REASON}); }catch(e){}
+    }
+  }catch(err){
+    if(h) h.removeChild(box);
+    const b = stTalkBubble('ai', '⚠ 而家問唔到。撳返粒掣再試一次。\n（' +
+                           short(String((err && err.message) || err), 90) + '）', false);
+    if(b) b.className = 'stB ai bad';
+  }
+  stTalkBusySet(false);
 }
 
 /* ================= 橫額 ================= */
@@ -12193,6 +12420,7 @@ function storyAdminOpen(){
 
 /* ---------- 對外（學習角個 IIFE、頂層 Esc、auth 開機都要用） ---------- */
 Object.assign(window, {
+  storyTalkSay: stTalkSay,
   storyRenderKid: storyRenderKid,
   storyAdminOpen: storyAdminOpen,
   storyCloseRead: storyCloseRead,
@@ -12223,6 +12451,26 @@ Object.assign(window, {
   };
   const ad = g('stAdminDone');
   if(ad) ad.onclick = function(){ hide('storyAdmin'); };
+  const ask = g('stAsk');
+  if(ask) ask.onclick = function(){
+    stTalkSay('出三條問題俾我試吓。', '🙋 出啲問題我試吓');
+  };
+  const dun = g('stTalkDunno');
+  if(dun) dun.onclick = function(){
+    stTalkSay('我唔識答，話我知答案啦。', '唔識喎，話我知答案');
+  };
+  const snd = g('stTalkSend'), inp = g('stTalkInput');
+  const go = function(){
+    const v = String(inp && inp.value || '').trim();
+    if(!v) return;
+    inp.value = '';
+    stTalkSay(v);
+  };
+  if(snd) snd.onclick = go;
+  if(inp) inp.addEventListener('keydown', function(e){
+    /* Enter 送出、Shift+Enter 換行。同傾偈嗰邊一致。 */
+    if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); go(); }
+  });
   const bn = g('stBanner');
   if(bn) bn.onclick = function(){
     const id = bn.dataset.sid;
@@ -14426,7 +14674,11 @@ function guestChatsInRange(fromD, toD, who){
       if(i >= 0){ q = t.slice(0, i).replace(/^我：/,''); a = t.slice(i + 4); }
       else { q = t; }
     }
-    out.push({id:x.id, at:x.at, date:d, q:q.trim(), a:a.trim()});
+    /* 聽故事嗰邊嘅對話一樣要匯出（唔可以有漏網），但要認得出係邊度嚟。
+       淨係喺標題度加，唔郁佢原本問嗰句——嗰句係俾人分析佢點問嘢嘅。 */
+    const _st = x.story || (x.meta||{}).story;
+    out.push({id:x.id, at:x.at, date:d, story:_st || '',
+              q:(_st ? '【📖 聽故事：' + _st + '】\n' : '') + q.trim(), a:a.trim()});
   }
   out.sort((p,q2)=> String(p.at).localeCompare(String(q2.at)));
   return out;
