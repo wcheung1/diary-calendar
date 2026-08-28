@@ -1010,6 +1010,7 @@ body.readonly #hubStoryAdmin{display:none!important}
 .stBTop{display:flex;gap:8px;align-items:flex-start}
 .stBTop .stBTxt{flex:1;min-width:0}
 .stTalkIn{display:flex;gap:7px;flex-wrap:wrap;align-items:flex-end;margin-top:8px}
+.stStop{border:1px solid var(--overdue)!important;color:var(--overdue)!important}
 #stTalkInput{flex:1 1 220px;min-width:0;min-height:46px;font-size:16px;line-height:1.6;
   padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:var(--card);
   color:inherit;resize:vertical}
@@ -1037,11 +1038,32 @@ body.readonly #hubStoryAdmin{display:none!important}
 #stThink > div + div{margin-top:6px}
 .stProg{font-size:12.5px;color:var(--muted);margin:6px 0 10px;white-space:pre-wrap;line-height:1.65}
 /* 時間表頂嗰條橫額。淨係喺有「已經放出、但佢未聽過」嗰篇先出——
-   成日掛住就會變咗佈景板，同冇一樣（北極星 7）。 */
-#stBanner{display:none;align-items:center;gap:9px;margin:0;padding:10px 14px;
-  border-bottom:1px solid var(--line);background:var(--hover);cursor:pointer;font-size:14.5px}
+   成日掛住就會變咗佈景板，同冇一樣（北極星 7）。
+   ⚠ 第一版用 var(--hover) 做底，同成版嘢一個色，佢完全冇為意。
+     而家用實色底 ＋ 白字 ＋ 大字 ＋ 左邊一條粗黃邊，仲有一下好慢嘅呼吸。
+     慢係故意嘅：閃得快係廣告，佢會學識當佢透明。 */
+#stBanner{display:none;align-items:center;gap:10px;margin:0;padding:13px 14px;
+  border:0;border-left:7px solid #ffd43b;background:var(--accent);color:#fff;
+  cursor:pointer;font-size:17px;font-weight:700;
+  box-shadow:0 2px 10px rgba(0,0,0,.14);animation:stBreathe 3.2s ease-in-out infinite}
 #stBanner.show{display:flex}
-#stBanner .stbT{flex:1;min-width:0;font-weight:600}
+#stBanner:active{filter:brightness(.94)}
+#stBanner .stbT{flex:1;min-width:0}
+#stBanner .stbGo{flex:0 0 auto;font-size:20px;opacity:.9}
+/* 條橫額入面粒小喇叭：要同成條橫額分得開，撳佢唔應該開埋個故事。 */
+#stBanner .stbSpk{flex:0 0 auto;border:1.5px solid rgba(255,255,255,.75);
+  background:rgba(255,255,255,.18);color:#fff;border-radius:11px;
+  width:46px;height:46px;font-size:21px;line-height:1;padding:0;cursor:pointer}
+#stBanner .stbSpk:active{background:rgba(255,255,255,.34)}
+@keyframes stBreathe{
+  0%,100%{box-shadow:0 2px 10px rgba(0,0,0,.14)}
+  50%    {box-shadow:0 2px 18px 3px rgba(255,212,59,.55)}
+}
+/* 有人揀咗唔要動畫（iOS「減少動態效果」）就唔好郁——
+   佢個設定行先，我哋條橫額冇咁緊要。 */
+@media (prefers-reduced-motion: reduce){
+  #stBanner{animation:none}
+}
 /* ===== 📚 學習角：睇緊嘢嗰個框 =====
    蓋晒成塊 iPad。點解唔用普通 .overlay：嗰啲係中間一個細窗，
    而佢要睇嘅係 Three.js 場景，愈大愈好。 */
@@ -1183,7 +1205,8 @@ body.hubOpen{overflow:hidden}
 </div>
 <div id="stBanner" role="button" tabindex="0">
   <span class="stbT">📖 爹哋擺咗一個新故事俾你</span>
-  <span aria-hidden="true">›</span>
+  <button type="button" class="stbSpk" id="stBannerSpk" aria-label="讀出呢句">🔊</button>
+  <span class="stbGo" aria-hidden="true">›</span>
 </div>
 
 <div id="main">
@@ -1312,6 +1335,7 @@ body.hubOpen{overflow:hidden}
     <div class="stTalkOps">
       <button type="button" id="stAsk">🙋 出啲問題我試吓</button>
       <button type="button" id="stTalkDunno">唔識喎，話我知答案</button>
+      <button type="button" id="stTalkStop" class="stStop" style="display:none">⏹ 停</button>
     </div>
     <div id="stTalkHist"></div>
     <div class="stTalkIn">
@@ -1686,8 +1710,9 @@ body.hubOpen{overflow:hidden}
         <button class="btn" id="chatCam" title="即場影相（只用後置鏡頭）">📷</button>
         <input type="file" id="chatPicFile" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/gif,image/bmp" multiple style="display:none">
         <input type="file" id="chatCamFile" accept="image/*" capture="environment" style="display:none">
-        <textarea id="chatInput" placeholder="喺度打你想傾嘅嘢…（Enter 送出，Shift+Enter 換行）"></textarea>
+        <textarea id="chatInput" placeholder="喺度打你想傾嘅嘢…"></textarea>
         <button class="btn primary" id="chatSend">↵ 送出</button>
+        <button class="btn danger" id="chatStop" style="display:none" title="唔等佢覆，即刻停">⏹ 停</button>
       </div>
       <div class="imgStickBar" id="imgStickBar" style="display:none"></div>
       <div class="chatImgs" id="chatImgs"></div>
@@ -1894,7 +1919,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-28d";
+const BUILD = "2026-08-28e";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -3699,6 +3724,13 @@ function renderDay(){
     const spk=document.createElement('button');
     spk.type='button';
     spk.className='evSpk'; spk.textContent='🔊';
+    /* 本來淨係讀個標題。對一個未睇得穩鐘嘅細路嚟講，「游水」同
+       「下午3點半，游水」係兩件事——後者先答到佢真正想問嗰條。 */
+    const _sayEv = function(){
+      let s = '';
+      try{ s = sayHHMM(ev.start.slice(11)) + '，'; }catch(_e){}
+      return s + ev.title;
+    };
     spk.setAttribute('aria-label','讀出：'+ev.title);
     spk.title='讀出「'+ev.title+'」（再撳一次＝停）';
     /* 觸控機上面淨靠 click 唔穩陣：手指郁少少就會判咗做 scroll 或者撳咗成行。
@@ -3709,7 +3741,7 @@ function renderDay(){
       if(t - spkFired < 400) return;          /* touchend 之後個 click 唔好再行多次 */
       spkFired = t;
       e.stopPropagation(); e.preventDefault();
-      if(typeof window.ttsSpeak==='function') window.ttsSpeak(ev.title, spk);
+      if(typeof window.ttsSpeak==='function') window.ttsSpeak(_sayEv(), spk);
       else console.warn('ttsSpeak 未載入');
     };
     spk.addEventListener('touchend', doSpeak, {passive:false});
@@ -3984,6 +4016,47 @@ function renderYear(){
   calArea.innerHTML=''; calArea.appendChild(grid);
 }
 
+/* ---------- Enter 送唔送出 ----------
+   出過嘅事：Charlotte 喺 iPad 用 Typeless（語音／聽寫鍵盤）打字，
+   㩒個「換行」掣想褪落下一行繼續講，句嘢即刻飛咗出去，
+   而且跟住成分鐘停唔到，剩返嗰半句要等 AI 覆完先講得。
+
+   三個成因夾埋：
+   ① iPad 個軟鍵盤㩒 return ＝ 一個正正常常嘅 Enter keydown；
+   ② 觸控機根本冇 Shift 掣㩒得就手，即係「Shift+Enter 換行」呢條出路等於冇；
+   ③ 聽寫／中文輸入法中途嗰個 Enter 係「確認候選字」，唔係「我講完喇」。
+
+   所以：③ 一律唔送（isComposing／keyCode 229），
+   ② 觸控機一律當換行，佢用粒睇得見嘅「送出」掣，
+   ① 有實體鍵盤（pointer: fine）先保留 Enter 送出，唔想改咗大人嘅習慣。
+   Ctrl／⌘+Enter 兩邊都送得，接咗實體鍵盤嘅 iPad 都有得用。 */
+/* 「15:30」→「下午3點半」。本來收埋喺 kidNowSayTxt() 入面，
+   而家行事曆每一行嗰粒 🔊 都要用，所以抽咗出嚟。兩邊讀法一定要一樣：
+   個鐘讀「下午3點半」，行事曆讀「15:30」，對佢嚟講就係兩件事。 */
+function sayHHMM(hhmm){
+  const h = parseInt(String(hhmm).slice(0,2),10) || 0;
+  const m = parseInt(String(hhmm).slice(3,5),10) || 0;
+  return (h >= 12 ? '下午' : '早上') + ((h % 12) || 12) + '點' +
+         (m === 0 ? '正' : (m === 30 ? '半' : m + '分'));
+}
+function hasFinePointer(){
+  try{ return !!(window.matchMedia && window.matchMedia('(pointer: fine)').matches); }
+  catch(e){ return true; }
+}
+function enterSends(e){
+  if(!e || e.key !== 'Enter') return false;
+  if(e.isComposing || e.keyCode === 229) return false;   /* 打緊中文／聽寫緊 */
+  if(e.ctrlKey || e.metaKey) return true;                /* ⌘／Ctrl+Enter 永遠送 */
+  if(e.shiftKey || e.altKey) return false;
+  return hasFinePointer();
+}
+/* 提示語要講返部機真係做緊乜，唔好一律寫「Shift+Enter 換行」——
+   佢部 iPad 上面嗰句係假嘅。 */
+function enterHint(what){
+  return hasFinePointer()
+    ? '（Enter ' + what + '，Shift+Enter 換行）'
+    : '（㩒「換行」係換行；講完撳粒「' + what + '」掣）';
+}
 function show(id){ document.getElementById(id).classList.add('show'); }
 function hide(id){ document.getElementById(id).classList.remove('show'); }
 function bindColorPick(elId){
@@ -4516,11 +4589,7 @@ function kidNowSayTxt(d){
     if(st <= cur && cur < en) now = ev;
     if(st > cur && (!nxt || st < nxt.start.slice(11))) nxt = ev;
   }
-  const say12 = function(hhmm){
-    const h = parseInt(hhmm.slice(0,2),10) || 0, m = parseInt(hhmm.slice(3,5),10) || 0;
-    return (h >= 12 ? '下午' : '早上') + ((h % 12) || 12) + '點' +
-           (m === 0 ? '正' : (m === 30 ? '半' : m + '分'));
-  };
+  const say12 = sayHHMM;          /* 抽咗去頂層，行事曆嗰粒喇叭都用同一套讀法 */
   const bits = ['而家係' + say12(cur) + '。'];
   bits.push(now ? ('你嘅時間表寫住：' + now.title + '。') : '你嘅時間表而家冇特別安排。');
   if(nxt){
@@ -8479,7 +8548,7 @@ document.addEventListener('keydown', e=>{
 
 /* Enter 送出（打中文時唔會誤送） */
 $('aiInput').addEventListener('keydown', e=>{
-  if(e.key==='Enter' && !e.shiftKey && !e.isComposing && !e.ctrlKey && !e.metaKey){
+  if(enterSends(e)){
     e.preventDefault(); doSend();
   }
 });
@@ -11883,7 +11952,11 @@ function storyRenderKid(box){
   w.textContent = stWhenTxt(top);
   t.appendChild(w);
   card.appendChild(t);
-  card.appendChild(stSpkBtn(function(){ return top.title || ''; }, top.title || '故事'));
+  /* 讀埋「爹哋幾時擺嘅」：張卡上面本來就寫住，但嗰行字細過標題好多，
+     佢多數只會聽個標題就撳入去。 */
+  card.appendChild(stSpkBtn(function(){
+    return (top.title || '') + '。' + stWhenTxt(top);
+  }, top.title || '故事'));
   card.onclick = function(){ storyOpen(top.id); };
   sec.appendChild(card);
 
@@ -12085,6 +12158,9 @@ function stTalkBusySet(v){
     const e = document.getElementById(id);
     if(e) e.disabled = v;
   });
+  /* 冇呢粒掣，佢一講咗出去就要坐喺度等成分鐘，想補多句都補唔到 */
+  const s = document.getElementById('stTalkStop');
+  if(s){ s.style.display = v ? '' : 'none'; if(v) s.disabled = false; }
 }
 async function stTalkSay(sendText, showText){
   if(stTalkBusy || !stTalkText) return;
@@ -12137,9 +12213,17 @@ async function stTalkSay(sendText, showText){
     }
   }catch(err){
     if(h) h.removeChild(box);
-    const b = stTalkBubble('ai', '⚠ 而家問唔到。撳返粒掣再試一次。\n（' +
-                           short(String((err && err.message) || err), 90) + '）', false);
-    if(b) b.className = 'stB ai bad';
+    /* 佢自己撳停，唔係出錯，唔好嚇佢。同時要將啱啱嗰句由 history 度剝返走，
+       唔係下次再問嗰陣會多咗一句冇人覆過嘅 user turn。 */
+    if(err && err.aborted){
+      stTalkMsgs.pop();
+      const b = stTalkBubble('ai', '好，停咗喇。你慢慢講。', false);
+      if(b) b.className = 'stB ai';
+    }else{
+      const b = stTalkBubble('ai', '⚠ 而家問唔到。撳返粒掣再試一次。\n（' +
+                             short(String((err && err.message) || err), 90) + '）', false);
+      if(b) b.className = 'stB ai bad';
+    }
   }
   stTalkBusySet(false);
 }
@@ -12459,6 +12543,12 @@ Object.assign(window, {
   if(dun) dun.onclick = function(){
     stTalkSay('我唔識答，話我知答案啦。', '唔識喎，話我知答案');
   };
+  const stp = g('stTalkStop');
+  if(stp) stp.onclick = function(){
+    stp.disabled = true;
+    try{ aiCancel(); }catch(e){}
+    try{ ttsStop(); }catch(e){}
+  };
   const snd = g('stTalkSend'), inp = g('stTalkInput');
   const go = function(){
     const v = String(inp && inp.value || '').trim();
@@ -12468,14 +12558,29 @@ Object.assign(window, {
   };
   if(snd) snd.onclick = go;
   if(inp) inp.addEventListener('keydown', function(e){
-    /* Enter 送出、Shift+Enter 換行。同傾偈嗰邊一致。 */
-    if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); go(); }
+    /* 送唔送出交返俾 enterSends()：佢部 iPad 上面「換行」就真係換行。 */
+    if(enterSends(e)){ e.preventDefault(); go(); }
   });
   const bn = g('stBanner');
   if(bn) bn.onclick = function(){
     const id = bn.dataset.sid;
     if(id) storyOpen(id);
   };
+  /* 粒喇叭要食咗個 click，唔係讀完順手開埋個故事，佢就唔知發生咗咩事。
+     觸控機照學習角嗰套：touchend 處理 ＋ 擋走跟住嗰個合成 click。 */
+  const bsp = g('stBannerSpk');
+  if(bsp){
+    let at = 0;
+    const say = function(e){
+      const t = Date.now(); if(t - at < 400) return; at = t;
+      e.stopPropagation(); e.preventDefault();
+      const el = document.getElementById('stBanner');
+      const tx = el && el.querySelector('.stbT');
+      if(tx && typeof window.ttsSpeak === 'function') window.ttsSpeak(tx.textContent, bsp);
+    };
+    bsp.addEventListener('touchend', say, {passive:false});
+    bsp.addEventListener('click', say);
+  }
 })();
 
 /* ---------- state.todo ----------
@@ -14201,6 +14306,9 @@ async function chatSend(presetText){
   chatHist.scrollTop = chatHist.scrollHeight;
   chatBusy = true;
   $('chatSend').disabled = true;
+  /* 送咗出去唔應該就困住。aiCancel() 一 abort，callAI 就會掟一個
+     aborted:true 出嚟，chatError() 照樣收得住，佢打剩嗰半句即刻講得返。 */
+  try{ const _s = $('chatStop'); if(_s){ _s.style.display = ''; _s.disabled = false; } }catch(e){}
   $('chatHint').textContent = '';
   /* ⚠ 呢四個一定要喺 try 外面宣告。
      用 let／const 喺 try{} 入面宣告，係 block-scoped，catch{} 完全攞唔到。
@@ -14488,16 +14596,30 @@ async function chatSend(presetText){
   }finally{
     chatBusy = false;
     $('chatSend').disabled = false;
+    try{ const _s = $('chatStop'); if(_s) _s.style.display = 'none'; }catch(e){}
   }
 }
 
 /* Enter 送出 */
 chatInput.addEventListener('keydown', e=>{
-  if(e.key==='Enter' && !e.shiftKey && !e.isComposing && !e.ctrlKey && !e.metaKey){
+  if(enterSends(e)){
     e.preventDefault(); chatSend();
   }
 });
+/* 部機唔同，句提示就要唔同。iPad 上面寫住「Shift+Enter 換行」係講緊大話。 */
+try{
+  $('chatInput').placeholder = '喺度打你想傾嘅嘢…' + enterHint('送出');
+  $('aiInput').placeholder = String($('aiInput').placeholder || '')
+    .replace('打完撳 Enter 送出，想換行就 Shift + Enter。', '打完撳「▶ 交俾 AI 排」' + enterHint('送出'));
+}catch(e){}
 $('chatSend').onclick = ()=>chatSend();
+try{
+  $('chatStop').onclick = function(){
+    this.disabled = true;                 /* 撳咗即刻死火，唔好俾佢連撳 */
+    try{ aiCancel(); }catch(e){}
+    try{ ttsStop(); }catch(e){}           /* 自動讀開住嘅話，把聲都要停 */
+  };
+}catch(e){}
 
 /* 快速 template（一掣即講） */
 const CHAT_TPL_PARENT = [
@@ -16223,7 +16345,7 @@ function bindOnce(){
       ta.style.height = Math.min(ta.scrollHeight, 110) + 'px';
     });
     ta.addEventListener('keydown', function(e){
-      if(e.key === 'Enter' && !e.shiftKey && !e.isComposing){ e.preventDefault(); send(); }
+      if(enterSends(e)){ e.preventDefault(); send(); }
     });
   }
 }
