@@ -991,6 +991,8 @@ body.readonly #hubStoryAdmin{display:none!important}
 #stText .stP:last-child{margin-bottom:0}
 /* 跟讀：讀到邊句就螢光邊句。用句唔用字——
    一個字一個字跳會閃到眼花，一句一句反而睇得到自己去到邊。 */
+#stTitle .stS{border-radius:5px;padding:1px 3px}
+#stTitle .stS.on{background:#ffe600;color:#111;box-shadow:0 0 0 3px #ffe600}
 #stText .stS{border-radius:5px;padding:1px 0}
 /* ⚠ 第一版做錯咗兩樣：
    ① 用咗 #ffe8a3（淺啡黃）——同黑字撞埋，對比唔夠。改用鮮黃 #ffe600。
@@ -1415,6 +1417,18 @@ body.hubOpen{overflow:hidden}
       <button class="btn primary" type="button" id="lsNew">＋ 開一張新清單</button>
       <span class="stMeta" id="lsCnt"></span>
     </div>
+    <div class="lsBar">
+      <span class="stMeta">⬇ 匯出</span>
+      <input type="date" id="lsExFrom" title="由（空＝由最早）">
+      <input type="date" id="lsExTo" title="至（空＝到最新）">
+      <select id="lsExWho">
+        <option value="" selected>兩個人嘅</option>
+        <option value="dad">淨係爹哋開嘅</option>
+        <option value="kid">淨係 Charlotte 開嘅</option>
+      </select>
+      <button class="btn" type="button" id="lsExGo">匯出 .md</button>
+      <span class="stMeta" id="lsExMsg"></span>
+    </div>
     <div id="lsList"></div>
   </div>
   <div id="lsEdit" style="display:none">
@@ -1508,6 +1522,17 @@ body.hubOpen{overflow:hidden}
   <textarea id="stGenNote" placeholder="想篇故事有咩元素？（例如：講吓佢養緊嗰隻烏龜、用返練琴嚟做例子、今日佢喺學校試過乜）&#10;唔填就由 AI 喺個題目入面自由發揮。"></textarea>
   <div id="stThink"></div>
   <p class="stProg" id="stProg"></p>
+  <div class="stGenBar">
+    <span class="stLbl">⬇ 匯出故事</span>
+    <input type="date" id="stExFrom" title="由（空＝由最早）">
+    <input type="date" id="stExTo" title="至（空＝到最新）">
+    <select id="stExWhat">
+      <option value="out">淨係放咗出去嗰啲</option>
+      <option value="all" selected>全部（連待審同池入面）</option>
+    </select>
+    <button class="btn" type="button" id="stExGo">匯出 .md</button>
+    <span class="stMeta" id="stExMsg"></span>
+  </div>
   <div id="stAdminList"></div>
   <div class="modalActs"><span style="flex:1"></span><button class="btn primary" id="stAdminDone">完成</button></div>
 </div></div>
@@ -2061,7 +2086,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-28i";
+const BUILD = "2026-08-28j";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -12104,16 +12129,34 @@ function stCount(s){ return String(s||'').replace(/\s/g,'').length; }
      剝走空白之後兩邊就一定夾得返。 */
 let stSpans = [], stPlain = '', stBare = '', stHiOn = null;
 function stBareOf(s){ return String(s || '').replace(/\s+/g, ''); }
-function stRenderText(host, text){
+function stRenderText(host, text, title){
   host.innerHTML = '';
   stSpans = []; stHiOn = null;
   const paras = String(text || '').split(/\n+/).map(function(s){ return s.trim(); })
                                   .filter(Boolean);
-  /* 畫幾多就讀幾多：DOM 同餵俾 TTS 嗰段字一定要係同一份，
-     唔係 highlight 個位置會慢慢愈飄愈遠。 */
-  stPlain = paras.join('\n');
+  /* ⚠ 出過事：粒 🔊 讀嘅係「標題。＋ 正文」，但 stPlain 只有正文。
+     即係把聲行前咗成個標題咁多，而 highlight 由第一句開始計——
+     讀得愈耐愈飄，佢眼見嗰句同耳聽嗰句對唔上。
+     修法：將標題當成第一句一齊計，佢讀標題嗰陣就螢光個標題。
+     （個標題本來就喺畫面上面，螢光咗仲更加清楚由邊度開始。） */
+  const T = String(title || '').trim();
+  const head = T ? (T + '。') : '';
+  stPlain = head + (head ? '\n' : '') + paras.join('\n');
   stBare = stBareOf(stPlain);
   let off = 0, boff = 0;
+  if(T){
+    const tEl = document.getElementById('stTitle');
+    if(tEl){
+      tEl.innerHTML = '';
+      const ts = document.createElement('span');
+      ts.className = 'stS';
+      ts.textContent = T;
+      tEl.appendChild(ts);
+      stSpans.push({a:0, b:head.length, ba:0, bb:stBareOf(head).length, el:ts});
+    }
+    off = head.length + 1;                     /* 連埋後面嗰個 \n */
+    boff = stBareOf(head).length;
+  }
   paras.forEach(function(p, pi){
     const el = document.createElement('p');
     el.className = 'stP';
@@ -12402,7 +12445,7 @@ async function storyOpen(id){
   const X = document.getElementById('stText');
   if(!T || !X) return;
   stTalkClear(rec, '');          /* 未攞到正文之前，唔准俾佢傾上一篇嘅嘢 */
-  T.textContent = rec.title || '📖 聽故事';
+  T.textContent = rec.title || '📖 聽故事';   /* 渲染成功之後會俾 span 換走 */
   if(W) W.textContent = stWhenTxt(rec);
   if(B) B.innerHTML = '';
   X.textContent = '載入緊…';
@@ -12418,7 +12461,9 @@ async function storyOpen(id){
   }
   /* 一段一個號碼、一句一個 span。逐個 textContent 入去，
      唔用 innerHTML——段字入面有咩都好，一律當字睇。 */
-  const shown = stRenderText(X, text);
+  /* stRenderText 會順手將 #stTitle 入面嗰句包成一個 span，
+     所以下面唔可以再 textContent 覆蓋佢。 */
+  const shown = stRenderText(X, text, rec.title || '');
   /* 跟讀：呢個 callback 一路掛住，但只喺讀緊 #stText 嗰陣先做嘢。 */
   TTSV.prog = function(idx, plain){
     if(TTSV.srcEl && TTSV.srcEl !== X){ stHiClear(); return; }
@@ -12427,8 +12472,9 @@ async function storyOpen(id){
   /* 🔊 ＋ 撳邊隻字就由邊隻字讀起。第三個參數就係跳位嗰個元素。
      讀埋個標題落去——佢撳粒掣多數係想由頭聽，個標題本身就係第一句。 */
   if(B){
-    B.appendChild(makeTTSBtn(function(){ return (rec.title || '') + '。\n' + shown; },
-                             '🔊 聽', X));
+    /* ⚠ 一定要讀返 stRenderText() 砌出嚟嗰份（連標題），
+       唔可以喺呢度自己再拼一次——拼法差少少，highlight 就對唔返位。 */
+    B.appendChild(makeTTSBtn(function(){ return shown; }, '🔊 聽', X));
     const mkAA = function(id, lab, d){
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'stAA'; b.id = id; b.textContent = lab;
@@ -12950,6 +12996,61 @@ async function lsTick(rec, i, on, row){
   logPush('list', (on ? '剔咗' : '解返') + '《' + (rec.name||'') + '》：' + lsCurItems[i].t,
           {kind:'tick', lid:rec.id, guest:isGuestNow() || undefined});
 }
+async function lsExport(){
+  const from = (document.getElementById('lsExFrom') || {}).value || '';
+  const to   = (document.getElementById('lsExTo') || {}).value || '';
+  const who  = (document.getElementById('lsExWho') || {}).value || '';
+  const msg  = document.getElementById('lsExMsg');
+  const set = function(s){ if(msg) msg.textContent = s; };
+  if(from && to && from > to){ set('⚠「由」遲過「至」。'); return; }
+  const list = lsAll().filter(function(x){
+    if(who && x.by !== who) return false;
+    return stInRange(x.at, from, to);
+  }).sort(function(a, b){ return String(a.at||'').localeCompare(String(b.at||'')); });
+  if(!list.length){ set('⚠ 呢段時間冇清單。'); return; }
+  set('⏳ 攞緊 ' + list.length + ' 張…');
+  const out = [];
+  out.push('# 📋 清單　匯出');
+  out.push('');
+  out.push('呢份係一個屋企用嘅清單記錄：執書包、功課、家長跟進事項。');
+  out.push('爹哋同小學低年級嘅女兒都開得清單，兩個人都可以打剔。');
+  out.push('每一行係一樣要做／要帶嘅嘢，`[x]` 代表已經剔咗。');
+  out.push('');
+  out.push('- 匯出時間：' + fmtStamp(nowISO()));
+  out.push('- 範圍：' + (from || '最早') + ' 至 ' + (to || '最新') +
+           '　·　' + (who ? lsWhoTxt(who) : '兩個人嘅'));
+  out.push('- 張數：' + list.length);
+  out.push('');
+  out.push('---');
+  for(let i = 0; i < list.length; i++){
+    const r = list[i];
+    set('⏳ ' + (i + 1) + '／' + list.length + '…');
+    const items = await ListCloud.items(r.id);
+    out.push('');
+    out.push('## ' + (i + 1) + '. ' + (r.name || '（冇名）'));
+    out.push('');
+    out.push('- ' + [lsWhoTxt(r.by), '開於：' + fmtStamp(r.at),
+                     (r.editAt ? '改過：' + fmtStamp(r.editAt) : ''),
+                     (r.done || 0) + '／' + (r.n || 0) + ' 剔咗']
+                    .filter(Boolean).join('　·　'));
+    out.push('');
+    if(!items){ out.push('_（攞唔到入面啲項目）_'); }
+    else items.forEach(function(x){
+      out.push('- [' + (x.done ? 'x' : ' ') + '] ' + x.t);
+    });
+    out.push('');
+    out.push('---');
+  }
+  const fn = 'list_' + (from || 'all').replace(/-/g, '') + '_' +
+             (to || fmtDate(new Date())).replace(/-/g, '') + '.md';
+  try{
+    const how = await saveTextFile(fn, out.join('\n'), 'text/markdown');
+    set('✅ ' + list.length + ' 張　' + (how === 'downloaded' ? '（去咗「下載」）' : ''));
+  }catch(err){
+    set('❌ 存唔到：' + short(String((err && err.message) || err), 80));
+  }
+}
+
 async function lsBoot(force){
   if(!force && ListCloud.idxOK === true) return;
   await ListCloud.loadIdx();
@@ -12973,6 +13074,8 @@ function lsOpenModal(){
   if(bk) bk.onclick = function(){ lsShow('lsHome'); lsRenderHome(); };
   const nw = g('lsNew');
   if(nw) nw.onclick = lsNew;
+  const lx = g('lsExGo');
+  if(lx) lx.onclick = lsExport;
   const cn = g('lsCancel');
   if(cn) cn.onclick = function(){ lsShow('lsHome'); lsRenderHome(); };
   const sv = g('lsSave');
@@ -13015,7 +13118,7 @@ function lsOpenModal(){
   };
 })();
 
-Object.assign(window, {listBoot: lsBoot, listOpen: lsOpenModal});
+Object.assign(window, {listBoot: lsBoot, listOpen: lsOpenModal, listExport: lsExport});
 
 /* ================= 橫額 ================= */
 function storyBanner(){
@@ -13573,6 +13676,86 @@ function storyAdminRender(){
   });
   if(!any) host.appendChild(stMsgBox('', '一篇都未有。撳上面「✍ 叫 AI 寫」開始。', '', null));
 }
+/* ---------- 匯出故事 ----------
+   出 Markdown 唔出 JSON：你講明係想掟俾第二個 AI 睇「寫得好唔好」。
+   JSON 佢讀得，但 Markdown 佢讀得順啲，而你自己 open 嚟睇都睇得明。
+   檔頭專登寫低呢份嘢係乜、要佢睇乜——冇呢段，人哋淨係見到一堆故事。 */
+function stInRange(iso, from, to){
+  if(!iso) return false;
+  const d = new Date(iso);
+  if(isNaN(d.getTime())) return false;
+  const ds = fmtDate(d);
+  if(from && ds < from) return false;
+  if(to && ds > to) return false;
+  return true;
+}
+async function storyExport(){
+  const from = (document.getElementById('stExFrom') || {}).value || '';
+  const to   = (document.getElementById('stExTo') || {}).value || '';
+  const what = (document.getElementById('stExWhat') || {}).value || 'all';
+  const msg  = document.getElementById('stExMsg');
+  const set = function(s){ if(msg) msg.textContent = s; };
+  if(from && to && from > to){ set('⚠「由」遲過「至」。'); return; }
+  let list = stAll().filter(function(x){
+    if(what === 'out' && x.status !== 'out') return false;
+    return stInRange(x.outAt || x.at, from, to);
+  }).sort(function(a, b){
+    return String(a.outAt || a.at || '').localeCompare(String(b.outAt || b.at || ''));
+  });
+  if(!list.length){ set('⚠ 呢段時間冇故事。'); return; }
+  set('⏳ 攞緊 ' + list.length + ' 篇嘅正文…');
+  const out = [];
+  out.push('# 📖 聽故事　匯出');
+  out.push('');
+  out.push('呢份係一個爹哋用 AI 幫女兒（小學低年級、講廣東話）寫嘅「聽故事」逐字稿。');
+  out.push('每一篇由 AI 寫、爹哋審核（可能改過字）之後先放出嚟俾佢聽，');
+  out.push('佢用 text-to-speech 聽，仲可以跟住同 AI 傾呢篇故事。');
+  out.push('');
+  out.push('如果你係嚟幫手分析嘅：想知嘅係**啲故事寫得好唔好**——');
+  out.push('深淺啱唔啱佢個年紀、有冇講錯嘢、有冇重複、切入點夠唔夾具體、');
+  out.push('有冇不知不覺講咗大道理（呢個係最常見嘅失手）。');
+  out.push('');
+  out.push('- 匯出時間：' + fmtStamp(nowISO()));
+  out.push('- 範圍：' + (from || '最早') + ' 至 ' + (to || '最新') +
+           '　·　' + (what === 'out' ? '淨係放咗出去嗰啲' : '全部狀態'));
+  out.push('- 篇數：' + list.length);
+  out.push('');
+  out.push('狀態：draft＝AI 寫咗未審　ready＝審咗未放　out＝放咗出去　off＝收返咗');
+  out.push('');
+  out.push('---');
+  for(let i = 0; i < list.length; i++){
+    const r = list[i];
+    set('⏳ ' + (i + 1) + '／' + list.length + '…');
+    const t = await StoryCloud.getText(r.id);
+    out.push('');
+    out.push('## ' + (i + 1) + '. ' + (r.title || '（冇標題）'));
+    out.push('');
+    const meta = ['科目：' + stTopicName(r.topic),
+                  '狀態：' + r.status,
+                  '寫於：' + fmtStamp(r.at),
+                  (r.outAt ? '放出：' + fmtStamp(r.outAt) : ''),
+                  (r.len ? r.len + ' 字' : ''),
+                  (r.edited ? '爹哋改過' : 'AI 原文'),
+                  (r.syl ? '跟框架：' + r.syl : ''),
+                  (r.dupT ? '⚠ 同《' + r.dupT + '》似 ' + r.dupP + '%' : '')]
+                 .filter(Boolean);
+    out.push('- ' + meta.join('　·　'));
+    if(r.gist) out.push('- 切入點：' + r.gist);
+    out.push('');
+    out.push(t == null ? '_（攞唔到正文）_' : t);
+    out.push('');
+    out.push('---');
+  }
+  const fn = 'story_' + (from || 'all').replace(/-/g, '') + '_' +
+             (to || fmtDate(new Date())).replace(/-/g, '') + '.md';
+  try{
+    const how = await saveTextFile(fn, out.join('\n'), 'text/markdown');
+    set('✅ ' + list.length + ' 篇　' + (how === 'downloaded' ? '（去咗「下載」）' : ''));
+  }catch(err){
+    set('❌ 存唔到：' + short(String((err && err.message) || err), 80));
+  }
+}
+
 function storyAdminOpen(){
   if(document.body.classList.contains('readonly')) return;   /* CSS 收埋咗，呢度再擋一次 */
   show('storyAdmin');
@@ -13635,6 +13818,8 @@ Object.assign(window, {
              (nt && nt.value) || '',
              !!(us && us.checked));
   };
+  const ex = g('stExGo');
+  if(ex) ex.onclick = storyExport;
   const ad = g('stAdminDone');
   if(ad) ad.onclick = function(){ hide('storyAdmin'); };
   const ask = g('stAsk');
