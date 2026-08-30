@@ -1038,6 +1038,35 @@ body.readonly #hubStoryAdmin{display:none!important}
 #stTalkInput{flex:1 1 220px;min-width:0;min-height:46px;font-size:16px;line-height:1.6;
   padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:var(--card);
   color:inherit;resize:vertical}
+/* ===== 📋 清單 ===== */
+.lsBar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px}
+.lsBar input[type=text]{flex:1 1 200px;min-width:0;padding:7px 9px;font-size:15px;font-weight:600}
+.lsBar select{padding:5px 8px;font-size:13px}
+#lsBox{width:100%;min-height:190px;font-size:17px;line-height:2;padding:10px 12px;
+  border:1px solid var(--line);border-radius:10px;background:var(--card);color:inherit;
+  resize:vertical}
+#lsList{display:flex;flex-direction:column;gap:8px}
+.lsCard{display:flex;align-items:center;gap:10px;padding:12px 13px;border:1px solid var(--line);
+  border-left:6px solid var(--accent);border-radius:11px;background:var(--card);
+  cursor:pointer;font-size:16px}
+.lsCard:hover{background:var(--hover)}
+.lsCard.kid{border-left-color:#e8590c}
+.lsCard .lsT{flex:1;min-width:0;font-weight:700}
+.lsCard .lsSub{display:block;font-weight:400;font-size:12px;color:var(--muted);margin-top:3px}
+.lsCard .lsPct{flex:0 0 auto;font-size:13px;color:var(--muted)}
+/* 逐行一粒喇叭。粒掣要夠大——七歲人手指撳細掣會撳親隔籬。 */
+#lsItems{display:flex;flex-direction:column;gap:8px}
+.lsRow{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--line);
+  border-radius:11px;background:var(--card);font-size:18px;line-height:1.5}
+.lsRow.done{opacity:.55}
+.lsRow.done .lsTx{text-decoration:line-through}
+.lsRow .lsCk{flex:0 0 auto;width:30px;height:30px;cursor:pointer}
+.lsRow .lsTx{flex:1;min-width:0}
+.lsRow .lsSp{flex:0 0 auto;border:1px solid var(--line);background:var(--card);
+  border-radius:10px;width:46px;height:46px;font-size:20px;line-height:1;padding:0;cursor:pointer}
+.lsRow .lsSp:hover{border-color:var(--accent)}
+.lsRO{font-size:12px;color:var(--muted);border:1px dashed var(--line);
+  border-radius:8px;padding:5px 9px;margin:0 0 9px}
 /* 📚 課程框架 */
 #stSyl{margin:0 0 10px;border:1px solid var(--line);border-radius:11px;padding:8px 10px}
 #stSyl > summary{cursor:pointer;font-size:15px;font-weight:700;list-style:none;padding:3px 0}
@@ -1240,6 +1269,7 @@ body.hubOpen{overflow:hidden}
   <button class="hbtn" id="btnAISet">⚙ AI 設定</button>
   <button class="hbtn" id="btnKw">🎨 關鍵字顏色</button>
   <button class="hbtn" id="kwFilterBtn" title="淨係顯示含有指定關鍵字嘅項目">🔎 篩選</button>
+  <button class="hbtn" id="btnList" title="執書包、功課清單">📋 清單</button>
   <button class="hbtn" id="btnHub" title="爹哋放咗嘅學習連結">📚 學習角</button>
   <button class="hbtn" id="btnSearch">🔍 搜尋 (Ctrl+F)</button>
   <button class="hbtn" id="btnBulk">📅 批量計劃</button>
@@ -1377,6 +1407,53 @@ body.hubOpen{overflow:hidden}
 </div></div>
 <!-- 📖 聽故事：Charlotte 讀嗰版。粒 🔊 擺喺段字上面，撳落去讀，
      讀緊嗰陣撳段字入面任何一隻字就由嗰隻字讀起（ttsAttachSeek）。 -->
+<!-- 📋 清單。一行一個項目，唔使打任何符號。 -->
+<div class="overlay" id="listModal"><div class="modal" style="width:min(820px,100%)">
+  <h3>📋 清單</h3>
+  <div id="lsHome">
+    <div class="lsBar">
+      <button class="btn primary" type="button" id="lsNew">＋ 開一張新清單</button>
+      <span class="stMeta" id="lsCnt"></span>
+    </div>
+    <div id="lsList"></div>
+  </div>
+  <div id="lsEdit" style="display:none">
+    <div class="lsBar">
+      <input type="text" id="lsName" maxlength="40" placeholder="清單名">
+      <select id="lsPreset">
+        <option value="">用預設名…</option>
+        <option>執書包</option>
+        <option>功課清單</option>
+        <option>家長跟進事項</option>
+      </select>
+    </div>
+    <p class="subnote" id="lsWho"></p>
+    <textarea id="lsBox" placeholder="一行一樣嘢。&#10;打完一行撳 Enter 開下一行，唔使打任何符號。&#10;&#10;中文書&#10;數學簿&#10;水壺"></textarea>
+    <div class="lsBar">
+      <button class="btn" type="button" id="lsNL">＋ 開新行</button>
+      <span class="stMeta" id="lsN"></span>
+      <span style="flex:1"></span>
+      <button class="btn" type="button" id="lsCancel">唔要住</button>
+      <button class="btn primary" type="button" id="lsSave">✓ 儲存</button>
+    </div>
+  </div>
+  <div id="lsView" style="display:none">
+    <div class="lsBar">
+      <b id="lsVName"></b>
+      <span class="stMeta" id="lsVWho"></span>
+      <span style="flex:1"></span>
+      <button class="btn" type="button" id="lsVSpeak">🔊 讀晒成張</button>
+      <button class="btn" type="button" id="lsVEdit">✎ 改</button>
+      <button class="btn danger" type="button" id="lsVDel">✕ 刪</button>
+    </div>
+    <div id="lsItems"></div>
+    <p class="stMeta" id="lsVMsg"></p>
+  </div>
+  <div class="modalActs">
+    <button class="btn" type="button" id="lsBack" style="display:none">← 返清單一覽</button>
+    <span style="flex:1"></span><button class="btn primary" id="lsClose">完成</button>
+  </div>
+</div></div>
 <div class="overlay" id="storyModal"><div class="modal" style="width:min(720px,100%)">
   <h3 id="stTitle">📖 聽故事</h3>
   <p class="stWhenTop" id="stWhen"></p>
@@ -1984,7 +2061,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-28h";
+const BUILD = "2026-08-28i";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -2010,12 +2087,19 @@ console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;p
          "diary_calendar_notice": { "$uid": { ".read": "$uid === auth.uid",
                                               ".write": "$uid === auth.uid" } },
          "diary_calendar_story":  { "$uid": { ".read": "$uid === auth.uid",
+                                              ".write": "$uid === auth.uid" } },
+         "diary_calendar_list":   { "$uid": { ".read": "$uid === auth.uid",
                                               ".write": "$uid === auth.uid" } }
        }
      }
    邊個節點做乜：data＝主 state；think＝AI 推理記錄；sos＝「🆘 搵爹哋」；
    log＝Data Log；cost＝用量計數；notice＝📋 待辦嘅通告原文；
-   story＝📖 聽故事（idx＝索引，doc＝逐篇正文）。
+   story＝📖 聽故事（idx＝索引，doc＝逐篇正文）；
+   list＝📋 清單（idx＝索引，doc＝逐張嘅項目）。
+   ⚠ 清單係全 app 第一個 **Charlotte 自己寫得入去** 嘅平行節點。
+     「佢改唔到爹哋張清單」呢條規矩係喺 JS 度做嘅——同一個 uid，
+     Firebase 規則層面攔唔到。攔唔攔到嘅分別：佢用個 app 係攔到嘅；
+     佢學識開 console 就攔唔到。呢個係一個七歲人嘅門檻，唔係一道保安門。
    ⚠ 少咗邊個節點，邊嚿嘢就上唔到雲——sos 會出紅字，notice 會喺通告行
      顯示「☁ 原文上唔到雲」，story 會喺學習角同管理版出「⚠ 攞唔到」。
    ⚠ 訪客模式係同一個 uid，所以規則層面攔唔到 Charlotte。「未放出嘅故事
@@ -2074,6 +2158,7 @@ auth.onAuthStateChanged(user => {
     /* 📖 聽故事：索引係另一個節點，唔跟主 state 落嚟，要自己攞一次。
        fire-and-forget——攞唔到就係三態嘅第三態，唔會阻住行事曆載入。 */
     try{ if(typeof window.storyBoot === 'function') window.storyBoot(true); }catch(e){}
+    try{ if(typeof window.listBoot === 'function') window.listBoot(true); }catch(e){}
   } else {
     currentUser = null;
     btnLogin.textContent = '👤 Google 登入';
@@ -2082,8 +2167,9 @@ auth.onAuthStateChanged(user => {
     aiLogLegacy = false;
     CostCloud.stop();       /* 同上：用量單據監聽都要熄埋 */
     aiCostLegacy = false;
-    /* 故事索引都要清返，唔係登出咗條橫額仲掛住上一個帳號嘅故事 */
+    /* 故事索引同清單都要清返，唔係登出咗仲掛住上一個帳號嘅嘢 */
     try{ if(typeof window.storyBoot === 'function') window.storyBoot(true); }catch(e){}
+    try{ if(typeof window.listBoot === 'function') window.listBoot(true); }catch(e){}
     
     // 登出後讀取 LocalStorage (離線版)
     state = sanitizeState(LocalStore.load());
@@ -5918,7 +6004,7 @@ async function callAIJSON(messages, opt){
 }
 
 /* ---------- 2. Data Log ---------- */
-const TYPE_NAME = {request:'我講嘅嘢', plan:'AI 嘅安排', correction:'我嘅糾正', feedback:'我教佢', rule:'規則更新', story:'📖 聽故事'};
+const TYPE_NAME = {request:'我講嘅嘢', plan:'AI 嘅安排', correction:'我嘅糾正', feedback:'我教佢', rule:'規則更新', story:'📖 聽故事', list:'📋 清單'};
 
 /* ===== 兩個上限 =====
    原本 300／2000 係硬上限，超咗就 slice() 靜靜雞剷走最舊嗰啲，用戶完全冇提示。
@@ -12570,6 +12656,366 @@ async function stTalkSay(sendText, showText){
   }
   stTalkBusySet(false);
 }
+
+/* =========================================================
+   📋 清單
+   9 月 1 號返小學，佢自己要執書包。一行一個項目，唔使打任何符號。
+
+   權限（⚠ 全部係 JS 度做，唔係 Firebase 規則）：
+   · 兩個人都開得、儲得。
+   · 爹哋改得晒所有清單。
+   · Charlotte 只可以改自己開嗰啲。
+   · **但打剔兩個人都做得。** 呢個係我自己判斷加落去嘅——
+     爹哋開一張「執書包」俾佢，佢剔唔到嘅話，成件事就冇曬用。
+     「改內容」同「做嗰件事」係兩回事。你唔同意嘅話同我講，改一個 flag 就得。
+
+   ⚠ 兩個人用同一個 Firebase uid，所以規則層面攔唔到佢改爹哋張清單。
+     呢個係一個七歲人嘅門檻，唔係一道保安門。同全 app 其餘部分一樣。
+========================================================= */
+const LS_PRESETS = ['執書包', '功課清單', '家長跟進事項'];
+const ListCloud = {
+  ROOT:'diary_calendar_list', lastError:'', idx:null, idxOK:null, cache:{},
+  ref(){
+    try{
+      if(!currentUser || !currentUser.uid || typeof db === 'undefined') return null;
+      return db.ref(this.ROOT + '/' + currentUser.uid);
+    }catch(e){ return null; }
+  },
+  async loadIdx(){
+    const r = this.ref();
+    if(!r){ this.idx = {}; this.idxOK = false; this.lastError = '未登入 Google'; return false; }
+    try{
+      const sn = await r.child('idx').once('value');
+      this.idx = sn.val() || {}; this.idxOK = true; this.lastError = ''; return true;
+    }catch(e){
+      this.idx = this.idx || {}; this.idxOK = false;
+      this.lastError = String((e && e.message) || e); return false;
+    }
+  },
+  async put(rec, items){
+    const r = this.ref(); if(!r){ this.lastError = '未登入 Google'; return false; }
+    try{
+      /* doc 先、idx 後：反轉嘅話一爆就有一張撳開係空嘅清單。 */
+      if(items) await r.child('doc/' + rec.id).set({id:rec.id, items:items});
+      await r.child('idx/' + rec.id).set(rec);
+      if(!this.idx) this.idx = {};
+      this.idx[rec.id] = rec;
+      if(items) this.cache[rec.id] = items;
+      this.lastError = ''; return true;
+    }catch(e){ this.lastError = String((e && e.message) || e); return false; }
+  },
+  async items(id){
+    if(this.cache[id]) return this.cache[id];
+    const r = this.ref(); if(!r) return null;
+    try{
+      const sn = await r.child('doc/' + id).once('value');
+      const v = sn.val();
+      const it = (v && Array.isArray(v.items)) ? v.items : null;
+      if(it) this.cache[id] = it;
+      this.lastError = ''; return it;
+    }catch(e){ this.lastError = String((e && e.message) || e); return null; }
+  },
+  async del(id){
+    const r = this.ref(); if(!r) return false;
+    try{
+      await r.child('doc/' + id).remove();
+      await r.child('idx/' + id).remove();
+      if(this.idx) delete this.idx[id];
+      delete this.cache[id];
+      return true;
+    }catch(e){ this.lastError = String((e && e.message) || e); return false; }
+  }
+};
+
+function lsAll(){
+  const o = ListCloud.idx || {};
+  return Object.keys(o).map(function(k){ return o[k]; })
+    .filter(function(x){ return x && x.id; })
+    .sort(function(a, b){ return String(b.at||'').localeCompare(String(a.at||'')); });
+}
+function lsWhoNow(){ return isGuestNow() ? 'kid' : 'dad'; }
+function lsWhoTxt(w){ return w === 'kid' ? 'Charlotte 開嘅' : '爹哋開嘅'; }
+/* 改得郁唔改得郁：爹哋乜都改得，Charlotte 只改自己嗰啲。 */
+function lsCanEdit(rec){
+  if(!rec) return false;
+  if(lsWhoNow() === 'dad') return true;
+  return rec.by === 'kid';
+}
+/* 打剔就兩個人都做得——見上面段註解。 */
+function lsCanTick(rec){ return true; }
+/* 預設名：日期 ＋ 當日第幾張。20260901-01 */
+function lsDefName(){
+  const d = fmtDate(new Date()).replace(/-/g, '');
+  const n = lsAll().filter(function(x){
+    return String(x.name || '').indexOf(d + '-') === 0;
+  }).length + 1;
+  return d + '-' + pad(n);
+}
+/* 一行一個項目。空行唔算，唔使打任何符號；
+   打咗 -／*／• 開頭嘅一樣收得返（佢見過清單係咁樣，好自然會照打）。 */
+function lsParse(txt){
+  return String(txt || '').split(/\r?\n/)
+    .map(function(s){ return s.replace(/^\s*[-*•·+]\s*/, '').trim(); })
+    .filter(Boolean)
+    .map(function(t){ return {t:t, done:false}; });
+}
+function lsToText(items){
+  return (items || []).map(function(x){ return x.t; }).join('\n');
+}
+
+let lsCur = null, lsCurItems = null, lsEditId = '';
+
+function lsShow(which){
+  ['lsHome','lsEdit','lsView'].forEach(function(id){
+    const e = document.getElementById(id);
+    if(e) e.style.display = (id === which) ? '' : 'none';
+  });
+  const b = document.getElementById('lsBack');
+  if(b) b.style.display = (which === 'lsHome') ? 'none' : '';
+}
+function lsRenderHome(){
+  const host = document.getElementById('lsList');
+  if(!host) return;
+  host.innerHTML = '';
+  const cnt = document.getElementById('lsCnt');
+  if(ListCloud.idxOK === null){
+    host.appendChild(stMsgBox('', '載入緊…', '', null));
+    if(cnt) cnt.textContent = ''; return;
+  }
+  if(ListCloud.idxOK === false){
+    host.appendChild(stMsgBox('bad', '⚠ 而家攞唔到啲清單。撳一下再試。',
+      short(ListCloud.lastError || '（唔知咩事）', 120), function(){ lsBoot(true); }));
+    if(cnt) cnt.textContent = ''; return;
+  }
+  const all = lsAll();
+  if(cnt) cnt.textContent = all.length ? ('一共 ' + all.length + ' 張') : '';
+  if(!all.length){
+    host.appendChild(stMsgBox('', '一張清單都未有。撳上面「＋ 開一張新清單」。', '', null));
+    return;
+  }
+  all.slice(0, 60).forEach(function(rec){
+    const c = document.createElement('div');
+    c.className = 'lsCard' + (rec.by === 'kid' ? ' kid' : '');
+    const t = document.createElement('span');
+    t.className = 'lsT';
+    t.appendChild(document.createTextNode(rec.name || '（冇名）'));
+    const s = document.createElement('span');
+    s.className = 'lsSub';
+    s.textContent = lsWhoTxt(rec.by) + ' · ' + fmtStamp(rec.at) + ' · ' + (rec.n || 0) + ' 樣嘢';
+    t.appendChild(s);
+    c.appendChild(t);
+    const p = document.createElement('span');
+    p.className = 'lsPct';
+    p.textContent = (rec.done || 0) + '／' + (rec.n || 0);
+    c.appendChild(p);
+    c.onclick = function(){ lsOpen(rec.id); };
+    host.appendChild(c);
+  });
+}
+function lsCountUp(){
+  const n = document.getElementById('lsN');
+  const b = document.getElementById('lsBox');
+  if(n && b) n.textContent = lsParse(b.value).length + ' 樣嘢';
+}
+function lsNew(){
+  lsEditId = '';
+  const nm = document.getElementById('lsName');
+  const bx = document.getElementById('lsBox');
+  if(nm) nm.value = lsDefName();
+  if(bx) bx.value = '';
+  const w = document.getElementById('lsWho');
+  if(w) w.textContent = '呢張清單會記住係「' + lsWhoTxt(lsWhoNow()) + '」。';
+  lsCountUp(); lsShow('lsEdit');
+  if(bx) try{ bx.focus(); }catch(e){}
+}
+async function lsEditOpen(rec){
+  if(!lsCanEdit(rec)){ toast('呢張係爹哋開嘅清單，要爹哋先改得。'); return; }
+  lsEditId = rec.id;
+  const items = await ListCloud.items(rec.id);
+  const nm = document.getElementById('lsName');
+  const bx = document.getElementById('lsBox');
+  if(nm) nm.value = rec.name || '';
+  if(bx) bx.value = lsToText(items || []);
+  const w = document.getElementById('lsWho');
+  if(w) w.textContent = lsWhoTxt(rec.by) + ' · ' + fmtStamp(rec.at);
+  lsCountUp(); lsShow('lsEdit');
+}
+async function lsSave(){
+  const nm = document.getElementById('lsName');
+  const bx = document.getElementById('lsBox');
+  const items = lsParse(bx && bx.value);
+  if(!items.length){ toast('一樣嘢都未寫。'); return; }
+  const name = String((nm && nm.value) || '').trim() || lsDefName();
+  const old = lsEditId ? (ListCloud.idx || {})[lsEditId] : null;
+  /* 改嘢嗰陣，本來剔咗嘅要保住——唔好改個錯字就將佢執到一半嘅嘢全部彈返出嚟。 */
+  if(old){
+    const prev = ListCloud.cache[lsEditId] || [];
+    items.forEach(function(x){
+      const hit = prev.filter(function(y){ return y.t === x.t; })[0];
+      if(hit && hit.done) x.done = true;
+    });
+  }
+  const rec = old
+    ? Object.assign({}, old, {name:name, n:items.length,
+                              done:items.filter(function(x){ return x.done; }).length,
+                              editAt:nowISO()})
+    : {id:uid(), name:name, by:lsWhoNow(), at:nowISO(), n:items.length, done:0};
+  if(!await ListCloud.put(rec, items)){
+    toast('⚠ 存唔到：' + short(ListCloud.lastError, 80)); return;
+  }
+  logPush('list', (old ? '改咗清單《' : '開咗清單《') + name + '》（' + items.length + ' 樣嘢）',
+          {kind:'list', lid:rec.id, by:rec.by, n:items.length,
+           guest:(rec.by === 'kid') || undefined});
+  lsEditId = '';
+  await lsOpen(rec.id);
+}
+async function lsOpen(id){
+  const rec = (ListCloud.idx || {})[id];
+  if(!rec) return;
+  lsCur = rec;
+  const nmE = document.getElementById('lsVName');
+  const whE = document.getElementById('lsVWho');
+  const host = document.getElementById('lsItems');
+  const msg = document.getElementById('lsVMsg');
+  if(nmE) nmE.textContent = rec.name || '（冇名）';
+  if(whE) whE.textContent = lsWhoTxt(rec.by) + ' · ' + fmtStamp(rec.at);
+  if(host) host.innerHTML = '';
+  if(msg) msg.textContent = '';
+  lsShow('lsView');
+  const ed = document.getElementById('lsVEdit'), dl = document.getElementById('lsVDel');
+  const can = lsCanEdit(rec);
+  if(ed) ed.style.display = can ? '' : 'none';
+  if(dl) dl.style.display = can ? '' : 'none';
+  const items = await ListCloud.items(id);
+  if(lsCur !== rec) return;
+  if(!items){
+    if(host) host.appendChild(stMsgBox('bad', '⚠ 呢張清單而家攞唔到。撳一下再試。',
+      short(ListCloud.lastError || '（讀到嘅係空嘅）', 120), function(){ lsOpen(id); }));
+    return;
+  }
+  lsCurItems = items;
+  if(!can && host){
+    const n = document.createElement('div');
+    n.className = 'lsRO';
+    n.textContent = '呢張係爹哋開嘅清單，你改唔到入面啲字——但打剔冇問題，執完一樣就剔一樣。';
+    host.appendChild(n);
+  }
+  items.forEach(function(it, i){
+    const row = document.createElement('div');
+    row.className = 'lsRow' + (it.done ? ' done' : '');
+    const ck = document.createElement('input');
+    ck.type = 'checkbox'; ck.className = 'lsCk'; ck.checked = !!it.done;
+    ck.setAttribute('aria-label', '執咗：' + it.t);
+    /* ⚠ lsCanTick() 本來寫咗出嚟但冇人叫過——即係「打剔兩個人都做得」
+       呢個決定只係寫喺註解度，code 度冇表達過，改壞咗都冇人知。
+       接返落嚟：想改成「爹哋先剔得」就改嗰個 function，改一個地方就得。 */
+    ck.disabled = !lsCanTick(rec);
+    ck.onchange = function(){ lsTick(rec, i, ck.checked, row); };
+    row.appendChild(ck);
+    const tx = document.createElement('span');
+    tx.className = 'lsTx'; tx.textContent = it.t;
+    row.appendChild(tx);
+    /* 逐行一粒喇叭。撳粒喇叭唔應該順手剔咗佢，所以要食咗個 click。 */
+    const sp = document.createElement('button');
+    sp.type = 'button'; sp.className = 'lsSp'; sp.textContent = '🔊';
+    sp.setAttribute('aria-label', '讀出：' + it.t);
+    let at = 0;
+    const say = function(e){
+      const now = Date.now(); if(now - at < 400) return; at = now;
+      e.stopPropagation(); e.preventDefault();
+      if(typeof window.ttsSpeak === 'function') window.ttsSpeak(it.t, sp);
+    };
+    sp.addEventListener('touchend', say, {passive:false});
+    sp.addEventListener('click', say);
+    row.appendChild(sp);
+    if(host) host.appendChild(row);
+  });
+  logPush('list', '睇清單《' + (rec.name || '') + '》',
+          {kind:'open', lid:id, guest:isGuestNow() || undefined});
+}
+async function lsTick(rec, i, on, row){
+  if(!lsCurItems || !lsCurItems[i]) return;
+  lsCurItems[i].done = !!on;
+  if(row) row.classList.toggle('done', !!on);
+  const doneN = lsCurItems.filter(function(x){ return x.done; }).length;
+  const r2 = Object.assign({}, rec, {done:doneN, tickAt:nowISO()});
+  if(!await ListCloud.put(r2, lsCurItems)){
+    toast('⚠ 剔咗但上唔到雲：' + short(ListCloud.lastError, 70));
+    return;
+  }
+  lsCur = ListCloud.idx[rec.id];
+  const msg = document.getElementById('lsVMsg');
+  if(msg) msg.textContent = doneN + '／' + lsCurItems.length +
+                            (doneN === lsCurItems.length ? '　✅ 執齊喇！' : '');
+  logPush('list', (on ? '剔咗' : '解返') + '《' + (rec.name||'') + '》：' + lsCurItems[i].t,
+          {kind:'tick', lid:rec.id, guest:isGuestNow() || undefined});
+}
+async function lsBoot(force){
+  if(!force && ListCloud.idxOK === true) return;
+  await ListCloud.loadIdx();
+  const m = document.getElementById('listModal');
+  if(m && m.classList.contains('show')) lsRenderHome();
+}
+function lsOpenModal(){
+  show('listModal');
+  lsShow('lsHome');
+  lsRenderHome();
+  if(ListCloud.idxOK !== true) lsBoot(true);
+}
+
+(function lsWire(){
+  const g = function(id){ return document.getElementById(id); };
+  const bt = g('btnList');
+  if(bt) bt.onclick = lsOpenModal;
+  const cl = g('lsClose');
+  if(cl) cl.onclick = function(){ hide('listModal'); };
+  const bk = g('lsBack');
+  if(bk) bk.onclick = function(){ lsShow('lsHome'); lsRenderHome(); };
+  const nw = g('lsNew');
+  if(nw) nw.onclick = lsNew;
+  const cn = g('lsCancel');
+  if(cn) cn.onclick = function(){ lsShow('lsHome'); lsRenderHome(); };
+  const sv = g('lsSave');
+  if(sv) sv.onclick = lsSave;
+  const bx = g('lsBox');
+  if(bx) bx.addEventListener('input', lsCountUp);
+  /* iPad 有啲鍵盤冇「換行」掣（或者佢搵唔到）。呢粒掣就係嗰個出路：
+     喺 cursor 嗰度插一個換行，focus 唔會走。 */
+  const nl = g('lsNL');
+  if(nl) nl.onclick = function(){
+    if(!bx) return;
+    const a = bx.selectionStart, b = bx.selectionEnd, v = bx.value;
+    bx.value = v.slice(0, a) + '\n' + v.slice(b);
+    try{ bx.focus(); bx.selectionStart = bx.selectionEnd = a + 1; }catch(e){}
+    lsCountUp();
+  };
+  const ps = g('lsPreset');
+  if(ps) ps.onchange = function(){
+    const nm = g('lsName');
+    if(ps.value && nm){ nm.value = ps.value; ps.value = ''; }
+  };
+  const ve = g('lsVEdit');
+  if(ve) ve.onclick = function(){ if(lsCur) lsEditOpen(lsCur); };
+  const vd = g('lsVDel');
+  if(vd) vd.onclick = async function(){
+    if(!lsCur) return;
+    if(!lsCanEdit(lsCur)){ toast('呢張係爹哋開嘅清單，要爹哋先刪得。'); return; }
+    if(!await confirmBox('刪咗呢張清單？\n\n' + (lsCur.name || ''))) return;
+    await ListCloud.del(lsCur.id);
+    logPush('list', '刪咗清單《' + (lsCur.name||'') + '》',
+            {kind:'del', lid:lsCur.id, guest:isGuestNow() || undefined});
+    lsCur = null; lsShow('lsHome'); lsRenderHome();
+  };
+  const vs = g('lsVSpeak');
+  if(vs) vs.onclick = function(){
+    if(!lsCurItems || typeof window.ttsSpeak !== 'function') return;
+    window.ttsSpeak((lsCur && lsCur.name ? lsCur.name + '。' : '') +
+                    lsCurItems.map(function(x, i){ return (i+1) + '，' + x.t + '。'; }).join(''),
+                    vs, document.getElementById('lsItems'));
+  };
+})();
+
+Object.assign(window, {listBoot: lsBoot, listOpen: lsOpenModal});
 
 /* ================= 橫額 ================= */
 function storyBanner(){
