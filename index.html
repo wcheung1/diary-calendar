@@ -2086,7 +2086,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-28j";
+const BUILD = "2026-08-28k";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -4330,6 +4330,33 @@ function kidTitle(what){
 }
 function kidIsMine(ev){ return !!(ev && ev.kid === true); }
 
+/* ---------- 由 id 攞返「而家真係喺 state 入面」嗰件事 ----------
+   ⚠ 呢個 helper 係為咗一個真出過事嘅 bug：
+
+   Firebase 個 dbRef.on('value') 回音一到，就會行 `state = sanitizeState(data)`
+   ——**成個 state 連每一件 event 都會換成新 object**。
+   但 kidEditing 揸住嘅係開個 modal 嗰刻嗰件事嘅 reference。
+   回音一到，佢就變成一件已經唔喺 state.events 入面嘅孤兒。
+
+   之後 Object.assign(kidEditing, …) 改嘅係嗰件孤兒，save() 上傳嘅
+   係 state（入面嗰件仲係舊值）。結果：
+     · 冇報錯、toast 仲要話「✓ 改好喇」
+     · refresh 之後變返舊嗰個位
+     · Data Log 一個字都冇（本來就冇記）
+
+   點解偏偏係「加咗一格，跟住即刻改」最中招：佢自己嗰下「加」已經
+   save 咗一次，個回音大約一秒後返到——啱啱好落喺佢開住個改嘢視窗嗰段時間。
+
+   所以：所有寫入之前，一律行 kidLive() 攞返實物。 */
+function kidLive(ev){
+  if(!ev || !ev.id) return null;
+  const all = (state && state.events) || [];
+  for(let i = 0; i < all.length; i++){
+    if(all[i] && all[i].id === ev.id) return all[i];
+  }
+  return null;
+}
+
 /* 唯一嘅寫入窄口。用 try/finally，掟錯都一定閂返——一個冇閂返嘅旗
    就等於訪客模式由嗰刻起完全冇咗封鎖。 */
 let kidWriteOn = false;
@@ -5079,15 +5106,38 @@ function kidSave(){
 
   if(kidEditing){
     if(!kidIsMine(kidEditing)){ kidWarn('呢格唔係你排嘅，你改唔到。'); return; }
-    const oldDate = kidEditing.start.slice(0,10);
+    /* ⚠ 唔可以直接改 kidEditing——見 kidLive() 上面段註解。 */
+    const live = kidLive(kidEditing);
+    if(!live){
+      /* 開住個視窗期間，件事俾人刪咗（或者雲端換走咗又搵唔返）。
+         寧願老實講一句，都好過扮改到——舊版就係喺呢度講咗大話。 */
+      kidWarn('呢格啱啱唔見咗（可能係另一部機刪咗）。閂咗再睇一次。');
+      return;
+    }
+    const oldDate = live.start.slice(0,10);
     const needAsk = !kidFreshEnough(oldDate) || !kidFreshEnough(date);
+    /* 爹哋撳「↩ 改返原本時間」要有得返轉頭。冇 guestPrev 嘅話佢見到嘅係
+       「↩ 還原（刪除）」——一撳就連成格嘢一齊剷埋。AI 排程嗰邊一早修咗，
+       呢度一直漏咗。 */
+    if(needAsk && !live.guestPrev){
+      live.guestPrev = {title:live.title, start:live.start,
+                        endOverride:live.endOverride || '', color:live.color || ''};
+    }
     kidWrite(function(){
-      Object.assign(kidEditing, {title:kidTitle(what), start:start, endOverride:en});
-      if(kidHwPick){ kidEditing.hwSlot = true; kidEditing.hwFor = kidHwPick.key; }
-      if(needAsk) kidEditing.guestPending = true;   /* 太舊：要爹哋批 */
+      Object.assign(live, {title:kidTitle(what), start:start, endOverride:en});
+      if(kidHwPick){ live.hwSlot = true; live.hwFor = kidHwPick.key; }
+      if(needAsk) live.guestPending = true;         /* 太舊：要爹哋批 */
       save();
     });
+    /* 北極星 6：佢做過乜，爹哋一定睇得到。舊版呢度一個字都冇記，
+       所以爹哋開 Data Log 睇，真係會「見唔到佢有改過」。 */
+    logPush('kidplan', '改咗自己排嗰格：' + live.title +
+            '　' + oldDate + ' → ' + date + ' ' + time,
+            {kind:'edit', eid:live.id, guest:true,
+             pending:needAsk || undefined});
+    kidEditing = live;
     hide('kidEvModal');
+    renderCal();                                   /* 舊版漏咗，畫面唔會即刻更新 */
     toast(needAsk ? '✋ 呢格過咗尋日，改動要等爹哋批准。' : '✓ 改好喇。');
   }else{
     kidWrite(function(){
@@ -5100,6 +5150,10 @@ function kidSave(){
       state.events.push(_e);
       save();
     });
+    /* 北極星 6：佢自己排咗一格，爹哋一定睇得到。舊版兩條路（加同改）
+       都一個字都冇記——所以爹哋開 Data Log 睇，真係會乜都見唔到。 */
+    logPush('kidplan', '自己排咗一格：' + kidTitle(what) + '　' + date + ' ' + time,
+            {kind:'add', guest:true});
     hide('kidEvModal');
     toast(fit.fitted
       ? ('✓ 加咗喇——不過幫你收短咗做 ' + fit.mins + ' 分鐘，因為跟住就到「' +
@@ -5114,12 +5168,19 @@ async function kidDelete(){
   if(!ev) return;
   if(!kidIsMine(ev)){ kidWarn('呢格唔係你排嘅，你刪唔到。'); return; }
   if(!await confirmBox('確定要刪走「' + ev.title + '」？')) return;
-  const fresh = kidFreshEnough(ev.start.slice(0,10));
+  /* 同 kidSave 一樣：確認個框彈咗出嚟嗰陣，雲端回音一到 state 就換晒，
+     ev 會變孤兒。「提出刪」嗰條路改嘅係 ev 本身，一定要攞返實物。
+     （「即刻刪」嗰條本來就係用 id 篩，所以一直冇事。） */
+  const live = kidLive(ev);
+  if(!live){ kidWarn('呢格啱啱唔見咗。閂咗再睇一次。'); return; }
+  const fresh = kidFreshEnough(live.start.slice(0,10));
   kidWrite(function(){
-    if(fresh){ state.events = state.events.filter(function(x){ return x.id !== ev.id; }); }
-    else     { ev.guestPending = true; ev.guestDel = true; }   /* 太舊：提出刪，等爹哋批 */
+    if(fresh){ state.events = state.events.filter(function(x){ return x.id !== live.id; }); }
+    else     { live.guestPending = true; live.guestDel = true; }   /* 太舊：提出刪，等爹哋批 */
     save();
   });
+  logPush('kidplan', (fresh ? '刪咗自己排嗰格：' : '想刪走自己排嗰格（等爹哋批）：') + live.title,
+          {kind:'del', eid:live.id, guest:true, pending:!fresh || undefined});
   hide('kidEvModal'); renderCal();
   toast(fresh ? '✓ 刪咗喇。' : '✋ 呢格過咗尋日，我幫你話咗俾爹哋知，等佢批。');
 }
@@ -6029,7 +6090,7 @@ async function callAIJSON(messages, opt){
 }
 
 /* ---------- 2. Data Log ---------- */
-const TYPE_NAME = {request:'我講嘅嘢', plan:'AI 嘅安排', correction:'我嘅糾正', feedback:'我教佢', rule:'規則更新', story:'📖 聽故事', list:'📋 清單'};
+const TYPE_NAME = {request:'我講嘅嘢', plan:'AI 嘅安排', correction:'我嘅糾正', feedback:'我教佢', rule:'規則更新', story:'📖 聽故事', list:'📋 清單', kidplan:'🧒 佢自己排嘅格'};
 
 /* ===== 兩個上限 =====
    原本 300／2000 係硬上限，超咗就 slice() 靜靜雞剷走最舊嗰啲，用戶完全冇提示。
@@ -8143,6 +8204,8 @@ function ctxText(){
   const _all = (state.ai.log||[]).filter(function(x){
     if(!x) return true;
     if(x.type === 'story') return false;
+    /* ⚠ kidplan **唔剔**：佢自己排咗啲乜，正正係 AI 排程要知嘅嘢。
+       story 剔係因為嗰啲唔係屋企習慣；呢啲係。 */
     return (x.kind || (x.meta||{}).kind) !== 'owner-chat';
   });
   const _fresh = _all.filter(x=>x && !x.digested);
