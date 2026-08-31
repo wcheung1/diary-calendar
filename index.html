@@ -1045,12 +1045,40 @@ body.readonly #hubStoryAdmin{display:none!important}
   border-radius:11px;background:var(--card);color:inherit;cursor:pointer;min-height:48px}
 .hwClr{margin-top:7px;border:1px solid var(--line);background:var(--card);color:inherit;
   border-radius:9px;padding:7px 13px;font-size:13.5px;cursor:pointer}
-/* ===== ❓ 點樣用 ===== */
-.hpQs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}
-.hpQs button{border:1px solid var(--line);background:var(--card);color:inherit;
-  border-radius:12px;padding:11px 15px;font-size:15.5px;cursor:pointer;min-height:46px}
-.hpQs button:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
-.hpQs button:disabled{opacity:.4;cursor:default}
+/* ===== ❓ 我唔識撳 ===== */
+.hpHead{display:flex;align-items:center;gap:8px;margin:0 0 8px}
+.hpX{border:1px solid var(--line);background:var(--card);color:inherit;border-radius:11px;
+  width:46px;height:46px;font-size:20px;line-height:1;padding:0;cursor:pointer;flex:0 0 auto}
+.hpX:hover{border-color:var(--overdue);color:var(--overdue)}
+.hpIntro{display:flex;align-items:center;gap:9px;margin:0 0 12px;padding:9px 11px;
+  border:1px solid var(--line);border-left:5px solid var(--accent);border-radius:11px;
+  background:var(--hover)}
+.hpIntroT{flex:1;min-width:0;font-size:15.5px;line-height:1.65}
+/* 每粒預設問題都有自己粒喇叭：佢未必讀得曬啲字，但聽得明。 */
+.hpQs{display:flex;flex-direction:column;gap:8px;margin:0 0 12px}
+.hpQ{display:flex;align-items:center;gap:8px}
+.hpQ .hpQb{flex:1;min-width:0;text-align:left;border:1px solid var(--line);
+  background:var(--card);color:inherit;border-radius:12px;padding:12px 15px;
+  font-size:16px;cursor:pointer;min-height:48px}
+.hpQ .hpQb:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.hpQ .hpQb:disabled{opacity:.4;cursor:default}
+/* 逐步走：一步一行，聽完撳「✓ 做咗」就會淡咗，下次返嚟由未做嗰步開始。 */
+.hpStep{display:flex;align-items:flex-start;gap:9px;padding:11px 12px;
+  border:1px solid var(--line);border-radius:12px;background:var(--card);
+  font-size:17px;line-height:1.7}
+.hpStep.done{opacity:.45}
+.hpStep.done .hpSt{text-decoration:line-through}
+.hpStep.now{border-color:var(--accent);border-width:2px;background:var(--hover)}
+.hpNo{flex:0 0 auto;width:30px;height:30px;border-radius:50%;background:var(--accent);
+  color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;
+  justify-content:center;margin-top:2px}
+.hpStep.done .hpNo{background:var(--line);color:var(--muted)}
+.hpSt{flex:1;min-width:0}
+.hpOk{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:inherit;
+  border-radius:10px;padding:8px 11px;font-size:13px;cursor:pointer;min-height:44px}
+.hpOk:hover{border-color:var(--accent);color:var(--accent)}
+.hpSteps{display:flex;flex-direction:column;gap:9px}
+.hpBack{font-size:12.5px;color:var(--muted);margin:0 0 8px}
 #hpHist{display:flex;flex-direction:column;gap:10px;margin:0 0 8px;max-height:46vh;overflow:auto}
 #hpInput{flex:1 1 220px;min-width:0;min-height:46px;font-size:16px;line-height:1.6;
   padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:var(--card);
@@ -1287,7 +1315,7 @@ body.hubOpen{overflow:hidden}
   <button class="hbtn" id="btnKw">🎨 關鍵字顏色</button>
   <button class="hbtn" id="kwFilterBtn" title="淨係顯示含有指定關鍵字嘅項目">🔎 篩選</button>
   <button class="hbtn" id="btnTrash" title="搵返刪咗嘅時間表項目">🗑 執返刪咗嘅嘢</button>
-  <button class="hbtn" id="btnHelp" title="唔識撳？問我">❓ 點樣用</button>
+  <button class="hbtn" id="btnHelp" title="唔識撳邊度？撳我問">❓ 我唔識撳</button>
   <button class="hbtn" id="btnList" title="執書包、功課清單">📋 清單</button>
   <button class="hbtn" id="btnHub" title="爹哋放咗嘅學習連結">📚 學習角</button>
   <button class="hbtn" id="btnSearch">🔍 搜尋 (Ctrl+F)</button>
@@ -1435,8 +1463,15 @@ body.hubOpen{overflow:hidden}
 </div></div>
 <!-- ❓ 點樣用。餵嘅係一份人手寫嘅說明，唔係 index.html。 -->
 <div class="overlay" id="helpModal"><div class="modal" style="width:min(720px,100%)">
-  <h3>❓ 點樣用</h3>
-  <p class="subnote">想做一樣嘢但撳唔到？問我。我淨係識呢個 app 點撳，其他嘢問唔到我。</p>
+  <div class="hpHead">
+    <h3 style="margin:0">❓ 我唔識撳</h3>
+    <span style="flex:1"></span>
+    <button class="hpX" type="button" id="hpX" aria-label="出返去">✕</button>
+  </div>
+  <div class="hpIntro">
+    <span class="hpIntroT" id="hpIntroT">呢度可以問我，呢個 app 邊粒掣做乜。撳下面啲問題，或者自己講你想做乜。</span>
+    <button class="lsSp" type="button" id="hpIntroSpk" aria-label="讀出呢句">🔊</button>
+  </div>
   <div class="hpQs" id="hpQs"></div>
   <div id="hpHist"></div>
   <div class="stTalkIn">
@@ -1445,7 +1480,8 @@ body.hubOpen{overflow:hidden}
     <button class="btn danger" type="button" id="hpStop" style="display:none">⏹ 停</button>
   </div>
   <div class="modalActs">
-    <span style="flex:1"></span><button class="btn primary" id="hpClose">明白喇</button>
+    <button class="btn" type="button" id="hpClear" style="display:none">🗑 由頭再問過</button>
+    <span style="flex:1"></span><button class="btn primary" id="hpClose">✓ 我做完喇</button>
   </div>
 </div></div>
 <!-- 📋 清單。一行一個項目，唔使打任何符號。 -->
@@ -2125,7 +2161,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-28l";
+const BUILD = "2026-08-28m";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -5550,6 +5586,8 @@ document.addEventListener('keydown',e=>{
     if(cam && cam.classList.contains('show') && typeof window.closeCam==='function'){ try{ window.closeCam(); }catch(_e){} }
     /* 📖 聽故事同相機一樣要特別處理：淨係 remove('show') 只係收埋咗個畫面，
        把聲會繼續讀落去，而粒「⏹ 停」已經冇咗，佢想停都停唔到。 */
+    const _hpM=document.getElementById('helpModal');
+    if(_hpM && _hpM.classList.contains('show')){ try{ window.ttsStop && window.ttsStop(); }catch(_e){} }
     const _stM=document.getElementById('storyModal');
     if(_stM && _stM.classList.contains('show') && typeof window.storyCloseRead==='function'){ try{ window.storyCloseRead(); }catch(_e){} }
     document.querySelectorAll('.overlay.show').forEach(o=>o.classList.remove('show'));
@@ -12154,6 +12192,17 @@ const SYS_SYL = [
 const KID_HELP = [
 '呢個 app 叫「屋企行事曆」。以下係佢見到嘅嘢同點撳。',
 '',
+'【啲掣喺邊度】（教佢嘅時候一定要講清楚）',
+'· 幾乎所有掣都喺**最上面嗰行**，由左去右排。行唔夠位就會摺落第二行。',
+'· 所以唔好淨係講「左上角」或者「右上角」——部機闊窄唔同，位置會郁。',
+'  要講：粒掣係咩色咩圖案、寫住乜字、隔籬嗰粒係邊粒。',
+'· 佢喺訪客模式見到嘅，最上面嗰行由左去右大致係：',
+'  日期同左右箭咀 → ＋ 我自己加一格 → 📍 我而家做緊 → 🕐 睇時鐘 →',
+'  🤖 AI 排程 → 🗑 執返刪咗嘅嘢 → ❓ 我唔識撳 → 📋 清單 → 📚 學習角 →',
+'  🔍 搜尋 → 🔒 解鎖編輯',
+'· 「🆘 搵爹哋」唔喺上面嗰行，佢係一粒紅色嘅圓掣，喺畫面右下角，成日都喺度。',
+'· 彈出嚟嗰啲窗，右上角有個 ✕ 可以閂返，最底有粒藍色掣（例如「完成」）。',
+'',
 '【一開就見到嗰版：時間表】',
 '· 中間一行行嘅，就係今日要做嘅嘢。每一行右邊有粒 🔊，撳一下就會讀出幾點同做乜。',
 '· 撳一行本身，會打開睇多啲（做嗰件事嘅步驟）。再撳一次就收埋。',
@@ -12161,7 +12210,7 @@ const KID_HELP = [
 '· 上面有日期，撳左右箭咀可以揭去第二日。',
 '',
 '【想自己加一格落時間表】',
-'· 撳「＋ 加一格落我嘅時間表」。',
+'· 撳最上面嗰行嘅「＋ 我自己加一格」（喺日期箭咀右邊嗰幾粒入面）。',
 '· 打低想做乜；或者喺「揀一份功課」嗰個掣度揀返一份未做嘅功課。',
 '· 揀日子（最遠排到之後嗰幾日，過咗嘅日子加唔到）。',
 '· 揀幾點：可以撳個圓鐘，或者撳時針分針嘅上下箭咀。',
@@ -12175,13 +12224,15 @@ const KID_HELP = [
 '· 再舊嘅，改完會等爹哋撳一下批准先算數，畫面會話返你知。',
 '',
 '【錯手刪咗，想搵返】',
-'· 撳「🗑 執返刪咗嘅嘢」，入面有最近刪走嗰啲，撳「↩ 執返」就返嚟。',
+'· 撳最上面嗰行嘅「🗑 執返刪咗嘅嘢」（喺「❓ 我唔識撳」左邊）。',
+'· 入面每一行右邊有粒 ↩，撳一下就放返落時間表。',
 '· 淨係留最近嗰批同最近一個月，太耐就冇咗。',
 '',
 '【🕐 睇時鐘】',
 '· 撳一下會出個圓鐘，讀出而家幾點，仲會話你知下一件事幾時開始。',
 '',
 '【🆘 搵爹哋】',
+'· 佢係一粒紅色嘅圓掣，喺畫面右下角，唔喺上面嗰行。',
 '· 有急事、唔知點算、或者想同爹哋講嘢，撳呢粒。打低你想講嘅嘢就送得出。',
 '· 爹哋覆咗你，呢粒掣會有記號，撳入去就睇到，每句都有 🔊 讀得出。',
 '',
@@ -12221,11 +12272,26 @@ const SYS_HELP = [
 '  呢個比你直接講「我唔知」差好多。',
 '',
 '【點樣答】',
-'1. 一次答一件事。佢問點樣做 X，你就講 X，唔好順便教埋 Y 同 Z。',
-'2. 一步一句，最多三步。多過三步就揀最重要嗰三步先講，講完問佢做唔做到。',
-'3. 每一步要講到撳邊粒掣、粒掣寫住乜字。唔好講「去設定嗰度」，要講粒掣個名。',
-'4. 唔准用電腦詞語：介面、選項、功能、設定、頁面、視窗、清單項目，全部唔准。',
-'   用佢見到嘅字：撳、打開、收埋、揀、寫低。',
+'· 當佢係一個第一次掂 iPad 嘅人。佢唔知咩叫返返上一頁、咩叫收埋。',
+'· 一次答一件事。佢問點樣做 X，你就講 X，唔好順便教埋 Y 同 Z。',
+'',
+'【格式：一定要用編號步驟】',
+'· 每一步自己一行，行頭用 1. 2. 3.（阿拉伯數字加一點加一個空格）。',
+'· 一步做一個動作。撳一粒掣就係一步，唔好將兩三粒掣塞埋一步入面。',
+'· 最多六步。多過六步就講到「做完呢六步之後返嚟再問我」。',
+'· 步驟之前可以有一句好短嘅開場（最多一句），之後唔好再加總結。',
+'',
+'【每一步要有嘅三樣嘢，一樣都唔准少】',
+'1. 喺邊一版：時間表主畫面、定係啱啱彈咗出嚟嗰個窗。',
+'2. 粒掣喺邊：最上面嗰行、畫面右下角、彈出嗰個窗嘅最底，等等。',
+'   ⚠ 唔好淨係講左上角右上角——部機闊窄唔同，啲掣會摺落第二行，位置會郁。',
+'   要講：粒掣咩圖案、寫住乜字、隔籬嗰粒係邊粒。',
+'3. 撳咗之後會見到乜。冇呢句，佢唔知自己撳啱定撳錯。',
+'',
+'【講嘢嘅字眼】',
+'· 唔准用電腦詞語：介面、選項、功能、設定、頁面、視窗、清單項目，全部唔准。',
+'· 用佢見到嘅字：撳、打開、收埋、揀、寫低、彈咗出嚟。',
+'· 粒掣有 emoji 就連 emoji 一齊講，例如撳「🕐 睇時鐘」，唔好淨係講睇時鐘。',
 '',
 '【唔准做嘅嘢】',
 '· 唔准講程式碼、檔案名、任何英文技術字。',
@@ -13017,10 +13083,97 @@ function trRender(){
 Object.assign(window, {trashRender: trRender});
 
 /* ---------- ❓ 點樣用：邏輯 ---------- */
-const HP_QS = ['我想加一格落時間表', '我想改返／刪走自己排嗰格',
-               '我錯手刪咗嘢，點搵返？', '我想聽故事', '我想開一張清單',
-               '我想搵爹哋'];
-let hpMsgs = [], hpBusy = false;
+const HP_QS = ['我想加一格落我嘅時間表', '我想改返或者刪走自己排嗰格',
+               '我錯手刪咗嘢，想搵返', '我想聽故事', '我想開一張清單',
+               '我想搵爹哋', '我想睇下而家幾點'];
+let hpMsgs = [], hpBusy = false, hpSteps = [], hpQ = '';
+
+/* ---------- 逐步走 ----------
+   出過事：佢聽完一大段，出去撳兩下，返嚟就唔記得第 3 步係乜——
+   結果要由第 1 步再聽多次。所以將 AI 嗰段拆返做一步一行，
+   每步自己一粒喇叭，聽完撳「✓ 做咗」就淡咗；下次返嚟由未做嗰步開始。
+   進度擺喺 localStorage（同「聽過未」一樣，唔開第二條訪客寫入路徑）。 */
+function hpKey(){ return 'hp_step_' + hpQ.replace(/\s+/g, '').slice(0, 40); }
+function hpDoneGet(){
+  try{ return JSON.parse(localStorage.getItem(hpKey()) || '[]') || []; }catch(e){ return []; }
+}
+function hpDoneSet(a){ try{ localStorage.setItem(hpKey(), JSON.stringify(a)); }catch(e){} }
+/* 將 AI 覆嗰段拆做步驟。佢多數會出「1. …」，但唔跟嘅時候都要有得撐——
+   拆唔到就當成一步，總好過乜都唔出。 */
+function hpSplit(txt){
+  const lines = String(txt || '').split(/\n+/).map(function(s){ return s.trim(); })
+                                 .filter(Boolean);
+  const steps = [], lead = [];
+  lines.forEach(function(l){
+    const m = l.match(/^(\d+)[.、)]\s*(.+)$/);
+    if(m) steps.push(m[2].trim());
+    else if(!steps.length) lead.push(l);
+    else steps[steps.length - 1] += ' ' + l;      /* 續行 */
+  });
+  return {lead:lead.join(' '), steps:steps.length ? steps : (lines.length ? [lines.join(' ')] : [])};
+}
+function hpSpk(getText, lab){
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'lsSp'; b.textContent = '🔊';
+  b.setAttribute('aria-label', '讀出：' + (lab || ''));
+  let at = 0;
+  const go = function(e){
+    const now = Date.now(); if(now - at < 400) return; at = now;
+    e.stopPropagation(); e.preventDefault();
+    if(typeof window.ttsSpeak === 'function') window.ttsSpeak(getText(), b);
+  };
+  b.addEventListener('touchend', go, {passive:false});
+  b.addEventListener('click', go);
+  return b;
+}
+function hpRenderSteps(){
+  const h = document.getElementById('hpHist');
+  if(!h) return;
+  h.innerHTML = '';
+  const cl = document.getElementById('hpClear');
+  if(cl) cl.style.display = hpSteps.length ? '' : 'none';
+  if(!hpSteps.length) return;
+  const done = hpDoneGet();
+  if(done.length){
+    const p = document.createElement('div');
+    p.className = 'hpBack';
+    p.textContent = '你頭先做到第 ' + (done.length) + ' 步。撳返「✓ 做咗」嗰粒可以改。';
+    h.appendChild(p);
+  }
+  const wrap = document.createElement('div');
+  wrap.className = 'hpSteps';
+  const firstUndone = hpSteps.findIndex(function(_, i){ return done.indexOf(i) < 0; });
+  hpSteps.forEach(function(txt, i){
+    const isDone = done.indexOf(i) >= 0;
+    const row = document.createElement('div');
+    row.className = 'hpStep' + (isDone ? ' done' : (i === firstUndone ? ' now' : ''));
+    const no = document.createElement('span');
+    no.className = 'hpNo'; no.textContent = isDone ? '✓' : String(i + 1);
+    row.appendChild(no);
+    const st = document.createElement('span');
+    st.className = 'hpSt'; st.textContent = txt;
+    row.appendChild(st);
+    row.appendChild(hpSpk(function(){ return '第 ' + (i + 1) + ' 步。' + txt; }, txt));
+    const ok = document.createElement('button');
+    ok.type = 'button'; ok.className = 'hpOk';
+    ok.textContent = isDone ? '↩ 未做' : '✓ 做咗';
+    ok.onclick = function(){
+      const d = hpDoneGet();
+      const at2 = d.indexOf(i);
+      if(at2 >= 0) d.splice(at2, 1); else d.push(i);
+      hpDoneSet(d.sort(function(a, b){ return a - b; }));
+      hpRenderSteps();
+    };
+    row.appendChild(ok);
+    wrap.appendChild(row);
+  });
+  h.appendChild(wrap);
+  /* 自動捲去未做嗰步，唔使佢自己搵 */
+  try{
+    const now = h.querySelector('.hpStep.now');
+    if(now) now.scrollIntoView({block:'nearest'});
+  }catch(e){}
+}
 function hpBusySet(v){
   hpBusy = v;
   const s = document.getElementById('hpSend');
@@ -13052,6 +13205,9 @@ async function hpAsk(q){
   const t = String(q || '').trim();
   if(!t) return;
   hpBusySet(true);
+  hpSteps = [];
+  const _h0 = document.getElementById('hpHist');
+  if(_h0) _h0.innerHTML = '';
   hpBubble('me', t, false);
   const h = document.getElementById('hpHist');
   const box = document.createElement('div');
@@ -13070,7 +13226,15 @@ async function hpAsk(q){
     if(!String(clean || '').trim()) throw new Error('佢覆咗等於冇覆。');
     hpMsgs.push({role:'assistant', content:clean});
     if(h) h.removeChild(box);
-    hpBubble('ai', clean, true);
+    const parts = hpSplit(clean);
+    hpQ = t;
+    hpSteps = parts.steps;
+    hpDoneSet([]);                       /* 新問題＝由第一步開始 */
+    try{ localStorage.setItem('hp_last', JSON.stringify({q:t, lead:parts.lead, steps:hpSteps})); }
+    catch(e){}
+    if(h) h.innerHTML = '';
+    if(parts.lead) hpBubble('ai', parts.lead, true);
+    hpRenderSteps();
     const g = isGuestNow();
     logPush('help', (g ? '❓ 問點樣用：' : '🧑 主人對話記錄 · 試用點樣用：') +
             '\n我：' + t + '\n\nAI：' + short(clean, 500),
@@ -13091,25 +13255,74 @@ async function hpAsk(q){
 }
 function hpOpen(){
   hpMsgs = [];
-  const h = document.getElementById('hpHist');
-  if(h) h.innerHTML = '';
   const q = document.getElementById('hpQs');
   if(q && !q.children.length){
     HP_QS.forEach(function(s){
+      const row = document.createElement('div');
+      row.className = 'hpQ';
       const b = document.createElement('button');
-      b.type = 'button'; b.textContent = s;
+      b.type = 'button'; b.className = 'hpQb'; b.textContent = s;
       b.onclick = function(){ hpAsk(s); };
-      q.appendChild(b);
+      row.appendChild(b);
+      /* 佢未必讀得曬呢句，但聽得明。冇呢粒喇叭，成排問題對佢等於一堆花紋。 */
+      row.appendChild(hpSpk(function(){ return s; }, s));
+      q.appendChild(row);
     });
   }
   const i = document.getElementById('hpInput');
   if(i) i.value = '';
+  /* 返嚟嗰陣接返上次做到邊，唔使由第一步再聽過 */
+  hpSteps = []; hpQ = '';
+  try{
+    const last = JSON.parse(localStorage.getItem('hp_last') || 'null');
+    if(last && Array.isArray(last.steps) && last.steps.length){
+      hpQ = last.q || ''; hpSteps = last.steps;
+    }
+  }catch(e){}
+  const h = document.getElementById('hpHist');
+  if(h) h.innerHTML = '';
+  if(hpSteps.length){
+    const p = document.createElement('div');
+    p.className = 'hpBack';
+    p.textContent = '上次你問：' + hpQ;
+    if(h) h.appendChild(p);
+    hpRenderSteps();
+  }else{
+    const cl = document.getElementById('hpClear');
+    if(cl) cl.style.display = 'none';
+  }
   show('helpModal');
 }
 (function hpWire(){
   const g = function(id){ return document.getElementById(id); };
   const b = g('btnHelp'); if(b) b.onclick = hpOpen;
-  const c = g('hpClose'); if(c) c.onclick = function(){ try{ ttsStop(); }catch(e){} hide('helpModal'); };
+  /* 唔明都要俾佢出得返去。困住一個唔明嘅細路，只會令佢下次唔敢再撳入嚟。
+     佢做到邊步已經記低咗，出返去再入嚟接得返，所以出去係零代價。 */
+  const shut = function(){ try{ ttsStop(); }catch(e){} hide('helpModal'); };
+  const c = g('hpClose'); if(c) c.onclick = shut;
+  const x = g('hpX'); if(x) x.onclick = shut;
+  const ov = g('helpModal');
+  if(ov) ov.addEventListener('click', function(e){ if(e.target === ov) shut(); });
+  const it = g('hpIntroT'), isp = g('hpIntroSpk');
+  if(isp && it){
+    let at = 0;
+    const say = function(e){
+      const now = Date.now(); if(now - at < 400) return; at = now;
+      e.stopPropagation(); e.preventDefault();
+      if(typeof window.ttsSpeak === 'function') window.ttsSpeak(it.textContent, isp);
+    };
+    isp.addEventListener('touchend', say, {passive:false});
+    isp.addEventListener('click', say);
+  }
+  const clr = g('hpClear');
+  if(clr) clr.onclick = function(){
+    hpSteps = []; hpMsgs = [];
+    try{ localStorage.removeItem('hp_last'); }catch(e){}
+    try{ localStorage.removeItem(hpKey()); }catch(e){}
+    hpQ = '';
+    const h = g('hpHist'); if(h) h.innerHTML = '';
+    clr.style.display = 'none';
+  };
   const st = g('hpStop');
   if(st) st.onclick = function(){ st.disabled = true;
     try{ aiCancel(); }catch(e){} try{ ttsStop(); }catch(e){} };
@@ -13121,7 +13334,7 @@ function hpOpen(){
     if(enterSends(e)){ e.preventDefault(); go(); }
   });
 })();
-Object.assign(window, {helpOpen: hpOpen});
+Object.assign(window, {helpOpen: hpOpen, ttsStop: ttsStop});
 
 /* =========================================================
    📋 清單
