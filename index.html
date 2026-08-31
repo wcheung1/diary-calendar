@@ -1040,11 +1040,38 @@ body.readonly #hubStoryAdmin{display:none!important}
 #stTalkInput{flex:1 1 220px;min-width:0;min-height:46px;font-size:16px;line-height:1.6;
   padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:var(--card);
   color:inherit;resize:vertical}
-/* 功課揀嗰度：由一排掣改做一個 dropdown */
+/* 功課揀嗰度：摺埋嗰陣似 dropdown，撳開就係一行一份，每行有粒喇叭。
+   （原生 <select> 個清單係 OS 畫嘅，塞唔到喇叭入去。） */
+.hwPick{border:2px solid var(--accent);border-radius:11px;background:var(--card)}
+.hwPick > summary{cursor:pointer;list-style:none;padding:12px;font-size:16px;min-height:48px;
+  display:flex;align-items:center}
+.hwPick > summary::-webkit-details-marker{display:none}
+.hwPickList{max-height:38vh;overflow:auto;border-top:1px solid var(--line);padding:8px}
+.hwPickRow{display:flex;align-items:center;gap:9px;padding:10px 11px;margin:0 0 7px;
+  border:1px solid var(--line);border-radius:10px;cursor:pointer;font-size:15.5px}
+.hwPickRow:hover{background:var(--hover)}
+.hwPickRow.on{border-color:var(--accent);border-width:2px;background:var(--hover)}
+.hwPickRow.over{border-left:5px solid var(--overdue)}
+.hwPickT{flex:1;min-width:0}
+.hwPickD{display:block;font-size:12px;color:var(--muted);margin-top:2px}
 .hwSel{width:100%;padding:11px 12px;font-size:16px;border:2px solid var(--accent);
   border-radius:11px;background:var(--card);color:inherit;cursor:pointer;min-height:48px}
 .hwClr{margin-top:7px;border:1px solid var(--line);background:var(--card);color:inherit;
   border-radius:9px;padding:7px 13px;font-size:13.5px;cursor:pointer}
+/* 通用小喇叭 ＋ 彈出窗右上角個 ✕ */
+.uSpk{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:inherit;
+  border-radius:10px;width:44px;height:44px;font-size:19px;line-height:1;padding:0;cursor:pointer}
+.uSpk:hover{border-color:var(--accent);color:var(--accent)}
+.uSpkS{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:inherit;
+  border-radius:9px;width:38px;height:38px;font-size:16px;line-height:1;padding:0;cursor:pointer}
+.uSpkS:hover{border-color:var(--accent);color:var(--accent)}
+.mXRow{display:flex;align-items:center;gap:8px;margin:0 0 10px}
+.mXRow h3{margin:0!important}
+.mX{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:inherit;
+  border-radius:11px;width:44px;height:44px;font-size:19px;line-height:1;padding:0;cursor:pointer}
+.mX:hover{border-color:var(--overdue);color:var(--overdue)}
+.uLblRow{display:flex;align-items:center;gap:8px}
+.uLblRow label{margin:0}
 /* ===== ❓ 我唔識撳 ===== */
 .hpHead{display:flex;align-items:center;gap:8px;margin:0 0 8px}
 .hpX{border:1px solid var(--line);background:var(--card);color:inherit;border-radius:11px;
@@ -2161,7 +2188,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-28m";
+const BUILD = "2026-08-28n";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -4293,6 +4320,65 @@ function sayHHMM(hhmm){
   return (h >= 12 ? '下午' : '早上') + ((h % 12) || 12) + '點' +
          (m === 0 ? '正' : (m === 30 ? '半' : m + '分'));
 }
+/* ---------- 通用小喇叭 ----------
+   全 app 之前有四五處各自寫一次同樣嘅嘢（touchend ＋ 擋合成 click ＋ 去重）。
+   而家抽咗出嚟做一個，新加嘅位一律用佢。
+   ⚠ 一定要 stopPropagation：好多喇叭係坐喺一行／一張卡入面，
+     唔擋住個 click 就會「讀完順手撳咗成行」。 */
+function mkSpkBtn(getText, label, cls){
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = cls || 'uSpk';
+  b.textContent = '🔊';
+  b.setAttribute('aria-label', '讀出' + (label ? '：' + label : ''));
+  if(label) b.title = '讀出「' + label + '」';
+  let at = 0;
+  const go = function(e){
+    const now = Date.now();
+    if(now - at < 400) return;
+    at = now;
+    e.stopPropagation(); e.preventDefault();
+    let t = '';
+    try{ t = String(getText() || ''); }catch(_e){}
+    if(t && typeof window.ttsSpeak === 'function') window.ttsSpeak(t, b);
+  };
+  b.addEventListener('touchend', go, {passive:false});
+  b.addEventListener('click', go);
+  return b;
+}
+
+/* ---------- 彈出窗右上角嘅 ✕ ----------
+   本來好多窗淨係得最底一粒「完成／儲存」。對一個唔明發生緊乜嘅細路嚟講，
+   「完成」係一個佢答唔到嘅問題——佢想要嘅係「我唔玩住，出返去」。
+   所以一律補一粒 ✕。用 JS 插，唔改嗰啲 HTML（其中一個 modal 成行過千字，
+   喺度做字串替換好易改錯隔籬嘢）。 */
+function modalX(id, onClose){
+  try{
+    const ov = document.getElementById(id);
+    if(!ov) return;
+    const md = ov.querySelector('.modal');
+    if(!md || md.querySelector('.mX')) return;
+    const h = md.querySelector('h3');
+    if(!h) return;
+    const row = document.createElement('div');
+    row.className = 'mXRow';
+    h.parentNode.insertBefore(row, h);
+    row.appendChild(h);
+    const sp = document.createElement('span');
+    sp.style.flex = '1';
+    row.appendChild(sp);
+    const x = document.createElement('button');
+    x.type = 'button'; x.className = 'mX'; x.textContent = '✕';
+    x.setAttribute('aria-label', '出返去');
+    x.title = '唔使做住，出返去';
+    x.onclick = function(){
+      try{ if(typeof window.ttsStop === 'function') window.ttsStop(); }catch(e){}
+      if(typeof onClose === 'function'){ try{ onClose(); return; }catch(e){} }
+      ov.classList.remove('show');
+    };
+    row.appendChild(x);
+  }catch(e){ console.warn('modalX', id, e); }
+}
 function hasFinePointer(){
   try{ return !!(window.matchMedia && window.matchMedia('(pointer: fine)').matches); }
   catch(e){ return true; }
@@ -4649,29 +4735,48 @@ function kidHwChips(){
     note.textContent = '又或者由下面度揀一份功課（撳一下彈開，揀完會自動填好）：';
     note.className = 'subnote';
   }
-  const sel = document.createElement('select');
-  sel.className = 'hwSel';
-  sel.setAttribute('aria-label', '揀一份功課');
-  const o0 = document.createElement('option');
-  o0.value = ''; o0.textContent = '▾ 撳我揀一份功課（' + list.length + ' 份未做完）';
-  sel.appendChild(o0);
+  /* ⚠ 本來係一個 <select>。原生 select 打開之後嗰個清單係作業系統畫嘅，
+     我哋掂唔到，所以**冇可能喺每個 option 隔籬擺粒喇叭**。
+     而佢讀唔曬啲功課名——冇喇叭就等於揀唔到。
+     所以改返做自己畫嘅一個摺埋清單：摺埋嗰陣同 dropdown 一樣咁細，
+     撳開就係一行一份，每行右邊一粒喇叭，撳粒喇叭唔會順手揀咗佢。 */
+  const det = document.createElement('details');
+  det.className = 'hwPick';
+  if(kidHwPick) det.open = false;
+  const sm = document.createElement('summary');
+  sm.textContent = kidHwPick
+    ? ('▾ 揀咗：' + kidHwPick.label + '（撳我換第二份）')
+    : ('▾ 撳我揀一份功課（' + list.length + ' 份未做完）');
+  det.appendChild(sm);
+  const ul = document.createElement('div');
+  ul.className = 'hwPickList';
   list.forEach(function(o){
-    const op = document.createElement('option');
-    op.value = o.key;
-    op.textContent = (o.overdue ? '⚠ 過咗期　' : '') + o.label +
-                     (o.due ? '　（' + o.due + ' 之前）' : '');
-    if(kidHwPick && kidHwPick.key === o.key) op.selected = true;
-    sel.appendChild(op);
+    const row = document.createElement('div');
+    row.className = 'hwPickRow' + (o.overdue ? ' over' : '') +
+                    (kidHwPick && kidHwPick.key === o.key ? ' on' : '');
+    const t = document.createElement('span');
+    t.className = 'hwPickT';
+    t.appendChild(document.createTextNode((o.overdue ? '⚠ ' : '') + o.label));
+    if(o.due){
+      const s = document.createElement('span');
+      s.className = 'hwPickD';
+      s.textContent = (o.overdue ? '過咗期　' : '') + o.due + ' 之前要做完';
+      t.appendChild(s);
+    }
+    row.appendChild(t);
+    row.appendChild(mkSpkBtn(function(){
+      return o.label + (o.overdue ? '。呢份過咗期喇。' : (o.due ? '。' + o.due + ' 之前要做完。' : ''));
+    }, o.label, 'uSpk'));
+    row.onclick = function(){
+      kidHwPick = {key:o.key, label:o.label};
+      document.getElementById('kidEvWhat').value = '做功課：' + o.label;
+      kidHwChips(); kidChips();
+      const bad = kidCheck(); if(bad && !bad.quiet) kidWarn(bad.msg); else kidWarnOff();
+    };
+    ul.appendChild(row);
   });
-  sel.onchange = function(){
-    const hit = list.filter(function(x){ return x.key === sel.value; })[0];
-    if(!hit){ kidHwPick = null; kidChips(); return; }
-    kidHwPick = {key:hit.key, label:hit.label};
-    document.getElementById('kidEvWhat').value = '做功課：' + hit.label;
-    kidChips();
-    const bad = kidCheck(); if(bad && !bad.quiet) kidWarn(bad.msg); else kidWarnOff();
-  };
-  box.appendChild(sel);
+  det.appendChild(ul);
+  box.appendChild(det);
   if(kidHwPick){
     const clr = document.createElement('button');
     clr.type = 'button'; clr.className = 'hwClr'; clr.textContent = '✕ 唔揀住';
@@ -7057,6 +7162,13 @@ function hwCard(o, finished){
   const guest = document.body.classList.contains('readonly');
   const d = document.createElement('div');
   d.className = 'hwCard' + (finished ? ' fin' : (o.overdue ? ' over' : ''));
+  /* 「📋 我要做嘅嘢」呢一版係佢每日睇嘅——份份功課名都要讀得出。
+     ⚠ 要 append 落 .hwBar（下面），唔可以直接掟落張卡度，
+       唔係會覆蓋咗下面幾行 d.innerHTML。 */
+  const spk = mkSpkBtn(function(){
+    return String(o.label || '') +
+           (o.overdue ? '。呢份過咗期喇。' : (o.due ? '。' + o.due + ' 之前要做完。' : ''));
+  }, o.label, 'uSpkS');
   const tag = o.src==='class' ? '<span class="hwSrc">📖 補習班</span>'
             : o.src==='sheet' ? '<span class="hwSrc w">🗂 工作紙</span>'
             :                   '<span class="hwSrc p">✍️ 爸爸</span>';
@@ -7200,6 +7312,7 @@ function hwCard(o, finished){
   }
 
   const bar = document.createElement('div'); bar.className = 'hwBar';
+  bar.appendChild(spk);
   if(!finished){
     const b1 = document.createElement('button');
     b1.className = 'btn primary';
@@ -12097,7 +12210,11 @@ const ST_TOPICS = [
   {k:'why',    name:'追問點解',   hint:'一種問問題同試驗嘅方法：控制變數、隔一日再試、問多一次。佢已經識基本嗰幾招，可以講深一層'},
   {k:'plan',   name:'計劃',       hint:'拆步驟、排先後、預留時間、預想會撞到咩、做唔完點算'},
   {k:'focus',  name:'專注小遊戲', hint:'一次做一件事、計時、坐唔定就起身行一圈。全部寫成遊戲'},
-  {k:'life',   name:'人生道理',   hint:'一個關於選擇、努力、失敗、興趣嘅細故事'}
+  {k:'life',   name:'人生道理',   hint:'一個關於選擇、努力、失敗、興趣嘅細故事'},
+  {k:'safe',   name:'求生技能',   hint:'走失咗、跌親、有火、有陌生人埋嚟、屋企冇人嗰陣點做。要具體到一個動作，唔好嚇親佢'},
+  {k:'eq',     name:'情緒',       hint:'認得出自己而家係嬲、驚、失望定係唔好意思，同埋嗰刻可以做啲乜。講感受本身，唔好講「要乖」'},
+  {k:'aq',     name:'跌低咗點起身', hint:'撞板、輸咗、做極都做唔到嗰陣。重點係「再試一次」呢個動作點樣拆細，唔係叫佢堅強'},
+  {k:'habit',  name:'養成習慣',   hint:'一個細到唔會失敗嘅動作，點樣連續做到變成唔使諗。講返做咗一段時間之後會點'}
 ];
 function stTopicName(k){
   const t = ST_TOPICS.filter(x=>x.k===k)[0];
@@ -13074,6 +13191,55 @@ function trRender(){
     host.appendChild(row);
   });
 }
+/* ---------- 五個窗加 ✕、幾個輸入框加喇叭 ---------- */
+(function uiExtras(){
+  const g = function(id){ return document.getElementById(id); };
+  /* ① 右上角 ✕。kfModal 特別啲：佢個「完成」係 hide，但篩選狀態要保住，
+     所以 ✕ 行返同一個 hide，唔會順手關咗個篩選。 */
+  ['listModal', 'kfModal', 'kidEvModal', 'kidPtModal', 'eventModal',
+   'trashModal', 'storyAdmin'].forEach(function(id){ modalX(id); });
+
+  /* ② 事件編輯窗：標題同 SOP／內文 都要讀得出。
+     SOP 成段幾百字，佢自己讀唔曬——呢粒喇叭先係佢真正需要嗰粒。 */
+  const evT = g('evTitle');
+  if(evT && evT.parentNode){
+    const lab = evT.parentNode.querySelector('label');
+    if(lab && !lab.parentNode.classList.contains('uLblRow')){
+      const row = document.createElement('div');
+      row.className = 'uLblRow';
+      lab.parentNode.insertBefore(row, lab);
+      row.appendChild(lab);
+      row.appendChild(mkSpkBtn(function(){ return evT.value; }, '標題', 'uSpkS'));
+    }
+  }
+  const evS = g('evSop');
+  if(evS && evS.parentNode){
+    const lab2 = evS.parentNode.querySelector('label');
+    if(lab2 && !lab2.parentNode.classList.contains('uLblRow')){
+      const row2 = document.createElement('div');
+      row2.className = 'uLblRow';
+      lab2.parentNode.insertBefore(row2, lab2);
+      row2.appendChild(lab2);
+      row2.appendChild(mkSpkBtn(function(){
+        const t = g('evTitle');
+        return ((t && t.value) ? t.value + '。' : '') + evS.value;
+      }, '內文', 'uSpkS'));
+    }
+  }
+  /* ③ 佢自己嗰兩個窗：打咗乜可以讀返出嚟核對 */
+  [['kidEvWhat', '做乜'], ['kidPtWhat', '你而家做緊乜']].forEach(function(p){
+    const inp = g(p[0]);
+    if(!inp || !inp.parentNode) return;
+    const lab = inp.parentNode.querySelector('label.kidLbl');
+    if(!lab || lab.parentNode.classList.contains('uLblRow')) return;
+    const row = document.createElement('div');
+    row.className = 'uLblRow';
+    lab.parentNode.insertBefore(row, lab);
+    row.appendChild(lab);
+    row.appendChild(mkSpkBtn(function(){ return inp.value; }, p[1], 'uSpkS'));
+  });
+})();
+
 (function trWire(){
   const b = document.getElementById('btnTrash');
   if(b) b.onclick = function(){ show('trashModal'); trRender(); };
