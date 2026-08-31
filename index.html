@@ -1040,6 +1040,21 @@ body.readonly #hubStoryAdmin{display:none!important}
 #stTalkInput{flex:1 1 220px;min-width:0;min-height:46px;font-size:16px;line-height:1.6;
   padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:var(--card);
   color:inherit;resize:vertical}
+/* 功課揀嗰度：由一排掣改做一個 dropdown */
+.hwSel{width:100%;padding:11px 12px;font-size:16px;border:2px solid var(--accent);
+  border-radius:11px;background:var(--card);color:inherit;cursor:pointer;min-height:48px}
+.hwClr{margin-top:7px;border:1px solid var(--line);background:var(--card);color:inherit;
+  border-radius:9px;padding:7px 13px;font-size:13.5px;cursor:pointer}
+/* ===== ❓ 點樣用 ===== */
+.hpQs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}
+.hpQs button{border:1px solid var(--line);background:var(--card);color:inherit;
+  border-radius:12px;padding:11px 15px;font-size:15.5px;cursor:pointer;min-height:46px}
+.hpQs button:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
+.hpQs button:disabled{opacity:.4;cursor:default}
+#hpHist{display:flex;flex-direction:column;gap:10px;margin:0 0 8px;max-height:46vh;overflow:auto}
+#hpInput{flex:1 1 220px;min-width:0;min-height:46px;font-size:16px;line-height:1.6;
+  padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:var(--card);
+  color:inherit;resize:vertical}
 /* ===== 📋 清單 ===== */
 .lsBar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px}
 .lsBar input[type=text]{flex:1 1 200px;min-width:0;padding:7px 9px;font-size:15px;font-weight:600}
@@ -1271,6 +1286,8 @@ body.hubOpen{overflow:hidden}
   <button class="hbtn" id="btnAISet">⚙ AI 設定</button>
   <button class="hbtn" id="btnKw">🎨 關鍵字顏色</button>
   <button class="hbtn" id="kwFilterBtn" title="淨係顯示含有指定關鍵字嘅項目">🔎 篩選</button>
+  <button class="hbtn" id="btnTrash" title="搵返刪咗嘅時間表項目">🗑 執返刪咗嘅嘢</button>
+  <button class="hbtn" id="btnHelp" title="唔識撳？問我">❓ 點樣用</button>
   <button class="hbtn" id="btnList" title="執書包、功課清單">📋 清單</button>
   <button class="hbtn" id="btnHub" title="爹哋放咗嘅學習連結">📚 學習角</button>
   <button class="hbtn" id="btnSearch">🔍 搜尋 (Ctrl+F)</button>
@@ -1409,6 +1426,28 @@ body.hubOpen{overflow:hidden}
 </div></div>
 <!-- 📖 聽故事：Charlotte 讀嗰版。粒 🔊 擺喺段字上面，撳落去讀，
      讀緊嗰陣撳段字入面任何一隻字就由嗰隻字讀起（ttsAttachSeek）。 -->
+<!-- 🗑 執返刪咗嘅嘢 -->
+<div class="overlay" id="trashModal"><div class="modal" style="width:min(720px,100%)">
+  <h3>🗑 執返刪咗嘅嘢</h3>
+  <p class="subnote">最近刪走嘅時間表項目留喺呢度（最多 40 件、最近 30 日）。撳「↩ 執返」就放返落時間表。</p>
+  <div id="trList"></div>
+  <div class="modalActs"><span style="flex:1"></span><button class="btn primary" id="trClose">完成</button></div>
+</div></div>
+<!-- ❓ 點樣用。餵嘅係一份人手寫嘅說明，唔係 index.html。 -->
+<div class="overlay" id="helpModal"><div class="modal" style="width:min(720px,100%)">
+  <h3>❓ 點樣用</h3>
+  <p class="subnote">想做一樣嘢但撳唔到？問我。我淨係識呢個 app 點撳，其他嘢問唔到我。</p>
+  <div class="hpQs" id="hpQs"></div>
+  <div id="hpHist"></div>
+  <div class="stTalkIn">
+    <textarea id="hpInput" placeholder="我想…（例如：我想加一格落時間表）"></textarea>
+    <button class="btn primary" type="button" id="hpSend">問</button>
+    <button class="btn danger" type="button" id="hpStop" style="display:none">⏹ 停</button>
+  </div>
+  <div class="modalActs">
+    <span style="flex:1"></span><button class="btn primary" id="hpClose">明白喇</button>
+  </div>
+</div></div>
 <!-- 📋 清單。一行一個項目，唔使打任何符號。 -->
 <div class="overlay" id="listModal"><div class="modal" style="width:min(820px,100%)">
   <h3>📋 清單</h3>
@@ -2086,7 +2125,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-28k";
+const BUILD = "2026-08-28l";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -3942,9 +3981,11 @@ function renderDay(){
         if(!ev.kidPoint){ kidOpen(ev); return; }
         if(!await confirmBox('刪走「' + ev.title + '」呢個打卡紀錄？')) return;
         kidWrite(function(){
+          evTrash(ev, 'kid');
           state.events = state.events.filter(function(x){ return x.id !== ev.id; });
           save();
         });
+        logPush('kidplan', '刪咗自己嘅打卡：' + ev.title, {kind:'del', eid:ev.id, guest:true});
         renderCal();
       };
       main.appendChild(kb);
@@ -3967,6 +4008,7 @@ function renderDay(){
         /* 訪客要求刪走呢件嘢 */
         const gYes=actBtn(acts,'✓ 同意刪走',async()=>{
           if(await confirmBox('訪客要求刪走「'+ev.title+'」。確定要刪？')){
+            evTrash(ev, 'kid');
             state.events=state.events.filter(x=>x.id!==ev.id); save(); renderCal();
           }
         });
@@ -4328,6 +4370,24 @@ function kidTitle(what){
   const w = String(what||'').trim();
   return kidHasKw(w) ? w : (kidKw() + ' ' + w);
 }
+/* ---------- 🗑 刪咗嘅嘢先落垃圾桶 ----------
+   佢錯手刪咗一格，本來係攞唔返嘅。而家刪之前影低一份，
+   留最近 40 件同最近 30 日。
+   ⚠ 擺喺主 state：一件事約 200 bytes，40 件＝ 8KB，
+     細過一張相好多，唔值得為咗佢另開一個節點同一套匯出。 */
+const TRASH_MAX = 40, TRASH_DAYS = 30;
+function evTrash(ev, by){
+  try{
+    if(!ev || !ev.id) return;
+    if(!Array.isArray(state.trash)) state.trash = [];
+    state.trash.unshift({ev:JSON.parse(JSON.stringify(ev)), at:nowISO(), by:(by || 'dad')});
+    const cut = new Date(); cut.setDate(cut.getDate() - TRASH_DAYS);
+    const cutS = fmtDate(cut);
+    state.trash = state.trash
+      .filter(function(x){ return x && x.ev && String(x.at || '').slice(0, 10) >= cutS; })
+      .slice(0, TRASH_MAX);
+  }catch(e){ console.warn('evTrash', e); }
+}
 function kidIsMine(ev){ return !!(ev && ev.kid === true); }
 
 /* ---------- 由 id 攞返「而家真係喺 state 入面」嗰件事 ----------
@@ -4544,22 +4604,49 @@ function kidHwChips(){
     if(note){ note.textContent = '而家冇未做完嘅功課——所以呢度冇嘢好揀。'; note.className = 'subnote'; }
     return;
   }
-  if(note){ note.textContent = '又或者揀一份功課嚟排：'; note.className = 'subnote'; }
-  list = list.slice(0, 8);
+  /* ⚠ 本來係一排掣（最多 8 粒）。功課多過幾樣嗰陣，成塊嘢好嘈，
+     而且 8 粒之後嘅根本揀唔到——即係「揀一份功課」呢件事有時做唔到。
+     改咗做一個 dropdown：一行、揀得晒、揀咗仲睇得返揀咗邊份。
+     上面嗰句 note 要寫到明點用——一個未見過 dropdown 嘅細路，
+     淨係見到一格灰色嘢，係唔會知要撳落去嘅。 */
+  if(note){
+    note.textContent = '又或者由下面度揀一份功課（撳一下彈開，揀完會自動填好）：';
+    note.className = 'subnote';
+  }
+  const sel = document.createElement('select');
+  sel.className = 'hwSel';
+  sel.setAttribute('aria-label', '揀一份功課');
+  const o0 = document.createElement('option');
+  o0.value = ''; o0.textContent = '▾ 撳我揀一份功課（' + list.length + ' 份未做完）';
+  sel.appendChild(o0);
   list.forEach(function(o){
-    const b = document.createElement('button'); b.type = 'button';
-    b.className = 'hw' + (o.overdue ? ' over' : '') +
-                  (kidHwPick && kidHwPick.key === o.key ? ' on' : '');
-    b.textContent = (o.overdue ? '⚠ ' : '') + o.label;
-    b.title = (o.due ? ('要喺 ' + o.due + ' 之前做完') : '') + (o.overdue ? '（已經過咗期）' : '');
-    b.onclick = function(){
-      kidHwPick = {key:o.key, label:o.label};
-      document.getElementById('kidEvWhat').value = '做功課：' + o.label;
-      kidHwChips(); kidChips();
-      const bad = kidCheck(); if(bad && !bad.quiet) kidWarn(bad.msg); else kidWarnOff();
-    };
-    box.appendChild(b);
+    const op = document.createElement('option');
+    op.value = o.key;
+    op.textContent = (o.overdue ? '⚠ 過咗期　' : '') + o.label +
+                     (o.due ? '　（' + o.due + ' 之前）' : '');
+    if(kidHwPick && kidHwPick.key === o.key) op.selected = true;
+    sel.appendChild(op);
   });
+  sel.onchange = function(){
+    const hit = list.filter(function(x){ return x.key === sel.value; })[0];
+    if(!hit){ kidHwPick = null; kidChips(); return; }
+    kidHwPick = {key:hit.key, label:hit.label};
+    document.getElementById('kidEvWhat').value = '做功課：' + hit.label;
+    kidChips();
+    const bad = kidCheck(); if(bad && !bad.quiet) kidWarn(bad.msg); else kidWarnOff();
+  };
+  box.appendChild(sel);
+  if(kidHwPick){
+    const clr = document.createElement('button');
+    clr.type = 'button'; clr.className = 'hwClr'; clr.textContent = '✕ 唔揀住';
+    clr.onclick = function(){
+      kidHwPick = null;
+      const w = document.getElementById('kidEvWhat');
+      if(w && w.value.indexOf('做功課：') === 0) w.value = '';
+      kidHwChips(); kidChips();
+    };
+    box.appendChild(clr);
+  }
 }
 function kidDurMin(){ return kidDur == null ? KID_DUR_DEFAULT : kidDur; }
 
@@ -5175,7 +5262,10 @@ async function kidDelete(){
   if(!live){ kidWarn('呢格啱啱唔見咗。閂咗再睇一次。'); return; }
   const fresh = kidFreshEnough(live.start.slice(0,10));
   kidWrite(function(){
-    if(fresh){ state.events = state.events.filter(function(x){ return x.id !== live.id; }); }
+    if(fresh){
+      evTrash(live, 'kid');
+      state.events = state.events.filter(function(x){ return x.id !== live.id; });
+    }
     else     { live.guestPending = true; live.guestDel = true; }   /* 太舊：提出刪，等爹哋批 */
     save();
   });
@@ -5274,6 +5364,7 @@ document.getElementById('evSave').onclick=()=>{
 document.getElementById('evDelete').onclick=async()=>{
   if(!editingEv) return;
   if(await confirmBox('確定要刪除「'+editingEv.title+'」？')){
+    evTrash(editingEv, 'dad');
     state.events=state.events.filter(x=>x.id!==editingEv.id);
     save(); hide('eventModal'); renderCal();
   }
@@ -6090,7 +6181,7 @@ async function callAIJSON(messages, opt){
 }
 
 /* ---------- 2. Data Log ---------- */
-const TYPE_NAME = {request:'我講嘅嘢', plan:'AI 嘅安排', correction:'我嘅糾正', feedback:'我教佢', rule:'規則更新', story:'📖 聽故事', list:'📋 清單', kidplan:'🧒 佢自己排嘅格'};
+const TYPE_NAME = {request:'我講嘅嘢', plan:'AI 嘅安排', correction:'我嘅糾正', feedback:'我教佢', rule:'規則更新', story:'📖 聽故事', list:'📋 清單', kidplan:'🧒 佢自己排嘅格', help:'❓ 問點樣用'};
 
 /* ===== 兩個上限 =====
    原本 300／2000 係硬上限，超咗就 slice() 靜靜雞剷走最舊嗰啲，用戶完全冇提示。
@@ -8193,6 +8284,8 @@ function ctxText(){
         }).join('\n')
       : '（爹哋暫時一篇都未擺出嚟）';
   }catch(e){}
+  L.push('\n【❓ 點樣用】\n個 app 有粒「❓ 點樣用」掣，佢喺嗰度問「我想做 X，撳邊度」會有另一份說明答佢。' +
+         '你呢邊冇嗰份說明，所以佢問你介面點撳嘅時候，唔准靠估一個掣出嚟——叫佢撳「❓ 點樣用」問返嗰度。');
   L.push('\n【📖 聽故事——你淨係知道有邊幾篇，篇入面寫乜、佢喺嗰邊同 AI 傾過乜，你一個字都睇唔到】\n'
     + _stL
     + '\n佢問起故事嘅內容或者佢喺嗰邊傾過嘅嘢：照直講你睇唔到，叫佢去「📚 學習角」撳「📖 聽故事」喺嗰度問返。唔准靠估，唔准作。');
@@ -8203,7 +8296,7 @@ function ctxText(){
      記錄照樣留喺 Data Log 俾爹哋睇（北極星 6），淨係唔餵返個 AI。 */
   const _all = (state.ai.log||[]).filter(function(x){
     if(!x) return true;
-    if(x.type === 'story') return false;
+    if(x.type === 'story' || x.type === 'help') return false;
     /* ⚠ kidplan **唔剔**：佢自己排咗啲乜，正正係 AI 排程要知嘅嘢。
        story 剔係因為嗰啲唔係屋企習慣；呢啲係。 */
     return (x.kind || (x.meta||{}).kind) !== 'owner-chat';
@@ -9363,7 +9456,7 @@ async function genRules(silent){
        「Charlotte 8月28號聽咗一篇故事」會經 SYS_RULE 寫成一條屋企規則。 */
     const all = (state.ai.log||[]).filter(function(x){
       if(!x) return true;
-      if(x.type === 'story') return false;
+      if(x.type === 'story' || x.type === 'help') return false;
       return (x.kind || (x.meta||{}).kind) !== 'owner-chat';
     });
     const fresh = all.filter(x=>x && !x.digested);
@@ -12045,6 +12138,102 @@ const SYS_SYL = [
 'd 係一句，二十至四十字，講清楚呢個主題要教識佢啲乜、可以用咩嚟做例。'
 ].join('\n');
 
+/* =========================================================
+   ❓ 點樣用（俾 Charlotte 問「我想做 X，撳邊度？」）
+
+   ⚠ 特登**唔會**餵 index.html 落去。個檔而家 1.07MB，中文為主，
+     大約三四十萬個 token——一次問答就爆晒 context，仲要好貴。
+     而且就算塞得落，source code 都係「點樣用」呢類問題最差嘅資料：
+     模型要由 code 倒推返個介面點撳，估錯嘅機會遠高過睇一份寫俾人睇嘅說明。
+
+   所以行呢度呢份 KID_HELP：一份**人手寫、跟住個 app 一齊維護**嘅說明。
+   幾千字，準、平、講返佢識嘅字眼。
+   ⚠ 加咗新功能記得改埋呢度。呢份嘢過咗時，比冇仲衰——
+     佢會照住一個唔存在嘅掣去撳。
+========================================================= */
+const KID_HELP = [
+'呢個 app 叫「屋企行事曆」。以下係佢見到嘅嘢同點撳。',
+'',
+'【一開就見到嗰版：時間表】',
+'· 中間一行行嘅，就係今日要做嘅嘢。每一行右邊有粒 🔊，撳一下就會讀出幾點同做乜。',
+'· 撳一行本身，會打開睇多啲（做嗰件事嘅步驟）。再撳一次就收埋。',
+'· 自己排嗰啲格，右邊會多一粒 ✎ 改。爹哋排嗰啲冇——嗰啲改唔到。',
+'· 上面有日期，撳左右箭咀可以揭去第二日。',
+'',
+'【想自己加一格落時間表】',
+'· 撳「＋ 加一格落我嘅時間表」。',
+'· 打低想做乜；或者喺「揀一份功課」嗰個掣度揀返一份未做嘅功課。',
+'· 揀日子（最遠排到之後嗰幾日，過咗嘅日子加唔到）。',
+'· 揀幾點：可以撳個圓鐘，或者撳時針分針嘅上下箭咀。',
+'· 揀做幾耐。撳「儲存」就得。',
+'· 一日最多自己排幾格；排滿咗就要先刪返一格。',
+'· 撞咗時間（嗰陣已經有嘢做）會出一句紅字話返你知，揀第二個時間就得。',
+'',
+'【想改返或者刪走自己排嗰格】',
+'· 撳嗰行右邊粒 ✎ 改，入面有「刪走」。',
+'· 今日同尋日嘅，自己改得刪得，唔使問人。',
+'· 再舊嘅，改完會等爹哋撳一下批准先算數，畫面會話返你知。',
+'',
+'【錯手刪咗，想搵返】',
+'· 撳「🗑 執返刪咗嘅嘢」，入面有最近刪走嗰啲，撳「↩ 執返」就返嚟。',
+'· 淨係留最近嗰批同最近一個月，太耐就冇咗。',
+'',
+'【🕐 睇時鐘】',
+'· 撳一下會出個圓鐘，讀出而家幾點，仲會話你知下一件事幾時開始。',
+'',
+'【🆘 搵爹哋】',
+'· 有急事、唔知點算、或者想同爹哋講嘢，撳呢粒。打低你想講嘅嘢就送得出。',
+'· 爹哋覆咗你，呢粒掣會有記號，撳入去就睇到，每句都有 🔊 讀得出。',
+'',
+'【📚 學習角】',
+'· 入面係爹哋擺低嘅學習連結，撳一下就打開。每個都有 🔊 讀個名。',
+'· 最頂係「📖 聽故事」。',
+'',
+'【📖 聽故事】',
+'· 撳最新嗰張大卡，或者喺「以前嘅故事」度揀返舊嘅。',
+'· 撳「🔊 聽」就讀出嚟，讀到邊句就黃色。',
+'· 讀緊嗰陣撳段字入面任何一隻字，就會由嗰隻字重新讀起。',
+'· 「A−」「A＋」可以較大細字。',
+'· 下面「💬 一齊傾吓呢個故事」可以問問題，或者叫佢出一條問題考你。',
+'  唔識答就撳「🤔 唔識喎，話我知答案」，冇問題嘅。',
+'',
+'【📋 清單】（執書包、功課）',
+'· 撳「＋ 開一張新清單」，一行寫一樣嘢，打完一行撳換行再寫下一行。',
+'  唔使打點點或者橫線。冇換行掣就撳「＋ 開新行」。',
+'· 儲存之後，每一行前面有個格仔——執完一樣就剔一樣。每行都有 🔊。',
+'· 「🔊 讀晒成張」會由頭讀到尾。',
+'· 自己開嗰啲改得刪得；爹哋開嗰啲改唔到，但一樣剔得。',
+'',
+'【同 AI 傾偈】',
+'· 打開 AI 面板就可以傾偈、影相問嘢、叫佢幫手排時間表。'
+].join('\n');
+
+/* ⚠ 同其餘幾份一樣，入面一個單引號都唔可以有。 */
+const SYS_HELP = [
+'【今次呢個場合】',
+'佢喺個 app 度撳唔到想要嘅嘢，撳咗「❓ 點樣用」嚟問你。',
+'上面份人格設定全部照計，以下係今次多出嚟嘅嘢。',
+'',
+'【你手上得一樣嘢】',
+'· 下面嗰份【個 app 點用】就係你全部資料。',
+'· 入面冇寫嘅，你就照直講你唔知，叫佢撳「🆘 搵爹哋」問爹哋。',
+'· ⚠ 唔准靠估一個掣出嚟。佢照住你講嘅去撳，撳唔到，就會覺得係自己蠢——',
+'  呢個比你直接講「我唔知」差好多。',
+'',
+'【點樣答】',
+'1. 一次答一件事。佢問點樣做 X，你就講 X，唔好順便教埋 Y 同 Z。',
+'2. 一步一句，最多三步。多過三步就揀最重要嗰三步先講，講完問佢做唔做到。',
+'3. 每一步要講到撳邊粒掣、粒掣寫住乜字。唔好講「去設定嗰度」，要講粒掣個名。',
+'4. 唔准用電腦詞語：介面、選項、功能、設定、頁面、視窗、清單項目，全部唔准。',
+'   用佢見到嘅字：撳、打開、收埋、揀、寫低。',
+'',
+'【唔准做嘅嘢】',
+'· 唔准講程式碼、檔案名、任何英文技術字。',
+'· 唔准話佢做錯咗或者唔小心。撳唔到多數係個 app 唔夠清楚，唔係佢蠢。',
+'· 佢想做嘅嘢係要爹哋批准嘅（例如改好耐之前嗰啲格），照直講要等爹哋，',
+'  唔好扮佢自己做得到。'
+].join('\n');
+
 /* ---------- 故事嘅獨立雲端節點 ----------
    一定唔可以擺入 diary_calendar_data/<uid>：嗰度有 dbRef.on('value') 全樹監聽，
    行事曆每改一格就會將成年嘅故事重新下載一次。同通告原文搬走係同一個理由。
@@ -12765,6 +12954,174 @@ async function stTalkSay(sendText, showText){
   }
   stTalkBusySet(false);
 }
+
+/* ---------- 🗑 執返刪咗嘅嘢 ---------- */
+function trRender(){
+  const host = document.getElementById('trList');
+  if(!host) return;
+  host.innerHTML = '';
+  const all = Array.isArray(state.trash) ? state.trash : [];
+  const guest = isGuestNow();
+  /* 訪客淨係見到自己刪嗰啲。爹哋嗰啲佢連見都唔應該見到，
+     更加唔應該執得返——執返一件爹哋刪咗嘅嘢，等於幫佢繞過咗爹哋個決定。 */
+  const list = all.filter(function(x){ return !guest || x.by === 'kid'; });
+  if(!list.length){
+    host.appendChild(stMsgBox('', guest ? '你未刪過嘢，所以呢度係空嘅。'
+                                        : '最近冇刪過時間表項目。', '', null));
+    return;
+  }
+  list.forEach(function(x){
+    const ev = x.ev || {};
+    const row = document.createElement('div');
+    row.className = 'lsRow';
+    const tx = document.createElement('span');
+    tx.className = 'lsTx';
+    tx.appendChild(document.createTextNode(ev.title || '（冇名）'));
+    const s = document.createElement('span');
+    s.className = 'lsSub';
+    s.textContent = String(ev.start || '').replace('T', ' ') + '　·　' +
+                    (x.by === 'kid' ? 'Charlotte 刪嘅' : '爹哋刪嘅') + '　·　' +
+                    fmtStamp(x.at);
+    tx.appendChild(s);
+    row.appendChild(tx);
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'lsSp'; b.textContent = '↩';
+    b.title = '執返落時間表';
+    b.onclick = async function(){
+      if(!await confirmBox('將「' + (ev.title || '') + '」執返落時間表？')) return;
+      const put = function(){
+        if((state.events || []).some(function(y){ return y && y.id === ev.id; })){
+          toast('呢件事已經喺時間表度。'); return false;
+        }
+        state.events.push(JSON.parse(JSON.stringify(ev)));
+        state.trash = (state.trash || []).filter(function(y){ return y !== x; });
+        save(); return true;
+      };
+      const ok = isGuestNow() ? kidWrite(put) : put();
+      if(ok === false) return;
+      logPush('kidplan', '執返咗：' + (ev.title || ''),
+              {kind:'undo', eid:ev.id, guest:isGuestNow() || undefined});
+      trRender(); renderCal();
+      toast('✓ 執返咗。');
+    };
+    row.appendChild(b);
+    host.appendChild(row);
+  });
+}
+(function trWire(){
+  const b = document.getElementById('btnTrash');
+  if(b) b.onclick = function(){ show('trashModal'); trRender(); };
+  const c = document.getElementById('trClose');
+  if(c) c.onclick = function(){ hide('trashModal'); };
+})();
+Object.assign(window, {trashRender: trRender});
+
+/* ---------- ❓ 點樣用：邏輯 ---------- */
+const HP_QS = ['我想加一格落時間表', '我想改返／刪走自己排嗰格',
+               '我錯手刪咗嘢，點搵返？', '我想聽故事', '我想開一張清單',
+               '我想搵爹哋'];
+let hpMsgs = [], hpBusy = false;
+function hpBusySet(v){
+  hpBusy = v;
+  const s = document.getElementById('hpSend');
+  if(s) s.disabled = v;
+  document.querySelectorAll('#hpQs button').forEach(function(b){ b.disabled = v; });
+  const st = document.getElementById('hpStop');
+  if(st){ st.style.display = v ? '' : 'none'; if(v) st.disabled = false; }
+}
+function hpBubble(who, txt, withTTS){
+  const h = document.getElementById('hpHist');
+  if(!h) return null;
+  const b = document.createElement('div');
+  b.className = 'stB ' + who;
+  if(who === 'ai' && withTTS){
+    const row = document.createElement('div');
+    row.className = 'stBTop';
+    const tx = document.createElement('div');
+    tx.className = 'stBTxt'; tx.textContent = txt;
+    row.appendChild(tx);
+    row.appendChild(makeTTSBtn(function(){ return txt; }, '🔊', tx));
+    b.appendChild(row);
+  }else b.textContent = txt;
+  h.appendChild(b);
+  try{ h.scrollTop = h.scrollHeight; }catch(e){}
+  return b;
+}
+async function hpAsk(q){
+  if(hpBusy) return;
+  const t = String(q || '').trim();
+  if(!t) return;
+  hpBusySet(true);
+  hpBubble('me', t, false);
+  const h = document.getElementById('hpHist');
+  const box = document.createElement('div');
+  box.className = 'stB ai';
+  if(h){ h.appendChild(box); try{ h.scrollTop = h.scrollHeight; }catch(e){} }
+  const view = makeStreamView(box, true);
+  hpMsgs.push({role:'user', content:t});
+  if(hpMsgs.length > 8) hpMsgs = hpMsgs.slice(-8);
+  try{
+    const reply = await callAI([
+      {role:'system', content: PERSONA_KID + '\n\n' + SYS_HELP +
+        '\n\n【個 app 點用】\n' + KID_HELP}
+    ].concat(hpMsgs), {json:false, temp:0.3,
+      max:(cfg().maxTok || CHAT_MAX_DEFAULT), onDelta:view});
+    const clean = (typeof window.kidClean === 'function') ? window.kidClean(reply) : reply;
+    if(!String(clean || '').trim()) throw new Error('佢覆咗等於冇覆。');
+    hpMsgs.push({role:'assistant', content:clean});
+    if(h) h.removeChild(box);
+    hpBubble('ai', clean, true);
+    const g = isGuestNow();
+    logPush('help', (g ? '❓ 問點樣用：' : '🧑 主人對話記錄 · 試用點樣用：') +
+            '\n我：' + t + '\n\nAI：' + short(clean, 500),
+            Object.assign({q:t, a:clean, brief:'(問點樣用) ' + short(t, 160)},
+                          g ? {kind:'help', guest:true} : {kind:'owner-chat', owner:true}));
+  }catch(err){
+    if(h) h.removeChild(box);
+    if(err && err.aborted){
+      hpMsgs.pop();
+      hpBubble('ai', '好，停咗喇。', false);
+    }else{
+      const b = hpBubble('ai', '⚠ 而家問唔到。撳返粒掣再試一次。\n（' +
+                         short(String((err && err.message) || err), 90) + '）', false);
+      if(b) b.className = 'stB ai bad';
+    }
+  }
+  hpBusySet(false);
+}
+function hpOpen(){
+  hpMsgs = [];
+  const h = document.getElementById('hpHist');
+  if(h) h.innerHTML = '';
+  const q = document.getElementById('hpQs');
+  if(q && !q.children.length){
+    HP_QS.forEach(function(s){
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = s;
+      b.onclick = function(){ hpAsk(s); };
+      q.appendChild(b);
+    });
+  }
+  const i = document.getElementById('hpInput');
+  if(i) i.value = '';
+  show('helpModal');
+}
+(function hpWire(){
+  const g = function(id){ return document.getElementById(id); };
+  const b = g('btnHelp'); if(b) b.onclick = hpOpen;
+  const c = g('hpClose'); if(c) c.onclick = function(){ try{ ttsStop(); }catch(e){} hide('helpModal'); };
+  const st = g('hpStop');
+  if(st) st.onclick = function(){ st.disabled = true;
+    try{ aiCancel(); }catch(e){} try{ ttsStop(); }catch(e){} };
+  const inp = g('hpInput'), snd = g('hpSend');
+  const go = function(){ const v = String(inp && inp.value || '').trim();
+    if(!v) return; inp.value = ''; hpAsk(v); };
+  if(snd) snd.onclick = go;
+  if(inp) inp.addEventListener('keydown', function(e){
+    if(enterSends(e)){ e.preventDefault(); go(); }
+  });
+})();
+Object.assign(window, {helpOpen: hpOpen});
 
 /* =========================================================
    📋 清單
