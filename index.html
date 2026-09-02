@@ -126,10 +126,13 @@ header .spacer{flex:1}
 .evTtl{flex:1;font-weight:600}
 .chatImgs{display:flex;gap:8px;flex-wrap:wrap;padding:6px 0 0}
 .chatImgs:empty{display:none}
-.chatThumb{position:relative;width:62px;height:62px;border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+.chatThumb{position:relative;width:74px;height:74px;border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+/* 兩粒掣分開上下角。細路隻手指粗過滑鼠，18px 撳唔中——擺埋一齊就會撳錯。 */
+.chatThumb .thX{top:2px;right:2px}
+.chatThumb .thCrop{bottom:2px;right:2px;background:rgba(46,125,100,.85)}
 .chatThumb img{width:100%;height:100%;object-fit:cover;display:block}
-.chatThumb button{position:absolute;top:1px;right:1px;width:18px;height:18px;border:0;border-radius:50%;
-  background:rgba(0,0,0,.62);color:#fff;font-size:11px;line-height:18px;padding:0;cursor:pointer}
+.chatThumb button{position:absolute;width:22px;height:22px;border:0;border-radius:50%;
+  background:rgba(0,0,0,.62);color:#fff;font-size:12px;line-height:22px;padding:0;cursor:pointer}
 .chatMsg .msgImgs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
 .chatMsg .msgImgs img{max-width:150px;max-height:150px;border-radius:8px;display:block}
 #camWrap{position:relative;background:#000;border-radius:10px;overflow:hidden;
@@ -138,6 +141,34 @@ header .spacer{flex:1}
   transform-origin:center center;transition:transform .08s linear}
 #camZoomBadge{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;
   font-size:12px;padding:3px 9px;border-radius:99px;pointer-events:none}
+/* 對焦圈：唔理部機支唔支援控制對焦都一定畫出嚟。
+   佢篤咗一下乜反應都冇＝佢會以為部機壞咗，跟住狂篤。 */
+#camFocusRing{position:absolute;width:72px;height:72px;margin:-36px 0 0 -36px;
+  border:2px solid #ffd166;border-radius:50%;pointer-events:none;opacity:0;
+  transform:scale(1.6);transition:opacity .18s,transform .18s}
+#camFocusRing.on{opacity:1;transform:scale(1)}
+/* ── ✂ 剪相 ── */
+#cropModal{z-index:75}          /* 要高過 #camModal(70)，唔係會俾佢冚住 */
+/* ⚠ overflow:hidden 唔係裝飾——#cropBox 個遮罩係用 box-shadow 0 0 0 9999px 做嘅，
+   冇呢句，嗰浸黑影會漏出去冚住成個窗（連啲掣都㨴埋）。
+   padding 係留返俾八粒角掣（佢哋凸出 8px），唔留就會俾 overflow 剪一半。 */
+#cropStage{display:flex;justify-content:center;align-items:center;background:#000;
+  border-radius:10px;padding:10px 0;overflow:hidden}
+#cropWrap{position:relative;display:inline-block;line-height:0;
+  touch-action:none;-webkit-user-select:none;user-select:none}
+#cropImg{display:block;max-width:100%;max-height:56vh;border-radius:10px}
+#cropBox{position:absolute;border:2px solid #fff;border-radius:2px;
+  box-shadow:0 0 0 9999px rgba(0,0,0,.58);cursor:move}
+#cropBox .ch{position:absolute;width:15px;height:15px;background:#fff;border-radius:3px;
+  box-shadow:0 0 0 1px rgba(0,0,0,.45)}
+#cropBox .ch.nw{left:-8px;top:-8px}      #cropBox .ch.ne{right:-8px;top:-8px}
+#cropBox .ch.sw{left:-8px;bottom:-8px}   #cropBox .ch.se{right:-8px;bottom:-8px}
+#cropBox .ch.n{left:50%;top:-8px;margin-left:-7px}
+#cropBox .ch.s{left:50%;bottom:-8px;margin-left:-7px}
+#cropBox .ch.w{top:50%;left:-8px;margin-top:-7px}
+#cropBox .ch.e{top:50%;right:-8px;margin-top:-7px}
+#cropSize{text-align:center;margin-top:8px;font-size:13px;font-weight:600}
+#cropSize.warn{color:var(--overdue)}
 .camZoomRow{display:flex;align-items:center;gap:8px;margin-top:10px}
 .camZoomRow input[type=range]{flex:1}
 .camZoomRow button{border:1px solid var(--line);background:var(--panel);border-radius:6px;
@@ -1435,16 +1466,32 @@ body.hubOpen{overflow:hidden}
 </div></div>
 
 <div class="overlay" id="camModal"><div class="modal" style="max-width:560px"><h3>📷 影相</h3>
-  <div id="camWrap"><video id="camVid" playsinline autoplay muted></video><div id="camZoomBadge">1.0×</div></div>
+  <div id="camWrap"><video id="camVid" playsinline autoplay muted></video><div id="camZoomBadge">1.0×</div><div id="camFocusRing"></div></div>
   <div class="camZoomRow">
     <button id="camZoomOut">－</button>
     <input type="range" id="camZoom" min="10" max="40" value="10" step="1">
     <button id="camZoomIn">＋</button>
   </div>
-  <p class="subnote" style="margin-top:4px">兩隻手指喺畫面上面推開／夾埋都可以放大。影字細嘅工作紙，放大到睇得清啲先影。</p>
+  <p class="subnote" style="margin-top:4px">篤一下你想睇清楚嗰個位，佢會對嗰度焦。兩隻手指推開／夾埋可以放大。<br>影完仲可以剪，所以影嗰陣影闊少少、影埋成版都唔怕。</p>
   <div class="camBar"><button id="camSnap" title="影">⚪</button></div>
   <p class="subnote" id="camNote" style="text-align:center;margin-top:8px">只會用後置鏡頭。</p>
   <div class="modalActs"><button class="btn" id="camClose">收工</button></div>
+</div></div>
+<div class="overlay" id="cropModal"><div class="modal" style="max-width:620px"><h3>✂ 剪張相</h3>
+  <p class="subnote" id="cropHint" style="margin-bottom:8px">拉四個角或者四條邊，剪淨你唔識嗰條題目。剪細啲，AI 睇得準啲。</p>
+  <div id="cropStage"><div id="cropWrap"><img id="cropImg" alt="啱啱影嗰張相">
+    <div id="cropBox">
+      <div class="ch nw"></div><div class="ch n"></div><div class="ch ne"></div>
+      <div class="ch w"></div><div class="ch e"></div>
+      <div class="ch sw"></div><div class="ch s"></div><div class="ch se"></div>
+    </div>
+  </div></div>
+  <p id="cropSize"></p>
+  <div class="modalActs">
+    <button class="btn" id="cropAll">↺ 全張</button>
+    <button class="btn danger" id="cropDrop">✕ 唔要（額度照計）</button>
+    <button class="btn primary" id="cropOK">✓ 就係咁</button>
+  </div>
 </div></div>
 <div class="overlay" id="kwModal"><div class="modal"><h3>🎨 關鍵字顏色</h3>
   <p class="subnote">時間表標題入面撞到呢啲字，就會用你揀嘅顏色顯示。幾個關鍵字用同一隻色係冇問題嘅。大細楷唔分。</p>
@@ -2207,7 +2254,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-02a";
+const BUILD = "2026-09-02b";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -10353,20 +10400,116 @@ $('camZoomOut').onclick = ()=> setCamZoom(camZoom - 0.5);
     if(e.touches.length === 2 && base){ setCamZoom(startZ * dist(e.touches) / base); e.preventDefault(); }
   }, {passive:false});
   wrap.addEventListener('touchend', function(){ base = 0; });
-  /* 篤一下：有得控制對焦就對焦，冇就照樣俾個回應佢，唔好靜英英 */
-  wrap.addEventListener('click', async function(){
+  /* ── 篤一下 → 對**嗰一點**焦 ──
+     ⚠ 舊版淨係叫 single-shot，即係篤邊度都好，部機都係對返中間。
+     佢篤住條題目，個鏡頭對咗枱面，佢會以為自己篤錯咗，跟住狂篤。
+     而家連 pointsOfInterest 一齊send。iOS Safari 唔支援呢兩個約束，
+     所以個圈一定要照畫——冇反應係最差嘅結果。 */
+  let pinchTill = 0;
+  wrap.addEventListener('touchend', function(){ pinchTill = Date.now() + 350; });
+  function focusRingAt(cx, cy){
+    const r = $('camFocusRing'); if(!r) return;
+    r.style.left = cx + 'px'; r.style.top = cy + 'px';
+    r.classList.remove('on');
+    void r.offsetWidth;                      /* 逼佢重新播一次動畫 */
+    r.classList.add('on');
+    setTimeout(function(){ r.classList.remove('on'); }, 850);
+  }
+  wrap.addEventListener('click', async function(e){
+    if(Date.now() < pinchTill) return;       /* 兩指放大完唔好當佢篤咗一下 */
+    const v = $('camVid'); if(!v) return;
+    const wr = wrap.getBoundingClientRect();
+    focusRingAt(e.clientX - wr.left, e.clientY - wr.top);
     const trk = camStream && camStream.getVideoTracks()[0]; if(!trk) return;
+    /* 由畫面座標換返做「成幅畫面入面嘅 0–1 位置」。
+       兩重嘢要拆：① CSS scale 係由中心放大　② object-fit:contain 會有黑邊。 */
+    const vr = v.getBoundingClientRect();
+    const zc = camDigital || 1;
+    const ow = v.offsetWidth, oh = v.offsetHeight;
+    const ux = (e.clientX - (vr.left + vr.width/2)) / zc + ow/2;
+    const uy = (e.clientY - (vr.top  + vr.height/2)) / zc + oh/2;
+    const ar = v.videoWidth / v.videoHeight, er = ow / oh;
+    const cw = (ar > er) ? ow : oh*ar, chh = (ar > er) ? ow/ar : oh;
+    const nx = Math.max(0, Math.min(1, (ux - (ow-cw)/2) / cw));
+    const ny = Math.max(0, Math.min(1, (uy - (oh-chh)/2) / chh));
     try{
       const cap = trk.getCapabilities ? trk.getCapabilities() : {};
-      if(cap.focusMode && cap.focusMode.indexOf('single-shot') >= 0){
-        await trk.applyConstraints({advanced:[{focusMode:'single-shot'}]});
-        $('camNote').textContent = '對緊焦…';
+      const adv = [];
+      if(cap.pointsOfInterest){ adv.push({pointsOfInterest:[{x:nx, y:ny}]}); camHasPOI = true; }
+      if(cap.focusMode && cap.focusMode.indexOf('single-shot') >= 0) adv.push({focusMode:'single-shot'});
+      if(adv.length){
+        await trk.applyConstraints({advanced:adv});
+        $('camNote').textContent = camHasPOI ? '對緊你篤嗰度…' : '對緊焦…';
         setTimeout(function(){ try{ trk.applyConstraints({advanced:[{focusMode:'continuous'}]}); }catch(e){} }, 900);
       }else{
-        toast('呢部機唔俾網頁控制對焦。行遠少少、擰正部機、或者放大再影會清楚啲。');
+        /* 講返真話：唔係「篤咗冇用」，係呢部機唔俾網頁控制個鏡頭。 */
+        $('camNote').textContent = '呢部機唔俾網頁叫個鏡頭對焦。攞遠少少、企定啲，等一兩秒先撳 ⚪。';
       }
-    }catch(e){}
+    }catch(err){}
   });
+})();
+
+/* ── ✂ 剪相：拉框 ──
+   用 pointer events：iPad 同滑鼠一份 code，唔使寫兩套。 */
+(function(){
+  const wrap = $('cropWrap'); if(!wrap) return;
+  const HIT = 26;            /* 邊／角嘅觸控容差。細路隻手指粗，15px 個掣撳唔中 */
+  function pt(e){
+    const r = wrap.getBoundingClientRect();
+    return {x:e.clientX - r.left, y:e.clientY - r.top};
+  }
+  wrap.addEventListener('pointerdown', function(e){
+    const d = cropDisp(); if(!d.W) return;
+    const p = pt(e);
+    const bx = cropN.x*d.W, by = cropN.y*d.H, bw = cropN.w*d.W, bh = cropN.h*d.H;
+    if(p.x < bx-HIT || p.x > bx+bw+HIT || p.y < by-HIT || p.y > by+bh+HIT) return;
+    const L = Math.abs(p.x-bx) < HIT, R = Math.abs(p.x-(bx+bw)) < HIT;
+    const T = Math.abs(p.y-by) < HIT, B = Math.abs(p.y-(by+bh)) < HIT;
+    let mode = 'move';
+    if(L&&T) mode='nw'; else if(R&&T) mode='ne';
+    else if(L&&B) mode='sw'; else if(R&&B) mode='se';
+    else if(L) mode='w'; else if(R) mode='e';
+    else if(T) mode='n'; else if(B) mode='s';
+    cropDrag = {mode:mode, x:p.x, y:p.y, b:{x:cropN.x, y:cropN.y, w:cropN.w, h:cropN.h}};
+    try{ wrap.setPointerCapture(e.pointerId); }catch(err){}
+    e.preventDefault();
+  });
+  wrap.addEventListener('pointermove', function(e){
+    if(!cropDrag) return;
+    const d = cropDisp(); if(!d.W) return;
+    const p = pt(e);
+    const dx = (p.x - cropDrag.x)/d.W, dy = (p.y - cropDrag.y)/d.H;
+    const b = cropDrag.b, m = cropDrag.mode;
+    if(m === 'move'){
+      cropN.x = b.x + dx; cropN.y = b.y + dy;
+      cropN.w = b.w; cropN.h = b.h;
+    }else{
+      let x=b.x, y=b.y, w=b.w, h=b.h;
+      /* 拉左邊／上邊嗰陣，起點同闊度要一齊郁，否則個框會反轉 */
+      if(m.indexOf('w') >= 0){ const nx = Math.min(b.x+b.w-CROP_MIN, b.x+dx); w = b.w + (b.x-nx); x = nx; }
+      if(m.indexOf('e') >= 0){ w = Math.max(CROP_MIN, b.w + dx); }
+      if(m.indexOf('n') >= 0){ const ny = Math.min(b.y+b.h-CROP_MIN, b.y+dy); h = b.h + (b.y-ny); y = ny; }
+      if(m.indexOf('s') >= 0){ h = Math.max(CROP_MIN, b.h + dy); }
+      cropN = {x:x, y:y, w:w, h:h};
+    }
+    cropClamp(); cropDraw();
+    e.preventDefault();
+  });
+  function stop(e){
+    if(!cropDrag) return;
+    cropDrag = null;
+    try{ wrap.releasePointerCapture(e.pointerId); }catch(err){}
+  }
+  wrap.addEventListener('pointerup', stop);
+  wrap.addEventListener('pointercancel', stop);
+  /* iPad 打橫打直，張相顯示尺寸會變。個框存嘅係比例，所以重畫就啱返。 */
+  window.addEventListener('resize', function(){ if($('cropModal').classList.contains('show')) cropDraw(); });
+  const ok = $('cropOK');   if(ok) ok.onclick = cropConfirm;
+  const all = $('cropAll'); if(all) all.onclick = function(){ cropN = {x:0,y:0,w:1,h:1}; cropDraw(); };
+  const dp = $('cropDrop'); if(dp) dp.onclick = function(){
+    cropClose();
+    toast('冇加呢張。（影咗就係影咗，額度照計——下次影之前望真啲。）');
+  };
 })();
 /* ===== 🩺 機器自我檢查 =====
    iPad 冇 Mac 就開唔到 Safari console。所有診斷結果直接印落畫面，
@@ -11858,7 +12001,16 @@ const CHAT_IMG_KEEP = 3;         /* 送去 API 時，保留最近幾多個有相
    由 20000 調高到 32000：相 + 人格設定 + context 之後，20000 唔夠佢諗完再答。
    佢係上限唔係目標，用唔晒唔會扣錢。 */
 const CHAT_MAX_DEFAULT = 32000;
-let chatImgs = [];               /* 而家等緊送出嗰批（dataURL） */
+let chatImgs = [];               /* 而家等緊送出嗰批（dataURL，可能已經剪過） */
+/* 同一個 index 對住上面：剪之前嗰張原相。
+   點解要留：剪錯咗想由頭嚟過嘅話，冇原相就要再影一次，而再影一次係要計額度嘅。
+   ⚠ 兩條 array 一定要一齊郁。所以下面四個 helper 係唯一入口，
+     唔准喺其他地方直接 push／splice——一漏就會「剪咗 A 出咗 B」，而且冇聲出。 */
+let chatImgsRaw = [];
+function imgAdd(url, raw){ chatImgs.push(url); chatImgsRaw.push(raw || url); }
+function imgSet(i, url){ if(i >= 0 && i < chatImgs.length) chatImgs[i] = url; }
+function imgDel(i){ chatImgs.splice(i, 1); chatImgsRaw.splice(i, 1); }
+function imgClear(){ chatImgs = []; chatImgsRaw = []; }
 
 function shrinkImage(file){
   return new Promise(function(res, rej){
@@ -11887,8 +12039,16 @@ function renderChatImgs(){
     const d = document.createElement('div'); d.className = 'chatThumb';
     const im = document.createElement('img'); im.src = u; d.appendChild(im);
     const x = document.createElement('button'); x.textContent = '✕'; x.title = '唔要呢張';
-    x.onclick = ()=>{ chatImgs.splice(i,1); renderChatImgs(); };
-    d.appendChild(x); box.appendChild(d);
+    x.className = 'thX';
+    x.onclick = ()=>{ imgDel(i); renderChatImgs(); };
+    d.appendChild(x);
+    /* ✂ 由原相嚟剪，唔係由已經剪過嗰張再剪落去——
+       否則剪兩次就變咗剪好細嘅一忽，而且冇得返轉頭。 */
+    const cb = document.createElement('button');
+    cb.className = 'thCrop'; cb.textContent = '✂'; cb.title = '剪張相';
+    cb.onclick = ()=>{ cropOpen(chatImgsRaw[i] || u, null, function(o, ow, oh){
+      imgSet(i, o); renderChatImgs(); toast('剪好喇（' + ow + '×' + oh + '）'); }); };
+    d.appendChild(cb); box.appendChild(d);
   });
   const lk = isGuestNow() && camLocked();
   [$('chatPic'), $('chatCam')].forEach(function(b){
@@ -11918,7 +12078,7 @@ async function addChatImgs(files){
     }
     if(!/^image\//.test(f.type||'')){ toast('「' + (f.name||'呢個檔') + '」唔係相'); continue; }
     try{
-      chatImgs.push(await shrinkImage(f));
+      imgAdd(await shrinkImage(f));
       /* 額度喺呢度計：真係加咗一張相入去，先至算影多咗一張。
          訪客先計數（camAfterShot 自己有 isGuestNow 閘）。 */
       try{
@@ -11989,24 +12149,35 @@ async function openCam(){
    iOS 唔支援硬件 zoom 約束，所以自己做：預覽用 CSS scale，
    影嘅時候喺 canvas 度裁中間嗰嚿。感光元件有 2560 闊，放大兩倍裁出嚟
    仍然有 1280 真實像素，對讀工作紙細字係實質改善，唔係扮嘢。 */
-let camZoom = 1, camHasFocus = false;
+/* camZoom  ＝ 佢見到／要求嘅總放大
+   camDigital ＝ 當中要靠 CSS 拉大＋影嗰陣裁出嚟嗰部分
+   ⚠ 舊版兩樣一齊做：硬件 zoom 應用咗之後，CSS 又照 scale 多一次，
+     裁嗰陣又再除多次——即係「1.5×」實際上放大咗成 2.25×，而且裁窄咗。
+     iPad 冇硬件 zoom 所以一直冇爆，Android 就會。兩者而家互斥。 */
+let camZoom = 1, camDigital = 1, camHasFocus = false, camHasPOI = false;
 function applyCamZoom(){
   const v = $('camVid'); if(!v) return;
-  v.style.transform = 'scale(' + camZoom + ')';
+  v.style.transform = 'scale(' + camDigital + ')';
   const b = $('camZoomBadge'); if(b) b.textContent = camZoom.toFixed(1) + '×';
   const r = $('camZoom'); if(r) r.value = Math.round(camZoom*10);
 }
-function setCamZoom(z){
+async function setCamZoom(z){
   camZoom = Math.max(1, Math.min(4, z));
-  /* 硬件 zoom 有得用就一齊用，畫質好過純裁 */
+  let hw = 1;
+  /* 硬件 zoom 有得用就用，畫質好過純裁。用完之後一定要讀返 getSettings()
+     睇部機真係俾咗你幾多——applyConstraints 唔會因為做唔到而 throw。 */
   try{
     const trk = camStream && camStream.getVideoTracks()[0];
     const cap = trk && trk.getCapabilities ? trk.getCapabilities() : null;
-    if(cap && cap.zoom){
-      const hz = Math.min(cap.zoom.max, Math.max(cap.zoom.min, cap.zoom.min + (camZoom-1)*(cap.zoom.max-cap.zoom.min)/3));
-      trk.applyConstraints({advanced:[{zoom:hz}]});
+    if(cap && cap.zoom && cap.zoom.max > cap.zoom.min){
+      const base = cap.zoom.min || 1;
+      const want = Math.min(cap.zoom.max, Math.max(cap.zoom.min, base * camZoom));
+      await trk.applyConstraints({advanced:[{zoom:want}]});
+      const got = (trk.getSettings ? (trk.getSettings()||{}) : {}).zoom;
+      if(got && base) hw = Math.max(1, got / base);
     }
   }catch(e){}
+  camDigital = Math.max(1, camZoom / hw);
   applyCamZoom();
 }
 function closeCam(){
@@ -12015,31 +12186,115 @@ function closeCam(){
   hide('camModal');
 }
 function camPx(){ const v = parseInt(cfg().camPx,10); return (v>=640 && v<=2400) ? v : 1400; }
+/* 影落嚟嗰張（未剪）要闊過送出去嗰張，唔係剪完就得返幾百點，AI 讀唔到字。
+   ⚠ camPx() 係「送出去」嘅上限（同錢有關），呢個係「留喺部機度剪」嘅上限。 */
+function camRawPx(){ return Math.max(camPx(), 2000); }
 function snapCam(){
   const v = $('camVid'); if(!v || !v.videoWidth) return;
   const VW = v.videoWidth, VH = v.videoHeight;
-  /* 裁中間 1/zoom 嗰嚿，同預覽見到嘅一致 */
-  const sw = VW / camZoom, sh = VH / camZoom;
-  const sx = (VW - sw) / 2, sy = (VH - sh) / 2;
-  const lim = camPx();
-  const sc = Math.min(1, lim / Math.max(sw, sh));
-  const w = Math.round(sw*sc), h = Math.round(sh*sc);
+  /* ⚠ 影落嚟嗰張**唔裁**，成個畫面照收。放大只係影響下一步剪相個起手框。
+     舊版喺呢度就裁死咗：影歪少少、剪窄咗，就要再影一次＝再燒一次額度。
+     成張留住，剪錯都拉得返出去。 */
+  const lim = camRawPx();
+  const sc = Math.min(1, lim / Math.max(VW, VH));
+  const w = Math.round(VW*sc), h = Math.round(VH*sc);
   const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
   const cx = cv.getContext('2d');
   cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = 'high';
-  cx.drawImage(v, sx, sy, sw, sh, 0, 0, w, h);
-  chatImgs.push(cv.toDataURL('image/jpeg', 0.88));
-  /* 同 addChatImgs 一樣：加咗一張相入去嗰刻先計額度，唔係叫 API 嗰陣先計。 */
+  cx.drawImage(v, 0, 0, VW, VH, 0, 0, w, h);
+  const raw = cv.toDataURL('image/jpeg', 0.92);
+  /* 額度照舊喺**影嘅一刻**計，唔係剪完先計。
+     ⚠ 呢個係家長管制，唔可以因為加咗一步剪相就變鬆——如果改成剪完先計，
+     佢就可以無限咁影、次次唔按確定，額度永遠唔會扣。 */
   try{
     const qm = camAfterShot();
     if(qm){ toast(qm); if(typeof pushCamNote === 'function') pushCamNote(qm); }
   }catch(e){ console.warn('cam quota', e); }
-  renderChatImgs();
-  /* 影完一張就收工返去傾偈。細路見到相機仲喺度，就會一路影落去；
-     想再影就自己撳多次 📷，唔使我哋引導。 */
+  const z = camDigital || 1;
+  /* 起手框 ＝ 佢頭先放大緊望住嗰忽。噉個預覽就冇講大話：
+     佢對正嗰忽就係初始選區，但佢仲可以拉返出去攞返裁走咗嘅邊。 */
+  const seed = (z > 1.02)
+    ? {x:(1 - 1/z)/2, y:(1 - 1/z)/2, w:1/z, h:1/z}
+    : {x:0, y:0, w:1, h:1};
   closeCam();
-  toast('影咗喇（' + w + '×' + h + '）' + (chatImgs.length < CHAT_IMG_MAX ? '，想再影就撳多次 📷' : ''));
-  try{ chatInput.focus(); }catch(e){}
+  cropOpen(raw, seed, function(out, ow, oh){
+    imgAdd(out, raw);
+    renderChatImgs();
+    toast('加咗一張（' + ow + '×' + oh + '）' +
+          (chatImgs.length < CHAT_IMG_MAX ? '，想再影就撳多次 📷' : ''));
+    try{ chatInput.focus(); }catch(e){}
+  });
+}
+
+/* ══════ ✂ 剪相 ══════
+   點解要有：佢影成版工作紙，AI 就會對住成版講嘢，但佢真係唔識嗰條可能得一題。
+   剪咗先送，AI 答得準，而且睇相係按像素計錢，剪細咗慳好多。
+   點解剪係擺喺影完之後：影之前放大係一鋪過嘅賭博；影完先剪，係喺一張定咗嘅相
+   上面慢慢拉，睇清楚先算數。呢一版順便做埋「睇下影得清唔清」嘅覆核。
+
+   選區一律用 0–1 嘅比例存（cropN），唔存 CSS 像素：
+   iPad 一轉橫豎，張相顯示尺寸就變，存像素嘅話個框會飛咗去第二度。 */
+let cropN = {x:0, y:0, w:1, h:1};
+let cropNat = {w:0, h:0}, cropDone_ = null, cropDrag = null;
+const CROP_MIN = 0.06;              /* 最細剪到幾多（比例）*/
+function cropDisp(){
+  const im = $('cropImg');
+  return im ? {W:im.clientWidth, H:im.clientHeight} : {W:0, H:0};
+}
+function cropDraw(){
+  const b = $('cropBox'); if(!b) return;
+  const d = cropDisp();
+  b.style.left   = (cropN.x*d.W) + 'px';
+  b.style.top    = (cropN.y*d.H) + 'px';
+  b.style.width  = (cropN.w*d.W) + 'px';
+  b.style.height = (cropN.h*d.H) + 'px';
+  const ow = Math.round(cropN.w * cropNat.w), oh = Math.round(cropN.h * cropNat.h);
+  const el = $('cropSize'); if(!el) return;
+  /* 剪到太細就要即刻講。等佢送咗出去、AI 話睇唔到，先至知，就白燒咗一次。 */
+  const thin = Math.min(ow, oh) < 300;
+  el.className = thin ? 'warn' : '';
+  el.textContent = ow + '×' + oh + ' 點' +
+    (thin ? '　⚠ 剪到咁細，啲字可能矇到 AI 睇唔到。拉返大啲。' : '　✓ 夠清楚');
+}
+function cropClamp(){
+  cropN.w = Math.max(CROP_MIN, Math.min(1, cropN.w));
+  cropN.h = Math.max(CROP_MIN, Math.min(1, cropN.h));
+  cropN.x = Math.max(0, Math.min(1 - cropN.w, cropN.x));
+  cropN.y = Math.max(0, Math.min(1 - cropN.h, cropN.y));
+}
+function cropOpen(url, seed, onDone){
+  const im = $('cropImg'); if(!im) return;
+  cropDone_ = onDone || null;
+  cropN = seed ? {x:seed.x, y:seed.y, w:seed.w, h:seed.h} : {x:0, y:0, w:1, h:1};
+  cropClamp();
+  /* ⚠ 一定要**先** show 個窗先設 src：個窗未顯示嘅時候 clientWidth 係 0，
+     量錯咗個框就會塌成一條線。 */
+  show('cropModal');
+  im.onload = function(){
+    cropNat = {w:im.naturalWidth, h:im.naturalHeight};
+    requestAnimationFrame(cropDraw);      /* 等 layout 定咗先量 */
+  };
+  im.src = url;
+  if(im.complete && im.naturalWidth){ im.onload(); }
+}
+function cropClose(){ cropDone_ = null; hide('cropModal'); const im = $('cropImg'); if(im) im.src = ''; }
+function cropConfirm(){
+  const im = $('cropImg');
+  if(!im || !cropNat.w){ cropClose(); return; }
+  const sx = Math.round(cropN.x * cropNat.w), sy = Math.round(cropN.y * cropNat.h);
+  const sw = Math.max(1, Math.round(cropN.w * cropNat.w));
+  const sh = Math.max(1, Math.round(cropN.h * cropNat.h));
+  const lim = camPx();                   /* 送出去嘅上限喺呢一步先套 */
+  const sc  = Math.min(1, lim / Math.max(sw, sh));
+  const w = Math.max(1, Math.round(sw*sc)), h = Math.max(1, Math.round(sh*sc));
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const cx = cv.getContext('2d');
+  cx.imageSmoothingEnabled = true; cx.imageSmoothingQuality = 'high';
+  cx.drawImage(im, sx, sy, sw, sh, 0, 0, w, h);
+  const out = cv.toDataURL('image/jpeg', 0.9);
+  const f = cropDone_;
+  cropClose();
+  if(f) f(out, w, h);
 }
 
 /* 睇相模型（尤其免費嗰啲）成日繁忙。呢度做兩層：
@@ -16589,7 +16844,7 @@ async function chatSend(presetText){
   }
   /* 加 user message */
   chatHistory.push({role:'user', content:text, imgs:sendImgs, at:nowISO()});
-  if(presetText==null){ chatInput.value = ''; chatImgs = []; renderChatImgs(); }
+  if(presetText==null){ chatInput.value = ''; imgClear(); renderChatImgs(); }
   if(sendImgs.length) imgOffReset();          /* 送咗新相，之前收埋嘅指令唔再算數 */
   try{ renderImgStick(); }catch(e){}
   renderChat();
@@ -17265,7 +17520,7 @@ $('chatExport').onclick = async ()=>{
     : (r === 'picked') ? '✅ 已經存好。' : '✅ 已經下載（睇下你部機嘅「下載」）。';
 };
 
-$('chatClear').addEventListener('click', ()=>{ chatImgs = []; imgOffReset(); imgLastUsed = false; renderChatImgs(); try{ renderImgStick(); }catch(e){} });
+$('chatClear').addEventListener('click', ()=>{ imgClear(); imgOffReset(); imgLastUsed = false; renderChatImgs(); try{ renderImgStick(); }catch(e){} });
 $('chatClear').onclick = async ()=>{
   if(!chatHistory.length) return;
   if(await confirmBox('確定要清走目前嘅對話？\n（對話本來就唔會儲存，清咗即冇咗。）')){
