@@ -1058,6 +1058,12 @@ body.readonly #hubStoryAdmin{display:none!important}
   border-radius:11px;background:var(--card);color:inherit;cursor:pointer;min-height:48px}
 .hwClr{margin-top:7px;border:1px solid var(--line);background:var(--card);color:inherit;
   border-radius:9px;padding:7px 13px;font-size:13.5px;cursor:pointer}
+/* 展開一行之後，內文上面嗰粒喇叭。做闊粒係因為佢係一個「動作」，
+   唔係一行嘢隔籬嗰個細圖示——要一眼睇得出撳得。 */
+.sopBar{display:flex;margin:0 0 8px}
+.sopSpk{border:1px solid var(--accent);background:var(--card);color:var(--accent);
+  border-radius:11px;padding:10px 16px;font-size:15px;cursor:pointer;min-height:46px}
+.sopSpk:hover{filter:brightness(1.06)}
 /* 通用小喇叭 ＋ 彈出窗右上角個 ✕ */
 .uSpk{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:inherit;
   border-radius:10px;width:44px;height:44px;font-size:19px;line-height:1;padding:0;cursor:pointer}
@@ -2188,7 +2194,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-28n";
+const BUILD = "2026-08-28o";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -4061,6 +4067,21 @@ function renderDay(){
       const body=document.createElement('div'); body.className='evBody';
       const sv=document.createElement('div'); sv.className='sopView';
       sv.innerHTML=mdToHtml(ev.sop);
+      /* 有內文先出粒喇叭。呢段係佢最需要讀出嚟嗰段——
+         幾百字，佢自己讀唔曬，而且本來要入到「編輯」先有得讀，
+         但編輯係爹哋先撳得㗎。
+         ⚠ 唔使自己 strip Markdown：ttsSpeak() 入面第一句就係 mdToPlain()。
+         連標題一齊讀，唔係佢淨係聽到一段步驟，唔知講緊邊件事。
+         第四個參數傳 sv，所以讀緊嗰陣撳段字入面邊隻字就由嗰隻字讀起。 */
+      if(String(ev.sop||'').trim()){
+        const sb=document.createElement('div'); sb.className='sopBar';
+        const sBtn = mkSpkBtn(function(){
+          return (ev.title ? ev.title + '。' : '') + ev.sop;
+        }, '內文', 'sopSpk', sv);
+        sBtn.textContent = '🔊 讀出內文';
+        sb.appendChild(sBtn);
+        body.appendChild(sb);
+      }
       body.appendChild(sv);
       const acts=document.createElement('div'); acts.className='evActs';
       if(ev.planned && !ev.done){
@@ -4325,7 +4346,7 @@ function sayHHMM(hhmm){
    而家抽咗出嚟做一個，新加嘅位一律用佢。
    ⚠ 一定要 stopPropagation：好多喇叭係坐喺一行／一張卡入面，
      唔擋住個 click 就會「讀完順手撳咗成行」。 */
-function mkSpkBtn(getText, label, cls){
+function mkSpkBtn(getText, label, cls, srcEl){
   const b = document.createElement('button');
   b.type = 'button';
   b.className = cls || 'uSpk';
@@ -4340,7 +4361,13 @@ function mkSpkBtn(getText, label, cls){
     e.stopPropagation(); e.preventDefault();
     let t = '';
     try{ t = String(getText() || ''); }catch(_e){}
-    if(t && typeof window.ttsSpeak === 'function') window.ttsSpeak(t, b);
+    /* 第三個參數＝撳字跳位嗰個元素。傳咗落去，讀緊嗰陣撳段字入面
+       任何一隻字，就會由嗰隻字重新讀起（同聽故事嗰邊一樣）。
+       ⚠ 只可以傳一個「淨係載住嗰段字」嘅元素——傳咗成行落去，
+         佢撳個標題都會跳位，會好亂。 */
+    if(t && typeof window.ttsSpeak === 'function'){
+      window.ttsSpeak(t, b, (typeof srcEl === 'function' ? srcEl() : srcEl) || undefined);
+    }
   };
   b.addEventListener('touchend', go, {passive:false});
   b.addEventListener('click', go);
