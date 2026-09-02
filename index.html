@@ -2254,7 +2254,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-02b";
+const BUILD = "2026-09-02c";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -10548,6 +10548,18 @@ function selfCheck(){
   /* 阻唔阻住熄屏 */
   L.push('── 熄屏相關 ──');
   try{ L.push('相機 stream：' + yn(typeof camStream !== 'undefined' && !!camStream, true)); }catch(e){}
+  /* 開唔到相機喺 iPad 上面基本上冇得 debug（冇 console）。
+     所以：部機支唔支援嗰幾個約束、有幾多個鏡頭、上次錯乜，全部印出嚟。 */
+  try{
+    const sc = (navigator.mediaDevices && navigator.mediaDevices.getSupportedConstraints)
+             ? navigator.mediaDevices.getSupportedConstraints() : {};
+    L.push('相機約束支援：facingMode=' + yn(!!sc.facingMode) +
+           '　zoom=' + yn(!!sc.zoom) +
+           '　focusMode=' + yn(!!sc.focusMode) +
+           '　pointsOfInterest=' + yn(!!sc.pointsOfInterest));
+    L.push('（focusMode 冇＝篤畫面對焦冇效，唔係壞咗，係部機唔俾網頁控制）');
+  }catch(e){}
+  try{ if(typeof camLastErr !== 'undefined' && camLastErr) L.push('⚠ 上次開相機錯誤：' + camLastErr); }catch(e){}
   try{ const v = document.getElementById('camVid');
        L.push('camVid 駁住 stream：' + yn(!!(v && v.srcObject), true)); }catch(e){}
   try{ L.push('語音讀緊嘢：' + yn(!!(window.speechSynthesis && window.speechSynthesis.speaking), true)); }catch(e){}
@@ -12095,6 +12107,67 @@ async function addChatImgs(files){
    用 <input capture> 嘅話，iOS 個相機介面仲有得反轉去自拍。所以自己開 getUserMedia，
    facingMode 指定 exact:'environment'，個介面就冇得反。 */
 let camStream = null;
+let camLastErr = '';                 /* 俾 🩺 自我檢查睇，唔係俾細路睇 */
+/* 只要部機自己話支援嘅約束。
+   ⚠ 唔好靠「掟落去唔啱佢會自己忽略」——規格係咁講，WebKit 唔係咁做。 */
+function camAdv(){
+  let sup = {};
+  try{ sup = (navigator.mediaDevices.getSupportedConstraints &&
+              navigator.mediaDevices.getSupportedConstraints()) || {}; }catch(e){}
+  const a = [];
+  if(sup.focusMode)     a.push({focusMode:'continuous'});
+  if(sup.focusDistance) a.push({focusDistance:0});
+  return a;
+}
+/* 由最好要到最低要求。每一級都要企得穩——即係唔可以有任何一級
+   帶住一個「部機唔認就成級死」嘅約束落去，否則同冇 fallback 一樣。 */
+function camLadder(){
+  const adv = camAdv();
+  const HD  = {width:{ideal:2560}, height:{ideal:1440}};
+  const L = [];
+  const back = {exact:'environment'}, backish = {ideal:'environment'};
+  if(adv.length) L.push({exact:true,  vc:Object.assign({facingMode:back},    HD, {advanced:adv})});
+  L.push({exact:true,  vc:Object.assign({facingMode:back},    HD)});
+  L.push({exact:true,  vc:{facingMode:back}});
+  L.push({exact:false, vc:Object.assign({facingMode:backish}, HD)});
+  L.push({exact:false, vc:{facingMode:backish}});
+  L.push({exact:false, vc:true});
+  return L;
+}
+/* 部機話幾多個鏡頭。未攞權限之前 label 會係空，但**有幾多個係數得到**嘅，
+   所以 0 個係一個好硬淨嘅訊號：唔係唔俾用，係根本冇。 */
+async function camVideoInputs(){
+  try{
+    if(!navigator.mediaDevices.enumerateDevices) return -1;
+    const ds = await navigator.mediaDevices.enumerateDevices();
+    return ds.filter(function(d){ return d.kind === 'videoinput'; }).length;
+  }catch(e){ return -1; }
+}
+/* 出人話。唔好淨係掟個 error message 出嚟——
+   「invalid constraints」對細路同對爸爸都一樣冇意義。 */
+async function camWhyMsg(err){
+  const n = (err && err.name) || '';
+  const nDev = await camVideoInputs();
+  /* ⚠ 次序要緊：Safari 未攞到權限之前，enumerateDevices() 可能回一個空 list。
+     如果 nDev===0 行先，「唔俾用」就會被誤報成「部機冇相機」，
+     跟住爸爸就去搞 Screen Time，但根本唔關事。所以錯誤名行先。 */
+  if(n === 'NotAllowedError' || n === 'SecurityError'){
+    return '📷 部機唔俾呢一版用相機。去「設定 → Safari → 相機」揀「允許」，' +
+           '或者撳網址列左邊個「ᴀA」開返。（叫爹哋媽咪睇下。）';
+  }
+  if(nDev === 0){
+    return '📷 部機話一個鏡頭都搵唔到。\n' +
+           'iPad 最常見嘅原因：「設定 → 螢幕使用時間 → 內容與隱私權限制 → 允許的 App」' +
+           '入面熄咗「相機」。熄咗嗰個掣，連呢個網頁嘅相機都會一齊封死。\n' +
+           '（叫爹哋媽咪睇下。）';
+  }
+  if(n === 'NotReadableError' || n === 'AbortError'){
+    return '📷 相機俾第二個 app 佔咗。閂晒其他開住相機嘅 app，再撳多次 📷。';
+  }
+  return '📷 開唔到相機（' + (n || '唔知乜錯') + '）。' +
+         (nDev > 0 ? '部機話有 ' + nDev + ' 個鏡頭，但一個都用唔到。' : '') +
+         '　想加相就用 🖼 揀相。詳情去「🩺 自我檢查」度睇。';
+}
 async function openCam(){
   const g = camGate();
   if(!g.ok){ toast(g.msg); pushCamNote(g.msg); return; }
@@ -12103,24 +12176,39 @@ async function openCam(){
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
     toast('呢個瀏覽器唔支援影相，用返 🖼 揀相啦'); return;
   }
-  /* 舊寫法一個解像度約束都冇，iOS 就會派 640×480 俾你——影出嚟一定矇，
-     同對焦無關。而家明文要 2560，攞唔到會自動降落去。 */
-  const VC = {facingMode:{exact:'environment'},
-              width:{ideal:2560}, height:{ideal:1440},
-              advanced:[{focusMode:'continuous'}, {focusDistance:0}]};
-  let st = null;
-  try{ st = await navigator.mediaDevices.getUserMedia({video:VC, audio:false}); }
-  catch(e){
-    try{ st = await navigator.mediaDevices.getUserMedia({video:Object.assign({}, VC, {facingMode:{ideal:'environment'}}), audio:false}); }
-    catch(e2){ toast('開唔到相機：' + (e2.message||e2)); return; }
-    /* 掂到呢度即係搵唔到後置鏡。喺手機／平板就唔好用前鏡（唔想佢玩自拍）；
-       電腦得一個鏡頭，唔封鎖佢就乜都影唔到。 */
-    const fm = (st.getVideoTracks()[0].getSettings()||{}).facingMode;
+  /* ⚠ 逐級降落去，唔係一次過掟晒所有約束落去。
+     舊寫法兩次嘗試都帶住同一批 advanced:[{focusMode},{focusDistance}]，
+     而 iOS Safari 唔認呢兩個名，會直接掟返 invalid constraints——
+     於是第二次「fallback」由頭到尾都救唔到，因為佢改嘅係 facingMode，
+     但踩中嘅根本唔係 facingMode。任何一級成功就停，行到邊級記低。 */
+  let st = null, camRung = -1, lastErr = null;
+  const L = camLadder();
+  for(let i = 0; i < L.length; i++){
+    try{
+      st = await navigator.mediaDevices.getUserMedia({video:L[i].vc, audio:false});
+      camRung = i; break;
+    }catch(err){ lastErr = err; }
+  }
+  if(!st){
+    const why = await camWhyMsg(lastErr);
+    camLastErr = ((lastErr && lastErr.name) || '?') + '：' + ((lastErr && lastErr.message) || '');
+    toast('開唔到相機'); pushCamNote(why);
+    return;
+  }
+  camLastErr = '';
+  /* 喺手機／平板唔好用前鏡（唔想佢玩自拍）；電腦得一個鏡頭，封鎖咗就乜都影唔到。
+     ⚠ 就算頭先係用 exact:'environment' 攞返嚟都照查一次。本來寫成
+     「exact 攞返嚟就唔使查」，但方向係錯嘅：夾硬應承咗 exact 但其實派咗
+     前鏡俾你嗰啲機，就會啱啱好由嗰條罅走甩。查一次係平嘢，唔好慳。
+     ⚠ fm 要「有值先至判斷」——部機唔報 facingMode 唔等於佢係前鏡，
+     當咗係前鏡就會喺正常機上面乜都影唔到。 */
+  {
+    const fm = ((st.getVideoTracks()[0].getSettings ? st.getVideoTracks()[0].getSettings() : {}) || {}).facingMode;
     const touch = (navigator.maxTouchPoints||0) > 1;
-    if(touch && fm !== 'environment'){
+    if(touch && fm && fm !== 'environment'){
       st.getTracks().forEach(function(t){ t.stop(); });
-      toast('呢部機搵唔到後置鏡頭。前置鏡冇開，想加相就用 🖼 揀相。');
-      return;
+      pushCamNote('呢部機搵唔到後置鏡頭。前置鏡冇開，想加相就用 🖼 揀相。');
+      toast('搵唔到後置鏡頭'); return;
     }
   }
   camStream = st;
@@ -12135,7 +12223,9 @@ async function openCam(){
     }
   }catch(e){}
   const v = $('camVid'); v.srcObject = st;
-  camZoom = 1; applyCamZoom();
+  /* ⚠ camDigital 一定要一齊 reset。淨係 reset camZoom 嘅話，
+     放大過再閂再開，個預覽會保住上一次嘅放大，但滑桿寫住 1.0×。 */
+  camZoom = 1; camDigital = 1; applyCamZoom();
   const sset = trk.getSettings ? (trk.getSettings()||{}) : {};
   $('camNote').textContent = (sset.facingMode==='environment' ? '後置鏡頭' : '呢部機得一個鏡頭')
     + '　·　' + (sset.width||'?') + '×' + (sset.height||'?')
