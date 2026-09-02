@@ -513,10 +513,13 @@ body.readonly #btnKidNew:hover,body.readonly #btnKidClock:hover,
 body.readonly #btnKidPoint:hover{background:var(--accent);color:#fff}
 .kidLbl{display:block;font-size:13px;font-weight:700;color:var(--ink);margin:10px 0 5px}
 .kidWd{color:var(--accent);font-weight:800;margin-left:6px}
-#kidEvModal input[type=text],#kidEvModal input[type=date],#kidEvModal input[type=time]{
+#kidEvModal input[type=text],#kidEvModal input[type=date],#kidEvModal input[type=time],
+#kidEvModal textarea{
   width:100%;font-size:16px;padding:9px 10px;border:1px solid var(--line);
   border-radius:8px;background:var(--panel);color:var(--ink);
 }
+/* 佢用 Typeless 講嘢入去，行數會長。min-height 開夠，唔好一開波就要碌。 */
+#kidEvModal textarea{min-height:96px;line-height:1.5;resize:vertical;font-family:inherit}
 .kidChips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
 .kidChips button{
   border:1px solid var(--line);background:var(--panel);color:var(--ink);
@@ -1733,6 +1736,16 @@ body.hubOpen{overflow:hidden}
     <div class="kidChips" id="kidEvDurChips"></div>
     <p class="subnote" id="kidEvSpan" style="margin:2px 0 0"></p>
 
+    <!-- 佢自己寫嘅 SOP／內文。要包住一個 div：uiExtras 加喇叭嗰段係
+         inp.parentNode.querySelector('label.kidLbl')，唔包住就會撈到
+         成個窗嘅第一個 label（＝「做乜？」），粒喇叭就落錯位。 -->
+    <div id="kidEvSopWrap">
+      <label class="kidLbl">想寫低啲乜？（可以唔寫）</label>
+      <textarea id="kidEvSop" maxlength="1000" rows="4"
+        placeholder="例如：一、拎練習簿出嚟　二、彈三次　三、放返入書包"></textarea>
+      <p class="subnote" style="margin:4px 0 0">寫低咗，之後喺時間表撳開嗰格就見得返，仲可以撳 🔊 聽返。</p>
+    </div>
+
     <div id="kidEvWarn" class="kidWarn" style="display:none">
       <span id="kidEvWarnTxt"></span>
       <button class="kidWarnSpk" id="kidEvWarnSpk" type="button"
@@ -1884,7 +1897,7 @@ body.hubOpen{overflow:hidden}
         <p class="subnote" style="margin:2px 0 0">交通留 0 就唔會排。有數字就會自動喺前後各加一格，例如「婆婆帶Charlotte去佐敦」同「婆婆帶Charlotte返屋企」。</p>
         <div class="aiRow" style="gap:8px;align-items:flex-end;margin-top:7px">
           <div style="flex:2"><label>上完要跟進乜（逗號分開，留空＝唔使跟進）</label><input type="text" id="ncItems" placeholder="例如：常識工作紙,溫習課文"></div>
-          <div style="flex:0 0 170px"><label>死線點計</label><select id="ncDue"><option value="next">下次同一堂前一日</option><option value="week">上堂之後 7 日內</option><option value="none">唔使跟進</option></select></div>
+          <div style="flex:0 0 150px"><label>死線點計</label><select id="ncDue"><option value="before">下一堂之前 … 日</option><option value="after">呢一堂之後 … 日</option><option value="none">唔使跟進</option></select></div><div style="flex:0 0 84px"><label>幾多日</label><input type="number" id="ncDueN" min="0" max="60" step="1" value="1"></div>
           <div style="flex:0 0 auto"><button class="btn primary" id="ncGo">開班＋排晒落時間表</button></div>
         </div>
         <div class="aiRow" style="margin-top:7px">
@@ -2194,7 +2207,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-08-28o";
+const BUILD = "2026-09-02a";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -4068,8 +4081,9 @@ function renderDay(){
       const sv=document.createElement('div'); sv.className='sopView';
       sv.innerHTML=mdToHtml(ev.sop);
       /* 有內文先出粒喇叭。呢段係佢最需要讀出嚟嗰段——
-         幾百字，佢自己讀唔曬，而且本來要入到「編輯」先有得讀，
-         但編輯係爹哋先撳得㗎。
+         幾百字，佢自己讀唔曬，而「✎ 編輯」係爹哋專用（見下面 isOwner），
+         所以呢粒係佢唯一聽得返 SOP 嘅入口。
+         （佢想自己寫，就喺佢自己排嗰格撳「✎ 改」，嗰個窗有 kidEvSop。）
          ⚠ 唔使自己 strip Markdown：ttsSpeak() 入面第一句就係 mdToPlain()。
          連標題一齊讀，唔係佢淨係聽到一段步驟，唔知講緊邊件事。
          第四個參數傳 sv，所以讀緊嗰陣撳段字入面邊隻字就由嗰隻字讀起。 */
@@ -4083,7 +4097,17 @@ function renderDay(){
         body.appendChild(sb);
       }
       body.appendChild(sv);
+      /* ⚠ 呢排掣**全部**係爹哋嘅：✓ 確認做咗（佢本帳嘅事實紀錄，北極星 4）、
+         ⏭ 延後一日、批／還原訪客改動、✎ 編輯、🗑 刪除。
+         舊版一粒都冇攔，亦都冇 CSS 收埋——訪客撳開一格就見到晒，
+         而且撳落去 state 已經改咗，save() 先至俾封鎖層擋住，
+         畫面就會同時出「🔒 已經封鎖修改」同「已經刪咗／已經做咗」，
+         refresh 又打回原形（北極星第二條）。
+         做法跟粒「✎ 改」：唔係靠 CSS 收埋（改個 style 就撳得返），
+         係根本唔整粒掣出嚟。 */
+      const isOwner = !document.body.classList.contains('readonly');
       const acts=document.createElement('div'); acts.className='evActs';
+      if(isOwner){
       if(ev.planned && !ev.done){
         actBtn(acts,'✓ 確認做咗',()=>{ ev.done=true; save(); renderCal(); });
         actBtn(acts,'⏭ 延後一日',()=>{ const d=new Date(ev.start); d.setDate(d.getDate()+1); ev.start=fmtDate(d)+'T'+ev.start.slice(11); save(); renderCal(); });
@@ -4131,7 +4155,8 @@ function renderDay(){
         }
       });
       del.classList.add('danger');
-      body.appendChild(acts);
+      }
+      if(isOwner) body.appendChild(acts);
       row.appendChild(body);
     }
     wrap.appendChild(row);
@@ -5189,6 +5214,9 @@ function kidOpen(ev){
     : ('你排嘅嘢會自動記住係你嘅。同你自己其他嘢撞時間就加唔到，一日最多 '
        + KID_MAX_PER_DAY + ' 格。');
   $k('kidEvWhat').value = ev ? String(ev.title||'').replace(kidKw(), '').trim() : '';
+  /* SOP 一定要由 ev 攞返（唔係留低上一次嗰篇）。留低＝佢改 A 格嗰陣
+     見到 B 格嘅內文，一撳儲存就抄咗過去。 */
+  if($k('kidEvSop')) $k('kidEvSop').value = ev ? String(ev.sop || '') : '';
   $k('kidEvDate').value = ev ? ev.start.slice(0,10) : fmtDate(today);
   $k('kidEvDate').min = ev ? ev.start.slice(0,10) : fmtDate(today);
   const max = new Date(); max.setDate(max.getDate() + KID_MAX_AHEAD);
@@ -5355,6 +5383,8 @@ function kidSave(){
   const what = document.getElementById('kidEvWhat').value.trim();
   const date = document.getElementById('kidEvDate').value;
   const time = kidTime24();
+  const _sopEl = document.getElementById('kidEvSop');
+  const sop  = _sopEl ? String(_sopEl.value || '') : '';
   const fit  = kidRealDur();
   const en   = kidAddMin(time, fit.mins);
   const start = date + 'T' + time;
@@ -5378,8 +5408,11 @@ function kidSave(){
       live.guestPrev = {title:live.title, start:live.start,
                         endOverride:live.endOverride || '', color:live.color || ''};
     }
+    /* 北極星 6：改咗內文都要爹哋見到。log 淨係記「改咗」，唔抄成篇入去——
+       內文本身就喺嗰格度，撳開就讀得到，Data Log 唔使揹多一份。 */
+    const _sopChanged = String(live.sop || '') !== sop;
     kidWrite(function(){
-      Object.assign(live, {title:kidTitle(what), start:start, endOverride:en});
+      Object.assign(live, {title:kidTitle(what), start:start, endOverride:en, sop:sop});
       if(kidHwPick){ live.hwSlot = true; live.hwFor = kidHwPick.key; }
       if(needAsk) live.guestPending = true;         /* 太舊：要爹哋批 */
       save();
@@ -5387,8 +5420,10 @@ function kidSave(){
     /* 北極星 6：佢做過乜，爹哋一定睇得到。舊版呢度一個字都冇記，
        所以爹哋開 Data Log 睇，真係會「見唔到佢有改過」。 */
     logPush('kidplan', '改咗自己排嗰格：' + live.title +
-            '　' + oldDate + ' → ' + date + ' ' + time,
+            '　' + oldDate + ' → ' + date + ' ' + time +
+            (_sopChanged ? '　·　改咗入面寫低嗰段' : ''),
             {kind:'edit', eid:live.id, guest:true,
+             sopEdit:_sopChanged || undefined,
              pending:needAsk || undefined});
     kidEditing = live;
     hide('kidEvModal');
@@ -5397,7 +5432,7 @@ function kidSave(){
   }else{
     kidWrite(function(){
       const _e = {
-        id:uid(), title:kidTitle(what), start:start, endOverride:en, sop:'', color:'',
+        id:uid(), title:kidTitle(what), start:start, endOverride:en, sop:sop, color:'',
         templateId:null, planned:(start > nowStr()), done:false, hwSlot:!!kidHwPick,
         kid:true, kidAt:Date.now()
       };
@@ -5407,8 +5442,9 @@ function kidSave(){
     });
     /* 北極星 6：佢自己排咗一格，爹哋一定睇得到。舊版兩條路（加同改）
        都一個字都冇記——所以爹哋開 Data Log 睇，真係會乜都見唔到。 */
-    logPush('kidplan', '自己排咗一格：' + kidTitle(what) + '　' + date + ' ' + time,
-            {kind:'add', guest:true});
+    logPush('kidplan', '自己排咗一格：' + kidTitle(what) + '　' + date + ' ' + time +
+            (sop ? '　·　仲自己寫低咗一段' : ''),
+            {kind:'add', guest:true, sopEdit:(sop ? true : undefined)});
     hide('kidEvModal');
     toast(fit.fitted
       ? ('✓ 加咗喇——不過幫你收短咗做 ' + fit.mins + ' 分鐘，因為跟住就到「' +
@@ -5475,7 +5511,28 @@ document.getElementById('btnKidNew').onclick   = function(){ kidOpen(null); };
   b.addEventListener('click', say);
 })();
 
+/* 訪客模式之下唔准行嘅路，一律喺呢度攔。
+   ⚠ 一定要喺**改任何嘢之前**攔。舊版三處都係「改咗先，save() 先至俾人擋」，
+   即係 state 已經改咗、renderCal() 已經照住新 state 重畫，但雲端一個字都冇寫，
+   於是畫面同時成立「🔒 已經封鎖修改」同「已經改好」，refresh 打回原形。
+   ⚠ 用 body.readonly 而唔用 guestMode：呢度係頂層，guestMode 喺另一段度，
+   跨去攞一有差池就係 ReferenceError，而全檔有 265 個空 catch{} 會食咗佢。 */
+function ownerOnly(){
+  if(!document.body.classList.contains('readonly')) return true;
+  const _m = '🔒 訪客模式：呢度改唔到。你自己排嗰啲格撳「✎ 改」先改得。';
+  /* ⚠ toast() 住喺下面個 IIFE，頂層 scope 上面睇唔到佢；行得通純粹係因為
+     17398 行有 window.toast = toast，而全域 property 喺 runtime 攞得返。
+     即係話：開機途中（window.toast 未 assign）叫就會 ReferenceError，
+     而全檔 265 個空 catch{} 會食咗佢。呢條路唔可以靜靜雞——
+     默默唔准佢做，就係我而家喺度修緊嗰種毛病。所以要三層，一定有一層講到嘢。 */
+  let said = false;
+  try{ if(typeof toast === 'function'){ toast(_m); said = true; } }catch(e){}
+  if(!said) try{ if(typeof window.toast === 'function'){ window.toast(_m); said = true; } }catch(e){}
+  if(!said) try{ alert(_m); }catch(e){}
+  return false;
+}
 function openEvent(ev,defaults){
+  if(!ownerOnly()) return;
   editingEv=ev;
   resetEvPrev();
   document.getElementById('evModalTitle').textContent = ev? '編輯項目' : '新增項目';
@@ -5503,6 +5560,7 @@ function openEvent(ev,defaults){
 document.getElementById('evEndClear').onclick=()=>{ document.getElementById('evEnd').value=''; };
 document.getElementById('evCancel').onclick=()=>hide('eventModal');
 document.getElementById('evSave').onclick=()=>{
+  if(!ownerOnly()) return;
   const title=document.getElementById('evTitle').value.trim();
   const date=document.getElementById('evDate').value;
   const time=document.getElementById('evTimeInp').value;
@@ -5512,13 +5570,25 @@ document.getElementById('evSave').onclick=()=>{
   const sop=document.getElementById('evSop').value;
   const color=evColorPick.get();
   if(editingEv){
+    /* ⚠ 同 6.13 一模一樣嘅孤兒 bug，而且呢個窗口係全檔最長嗰個：
+       個編輯窗開住打 SOP 打幾分鐘，期間任何一次寫入嘅雲端回音一到，
+       state = sanitizeState(data) 就會將每一件 event 換成新 object，
+       editingEv 揸住嗰件即刻變孤兒。改孤兒＝改咗一件唔喺 state 入面嘅嘢，
+       save() 上傳嘅係 state，即係撳完儲存乜都冇發生，而且一句錯都冇。
+       kidSave() 一早行咗 kidLive()，呢度一直漏咗。 */
+    const live = kidLive(editingEv);
+    if(!live){
+      /* 攞唔返就老實講。唔准扮改到——北極星第二條。 */
+      alert('呢個項目啱啱唔見咗（可能係另一部機刪咗，或者啱啱同步過）。\n閂咗再開一次，改動未存到。');
+      return;
+    }
     /* 修正：本身係「過去＝已完成」嘅項目，改咗日期去將來之後仍然 done:true，
        行事曆會顯示「已完成 ✓」但件事根本未做。要跟住新時間更新狀態。 */
-    const wasFuture = editingEv.start > nowStr();
+    const wasFuture = live.start > nowStr();
     const nowFuture = start > nowStr();
-    Object.assign(editingEv,{title,start,endOverride,sop,color,
+    Object.assign(live,{title,start,endOverride,sop,color,
       hwSlot: document.getElementById('evHwSlot').checked});
-    if(nowFuture && !wasFuture && editingEv.done){ editingEv.planned = true; editingEv.done = false; }
+    if(nowFuture && !wasFuture && live.done){ live.planned = true; live.done = false; }
   } else {
     const future = start > nowStr();
     state.events.push({id:uid(),title,start,endOverride,sop,color,templateId:null,planned:future,done:!future,
@@ -5530,10 +5600,15 @@ document.getElementById('evSave').onclick=()=>{
        if(_ph && _ph.classList.contains('on') && window.renderHw) window.renderHw(); }catch(e){}
 };
 document.getElementById('evDelete').onclick=async()=>{
+  if(!ownerOnly()) return;
   if(!editingEv) return;
   if(await confirmBox('確定要刪除「'+editingEv.title+'」？')){
-    evTrash(editingEv, 'dad');
-    state.events=state.events.filter(x=>x.id!==editingEv.id);
+    /* 刪走本身係用 id 篩，一直冇事；但 evTrash() 影嗰個深複本用緊
+       editingEv，孤兒嘅話影低嘅就係一份舊嘢。垃圾桶入面撈返出嚟
+       會係改之前嗰個版本，而且睇唔出。所以呢度一樣要攞實物。 */
+    const live = kidLive(editingEv) || editingEv;
+    evTrash(live, 'dad');
+    state.events=state.events.filter(x=>x.id!==live.id);
     save(); hide('eventModal'); renderCal();
   }
 };
@@ -6819,24 +6894,24 @@ function hwSetDone(k,n){ ensureHw();
 function defaultHwRules(){
   const NOT = HW_DEFAULT_NOT;
   return [
-    {id:uid(), name:'大提琴課',   match:'大提琴', not:NOT, due:'week', on:true, from:'', to:'',
+    {id:uid(), name:'大提琴課',   match:'大提琴', not:NOT, due:'after',  dueN:7, on:true, from:'', to:'',
       items:[{name:'練習大提琴', times:1}]},
-    {id:uid(), name:'鋼琴課',     match:'鋼琴',   not:NOT, due:'week', on:true, from:'', to:'',
+    {id:uid(), name:'鋼琴課',     match:'鋼琴',   not:NOT, due:'after',  dueN:7, on:true, from:'', to:'',
       items:[{name:'練習鋼琴', times:1}]},
-    {id:uid(), name:'大眾中文堂', match:'中文',   not:NOT, due:'next', on:true, from:'', to:'',
+    {id:uid(), name:'大眾中文堂', match:'中文',   not:NOT, due:'before', dueN:1, on:true, from:'', to:'',
       items:[{name:'大眾中文課文功課', times:1},
              {name:'大眾中文補充練習', times:1}]},
-    {id:uid(), name:'英文私人堂（Teacher Aileen）', match:'英文', not:NOT, due:'next', on:true, from:'', to:'',
+    {id:uid(), name:'英文私人堂（Teacher Aileen）', match:'英文', not:NOT, due:'before', dueN:1, on:true, from:'', to:'',
       items:[{name:'Teacher Aileen 英文功課 — Grammar', times:1},
              {name:'Teacher Aileen 英文功課 — Reading', times:1},
              {name:'Teacher Aileen 英文功課 — Writing', times:1}]},
-    {id:uid(), name:'學而思數學', match:'學而思', not:NOT, due:'next', on:true, from:'', to:'',
+    {id:uid(), name:'學而思數學', match:'學而思', not:NOT, due:'before', dueN:1, on:true, from:'', to:'',
       items:[{name:'學而思數學 Textbook 練習', times:1},
              {name:'學而思數學練習簿', times:1},
              {name:'學而思數學速算練習簿', times:1}]},
-    {id:uid(), name:'普通話堂（銅鑼灣）', match:'普通話', not:'Zoom,'+NOT, due:'next', on:true, from:'', to:'',
+    {id:uid(), name:'普通話堂（銅鑼灣）', match:'普通話', not:'Zoom,'+NOT, due:'before', dueN:1, on:true, from:'', to:'',
       items:[{name:'普通話拼音功課', times:1}]},
-    {id:uid(), name:'普通話 Zoom 堂', match:'普通話,Zoom', not:NOT, due:'next', on:true, from:'', to:'',
+    {id:uid(), name:'普通話 Zoom 堂', match:'普通話,Zoom', not:NOT, due:'before', dueN:1, on:true, from:'', to:'',
       items:[{name:'普通話 Zoom 堂預習（冇功課，只需預習下一堂）', times:1}]},
     {id:uid(), name:'游水（唔使跟進）', match:'游水', not:NOT, due:'none', on:true, from:'', to:'', items:[]}
   ];
@@ -6967,6 +7042,62 @@ function hwSlotOf(key, label, o){
 function daysAgo(iso){ if(!iso) return 999;
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000); }
 
+/* ---------- 死線點計 ----------
+   兩個家族，每個配一個日數：
+     · before ＝ 下一堂之前 N 日（N=0 就係下一堂當日、上堂之前）
+     · after  ＝ 呢一堂之後 N 日
+     · none   ＝ 唔跟進
+
+   ⚠ 舊資料淨係得一個字，冇日數：next／sameday／week。要喺讀嘅時候譯返：
+     next → before 1　·　sameday → before 0　·　week → after 7（同舊行為一模一樣）。
+   特登唔喺 ensureHw() 度改寫 state：一改咗就冇得返轉頭，而且兩部機新舊版本
+   夾埋嗰陣會互相覆蓋。譯喺讀嗰刻做，state 入面新舊兩種格式都收得。
+   （寫入嗰邊——renderHwRules 個 onchange——一郁到就會升級做新格式，見嗰度嘅註解。） */
+function dueMode(rule){
+  const d = (rule && rule.due) || 'next';
+  if(d === 'none')    return {fam:'none',   n:0};
+  if(d === 'next')    return {fam:'before', n:1};
+  if(d === 'sameday') return {fam:'before', n:0};
+  if(d === 'week')    return {fam:'after',  n:7};
+  const fam = (d === 'after') ? 'after' : 'before';
+  let n = parseInt(rule && rule.dueN, 10);
+  if(!isFinite(n)) n = (fam === 'after') ? 7 : 1;   /* 有家族冇日數＝舊檔升咗一半，補返個合理值 */
+  return {fam:fam, n:Math.max(0, Math.min(60, n))};
+}
+/* 講返俾人聽呢條規矩係咩意思。畫面同 AI context 都行呢一句，唔好各自砌。 */
+function dueDesc(rule){
+  const m = dueMode(rule);
+  if(m.fam === 'none') return '唔使跟進';
+  if(m.fam === 'before') return (m.n === 0) ? '下一堂當日，上堂之前' : ('下一堂之前 ' + m.n + ' 日');
+  return '呢一堂之後 ' + m.n + ' 日';
+}
+/* 一份功課嘅死線。**只此一家**——homeworkBoard() 同「⚙ 規矩」嗰個即時預覽
+   都行呢一個 function。兩份實作一定會走樣，走樣咗畫面就會自打嘴巴。
+
+   ⚠ 舊版 week 有一條隱藏規矩：「下一堂早過死線就扯早到下一堂前一日」。
+   我拆咗佢，理由係而家兩個家族係爸爸明揀嘅——揀咗「呢一堂之後 14 日」
+   就係真係想要 14 日（例如跨幾堂嘅大功課），系統唔應該自己second-guess，
+   而嗰條隱藏規矩正正就係「下堂 09-05 但死線 09-01」嗰個怪畫面嘅來源。
+   想要「死線跟住下一堂行」嘅，而家有 before 家族可以直接揀。
+   （呢個係我改嘅設計決定，唔係原本行為。想要返舊 clamp 就喺呢度加返一句
+     if(m.fam==='after' && nextCls && nextCls < due) due = nextCls 減一日。） */
+function hwDueOf(rule, d0, nextCls){
+  const m = dueMode(rule);
+  if(m.fam === 'none') return '';
+  let due;
+  if(m.fam === 'before'){
+    due = nextCls
+      ? fmtDate(new Date(new Date(nextCls).getTime() - m.n*86400000))
+      /* 未排下一堂：當佢係一星期一堂頂住先。舊版 next 係 d0+6、sameday 係 d0+7，
+         同 d0 + (7 − N) 完全一樣，所以呢條式冇改到舊行為。 */
+      : fmtDate(new Date(new Date(d0).getTime() + (7 - m.n)*86400000));
+  }else{
+    due = fmtDate(new Date(new Date(d0).getTime() + m.n*86400000));
+  }
+  if(due < d0) due = d0;                          /* 死線點都唔可以早過上堂嗰日 */
+  return due;
+}
+
 /* 一次過計晒成塊板：未做完、啱啱做完、交叉咗。
    三個來源共用同一個 item 結構，所以畫面同 AI context 都唔使分開處理。 */
 function homeworkBoard(){
@@ -6995,22 +7126,16 @@ function homeworkBoard(){
       const nxtEv = days.filter(function(x){ return x.start.slice(0,10) > d0; })[0];
       let nextCls = nxtEv ? nxtEv.start.slice(0,10) : '';
       if(!nextCls && rule.nextManual && rule.nextManual > d0) nextCls = rule.nextManual;
-      let due = '';
-      if(rule.due === 'next'){
-        due = nextCls ? fmtDate(new Date(new Date(nextCls).getTime() - 86400000))
-                      : fmtDate(new Date(new Date(d0).getTime() + 6*86400000));
-      }else if(rule.due === 'sameday'){
-        /* 預習呢類：死線就係下一堂當日（上堂之前做），唔係前一日。 */
-        due = nextCls || fmtDate(new Date(new Date(d0).getTime() + 7*86400000));
-      }else if(rule.due === 'week'){
-        due = fmtDate(new Date(new Date(d0).getTime() + 7*86400000));
-        if(nextCls && nextCls < due) due = fmtDate(new Date(new Date(nextCls).getTime() - 86400000));
-      }
-      if(due < d0) due = d0;                        /* 死線點都唔可以早過上堂嗰日 */
+      /* 死線一律由 hwDueOf() 出，呢度唔准再有第二份計法。 */
+      const _dm = dueMode(rule);
+      const due = hwDueOf(rule, d0, nextCls);
       rule.items.forEach(function(it){
         const need = Math.max(1, parseInt(it.times,10) || 1);
         const k = hwKey(ev.id, it.name);
         const o = {key:k, src:'class', label:it.name, need:need, done:hwDoneN(k), due:due,
+                   /* 因果鏈要講得出「點解係嗰日」，所以連計法一齊帶落去。
+                      唔帶嘅話畫面就要自己再判斷一次＝第二份實作。 */
+                   dueFam:_dm.fam, dueN:_dm.n,
                    /* ruleId：收檔嗰陣要數返呢個班仲有幾多份未做完，靠個名比對唔可靠 */
                    ruleId:rule.id,
                    fromClass:ev.title, ruleName:rule.name||rule.match, classDate:d0, nextClass:nextCls,
@@ -7203,12 +7328,27 @@ function hwCard(o, finished){
   /* 因果鏈：點解會有呢份功課、點解死線係嗰日 */
   let chain = '';
   if(o.src === 'class'){
+    /* ⚠ 舊版呢度寫死咗「（前一日）」，唔理實際係邊種計法。
+       結果「上堂之後 7 日內」嗰啲班（鋼琴、大提琴）會出
+       「下堂 2026-09-05，所以要 2026-09-01（前一日）之前做完」——
+       09-01 根本唔係 09-05 嘅前一日。個 app 對住佢講咗一句唔啱嘅嘢，
+       正正撞正北極星第二條。而家一律跟 dueFam／dueN 出返句對得返嘅。 */
+    let tail;
+    if(o.dueFam === 'after'){
+      tail = ' <span class="hwArr">➜</span> 呢張規矩係「呢一堂之後 <b>' + o.dueN + '</b> 日內」，' +
+             '所以要 <b>' + o.due + '</b> 之前做完' +
+             (o.nextClass ? '（下堂 ' + o.nextClass + '，唔影響呢條死線）' : '（下堂未排）');
+    }else if(o.nextClass){
+      tail = ' <span class="hwArr">➜</span> 下堂 <b>' + o.nextClass + '</b>，' +
+             (o.dueN === 0
+               ? '要當日上堂之前做完（<b>' + o.due + '</b>）'
+               : '所以要 <b>' + o.due + '</b>（前 ' + o.dueN + ' 日）之前做完');
+    }else{
+      tail = ' <span class="hwArr">➜</span> 未排下一堂，暫時當 <b>' + o.due + '</b> 之前做完';
+    }
     chain = '<div class="hwChain">' +
       '<b>' + esc(o.classDate) + '</b> 上咗「' + esc(o.fromClass) + '」' +
-      ' <span class="hwArr">➜</span> 派咗呢份功課' +
-      (o.nextClass
-        ? ' <span class="hwArr">➜</span> 下堂 <b>' + o.nextClass + '</b>，所以要 <b>' + o.due + '</b>（前一日）之前做完'
-        : ' <span class="hwArr">➜</span> 未排下一堂，暫時當 <b>' + o.due + '</b> 之前做完') +
+      ' <span class="hwArr">➜</span> 派咗呢份功課' + tail +
       '</div>';
   }
   const dueTxt = finished
@@ -7725,7 +7865,7 @@ function renderHwCourses(){
                                       .filter(Boolean);
         if(!items.length){
           const n = document.createElement('div'); n.className='hwSub'; n.style.padding='2px 10px 8px';
-          n.textContent = (rule.due==='none') ? '呢個班唔使跟進。'
+          n.textContent = (dueMode(rule).fam==='none') ? '呢個班唔使跟進。'
             : (state.ai.hwSince && ev.start.slice(0,10) < state.ai.hwSince)
               ? '（呢堂喺「由邊日開始計功課」' + state.ai.hwSince + ' 之前，所以唔派功課）'
               : '（呢堂冇跟進項目——去上面「⚙ 規矩」度加返「上完堂要做」嗰欄）';
@@ -8094,10 +8234,11 @@ function renderHwRules(){
     re.innerHTML = '<p class="subnote">未有規矩。撳上面「⚡ 重設做預設規矩」載入 8 條常見班別。</p>';
     return;
   }
-  const dueTxt = {next:'下次同一堂前一日', sameday:'下次同一堂當日，上堂之前', week:'上堂之後 7 日內', none:'唔使跟進'};
+  const dueFamTxt = {before:'下一堂之前 … 日', after:'呢一堂之後 … 日', none:'唔使跟進'};
   const today = fmtDate(new Date());
 
   R.forEach(function(rule, ri){
+    const _dm = dueMode(rule);        /* 舊格式（next／week…）喺呢度譯做家族＋日數 */
     const box = document.createElement('div');
     box.className = 'hwCard';
     box.style.borderLeftColor = (rule.on===false ? 'var(--q-grey)' : 'var(--accent)');
@@ -8111,8 +8252,11 @@ function renderHwRules(){
       '</div>' +
       '<div class="aiRow" style="gap:8px;align-items:flex-end;margin-top:7px">' +
         '<div style="flex:2"><label>死線點計</label><select data-hw="due" data-i="' + ri + '">' +
-          ['next','sameday','week','none'].map(function(k){ return '<option value="'+k+'"'+(rule.due===k?' selected':'')+'>'+dueTxt[k]+'</option>'; }).join('') +
+          ['before','after','none'].map(function(k){ return '<option value="'+k+'"'+(_dm.fam===k?' selected':'')+'>'+dueFamTxt[k]+'</option>'; }).join('') +
         '</select></div>' +
+        '<div style="flex:0 0 96px;min-width:auto"><label>幾多日</label>' +
+          '<input type="number" min="0" max="60" step="1" value="' + _dm.n + '" data-hw="dueN" data-i="' + ri + '"' +
+          (_dm.fam==='none' ? ' disabled' : '') + '></div>' +
         '<div style="flex:0 0 130px;min-width:auto"><label>上堂前幾多分鐘做</label><input type="number" min="0" step="5" placeholder="0＝唔指定" value="' + esc(rule.preMin==null?'':rule.preMin) + '" data-hw="preMin" data-i="' + ri + '"></div>' +
         '<div style="flex:1"><label>由邊日開始生效</label><input type="date" value="' + esc(rule.from||'') + '" data-hw="from" data-i="' + ri + '"></div>' +
         '<div style="flex:1"><label>到邊日為止（停咗就填）</label><input type="date" value="' + esc(rule.to||'') + '" data-hw="to" data-i="' + ri + '"></div>' +
@@ -8134,6 +8278,16 @@ function renderHwRules(){
       pv.innerHTML = '<b>認到 ' + days.length + ' 堂。</b>　' +
         (past.length ? '最近：' + past.map(function(e){ return e.start.slice(5,10)+' '+esc(short(e.title,14)); }).join('　·　') : '仲未上過') +
         (futr.length ? '　｜　將來：' + futr.map(function(e){ return e.start.slice(5,10); }).join('　·　') : '　｜　將來未排堂');
+      /* 死線用真數據行一次俾佢睇。冇呢句，爸爸要改完、閂咗、返去功課板
+         先知揀啱咗未——而嗰個係最容易揀錯嘅一格。 */
+      const _lastD = (past.length ? past[past.length-1] : days[0]).start.slice(0,10);
+      const _nxE = days.filter(function(e){ return e.start.slice(0,10) > _lastD; })[0];
+      const _nxD = _nxE ? _nxE.start.slice(0,10) : '';
+      const _pd = hwDueOf(rule, _lastD, _nxD);
+      pv.innerHTML += '<br><b>死線點計：' + esc(dueDesc(rule)) + '</b>' +
+        (_pd ? ('　→　' + _lastD + ' 嗰堂派嘅功課，死線 <b>' + _pd + '</b>' +
+                (_nxD ? '（下堂 ' + _nxD + '）' : '（下堂未排，當一星期一堂計）'))
+             : '　→　呢個班唔會派功課出嚟。');
     }
     box.appendChild(pv);
 
@@ -8180,7 +8334,18 @@ function renderHwRules(){
       if(k==='name') rule.name = inp.value.trim();
       else if(k==='match') rule.match = inp.value.trim();
       else if(k==='not') rule.not = inp.value.trim();
-      else if(k==='due') rule.due = inp.value;
+      /* ⚠ 舊值（next／sameday／week）本身冇日數。如果淨係寫低 rule.dueN 而唔
+         升級 rule.due，dueMode() 就會照舊硬回 1／0／7——爸爸改咗個數字，
+         畫面又跳返做原本嗰個，而且完全冇提示。所以兩個欄任何一個一郁，
+         就一次過將呢條規矩寫返做新格式（家族 ＋ 日數）。 */
+      else if(k==='due' || k==='dueN'){
+        const cur = dueMode(rule);
+        const fam = (k==='due') ? inp.value : cur.fam;
+        let n = (k==='dueN') ? parseInt(inp.value,10) : cur.n;
+        if(!isFinite(n)) n = (fam==='after') ? 7 : 1;
+        rule.due  = fam;
+        rule.dueN = (fam==='none') ? 0 : Math.max(0, Math.min(60, n));
+      }
       else if(k==='from') rule.from = inp.value;
       else if(k==='to') rule.to = inp.value;
       else if(k==='on') rule.on = inp.checked;
@@ -8267,6 +8432,9 @@ $('ncGo').onclick = ()=>{
   const time = $('ncTime').value || '16:00';
   const gap = Math.max(1, parseInt($('ncGap').value,10)||7);
   const due = $('ncDue').value;
+  let dueN = parseInt($('ncDueN') && $('ncDueN').value, 10);
+  if(!isFinite(dueN)) dueN = (due === 'after') ? 7 : 1;
+  dueN = Math.max(0, Math.min(60, dueN));
   const noEv = !!($('ncNoEvents') && $('ncNoEvents').checked);
   if(!name){ toast('班別名要填'); return; }
   if(!noEv){
@@ -8279,7 +8447,7 @@ $('ncGo').onclick = ()=>{
     const items0 = $('ncItems').value.split(/[,，]/).map(function(x){ return x.trim(); })
                      .filter(Boolean).map(function(n){ return {name:n, times:1}; });
     state.ai.hwRules.push({id:uid(), name:name, match:title, not:HW_DEFAULT_NOT,
-      due:(items0.length ? due : 'none'), on:true, from:from||'', to:'', items:items0});
+      due:(items0.length ? due : 'none'), dueN:dueN, on:true, from:from||'', to:'', items:items0});
     save();
     $('ncName').value=''; $('ncTitle').value=''; $('ncItems').value='';
     renderHw();
@@ -8327,7 +8495,7 @@ $('ncGo').onclick = ()=>{
   const items = $('ncItems').value.split(/[,，]/).map(function(x){ return x.trim(); })
                   .filter(Boolean).map(function(n){ return {name:n, times:1}; });
   state.ai.hwRules.push({id:uid(), name:name, match:title, not:HW_DEFAULT_NOT,
-    due:(items.length ? due : 'none'), on:true, from:from, to:'', items:items});
+    due:(items.length ? due : 'none'), dueN:dueN, on:true, from:from, to:'', items:items});
   save(); try{ renderCal(); }catch(e){}
   $('ncName').value=''; $('ncTitle').value=''; $('ncItems').value='';
   if($('ncPlace')) $('ncPlace').value='';
@@ -8339,7 +8507,7 @@ $('ncGo').onclick = ()=>{
 
 $('hwAdd').onclick = ()=>{
   ensureHw();
-  state.ai.hwRules.push({id:uid(), match:'', due:'next', items:[{name:'功課', times:1}]});
+  state.ai.hwRules.push({id:uid(), match:'', due:'before', dueN:1, items:[{name:'功課', times:1}]});
   save(); renderHw();
 };
 
@@ -12952,17 +13120,28 @@ async function storyOpen(id){
   }
   stApplyFont();
   stTalkClear(rec, text);        /* 換咗一篇＝由頭傾過，唔好撈埋上一篇 */
-  stMarkHeard(id);
+  /* ⚠ 「聽過喇」只可以喺訪客模式落標。爹哋喺佢部 iPad 解鎖試機嗰陣，
+     舊版一樣會標——結果佢返嚟就見唔到「📖 爹哋擺咗一個新故事俾你」個橫額，
+     而畫面上完全睇唔出發生過乜事。 */
+  const _byKid = (typeof isGuestNow === 'function') ? isGuestNow() : true;
+  if(_byKid) stMarkHeard(id);
   storyBanner();
-  logPush('story', rec.title || '（冇標題）', {kind:'open', sid:id, topic:rec.topic||''});
+  /* 北極星 6：佢做過乜爹哋一定睇得到。但「爹哋自己試機」唔可以扮成佢做嘅——
+     用 by 而唔用 guest，見本檔頂 patch2 註解（guest 會漏入訪客對話匯出）。 */
+  logPush('story',
+    (_byKid ? '開咗《' : '🧑 爹哋試機 · 開咗《') + (rec.title || '冇標題') + '》',
+    {kind:'open', sid:id, topic:rec.topic||'', by:(_byKid ? 'kid' : 'dad')});
 }
 function storyCloseRead(){
   /* 停低把聲。唔停嘅話閂咗個窗佢仲喺度讀，而粒掣已經冇咗。 */
   try{ ttsStop(); }catch(e){}
   if(stCur){
     const sec = Math.round((Date.now() - stOpenAt) / 1000);
-    if(sec >= 5) logPush('story', stCur.title || '（冇標題）',
-                         {kind:'read', sid:stCur.id, sec:sec});
+    const _byKid2 = (typeof isGuestNow === 'function') ? isGuestNow() : true;
+    if(sec >= 5) logPush('story',
+      (_byKid2 ? '聽咗《' : '🧑 爹哋試機 · 睇咗《') + (stCur.title || '冇標題') +
+      '》　' + sec + ' 秒',
+      {kind:'read', sid:stCur.id, sec:sec, by:(_byKid2 ? 'kid' : 'dad')});
   }
   stCur = null;
   TTSV.prog = null;
@@ -13254,7 +13433,8 @@ function trRender(){
     }
   }
   /* ③ 佢自己嗰兩個窗：打咗乜可以讀返出嚟核對 */
-  [['kidEvWhat', '做乜'], ['kidPtWhat', '你而家做緊乜']].forEach(function(p){
+  [['kidEvWhat', '做乜'], ['kidEvSop', '你寫低咗嘅嘢'],
+   ['kidPtWhat', '你而家做緊乜']].forEach(function(p){
     const inp = g(p[0]);
     if(!inp || !inp.parentNode) return;
     const lab = inp.parentNode.querySelector('label.kidLbl');
@@ -14184,7 +14364,9 @@ async function storyGen(n, topicKey, note, useSyl){
       ok++;
       lines.push('✅ ' + (i+1) + '. ' + tp.name + '：' + title + '（' + rec.len + ' 字' +
                  (rec.dupP ? '，⚠ 同《' + rec.dupT + '》似 ' + rec.dupP + '%' : '') + '）');
-      logPush('story', title, {kind:'gen', sid:id, topic:tp.k, len:rec.len});
+      /* 寫故事得爹哋做得到，所以硬標 dad，唔使問模式。 */
+      logPush('story', '🧑 爹哋叫 AI 寫咗《' + title + '》',
+              {kind:'gen', sid:id, topic:tp.k, len:rec.len, by:'dad'});
       if(view) try{ view.done(); }catch(e){}
     }catch(err){
       /* 一篇死咗唔准拖冧成隊：出返紅字講明，繼續做落一篇 */
@@ -16892,6 +17074,12 @@ function guestChatsInRange(fromD, toD, who){
        排除條件失效，即係佢仲係會餵返做 AI context 同提煉規則。兩樣都由呢度起。
        x.meta 保留做後備，遷就將來真係改成有 meta 嘅寫法。 */
     const _kind = x.kind || (x.meta||{}).kind || '';
+    /* 📖 聽故事嘅「開咗／聽咗／寫咗」唔係對話，一條都唔應該入呢兩份匯出。
+       而家佢哋標嘅係 by:'kid'|'dad'（唔係 guest），所以本來就漏唔入嚟；
+       呢句係第二道閂——將來有人手快標返個 guest:true 落去，
+       呢份用嚟 refine persona 嘅嘢就會多咗一堆冇 q／a 嘅空行，
+       而你要好耐之後先發現。交接檔 6.14 已經喺兩個方向各中過一次。 */
+    if(x.type === 'story' && (_kind === 'open' || _kind === 'read' || _kind === 'gen')) continue;
     const isOwnerChat = _kind === 'owner-chat' || /^🧑 主人對話記錄/.test(String(x.text||''));
     const isGuestChat = !isOwnerChat
                      && (_kind === 'guest-chat' || x.guest || (x.meta||{}).guest
