@@ -2254,7 +2254,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-02c";
+const BUILD = "2026-09-03a";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -14563,7 +14563,12 @@ async function storyGen(n, topicKey, note, useSyl){
     if(thHost){
       const cell = document.createElement('div');
       thHost.appendChild(cell);
-      thHost.style.display = '';
+      /* ⚠ 唔可以寫 ''。'' 係**刪走 inline style**，唔係「顯示」——
+         而 #stThink 喺 CSS 度本身就係 display:none，刪走 inline 之後就變返 none。
+         傾偈嗰個 #aiThink 冇 CSS 規則，所以同一句喺嗰邊啱，喺呢邊死。
+         結果：粒掣灰咗，但成個推理框由頭到尾冇出現過，人完全分唔清
+         「諗緊」同「壞咗機」。 */
+      thHost.style.display = 'block';
       view = makePlanStream(cell, {think:'AI 諗緊點寫（' + tp.name + '）…',
                                    write:'AI 落緊筆（' + tp.name + '）…'});
     }
@@ -15580,9 +15585,15 @@ function makePlanStream(host, labels){
   const L1 = (labels && labels.think) || 'AI 諗緊點幫你排…';
   const L2 = (labels && labels.write) || '開始寫緊安排…';
   let think = '', txt = '', queued = false, head = null, box = null;
+  /* 秒數係唯一一個「就算 model 一粒字都未出都照樣郁」嘅訊號。
+     冇佢，個畫面靜止嗰陣，人分唔清「佢諗緊」定「成個 app 死咗」。 */
+  let t0 = Date.now(), tick = null;
+  const stopTick = function(){ if(tick){ clearInterval(tick); tick = null; } };
   const build = function(){
     host.innerHTML = '';
-    host.style.display = '';
+    /* 同上：明文寫 'block'，唔好靠「刪走 inline」——
+       將來邊個 host 喺 CSS 度有 display:none，就會靜靜雞唔見咗。 */
+    host.style.display = 'block';
     head = document.createElement('div');
     head.innerHTML = '<span class="aiSpin"></span> ' + L1;
     host.appendChild(head);
@@ -15599,10 +15610,23 @@ function makePlanStream(host, labels){
       box.textContent = think.length > 1200 ? ('…' + think.slice(-1200)) : think;
       box.scrollTop = box.scrollHeight;
     }
-    const n = think.length;
+    const bits = [];
+    if(think) bits.push('諗咗 <span class="gThinkN">' + think.length + '</span> 個字');
+    if(txt)   bits.push('寫咗 <span class="gThinkN">' + txt.length + '</span> 個字');
+    /* ⚠ 有啲 model／線路根本唔會回 reasoning_content。舊版遇到呢種情況
+       個框就淨係一片空白，人完全分唔清「佢諗緊」同「壞咗機」。
+       講返出嚟好過扮冇事發生。 */
+    if(!think && txt) bits.push('今次冇出思考過程');
     head.innerHTML = '<span class="aiSpin"></span> ' + (txt ? L2 : L1) +
-      (n ? '　已經諗咗 <span class="gThinkN">' + n + '</span> 個字' : '');
+      '　已經 ' + Math.round((Date.now() - t0)/1000) + ' 秒' +
+      (bits.length ? '　' + bits.join('　') : '');
   };
+  /* 一秒一跳。唔靠 delta 嚟推——冇 delta 嗰陣正正就係最需要見到佢仲喺度嗰陣。
+     10 分鐘之後自己停，唔好留低一個永遠行落去嘅 interval。 */
+  tick = setInterval(function(){
+    if(Date.now() - t0 > 600000){ stopTick(); return; }
+    paint();
+  }, 1000);
   const view = function(d){
     if(d.think) think += d.think;
     if(d.text)  txt   += d.text;
@@ -15612,11 +15636,12 @@ function makePlanStream(host, labels){
     }
   };
   view.reset = function(msg){
-    think = ''; txt = ''; build();
+    think = ''; txt = ''; t0 = Date.now(); build();
     if(msg) head.innerHTML = '<span class="aiSpin"></span> ' + esc(msg);
   };
   /* 收工：唔好將成段推理掉咗，摺埋佢。想睇返「佢當時點諗」嗰陣就撳開。 */
   view.done = function(){
+    stopTick();
     const full = String(AI_LAST_REASON || think || '');
     host.innerHTML = '';
     if(!full.trim()){ host.style.display = 'none'; return; }
@@ -15630,7 +15655,7 @@ function makePlanStream(host, labels){
     det.appendChild(tk);
     host.appendChild(det);
   };
-  view.fail = function(){ host.innerHTML = ''; host.style.display = 'none'; };
+  view.fail = function(){ stopTick(); host.innerHTML = ''; host.style.display = 'none'; };
   return view;
 }
 
