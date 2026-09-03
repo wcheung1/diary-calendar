@@ -1229,6 +1229,11 @@ body.readonly #hubStoryAdmin{display:none!important}
 /* 串流思考：一篇一格，寫完摺埋，撳返開就睇到佢當時點諗 */
 #stThink{display:none;margin:0 0 8px}
 #stBriefThink{display:none;margin:0 0 8px}
+#stBookRaw{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;
+  background:var(--panel);color:var(--ink);font:inherit;line-height:1.6;margin-bottom:8px}
+.sylQ{width:100%;margin-top:3px;padding:4px 7px;border:1px dashed var(--line);
+  border-radius:6px;background:var(--accent-soft);color:var(--ink);
+  font-size:12.5px;line-height:1.55}
 #stRawNote{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;
   background:var(--panel);color:var(--ink);font:inherit;line-height:1.6}
 .briefCard{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:10px;
@@ -1676,10 +1681,13 @@ body.hubOpen{overflow:hidden}
   </details>
   <details id="stSyl">
     <summary>📚 課程框架<span class="stTalkSub">先定方向，再寫故事。唔使每次抽盲盒。</span></summary>
+    <p class="subnote" style="margin:4px 0 6px">「✨ 叫 AI 排 10 個」＝佢憑一般知識排，同學校教乜冇關係。<br>「📖 由課本排」＝貼低學校真係要教嗰段（課本、筆記、進度表），佢會照住原文拆主題，而且每個主題抽返一段<b>事實依據</b>。跟住寫出嚟嘅故事，事實一律以嗰段為準——<b>預習咗一個錯版本，衰過完全冇預習過。</b></p>
+    <textarea id="stBookRaw" style="min-height:96px;display:none" placeholder="貼低課本／筆記／教學進度嗰段原文，然後撳「📖 由課本排」。"></textarea>
     <div class="sylBar">
       <select id="stSylSubj"></select>
       <span class="stMeta" id="stSylCnt"></span>
       <button class="btn" type="button" id="stSylGen">✨ 叫 AI 排 10 個</button>
+      <button class="btn primary" type="button" id="stBookGo">📖 由課本排</button>
       <button class="btn" type="button" id="stSylAdd">＋ 加一個</button>
     </div>
     <p class="stProg" id="stSylMsg"></p>
@@ -2276,7 +2284,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-03c";
+const BUILD = "2026-09-03d";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -12880,6 +12888,34 @@ const SYS_BRIEF = [
 'note 就係嗰段提示詞本身，直接俾爹哋 copy 落去嗰格。'
 ].join('\n');
 
+/* 課本版排框架。同 SYS_SYL 嘅分別：唔准靠自己知識，一律以貼落嚟嗰段為準，
+   而且每個主題要抽返一段事實依據出嚟，跟住落去寫故事嗰陣做硬依據。 */
+const SYS_BOOK = [
+'你嘅工作：爹哋會貼一段學校課本／筆記／教學進度嘅原文俾你。',
+'你要由呢段原文入面，拆返出一個一個可以用一篇故事講完嘅預習主題。',
+'',
+'【最緊要嗰條】',
+'· 全部主題一律由貼落嚟嗰段原文嚟。原文冇講嘅嘢，唔准加，唔准補，唔准靠自己知識填。',
+'· 原文冇講夠嘢排到咁多個主題，就少排幾個。少啲好過作嘢。',
+'· 個細路預習完會返學校上呢一課。如果你俾咗個錯版本佢，佢返到學校要拆返，',
+'  嗰個結果衰過佢完全冇預習過。',
+'',
+'【每個主題】',
+'· 細到可以用一篇五百字故事講完。太大嘅拆細。',
+'  好例子：點解有啲字要加多兩點。　壞例子：認識中文字。',
+'· 由淺到深排，第一個係最基本嗰個。',
+'· 唔准同下面【已經有嘅主題】重複，亦都唔准換個講法扮新。',
+'',
+'【輸出】',
+'淨係輸出一個 JSON object，唔准開場白、唔准解釋、唔准圍欄。全部繁體字：',
+'{"items": [{"t": "…", "d": "…", "q": "…"}, …]}',
+'t 係主題名，六至十四個字，一睇就知講乜。',
+'d 係一句，二十至四十字，講清楚呢個主題要教識佢啲乜。',
+'q 係事實依據：由原文入面抽返同呢個主題有關嗰幾句關鍵事實，最多八十字。',
+'  照原文嘅講法，唔准改數字、改名、改次序，唔准加原文冇嘅嘢。',
+'  呢段會原文交俾寫故事嗰個 AI 做唯一嘅事實來源，所以佢錯，成篇就錯。'
+].join('\n');
+
 const SYS_SYL = [
 '你嘅工作：幫一個香港小學生排一個學習主題清單，做佢之後幾個月嘅課程框架。',
 '',
@@ -14806,6 +14842,19 @@ async function storyGen(n, topicKey, note, useSyl){
           (_syl ? '\n\n【今次要跟嘅課程框架主題——呢篇故事要教到呢一樣嘢】\n《' +
                   _syl.t + '》' + (_syl.d ? '\n' + _syl.d : '') +
                   '\n（上面啲底線照樣要守。教唔到呢一樣，呢篇就係寫錯咗。）' : '') +
+          /* 預習模式：有事實依據先開。冇依據就照舊行道理故事嗰條路——
+             唔可以因為跟緊課程框架就當佢係預習，框架本身可以係 AI 憑空排嘅。 */
+          ((_syl && _syl.q)
+            ? '\n\n【事實依據——呢篇係預習，下面呢段係唯一嘅事實來源】\n' + _syl.q +
+              '\n· 呢段冇講嘅嘢，一個字都唔准加。唔肯定就唔好寫。' +
+              '\n· 唔准為咗個故事好聽而改數字、改名、改次序。' +
+              '\n· 佢聽完會返學校上呢一課。你俾錯咗個版本佢，佢返到學校要拆返，' +
+              '衰過佢完全冇預習過。' +
+              '\n\n【呢篇嘅收尾——蓋過上面「最後一句要係一件今日做得到嘅細動作」嗰條】' +
+              '\n預習故事唔使叫佢今日做一件事。最後一拍改成一個掛鈎：' +
+              '講返聽日上堂聽到嗰個名／嗰件事嘅時候，佢就會知講緊乜。' +
+              '\n嗰個名要喺故事入面自然咁出現過，唔好淨係最後一句先擺出嚟。'
+            : '') +
           (_rules ? '\n\n【屋企嘅 General Rules——聽故事嗰個係 Charlotte，' +
                     '佢幾時出世寫咗喺入面。入面可能仲有妹妹或者其他人嘅日期，唔好攞錯】\n' +
                     _rules + _ageLine : '') +
@@ -14940,6 +14989,57 @@ function stSylDone(k){
   if(!v || !v.items) return 0;
   return v.items.filter(function(x){ return x && x.used; }).length;
 }
+/* 由課本排。同 stSylGen 幾乎一樣，分別淨係：用 SYS_BOOK、餵原文入去、
+   同埋收返每個主題嘅事實依據 q。特登唔同 stSylGen 合併——
+   合併咗就會出現一堆 if(book) 分支，而兩邊嘅底線其實唔同。 */
+async function stBookGen(k){
+  const tp = ST_TOPICS.filter(function(x){ return x.k === k; })[0];
+  if(!tp) return;
+  const ta = document.getElementById('stBookRaw');
+  const raw = String((ta && ta.value) || '').trim();
+  const box = document.getElementById('stSylMsg');
+  if(raw.length < 30){
+    if(ta){ ta.style.display = 'block'; try{ ta.focus(); }catch(e){} }
+    if(box) box.textContent = '貼低課本嗰段原文先（貼多啲，太短拆唔到主題）。';
+    return;
+  }
+  const v = await stSylLoad(k, true);
+  const have = v.items.map(function(x){ return x.t; }).filter(Boolean);
+  if(box) box.textContent = '⏳ 睇緊段課本…';
+  try{
+    const got = await callAIJSON([
+      {role:'system', content:SYS_BOOK},
+      {role:'user', content:
+        '【科目】' + tp.name +
+        '\n\n【佢幾多歲】\n' + (String((state.ai && state.ai.rules) || '').trim() ||
+                                   '（General Rules 未填，當佢係小學低年級）') +
+        '\n（聽故事嗰個係 Charlotte。入面可能仲有妹妹或者其他人嘅出世日期，唔好攞錯。）' +
+        '\n\n【已經有嘅主題，唔准重複】\n' +
+        (have.length ? have.join('\n') : '（未有）') +
+        '\n\n【課本原文——全部主題同事實一律以呢段為準】\n' + raw}
+    ], {want:['items'], temp:0.3, max:4000, longThink:true});
+    const items = ((got.json || {}).items) || [];
+    if(!items.length) throw new Error('由段原文入面拆唔到主題出嚟');
+    let add = 0, noQ = 0;
+    items.forEach(function(x){
+      const t = String((x && x.t) || '').trim();
+      if(!t || have.indexOf(t) >= 0) return;
+      const q = String((x && x.q) || '').trim();
+      if(!q) noQ++;
+      v.items.push({id:uid(), t:t, d:String((x && x.d) || '').trim(),
+                    q:q, src:'book', used:''});
+      have.push(t); add++;
+    });
+    await stSylSave(k);
+    /* ⚠ 冇事實依據嗰啲要講出嚟。冇 q 就等於冇咗預習模式，
+       會退返做普通故事——但畫面上完全睇唔出，所以要明講。 */
+    if(box) box.textContent = '✅ 由課本加咗 ' + add + ' 個。' +
+      (noQ ? ('　⚠ 其中 ' + noQ + ' 個冇抽到事實依據，嗰幾個會當普通故事寫。自己補返落去。') : '');
+  }catch(err){
+    if(box) box.textContent = '❌ 排唔到：' + short(String((err && err.message) || err), 100);
+  }
+  stSylRender();
+}
 async function stSylGen(k, n){
   const tp = ST_TOPICS.filter(function(x){ return x.k === k; })[0];
   if(!tp) return;
@@ -15005,6 +15105,15 @@ function stSylRender(){
     d.placeholder = '一句講清楚要教乜';
     d.onchange = function(){ it.d = d.value.trim(); stSylSave(k); };
     mid.appendChild(t); mid.appendChild(d);
+    /* 事實依據要見得到又改得到：篇故事講唔講錯嘢，最後一道防線係爹哋。
+       收埋咗就等於冇——佢唔會為咗查一段字而去撳一個唔知有冇嘢喺入面嘅掣。 */
+    if(it.src === 'book' || it.q){
+      const q = document.createElement('textarea');
+      q.className = 'sylQ'; q.rows = 2; q.value = it.q || '';
+      q.placeholder = '事實依據（課本原文嗰幾句）。空咗嘅話呢個主題會當普通故事寫。';
+      q.onchange = function(){ it.q = q.value.trim(); stSylSave(k); };
+      mid.appendChild(q);
+    }
     row.appendChild(mid);
     const ops = document.createElement('div');
     ops.className = 'sylOps';
@@ -15351,6 +15460,20 @@ Object.assign(window, {
   });
   const sgen = g('stSylGen');
   if(sgen) sgen.onclick = function(){ if(ssel) stSylGen(ssel.value, 10); };
+  const bgo2 = g('stBookGo');
+  if(bgo2) bgo2.onclick = function(){
+    const ta = g('stBookRaw');
+    /* 第一下撳＝打開個貼字格；貼咗嘢先至真係去排。
+       一開就擺個大 textarea 出嚟，會迫走本來想撳「排 10 個」嗰條路。 */
+    if(ta && ta.style.display === 'none'){
+      ta.style.display = 'block';
+      try{ ta.focus(); }catch(e){}
+      const box = g('stSylMsg');
+      if(box) box.textContent = '貼低課本嗰段，再撳多次「📖 由課本排」。';
+      return;
+    }
+    if(ssel) stBookGen(ssel.value);
+  };
   const sadd = g('stSylAdd');
   if(sadd) sadd.onclick = async function(){
     if(!ssel) return;
