@@ -1228,6 +1228,15 @@ body.readonly #hubStoryAdmin{display:none!important}
   resize:vertical;margin:0 0 8px}
 /* 串流思考：一篇一格，寫完摺埋，撳返開就睇到佢當時點諗 */
 #stThink{display:none;margin:0 0 8px}
+#stBriefThink{display:none;margin:0 0 8px}
+#stRawNote{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;
+  background:var(--panel);color:var(--ink);font:inherit;line-height:1.6}
+.briefCard{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:10px;
+  background:var(--accent-soft)}
+.briefCard h4{font-size:14px;margin:0 0 4px;color:var(--accent)}
+.briefCard textarea{width:100%;min-height:92px;margin-top:6px;padding:8px 9px;
+  border:1px solid var(--line);border-radius:8px;background:var(--panel);
+  color:var(--ink);font:inherit;line-height:1.6}
 #stThink > div + div{margin-top:6px}
 .stProg{font-size:12.5px;color:var(--muted);margin:6px 0 10px;white-space:pre-wrap;line-height:1.65}
 /* 時間表頂嗰條橫額。淨係喺有「已經放出、但佢未聽過」嗰篇先出——
@@ -1653,6 +1662,18 @@ body.hubOpen{overflow:hidden}
   <p class="subnote">AI 一次過寫幾篇入「待審」。你逐篇睇，想改就直接喺下面改段字，收貨之後入池；<b>幾時放出去俾 Charlotte 睇，由你撳</b>。<br>
     未放出嘅故事，Charlotte 部機連正文都唔會落過去。<br>
     AI 唔准讚佢又唔准彈佢，亦都唔會提病名——但事實有冇錯，最後一道防線係你。</p>
+  <details id="stBrief">
+    <summary>✨ 由生活情況變成提示詞<span class="stTalkSub">貼段真實情況入去，佢幫你剝走人名同判斷，拆成一段段提示詞。</span></summary>
+    <p class="subnote" style="margin:4px 0 8px">⚠ 呢格入面嘅字<b>唔會存落任何地方</b>——唔入雲端、唔入 Data Log、唔入故事記錄，閂咗呢個窗就即刻抹走。<br>（Charlotte 訪客模式用嘅係同一個帳戶，所以任何存咗上雲端嘅嘢，個 app 都攞得返。呢格特登唔存。）</p>
+    <textarea id="stRawNote" style="min-height:120px" placeholder="貼低今日發生咗咩事。照原文貼就得，有人名、有老師講嘅嘢、有你自己嘅睇法都唔緊要，佢會幫你剝走。"></textarea>
+    <div class="stGenBar">
+      <button class="btn primary" type="button" id="stBriefGo">✨ 變成提示詞</button>
+      <button class="btn" type="button" id="stBriefClr">✕ 抹走呢格</button>
+      <span class="stMeta" id="stBriefMsg"></span>
+    </div>
+    <div id="stBriefThink"></div>
+    <div id="stBriefOut"></div>
+  </details>
   <details id="stSyl">
     <summary>📚 課程框架<span class="stTalkSub">先定方向，再寫故事。唔使每次抽盲盒。</span></summary>
     <div class="sylBar">
@@ -1677,6 +1698,7 @@ body.hubOpen{overflow:hidden}
     <button class="btn" id="stGenBtn" type="button">✍ 叫 AI 寫</button>
     <span class="stMeta" id="stPoolN"></span>
   </div>
+  <p class="stMeta" id="stTopicHint" style="margin:2px 0 6px;line-height:1.6"></p>
   <textarea id="stGenNote" placeholder="想篇故事有咩元素？（例如：講吓佢養緊嗰隻烏龜、用返練琴嚟做例子、今日佢喺學校試過乜）&#10;唔填就由 AI 喺個題目入面自由發揮。"></textarea>
   <div id="stThink"></div>
   <p class="stProg" id="stProg"></p>
@@ -2254,7 +2276,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-03a";
+const BUILD = "2026-09-03c";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -12746,6 +12768,7 @@ const ST_TOPICS = [
   {k:'eng',    name:'英文',       hint:'一個英文字點嚟、同中文有咩唔同、點樣記得住'},
   {k:'math',   name:'數學',       hint:'一個數字或者形狀嘅小發現，用手指或者屋企啲嘢就試得到'},
   {k:'sci',    name:'科學',       hint:'屋企或者街上見到嘅一件事，同埋點樣試出答案'},
+  {k:'human',  name:'人文探索',   hint:'香港見到嘅一件事係點嚟嘅：一條街、一種食物、一個節日、一座建築、一份工。要講得出邊度睇得返，或者可以問邊個'},
   {k:'people', name:'待人處事',   hint:'一件同人相處嘅細事，講埋對方嗰邊嘅感受'},
   {k:'why',    name:'追問點解',   hint:'一種問問題同試驗嘅方法：控制變數、隔一日再試、問多一次。佢已經識基本嗰幾招，可以講深一層'},
   {k:'plan',   name:'計劃',       hint:'拆步驟、排先後、預留時間、預想會撞到咩、做唔完點算'},
@@ -12814,6 +12837,49 @@ const SYS_STORY = [
 ].join('\n');
 
 /* ⚠ 同其餘幾份一樣，入面一個單引號都唔可以有。 */
+/* Mode A 用嘅 prompt。⚠ 同其餘幾份一樣係單引號字串 array，入面一個單引號都唔可以有。
+   ⚠ 題目清單**唔喺呢度寫死**——runtime 由 ST_TOPICS 砌出嚟接落去。
+     寫死咗，加一個題目就一定會漏呢邊，而畫面上完全睇唔出。 */
+const SYS_BRIEF = [
+'你嘅工作：爹哋會俾一段真實情況你，講佢個細路喺學校或者屋企發生咗啲乜。',
+'你要將佢變成一段或者幾段【寫故事嘅提示詞】，交返俾爹哋。',
+'⚠ 你唔係寫故事。你係寫嗰段交俾寫故事嗰個 AI 睇嘅指示。',
+'',
+'【三件一定要做嘅事】',
+'1. 剝走所有認得返出嚟嘅嘢：人名、學校名、老師、同學、班別，',
+'   同埋太獨特嘅具體物件同場景（例如邊隻色嘅文具、廁所、校服邊個部位）。',
+'   個細路會聽到寫出嚟嗰篇故事。佢一認得出係講緊自己，篇故事就報銷咗——',
+'   由一個故事變成一次訓話，而且佢之後幾篇都會戒備。',
+'2. 剝走大人嘅判斷。原文可能寫住不尊重、明知故犯、我行我素、屢勸不改。',
+'   呢啲係大人嘅結論，唔係事實。要轉返做一個中性嘅行為形狀，',
+'   例如：俾人提醒過一次，當時真心應承，但下次又做返。',
+'   判斷跟咗落去，寫出嚟就係一篇指住個細路鼻哥講嘢嘅故事。',
+'3. 一段提示詞淨係講一件事。原文有幾件唔同嘅事就拆成幾段，最多三段。',
+'   六七歲一篇故事就係一個意思，兩個意思夾埋，兩個都入唔到。',
+'',
+'【每段提示詞點寫】',
+'· 三至六句，短。越短越唔會漏返細節出去。',
+'· 講返：主角撞到咩情況、中間邊一下係轉捩點、結尾大概要收喺邊。',
+'· 明文寫低唔好點寫（例如：唔好寫成主角唔尊重人）。',
+'· 唔好幫佢改埋主角係咩動物、叫咩名。嗰啲留返俾寫故事嗰個發揮。',
+'· 唔好喺入面重複底線規矩（唔准讚彈、唔准提病名嗰啲）。嗰啲寫故事嗰邊已經有。',
+'',
+'【揀題目】',
+'· 下面會俾你一張題目清單，每個題目後面嗰句係會原文交俾寫故事嗰個 AI 嘅指示。',
+'· 所以揀題目 = 落多一段指示。要揀嗰句同你段提示詞夾得埋嘅。',
+'· 例：一段講「知道咗但做唔到」嘅提示詞，如果配咗一個要求「計時、起身行一圈、寫成遊戲」嘅題目，',
+'  出嚟就會有三件工具喺度爭位；配一個要求「一個細動作重複到唔使諗」嘅題目就會集中。後者好。',
+'· 所以你要睇嗰句指示嘅內容嚟揀，唔好靠題目個名去估。',
+'· 揀完要用一句講返點解揀呢個，等爹哋可以否決你。',
+'',
+'【輸出】',
+'淨係輸出一個 JSON object，唔准開場白、唔准解釋、唔准圍欄。全部用繁體字廣東話：',
+'{"briefs": [{"topic": "…", "why": "…", "note": "…"}]}',
+'topic 係題目清單入面嗰個代號（例如 habit），唔准自己作一個。',
+'why 一句，二十字內，講點解揀呢個題目。',
+'note 就係嗰段提示詞本身，直接俾爹哋 copy 落去嗰格。'
+].join('\n');
+
 const SYS_SYL = [
 '你嘅工作：幫一個香港小學生排一個學習主題清單，做佢之後幾個月嘅課程框架。',
 '',
@@ -13748,7 +13814,16 @@ function trRender(){
   /* ① 右上角 ✕。kfModal 特別啲：佢個「完成」係 hide，但篩選狀態要保住，
      所以 ✕ 行返同一個 hide，唔會順手關咗個篩選。 */
   ['listModal', 'kfModal', 'kidEvModal', 'kidPtModal', 'eventModal',
-   'trashModal', 'storyAdmin'].forEach(function(id){ modalX(id); });
+   'trashModal', 'storyAdmin'].forEach(function(id){
+     /* ⚠ 兩條閂窗嘅路都要抹：粒 ✕ 同粒「完成」。
+        淨係接其中一條，另一條就會留低段原文喺個 textarea 度，
+        下次開返個窗仲喺度——而嗰段字正正就係唔應該留低嘅嘢。 */
+     /* ⚠ modalX 個 onClose 係**取代**預設嘅閂窗動作（佢叫完就 return），唔係附加。
+        所以個 callback 自己要負責閂埋個窗，唔係就會變成「撳 ✕ 抹咗字但個窗唔閂」。 */
+     modalX(id, (id === 'storyAdmin' && typeof stBriefWipe === 'function')
+       ? function(){ try{ stBriefWipe(); }catch(e){} hide('storyAdmin'); }
+       : undefined);
+   });
 
   /* ② 事件編輯窗：標題同 SOP／內文 都要讀得出。
      SOP 成段幾百字，佢自己讀唔曬——呢粒喇叭先係佢真正需要嗰粒。 */
@@ -14517,6 +14592,103 @@ function stNextTopics(n){
   for(let i=0;i<n;i++) out.push(sorted[i % sorted.length]);
   return out;
 }
+/* ---------- Mode A：生活情況 → 提示詞 ---------- */
+let stBriefBusy = false;
+/* 題目清單 runtime 砌，唔喺 SYS_BRIEF 度抄多份——抄咗兩份，
+   加一個題目（例如啱啱加嘅人文探索）就一定會漏其中一邊。 */
+function stTopicMenu(){
+  return ST_TOPICS.map(function(t){ return t.k + '｜' + t.name + '：' + t.hint; }).join('\n');
+}
+function stBriefMsg(m){ const e = $('stBriefMsg'); if(e) e.textContent = m || ''; }
+/* 抹走原文。閂窗、撳「抹走」、同埋用完之後都行呢個。 */
+function stBriefWipe(){
+  const a = $('stRawNote'); if(a) a.value = '';
+  const o = $('stBriefOut'); if(o) o.innerHTML = '';
+  const t = $('stBriefThink'); if(t){ t.innerHTML = ''; t.style.display = 'none'; }
+  stBriefMsg('');
+}
+function stBriefRender(list){
+  const host = $('stBriefOut'); if(!host) return;
+  host.innerHTML = '';
+  list.forEach(function(b, i){
+    const t = ST_TOPICS.filter(function(x){ return x.k === b.topic; })[0];
+    const card = document.createElement('div');
+    card.className = 'briefCard';
+    const h = document.createElement('h4');
+    /* 揀唔到／作咗個唔存在嘅代號，就老實講返，唔好靜靜雞當自動輪換。 */
+    h.textContent = '提示詞 ' + (i+1) + '　·　題目：' + (t ? t.name : '（佢揀嘅題目唔喺清單入面，你自己揀返）');
+    card.appendChild(h);
+    if(b.why){
+      const w = document.createElement('p');
+      w.className = 'subnote'; w.style.margin = '0';
+      w.textContent = '點解揀呢個：' + b.why;
+      card.appendChild(w);
+    }
+    const ta = document.createElement('textarea');
+    ta.value = String(b.note || '');
+    card.appendChild(ta);
+    const bar = document.createElement('div');
+    bar.className = 'stGenBar'; bar.style.marginTop = '6px';
+    const use = document.createElement('button');
+    use.className = 'btn primary'; use.type = 'button'; use.textContent = '⬇ 用呢個';
+    use.onclick = function(){
+      const sel = $('stGenTopic'), nt = $('stGenNote');
+      if(sel && t){
+        sel.value = t.k;
+        /* ⚠ 一定要放個 change 出去。淨係改 value 唔會觸發 listener，
+           下面嗰行題目提示就會留住舊嗰個題目嘅描述——畫面自打嘴巴。 */
+        try{ sel.dispatchEvent(new Event('change')); }catch(e){}
+      }
+      if(nt){ nt.value = ta.value; try{ nt.focus(); }catch(e){} }
+      toast(t ? ('入咗落去：' + t.name + '。撳「✍ 叫 AI 寫」就開始。')
+             : '提示詞入咗落去。題目要你自己揀返。');
+    };
+    bar.appendChild(use);
+    card.appendChild(bar);
+    host.appendChild(card);
+  });
+}
+async function storyBrief(){
+  if(stBriefBusy) return;
+  const raw = String(($('stRawNote') || {}).value || '').trim();
+  if(raw.length < 20){ stBriefMsg('貼多啲先——太短就整唔出嘢。'); return; }
+  stBriefBusy = true;
+  const btn = $('stBriefGo'); if(btn) btn.disabled = true;
+  stBriefMsg('');
+  const host = $('stBriefThink');
+  let view = null;
+  if(host){
+    host.innerHTML = '';
+    host.style.display = 'block';        /* ⚠ 唔可以寫 ''，CSS 度佢係 display:none */
+    const cell = document.createElement('div');
+    host.appendChild(cell);
+    view = makePlanStream(cell, {think:'諗緊點拆…', write:'寫緊提示詞…'});
+  }
+  try{
+    const got = await callAIJSON([
+      {role:'system', content:SYS_BRIEF + '\n\n【題目清單】\n' + stTopicMenu()},
+      {role:'user',   content:'【爹哋貼低嘅真實情況】\n' + raw}
+    ], {want:['briefs'], temp:0.4, max:3000, onDelta:view || undefined, longThink:true});
+    /* ⚠ 地雷 6.7：callAIJSON 回嘅係殼 {json, attempt, raw}，唔係內容本身 */
+    const arr = ((got.json || {}).briefs || []).filter(function(b){
+      return b && String(b.note || '').trim();
+    }).slice(0, 3);
+    if(view) try{ view.done(); }catch(e){}
+    if(!arr.length){ stBriefMsg('佢冇整到嘢出嚟。試下貼多啲背景，或者再撳一次。'); return; }
+    stBriefRender(arr);
+    stBriefMsg('整咗 ' + arr.length + ' 段。改完撳「⬇ 用呢個」就會入落下面。');
+    /* 北極星 6 嘅另一面：記低發生過呢件事，但**一個字原文都唔記**。
+       段原文係全個 app 最敏感嘅字，Data Log 唔應該有佢。 */
+    try{ logPush('story', '🧑 爹哋由生活情況整咗 ' + arr.length + ' 段提示詞',
+                 {kind:'brief', by:'dad', n:arr.length}); }catch(e){}
+  }catch(err){
+    if(view) try{ view.fail(); }catch(e){}
+    stBriefMsg('整唔到：' + String((err && err.message) || err).slice(0, 90));
+  }finally{
+    stBriefBusy = false;
+    if(btn) btn.disabled = false;
+  }
+}
 async function storyGen(n, topicKey, note, useSyl){
   if(stGenBusy) return;
   if(!currentUser){ toast('要先登入 Google，篇故事先有地方擺。'); return; }
@@ -15139,12 +15311,31 @@ Object.assign(window, {
   if(ov) ov.addEventListener('click', function(e){ if(e.target === ov) storyCloseRead(); });
   /* 題目清單由 ST_TOPICS 生出嚟，唔好喺 HTML 度抄多份——
      抄咗兩份，將來加一個題目就一定會漏其中一邊。 */
+  const bgo = g('stBriefGo');   if(bgo) bgo.onclick = storyBrief;
+  const bcl = g('stBriefClr');  if(bcl) bcl.onclick = function(){ stBriefWipe(); toast('抹走咗。'); };
   const tsel = g('stGenTopic');
   if(tsel) ST_TOPICS.forEach(function(t){
     const o = document.createElement('option');
     o.value = t.k; o.textContent = t.name;
     tsel.appendChild(o);
   });
+  /* ⚠ 每個題目個 hint 係**原文交俾 AI** 嘅（見 storyGen 入面「今次寫呢個題目」嗰段），
+     即係話揀個題目＝落咗一段指令。但舊版畫面上面淨係見到個名，
+     例如「專注小遊戲」——背後其實寫住「一次做一件事、計時、坐唔定就起身行一圈」，
+     三件工具全部要交足。爹哋見唔到呢句，就只能靠估，出咗嚟先知揀錯。
+     所以：揀邊個就即刻顯示嗰句，兼且明講佢會交俾 AI。 */
+  function stTopicHintShow(){
+    const el = g('stTopicHint'); if(!el || !tsel) return;
+    const t = ST_TOPICS.filter(function(x){ return x.k === tsel.value; })[0];
+    if(!t){
+      el.textContent = '🔀 自動輪換：會揀最耐冇寫嗰個題目。想指定寫乜，就喺上面揀一個。';
+      return;
+    }
+    el.textContent = '📌 揀咗「' + t.name + '」＝會照原文叫 AI 寫：' + t.hint +
+      '　←　呢句會同你下面嘅補充一齊交俾佢。夾唔埋就換個題目，好過喺補充度拗返轉頭。';
+  }
+  if(tsel) tsel.addEventListener('change', stTopicHintShow);
+  stTopicHintShow();
   const ssel = g('stSylSubj');
   if(ssel){
     ST_TOPICS.forEach(function(t){
@@ -15179,7 +15370,10 @@ Object.assign(window, {
   const ex = g('stExGo');
   if(ex) ex.onclick = storyExport;
   const ad = g('stAdminDone');
-  if(ad) ad.onclick = function(){ hide('storyAdmin'); };
+  if(ad) ad.onclick = function(){
+    try{ stBriefWipe(); }catch(e){}
+    hide('storyAdmin');
+  };
   const ask = g('stAsk');
   if(ask) ask.onclick = function(){
     stTalkSay('出一條問題俾我試吓。淨係一條。', '🙋 出一條問題我試吓');
@@ -17449,7 +17643,8 @@ function guestChatsInRange(fromD, toD, who){
        呢句係第二道閂——將來有人手快標返個 guest:true 落去，
        呢份用嚟 refine persona 嘅嘢就會多咗一堆冇 q／a 嘅空行，
        而你要好耐之後先發現。交接檔 6.14 已經喺兩個方向各中過一次。 */
-    if(x.type === 'story' && (_kind === 'open' || _kind === 'read' || _kind === 'gen')) continue;
+    if(x.type === 'story' && (_kind === 'open' || _kind === 'read' ||
+                              _kind === 'gen'  || _kind === 'brief')) continue;
     const isOwnerChat = _kind === 'owner-chat' || /^🧑 主人對話記錄/.test(String(x.text||''));
     const isGuestChat = !isOwnerChat
                      && (_kind === 'guest-chat' || x.guest || (x.meta||{}).guest
