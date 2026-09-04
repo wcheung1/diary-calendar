@@ -2023,6 +2023,7 @@ body.hubOpen{overflow:hidden}
         <button class="btn primary" id="hwSeed">⚡ 重設做預設規矩</button>
         <button class="btn" id="hwAdd">＋ 加一條規矩</button>
         <button class="btn danger" id="hwWipe">💥 超級清除：所有功課記錄一次過清光</button>
+        <button class="btn" id="hwCfgExport" title="淨係規矩同任務，冇 Data Log、冇對話、冇 General Rules">⬇ 匯出功課設定</button>
       </div>
       <div id="hwRules"></div>
     </details>
@@ -2284,7 +2285,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-04a";
+const BUILD = "2026-09-04b";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -8482,6 +8483,89 @@ $('hwNewGo').onclick = ()=>{
     due:$('hwNewDue').value || '', at:nowISO(), doneAt:''});
   $('hwNewTitle').value=''; $('hwNewTimes').value='1'; $('hwNewDue').value='';
   save(); renderHw(); toast('加咗一件練習俾佢');
+};
+/* ⬇ 匯出功課設定
+   ⚠ 特登唔用現成嗰個「⬇ 匯出 JSON」：嗰個係成份 state.ai，入面有
+   成個 Data Log（Charlotte 同 AI 嘅對話）、General Rules（出世日期）、
+   用量同相機設定。想俾人睇下你啲功課規矩，唔應該連呢啲一齊交出去。
+   呢度淨係出規矩同任務，而且喺份檔頂明寫咗有乜同冇乜。 */
+function hwCfgMd(){
+  ensureHw();
+  const R = state.ai.hwRules || [], T = state.ai.hwTasks || [];
+  const today = fmtDate(new Date());
+  const L = [];
+  L.push('# 功課設定匯出　' + today);
+  L.push('');
+  L.push('包含：班別規矩（' + R.length + ' 條）、一次性任務（' + T.length + ' 件）。');
+  L.push('**唔包含**：Data Log、同 AI 嘅對話、General Rules（出世日期）、用量、相機設定、行事曆。');
+  L.push('');
+  L.push('---');
+  L.push('');
+  L.push('## 一、班別規矩（上完邊堂 ➜ 派乜功課）');
+  L.push('');
+  if(!R.length) L.push('（一條都冇）');
+  R.forEach(function(r, i){
+    const days = (function(){ try{ return lessonDays(r).length; }catch(e){ return '?'; } })();
+    L.push('### ' + (i+1) + '. ' + (r.name || '（冇名）') +
+           (r.on === false ? '　【熄咗】' : '') + (r.retired ? '　【收咗檔】' : ''));
+    L.push('- 認邊個字（**全部都要出現**）：`' + (r.match || '（空）') + '`');
+    L.push('- 排除（任何一個出現就唔算）：`' + (r.not || '（空）') + '`');
+    if(r.mainTitle) L.push('- 正堂標題要含：`' + r.mainTitle + '`');
+    L.push('- 生效期：' + (r.from || '（不限）') + ' → ' + (r.to || '（不限）'));
+    L.push('- 死線點計：' + dueDesc(r));
+    L.push('- 而家認到 ' + days + ' 堂');
+    const its = (r.items || []);
+    L.push('- 每堂派：' + (its.length
+      ? its.map(function(x){ return (x.name || '功課') + ' ×' + (x.times || 1); }).join('、')
+      : '（冇項目——即係認到堂都唔會派功課）'));
+    L.push('');
+  });
+  L.push('## 二、一次性任務（➕ 加一件練習／工作紙）');
+  L.push('');
+  if(!T.length) L.push('（一件都冇）');
+  else{
+    L.push('| 標題 | 邊個 | 進度 | 死線 | 加入 |');
+    L.push('|---|---|---|---|---|');
+    T.forEach(function(t){
+      const need = Math.max(1, parseInt(t.times,10) || 1);
+      const done = Math.max(0, parseInt(t.done,10) || 0);
+      const late = (t.due && today > t.due && done < need) ? ' ⚠過期' : '';
+      L.push('| ' + (t.title || (t.kind === 'sheet' ? ('工作紙 #' + t.sheetNo) : '（冇名）')) +
+             ' | ' + (t.who || '') + ' | ' + done + '/' + need +
+             ' | ' + (t.due || '—') + late +
+             ' | ' + String(t.at || '').slice(0,10) + ' |');
+    });
+  }
+  L.push('');
+  L.push('## 三、而家個功課板實際出緊乜');
+  L.push('');
+  try{
+    const b = homeworkBoard();
+    L.push('未做完 ' + b.pending.length + ' 件（其中 ' +
+           b.pending.filter(function(x){ return x.overdue; }).length + ' 件過咗期）、' +
+           '啱啱做完 ' + b.done.length + ' 件、交叉咗 ' + b.skipped.length + ' 件。');
+    L.push('');
+    b.pending.forEach(function(o){
+      L.push('- ' + (o.overdue ? '⚠ ' : '') + o.label +
+             '　' + o.done + '/' + o.need +
+             '　死線 ' + (o.due || '—') +
+             '　來源：' + ({class:'班別規矩', parent:'爹哋加', sheet:'工作紙'}[o.src] || o.src) +
+             (o.fromClass ? ('（' + o.classDate + ' ' + o.fromClass + '）') : ''));
+    });
+  }catch(e){ L.push('（算唔到：' + String(e && e.message || e).slice(0,80) + '）'); }
+  return L.join('\n');
+}
+$('hwCfgExport').onclick = function(){
+  try{
+    const md = hwCfgMd();
+    const blob = new Blob([md], {type:'text/markdown;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = '功課設定_' + fmtDate(new Date()) + '.md';
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ try{ a.remove(); URL.revokeObjectURL(url); }catch(e){} }, 4000);
+    toast('匯出咗（淨係規矩同任務，冇 Data Log）');
+  }catch(e){ toast('匯出唔到：' + String(e && e.message || e).slice(0,70)); }
 };
 $('hwSeed').onclick = async ()=>{
   ensureHw();
