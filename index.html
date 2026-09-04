@@ -2284,7 +2284,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-03d";
+const BUILD = "2026-09-04a";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -4144,7 +4144,7 @@ function renderDay(){
           state.events = state.events.filter(function(x){ return x.id !== ev.id; });
           save();
         });
-        logPush('kidplan', '刪咗自己嘅打卡：' + ev.title, {kind:'del', eid:ev.id, guest:true});
+        kidLog('kidplan', '刪咗自己嘅打卡：' + ev.title, {kind:'del', eid:ev.id, guest:true});
         renderCal();
       };
       main.appendChild(kb);
@@ -4637,7 +4637,28 @@ function evTrash(ev, by){
     state.trash = state.trash
       .filter(function(x){ return x && x.ev && String(x.at || '').slice(0, 10) >= cutS; })
       .slice(0, TRASH_MAX);
-  }catch(e){ console.warn('evTrash', e); }
+  }catch(e){
+    /* ⚠ 呢個 catch 匿咗一個大 bug 好耐：nowISO 攞唔到 → 成句 unshift 冇行過
+       → 垃圾桶一件嘢都收唔到，而畫面上完全睇唔出。數低佢。 */
+    SCOPE_FAIL.evTrash = (SCOPE_FAIL.evTrash || 0) + 1;
+    console.warn('evTrash', e);
+  }
+}
+/* 寫記錄失敗，唔可以拖冧佢做緊嗰件事——但亦都唔可以當冇事：
+   北極星 6 話佢做過乜爹哋一定睇得到，一條記錄唔見咗就係破咗呢一條。
+   所以：唔准 throw 出去，但要數低，喺「🩺 自我檢查」度出返。 */
+const SCOPE_FAIL = {};
+function kidLog(){
+  try{
+    const f = (typeof logPush === 'function') ? logPush
+            : ((typeof window !== 'undefined' && typeof window.logPush === 'function')
+                ? window.logPush : null);
+    if(!f){ SCOPE_FAIL.logPush = (SCOPE_FAIL.logPush || 0) + 1; return; }
+    return f.apply(null, arguments);
+  }catch(e){
+    SCOPE_FAIL.logPush = (SCOPE_FAIL.logPush || 0) + 1;
+    console.warn('kidLog', e);
+  }
 }
 function kidIsMine(ev){ return !!(ev && ev.kid === true); }
 
@@ -5196,7 +5217,7 @@ function kidNowCloseNow(why){
   if(ib){ ib.style.display = 'none'; ib.innerHTML = ''; }
   if(kidNowOpenAt && secs >= 0){
     try{
-      logPush('feedback',
+      kidLog('feedback',
         'Charlotte 睇咗個時鐘 ' + secs + ' 秒（' +
         (why === 'idle' ? '冇郁自動閂' : why === 'esc' ? '撳 Esc' :
          why === 'back' ? '撳出面' : '撳 ✕') + '）',
@@ -5496,7 +5517,7 @@ function kidSave(){
     });
     /* 北極星 6：佢做過乜，爹哋一定睇得到。舊版呢度一個字都冇記，
        所以爹哋開 Data Log 睇，真係會「見唔到佢有改過」。 */
-    logPush('kidplan', '改咗自己排嗰格：' + live.title +
+    kidLog('kidplan', '改咗自己排嗰格：' + live.title +
             '　' + oldDate + ' → ' + date + ' ' + time +
             (_sopChanged ? '　·　改咗入面寫低嗰段' : ''),
             {kind:'edit', eid:live.id, guest:true,
@@ -5519,7 +5540,7 @@ function kidSave(){
     });
     /* 北極星 6：佢自己排咗一格，爹哋一定睇得到。舊版兩條路（加同改）
        都一個字都冇記——所以爹哋開 Data Log 睇，真係會乜都見唔到。 */
-    logPush('kidplan', '自己排咗一格：' + kidTitle(what) + '　' + date + ' ' + time +
+    kidLog('kidplan', '自己排咗一格：' + kidTitle(what) + '　' + date + ' ' + time +
             (sop ? '　·　仲自己寫低咗一段' : ''),
             {kind:'add', guest:true, sopEdit:(sop ? true : undefined)});
     hide('kidEvModal');
@@ -5550,7 +5571,7 @@ async function kidDelete(){
     else     { live.guestPending = true; live.guestDel = true; }   /* 太舊：提出刪，等爹哋批 */
     save();
   });
-  logPush('kidplan', (fresh ? '刪咗自己排嗰格：' : '想刪走自己排嗰格（等爹哋批）：') + live.title,
+  kidLog('kidplan', (fresh ? '刪咗自己排嗰格：' : '想刪走自己排嗰格（等爹哋批）：') + live.title,
           {kind:'del', eid:live.id, guest:true, pending:!fresh || undefined});
   hide('kidEvModal'); renderCal();
   toast(fresh ? '✓ 刪咗喇。' : '✋ 呢格過咗尋日，我幫你話咗俾爹哋知，等佢批。');
@@ -10590,6 +10611,15 @@ function selfCheck(){
     L.push('（focusMode 冇＝篤畫面對焦冇效，唔係壞咗，係部機唔俾網頁控制）');
   }catch(e){}
   try{ if(typeof camLastErr !== 'undefined' && camLastErr) L.push('⚠ 上次開相機錯誤：' + camLastErr); }catch(e){}
+  /* 跨 scope 攞唔到嘢嘅失敗次數。呢類嘢一向係靜靜雞死，唔數出嚟就永遠唔知。 */
+  try{
+    if(typeof SCOPE_FAIL !== 'undefined'){
+      const ks = Object.keys(SCOPE_FAIL).filter(function(k){ return SCOPE_FAIL[k]; });
+      L.push('內部呼叫失敗：' + (ks.length
+        ? ('⚠ ' + ks.map(function(k){ return k + ' ' + SCOPE_FAIL[k] + ' 次'; }).join('　'))
+        : '冇'));
+    }
+  }catch(e){}
   try{ const v = document.getElementById('camVid');
        L.push('camVid 駁住 stream：' + yn(!!(v && v.srcObject), true)); }catch(e){}
   try{ L.push('語音讀緊嘢：' + yn(!!(window.speechSynthesis && window.speechSynthesis.speaking), true)); }catch(e){}
@@ -13909,7 +13939,15 @@ function trRender(){
   const c = document.getElementById('trClose');
   if(c) c.onclick = function(){ hide('trashModal'); };
 })();
-Object.assign(window, {trashRender: trRender});
+/* ⚠ 頂層 scope 睇唔到住喺呢個 IIFE 入面嘅嘢。logPush 同 nowISO 兩個都有頂層
+   呼叫者，但一直冇出返去。兩個都係 2026-08-28o 就已經存在，唔係新嘢：
+   · logPush —— Charlotte 自己排格／改格／刪格／刪打卡、同埋睇時鐘嗰條記錄，
+     全部喺頂層叫。ReferenceError 一掟出嚟就斬斷成個 kidSave：嘢已經存咗上雲，
+     但個窗唔閂、畫面唔更新、冇確認。佢會以為失敗撳多次 → 「加一格」會加咗兩格。
+   · nowISO —— evTrash() 第一句就用佢，而 evTrash 成個包喺 try{}catch 入面。
+     即係話**垃圾桶由頭到尾一件嘢都冇收過**，而且一句錯都冇出過
+     （console.warn 喺 iPad 上面等於冇）。 */
+Object.assign(window, {trashRender: trRender, logPush: logPush, nowISO: nowISO});
 
 /* ---------- ❓ 點樣用：邏輯 ---------- */
 const HP_QS = ['我想加一格落我嘅時間表', '我想改返或者刪走自己排嗰格',
