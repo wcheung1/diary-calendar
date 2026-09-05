@@ -2281,12 +2281,19 @@ body.hubOpen{overflow:hidden}
     <input type="file" id="sosFileCam" accept="image/*" capture="environment" style="display:none">
     <input type="file" id="sosFilePick" accept="image/*" style="display:none">
     <div class="sosNote" id="sosNote"></div>
+    <!-- ⚠ 🔧 自我檢查嘅結果本來直接寫入 sosNote，一撳咗就一直留喺度。
+         Charlotte 開個 SOS 就見到一堆 email、路徑、試寫試讀——對佢完全冇意思，
+         仲要佔咗成半個框。改為摺埋，爹哋要睇先撳開。 -->
+    <details class="sosNote" id="sosDiagBox" style="display:none">
+      <summary>🔧 檢查結果（爹哋睇嘅）</summary>
+      <div id="sosDiagOut" style="white-space:pre-wrap;margin-top:4px"></div>
+    </details>
   </div>
 </div>
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-05d";
+const BUILD = "2026-09-05e";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -8602,6 +8609,30 @@ function hwCfgMd(){
     L.push('- 生效期：' + (r.from || '（不限）') + ' → ' + (r.to || '（不限）'));
     L.push('- 死線點計：' + dueDesc(r));
     L.push('- 而家認到 ' + days + ' 堂');
+    /* ⚠ 淨係出一個數字，答唔到「係邊 33 堂」。而個數字大得離譜嗰陣，
+       原因幾乎一定係 match 太闊，撈咗啲根本唔係上堂嘅格入嚟
+       （放假、家長工作坊、爹哋嘅待辦、提醒）。要逐個標題攤出嚟先睇得到。 */
+    try{
+      const g2 = {};
+      (state.events || []).forEach(function(e){
+        if(isHwSlot(e)) return;
+        let hit = false;
+        try{ hit = ruleMatches(e, r); }catch(err){ hit = false; }
+        if(!hit) return;
+        const t2 = String(e.title || '（冇標題）').trim();
+        g2[t2] = (g2[t2] || 0) + 1;
+      });
+      const ks = Object.keys(g2).sort(function(a,b){ return g2[b] - g2[a]; });
+      if(ks.length){
+        L.push('- 認到嘅標題（' + ks.length + ' 種）：');
+        ks.forEach(function(t2){ L.push('  - ' + t2 + '　× ' + g2[t2]); });
+        if(ks.length > 3){
+          L.push('  - **⚠ ' + ks.length + ' 種標題。上面每一個都會被當成「上咗一堂」——' +
+                 '包括放假、家長活動、提醒、爹哋嘅待辦。認得太闊就要收窄「認邊個字」，' +
+                 '或者用「正堂標題要含」指定邊個先算正堂。**');
+        }
+      }
+    }catch(e){ L.push('- （攤唔開啲標題：' + String(e && e.message || e).slice(0,60) + '）'); }
     const its = (r.items || []);
     if(!its.length) L.push('- 每堂派：（冇項目——即係認到堂都唔會派功課）');
     else{
@@ -13961,9 +13992,34 @@ const SYS_STORY_TALK = [
 ].join('\n');
 
 let stTalkMsgs = [], stTalkBusy = false, stTalkSid = '', stTalkText = '';
+/* 畫面上顯示過嘅泡泡。stTalkMsgs 係俾 AI 睇嘅（會被裁到最近 12 轉），
+   呢個係俾人睇嘅，兩樣唔可以撈埋。 */
+let stTalkShown = [];
 
+/* 由 stTalkShown 重新畫返成段對話。 */
+function stTalkRepaint(){
+  const h = document.getElementById('stTalkHist');
+  if(!h) return;
+  h.innerHTML = '';
+  stTalkShown.forEach(function(x){ stTalkBubble(x.who, x.txt, true, true); });
+  const d = document.getElementById('stTalk');
+  if(d) d.open = true;
+  try{ h.scrollTop = h.scrollHeight; }catch(e){}
+}
 function stTalkClear(rec, text){
-  stTalkMsgs = []; stTalkSid = (rec && rec.id) || ''; stTalkText = text || '';
+  const id = (rec && rec.id) || '';
+  /* ⚠ 佢隻手指篤咗隔籬就會跳返出時間表，返入嚟要再開一次呢篇故事——
+     而開故事會行呢個 function。以前一律清空，即係 AI 啱啱問緊佢嗰條問題，
+     連同佢答過嘅嘢一次過冇咗，而且冇任何提示。
+     同一篇故事＝當佢繼續傾，畫返之前嗰段出嚟；換咗第二篇先至由頭嚟過。 */
+  const sameStory = !!id && id === stTalkSid;
+  /* ⚠ 開一篇故事會行呢個 function 兩次：攞正文之前一次（text 空）、
+     攞到之後一次（text 有嘢）。所以「同一篇 ＋ text 空」唔可以洗走正文，
+     否則第一下就已經自己整散咗自己。換咗第二篇就一定要洗。 */
+  if(sameStory){ if(text) stTalkText = text; }
+  else { stTalkMsgs = []; stTalkShown = []; stTalkText = text || ''; }
+  stTalkSid = id;
+  if(sameStory && stTalkShown.length){ stTalkRepaint(); return; }
   const h = document.getElementById('stTalkHist');
   if(h) h.innerHTML = '';
   const d = document.getElementById('stTalk');
@@ -13971,12 +14027,15 @@ function stTalkClear(rec, text){
   const i = document.getElementById('stTalkInput');
   if(i) i.value = '';
 }
-function stTalkBubble(who, txt, withTTS){
+function stTalkBubble(who, txt, withTTS, noRecord){
   const h = document.getElementById('stTalkHist');
   if(!h) return null;
   const b = document.createElement('div');
   b.className = 'stB ' + who;
-  if(who === 'ai' && withTTS){
+  /* ⚠ 以前淨係 AI 嗰邊有喇叭。但佢自己問嗰句一樣讀唔曬——
+     尤其係佢用 Typeless 講出嚟嗰啲，出嚟同佢諗嗰句未必一樣，
+     佢要聽返先知系統有冇聽錯。兩邊都要有。 */
+  if(withTTS !== false){
     const row = document.createElement('div');
     row.className = 'stBTop';
     const tx = document.createElement('div');
@@ -13989,6 +14048,8 @@ function stTalkBubble(who, txt, withTTS){
     b.textContent = txt;
   }
   h.appendChild(b);
+  /* 重畫嗰陣唔准再記一次，否則每次返入嚟都會翻一倍。 */
+  if(!noRecord) stTalkShown.push({who:who, txt:txt});
   try{ h.scrollTop = h.scrollHeight; }catch(e){}
   return b;
 }
@@ -19516,7 +19577,15 @@ async function takeFile(f){
 /* ── 🔧 自我檢查：逐步試，邊步死就講邊步 ── */
 async function diagnose(){
   const out = [];
-  const say = function(){ note(out.join('\n'), out.join('').indexOf('✗') >= 0); };
+  /* 寫入摺埋咗嗰格，唔好再霸住 sosNote。有 ✗ 就自動撳開——出咗事嗰陣
+     摺埋等於冇；一切正常就維持摺埋，唔阻住佢。 */
+  const dbox = el('sosDiagBox'), dout = el('sosDiagOut');
+  const say = function(){
+    const t = out.join('\n'), bad = t.indexOf('✗') >= 0;
+    if(dout) dout.textContent = t;
+    if(dbox){ dbox.style.display = ''; if(bad) dbox.open = true; }
+    if(!dout || !dbox) note(t, bad);          /* 個格唔喺度就跌返去舊路 */
+  };
   const u = auth.currentUser;
   out.push(u ? ('✓ 已登入：' + (u.email || u.uid)) : '✗ 未登入 Google —— 一定送唔到。撳返「登入」先。');
   say(); if(!u) return;
@@ -19608,7 +19677,15 @@ function bindOnce(){
   if(bound) return; bound = true;
   const f = el('sosFab'), x = el('sosClose'), s = el('sosSend'), d = el('sosDiag'), ta = el('sosInput');
   applySide(); bindDrag(f);
-  if(f) f.onclick = openPanel;
+  if(f) f.onclick = function(){
+    /* 每次開返個 SOS 都收埋上次嘅檢查結果——佢唔應該一開就見到一堆機器字。 */
+    try{
+      const bx = el('sosDiagBox');
+      if(bx){ bx.open = false; bx.style.display = 'none'; }
+      const oo = el('sosDiagOut'); if(oo) oo.textContent = '';
+    }catch(e){}
+    openPanel();
+  };
   if(x) x.onclick = closePanel;
   if(s) s.onclick = send;
   if(d) d.onclick = diagnose;
