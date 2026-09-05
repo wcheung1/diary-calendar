@@ -2285,7 +2285,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-04b";
+const BUILD = "2026-09-05a";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -8537,7 +8537,62 @@ function hwCfgMd(){
     });
   }
   L.push('');
-  L.push('## 三、而家個功課板實際出緊乜');
+  /* ⚠ 呢一段係頭一版匯出嘅盲點：頭三段全部由**規矩**出發，
+     所以行事曆入面有堂但冇規矩認嘅（例如新學校啲科），一個字都唔會出現。
+     而真正嘅風險係反方向嗰邊：一個太闊嘅 match（例如淨係一個「中文」）
+     會喺新時間表一入行事曆嗰刻，靜靜雞認晒學校啲堂，跟住派幾十件功課出嚟。 */
+  L.push('## 三、行事曆入面嘅堂（邊啲有規矩認、邊啲冇）');
+  L.push('');
+  try{
+    const d0 = new Date(); d0.setDate(d0.getDate() - 60);
+    const d1 = new Date(); d1.setDate(d1.getDate() + 30);
+    const from = fmtDate(d0), to = fmtDate(d1);
+    const evs = (state.events || []).filter(function(e){
+      const d = String(e && e.start || '').slice(0,10);
+      return d >= from && d <= to && !isHwSlot(e);
+    });
+    const grp = {};
+    evs.forEach(function(e){
+      const t = String(e.title || '（冇標題）').trim();
+      (grp[t] = grp[t] || []).push(e);
+    });
+    const keys = Object.keys(grp).sort(function(a,b){ return grp[b].length - grp[a].length; });
+    L.push('（' + from + ' 至 ' + to + '，唔計做功課嗰啲時段。共 ' + keys.length + ' 種標題）');
+    L.push('');
+    L.push('| 堂嘅標題 | 幾多堂 | 邊條規矩認咗佢 | 每堂派幾多件 |');
+    L.push('|---|---|---|---|');
+    keys.forEach(function(t){
+      const hit = R.filter(function(r){
+        return grp[t].some(function(e){ try{ return ruleMatches(e, r); }catch(err){ return false; } });
+      });
+      let who, cnt;
+      if(!hit.length){ who = '○ 冇（唔會派功課）'; cnt = '0'; }
+      else if(hit.length > 1){
+        who = '⚠⚠ **撞咗**：' + hit.map(function(r){ return r.name || r.match; }).join(' ＋ ');
+        cnt = hit.reduce(function(a,r){ return a + (r.items||[]).length; }, 0) + '（加埋）';
+      }else{ who = hit[0].name || hit[0].match; cnt = String((hit[0].items||[]).length); }
+      L.push('| ' + t + ' | ' + grp[t].length + ' | ' + who + ' | ' + cnt + ' |');
+    });
+    /* 未爆但一定會爆嘅：match 淨係一個字，而嗰個字係學校科目名。 */
+    const SUBJ = ['中文','英文','數學','常識','人文','科學','音樂','視藝','體育',
+                  '普通話','電腦','戲劇','舞蹈','閱讀','圖書'];
+    const risky = R.filter(function(r){
+      if(r.retired || r.on === false) return false;
+      const m = splitCsv(r.match);
+      return m.length === 1 && SUBJ.indexOf(m[0]) >= 0;
+    });
+    if(risky.length){
+      L.push('');
+      L.push('**⚠ 高風險（而家未爆，但學校時間表一入行事曆就會爆）**：');
+      risky.forEach(function(r){
+        L.push('- 「' + (r.name || '') + '」認嘅字係 `' + r.match +
+               '`，得一個字，而且係學校科目名。學校任何一堂叫呢個名，都會被佢認咗，' +
+               '每堂派 ' + ((r.items||[]).length) + ' 件。');
+      });
+    }
+  }catch(e){ L.push('（掃唔到行事曆：' + String(e && e.message || e).slice(0,80) + '）'); }
+  L.push('');
+  L.push('## 四、而家個功課板實際出緊乜');
   L.push('');
   try{
     const b = homeworkBoard();
