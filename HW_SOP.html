@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>功課 × 上堂 · 撳邊粒掣</title>
+<title>課後功課 · 全部功能同撳邊粒掣</title>
 <style>
 :root{
   --paper:#f6f7f3; --card:#fffffc; --ink:#171c18; --muted:#6d746c; --rule:#d7ded5;
@@ -89,482 +89,303 @@ footer{margin-top:50px;padding-top:16px;border-top:3px double var(--rule);color:
   .tocWrap,.top{display:none}
   .sc{break-inside:avoid;border:1px solid #bbb}
 }
+
+.tbl td:first-child{width:30%}
+.tbl.wide td:first-child{width:22%}
+.mini{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.path{font-family:var(--mono);font-size:12.5px;background:#eef0ec;border:1px solid var(--rule);
+  border-radius:6px;padding:3px 8px;display:inline-block;margin:2px 0}
+.big{font-family:var(--serif);font-size:16px;font-weight:800;margin:16px 0 6px}
+.sc ul,.sc ol{margin:8px 0 0 20px}
+.sc li{margin:4px 0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+@media (max-width:640px){.two{grid-template-columns:1fr}}
+.box{border:1px solid var(--rule);border-radius:9px;padding:11px 13px;background:#fcfdfb}
+.box h5{font-size:13px;margin-bottom:5px;font-family:var(--mono);color:var(--muted);letter-spacing:.06em}
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="wrap" id="top">
 
-<header class="cover" id="top">
-  <div class="eyebrow">日程日記 · 撳邊粒掣</div>
-  <h1>功課 × 上堂<br>要改嘢，撳呢幾粒</h1>
-  <p class="sub">揀返你而家要做嗰件事，撳落去，跟住條箭嘴行。每一格就係一個動作：去邊、撳邊粒掣、打咩字。</p>
+<header class="cover">
+  <div class="eyebrow">屋企行事曆 · 操作手冊</div>
+  <h1>「課後功課」呢個 tab<br>每一件嘢做乜、幾時撳</h1>
+  <p class="sub">
+    第一至四部係<b>版面導覽</b>：由上到下，見到嘅每一粒掣、每一格都寫咗。
+    第五至六部係<b>情境食譜</b>：想做某件事，照住撳。
+    第七部係<b>要知嘅概念</b>，第八部係<b>出事點算</b>。
+  </p>
   <div class="legend">
-    <span class="k">格仔意思：</span>
-    <span class="loc cal">去時間表</span>
-    <span class="loc hw">去課後功課</span>
-    <span class="press">撳呢粒掣</span>
-    <span class="pick">揀／搵</span>
-    <span class="type">打呢啲字</span>
-    <span class="end">完成</span>
+    <span class="k">圖例：</span>
+    <span class="loc hw">課後功課</span>
+    <span class="loc cal">行事曆</span>
+    <span class="press">撳呢粒</span>
+    <span class="pick">揀嘢</span>
+    <span class="type">打字／填</span>
+    <span class="end">結果</span>
   </div>
 </header>
 
-<div class="tocWrap">
-  <div class="tocGrp">
-    <h4>功課</h4>
-    <div class="tocGrid">
-      <a href="#a1"><span class="n">A1</span><span>有新嘅功課類型出咗，要加落個班度</span></a>
-      <a href="#a2"><span class="n">A2</span><span>舊嘅功課類型唔再出，要拎走</span></a>
-      <a href="#a3"><span class="n">A3</span><span>已經排咗時間表嘅功課，要改期／向後褪</span></a>
-      <a href="#a4"><span class="n">A4</span><span>做唔完，要加多一節時間繼續做埋</span></a>
-      <a href="#a5"><span class="n">A5</span><span>爸爸加補充練習（書架嗰本）＋ 排時間 ＋ 通知佢</span></a>
-      <a href="#a6"><span class="n">A6</span><span>今次真係冇功課</span></a>
-      <a href="#a7"><span class="n">A7</span><span>以為做完打咗勾，原來未做完</span></a>
-      <a href="#a8"><span class="n">A8</span><span>同一份功課堆咗兩三件</span></a>
-      <a href="#a9"><span class="n">A9</span><span>派／收實體工作紙（風琴 folder）</span></a>
-    </div>
-  </div>
-  <div class="tocGrp">
-    <h4>上堂</h4>
-    <div class="tocGrid">
-      <a href="#b1"><span class="n">B1</span><span>一堂課要改時間</span></a>
-      <a href="#b2"><span class="n">B2</span><span>一堂課取消咗，嗰個時段點計</span></a>
-      <a href="#b3"><span class="n">B3</span><span>加一堂補堂</span></a>
-      <a href="#b4"><span class="n">B4</span><span>續排一個班（再排多幾個月）</span></a>
-      <a href="#b5"><span class="n">B5</span><span>開一個全新班</span></a>
-      <a href="#b6"><span class="n">B6</span><span>個班畢業／下個月唔再上</span></a>
-      <a href="#b7"><span class="n">B7</span><span>由某一日開始重新計功課</span></a>
-    </div>
-  </div>
-  <div class="tocGrp">
-    <h4>其他</h4>
-    <div class="tocGrid">
-      <a href="#c1"><span class="n">C1</span><span>Charlotte 撳咗 🆘 搵我</span></a>
-      <a href="#c2"><span class="n">C2</span><span>出咗事點查（症狀對照表）</span></a>
-      <a href="#c3"><span class="n">C3</span><span>唔好亂撳嘅掣</span></a>
-      <a href="#c4"><span class="n">C4</span><span>改完之後，30 秒檢查</span></a>
-      <a href="#c5"><span class="n">C5</span><span>附錄：點解會咁（原理）</span></a>
-    </div>
-  </div>
+<div class="tocWrap"><div class="tocGrp"><h4>版面：由上到下每一件嘢</h4><div class="tocGrid"><a href="#n1"><span class="n">N1</span><span>最頂兩粒：📘 SOP ／ ⬇ 匯出功課設定</span></a><a href="#n2"><span class="n">N2</span><span>四個篩選掣 ＋ 統計行</span></a><a href="#n3"><span class="n">N3</span><span>🎓 班別總覽</span></a><a href="#n4"><span class="n">N4</span><span>＋ 開一個新班別</span></a><a href="#n5"><span class="n">N5</span><span>由邊日開始計功課</span></a><a href="#n6"><span class="n">N6</span><span>仲未做完 ／ ✅ 啱啱做完</span></a><a href="#n7"><span class="n">N7</span><span>➕ 加練習俾佢（爸爸專用）</span></a><a href="#n8"><span class="n">N8</span><span>🗂 風琴 folder 工作紙</span></a><a href="#n9"><span class="n">N9</span><span>⚙ 規矩</span></a><a href="#n10"><span class="n">N10</span><span>🚫 交叉咗嘅</span></a></div></div><div class="tocGrp"><h4>一張功課卡上面有乜</h4><div class="tocGrid"><a href="#p1"><span class="n">P1</span><span>卡面讀得出啲乜</span></a><a href="#p2"><span class="n">P2</span><span>六粒掣</span></a></div></div><div class="tocGrp"><h4>班別卡撳開之後</h4><div class="tocGrid"><a href="#q1"><span class="n">Q1</span><span>已經上咗嘅堂（最近 4 堂）</span></a><a href="#q2"><span class="n">Q2</span><span>邊個先係正堂？</span></a><a href="#q3"><span class="n">Q3</span><span>將來嘅堂 ＋ 一鍵排晒</span></a><a href="#q4"><span class="n">Q4</span><span>呢一堂嘅組合拳</span></a><a href="#q5"><span class="n">Q5</span><span>逢星期幾上堂</span></a><a href="#q6"><span class="n">Q6</span><span>續排新堂 ＋ 草稿</span></a><a href="#q7"><span class="n">Q7</span><span>📦 收檔</span></a></div></div><div class="tocGrp"><h4>⚙ 規矩每一格</h4><div class="tocGrid"><a href="#r1"><span class="n">R1</span><span>九個欄位逐個講</span></a><a href="#r2"><span class="n">R2</span><span>三粒掣</span></a></div></div><div class="tocGrp"><h4>情境：想做呢件事，撳邊度</h4><div class="tocGrid"><a href="#a1"><span class="n">A1</span><span>學校派咗一份功課，有交收日期</span></a><a href="#a2"><span class="n">A2</span><span>一份功課要分幾步先算完成</span></a><a href="#a3"><span class="n">A3</span><span>有新嘅功課類型，要加落個班度</span></a><a href="#a4"><span class="n">A4</span><span>呢件嘢成日交叉，唔想再自動派</span></a><a href="#a5"><span class="n">A5</span><span>功課類型要改名</span></a><a href="#a6"><span class="n">A6</span><span>今次真係冇功課</span></a><a href="#a7"><span class="n">A7</span><span>撳錯咗做完</span></a><a href="#a8"><span class="n">A8</span><span>排咗時間表但做唔完</span></a><a href="#a9"><span class="n">A9</span><span>派／收實體工作紙</span></a></div></div><div class="tocGrp"><h4>情境：關於堂</h4><div class="tocGrid"><a href="#b1"><span class="n">B1</span><span>開一個新班別</span></a><a href="#b2"><span class="n">B2</span><span>一星期唔止一堂，或者唔同日唔同鐘數</span></a><a href="#b3"><span class="n">B3</span><span>續排未來幾個月嘅堂</span></a><a href="#b4"><span class="n">B4</span><span>一堂改期／取消／補堂</span></a><a href="#b5"><span class="n">B5</span><span>個班完咗</span></a><a href="#b6"><span class="n">B6</span><span>條規矩認錯咗嘢</span></a></div></div><div class="tocGrp"><h4>要知嘅五件事</h4><div class="tocGrid"><a href="#s1"><span class="n">S1</span><span>功課有三個來源</span></a><a href="#s2"><span class="n">S2</span><span>死線有兩個家族</span></a><a href="#s3"><span class="n">S3</span><span>完成記錄係綁喺「項目名」度</span></a><a href="#s4"><span class="n">S4</span><span>收檔 ≠ 刪走</span></a><a href="#s5"><span class="n">S5</span><span>交叉 ≠ 做完</span></a></div></div><div class="tocGrp"><h4>出事點算</h4><div class="tocGrid"><a href="#x1"><span class="n">X1</span><span>認唔到堂 ／ 認到太多堂</span></a><a href="#x2"><span class="n">X2</span><span>功課板出咗一堆唔應該有嘅嘢</span></a><a href="#x3"><span class="n">X3</span><span>剔過嘅嘢變返未做</span></a><a href="#x4"><span class="n">X4</span><span>想由頭嚟過</span></a></div></div></div>
+
+<h2 class="grpTitle"><span class="g">第一部</span>版面：由上到下每一件嘢</h2>
+<div class="sc" id="n1">
+  <h3><span class="n">N1</span>最頂兩粒：📘 SOP ／ ⬇ 匯出功課設定</h3>
+  <p class="q">一入「課後功課」，第一行就係呢兩粒。</p>
+<table class="tbl"><tr><th>粒掣</th><th>做乜</th></tr><tr><td>📘 SOP</td><td>開呢份嘢（新視窗）。</td></tr><tr><td>⬇ 匯出功課設定</td><td>出一個 <code>.md</code> 檔，入面有：班別總覽、每條規矩（連認到邊幾個標題）、一次性任務、行事曆入面所有堂、同埋功課板實況。<br><b>唔會包</b>：Data Log、同 AI 嘅對話、General Rules（出世日期）、用量、相機設定。</td></tr></table><div class="ok"><b>幾時用匯出？</b> 覺得功課板出咗奇怪嘢、又或者想搵人幫你睇設定嗰陣。份檔係純文字，可以直接貼出去，唔會連細路啲對話一齊漏走。</div>
+  <a class="top" href="#top">↑ 返上面</a>
 </div>
-
-<h2 class="grpTitle"><span class="g">A 組</span>功課</h2>
-
+<div class="sc" id="n2">
+  <h3><span class="n">N2</span>四個篩選掣 ＋ 統計行</h3>
+  <p class="q">篩選掣淨係影響下面「仲未做完」嗰張清單。</p>
+<table class="tbl"><tr><th>掣</th><th>睇到啲乜</th></tr><tr><td>全部</td><td>三種來源一齊出。</td></tr><tr><td>📖 補習班功課</td><td>由班別規矩自動派出嚟嗰啲。</td></tr><tr><td>✍️ 爸爸俾嘅練習</td><td>你自己喺 N7 加落去嗰啲一次性任務。</td></tr><tr><td>🗂 實體工作紙</td><td>風琴 folder 嗰啲格。</td></tr></table><p class="note">統計行寫住而家未做完幾多件、過期幾多件。</p>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<div class="sc" id="n3">
+  <h3><span class="n">N3</span>🎓 班別總覽：邊啲堂上緊、最近一堂、下一堂</h3>
+  <p class="q">每一個班一張卡。呢度係「堂」嘅世界，唔係「功課」嘅世界。</p>
+<p>卡面一行讀得出：</p><table class="tbl"><tr><th>見到</th><th>意思</th></tr><tr><td>共 N 堂</td><td>條規矩而家喺行事曆度認到幾多堂。</td></tr><tr><td>⚠ 認唔到堂</td><td>一堂都對唔上。<b>條規矩等於熄咗</b>——去 <a href="#x1">X1</a>。</td></tr><tr><td>下一堂 MM-DD HH:MM</td><td>行事曆上面下一個對得上嘅格。</td></tr><tr><td>未排下一堂</td><td>將來冇堂。要續排就去 <a href="#q6">Q6</a>。</td></tr><tr><td>逢三 16:00（1 個鐘）…</td><td>你自己設咗嘅時間表（<a href="#q5">Q5</a>）。</td></tr><tr><td>推算：逢星期三 16:00　每 7 日</td><td>你<b>冇</b>設，系統由過往幾堂推算返嚟。</td></tr><tr><td>組合拳 N 格</td><td>一堂連埋接送等幾格（<a href="#q4">Q4</a>）。</td></tr><tr><td>草稿 N 堂</td><td>推算咗但仲未落時間表（<a href="#q6">Q6</a>）。</td></tr></table><div class="pen"><b>「推算：」呢兩個字好緊要。</b>有呢兩個字＝系統估嘅，一星期唔止一堂就會估錯。冇呢兩個字＝你自己設咗，一定啱。</div>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<div class="sc" id="n4">
+  <h3><span class="n">N4</span>＋ 開一個新班別</h3>
+  <p class="q">喺班別總覽入面嘅一個摺埋位。開規矩 ＋ 排堂 ＋ 排接送，一次過。</p>
+<p>兩種用法，靠最底嗰個剔決定：</p><table class="tbl"><tr><th>情況</th><th>點做</th></tr><tr><td>時間表<b>仲未</b>有呢啲堂</td><td>唔好剔。填齊逢星期幾、幾點、由邊日到邊日、每幾多日一堂、接送。撳「開班＋排晒落時間表」就會一次過寫晒落行事曆。</td></tr><tr><td>時間表<b>已經</b>有呢啲堂</td><td><b>要剔</b>「時間表已經排好，唔使再排」。剔咗之後上面所有時間／接送嘅欄位都唔會用到。</td></tr></table><p class="big">十四個欄位</p><table class="tbl wide"><tr><th>欄位</th><th>填乜</th><th>剔咗「已經排好」之後</th></tr><tr><td>班別個名</td><td>你自己叫佢做乜，例如「小學常識科」。</td><td>要填</td></tr><tr><td>時間表用嘅標題<br><span class="mini">剔咗之後會變做「認邊個字」</span></td><td>未剔＝新排出嚟嗰啲格用呢個標題。<br>剔咗＝條規矩靠呢啲字認堂。</td><td>要填（<b>一兩個字就夠</b>）</td></tr><tr><td>逢星期幾</td><td>第一堂由邊個星期幾起。</td><td>唔使理</td></tr><tr><td>幾點</td><td>開始時間。</td><td>唔使理</td></tr><tr><td>由邊日開始</td><td>由邊日起排。</td><td>唔使理<span class="mini">（但佢會變成規矩生效期起點，最好留空）</span></td></tr><tr><td>排到邊日</td><td>排到邊日為止。</td><td>唔使理</td></tr><tr><td>每幾多日一堂</td><td>7＝每星期一次，14＝隔星期。</td><td>唔使理</td></tr><tr><td>邊個上堂</td><td>Charlotte 或者 Jasmine。</td><td>唔使理</td></tr><tr><td>一堂幾耐（分鐘）</td><td>正堂長度。</td><td>唔使理</td></tr><tr><td>邊個接送</td><td>例如婆婆。有得揀現成幾個。</td><td>唔使理</td></tr><tr><td>去邊</td><td>地點，例如佐敦。</td><td>唔使理</td></tr><tr><td>去程幾耐 ／ 返程幾耐</td><td>分鐘。<b>留 0 就唔會排接送格</b>。有數字就會自動喺正堂前後各加一格，例如「婆婆帶Charlotte去佐敦」同「婆婆帶Charlotte返屋企」。</td><td>唔使理</td></tr><tr><td>上完要跟進乜<br><span class="mini">逗號分開</span></td><td>每堂自動派嘅功課。<b>留空＝唔使跟進</b>。</td><td>照樣有效</td></tr><tr><td>死線點計 ＋ 幾多日</td><td>同 <a href="#s2">S2</a> 一樣。</td><td>上面留空嘅話呢個唔使理</td></tr></table><div class="pen">剔咗之後，「時間表用嘅標題」個 label 會自動變成「<b>認邊個字</b>」——因為嗰陣佢唔再係用嚟整格，而係變咗條規矩認堂嘅字。<br>填一兩個字就夠，<b>唔好填成句</b>。填「港同小學」認到全日制同適應週；填「Charlotte 港同小學（全日制）」就淨係認到一半。</div><div class="ok"><b>「上完要跟進乜」留空 ＝ 零項目，而且死線自動變「唔使跟進」。</b>學校呢類「每日功課唔同」嘅班，就係要留空——功課走 <a href="#n7">N7</a> 嗰條路。</div>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<div class="sc" id="n5">
+  <h3><span class="n">N5</span>由邊日開始計功課</h3>
+  <p class="q">喺班別總覽最底。</p>
+<p>個欄位全名叫「<b>由邊日開始計功課（之前嘅一概唔理）</b>」。填一個日期再撳「套用」，<b>嗰日之前嘅堂一律唔派功課</b>。暑假前嗰堆舊堂唔想佢彈出嚟，就用呢個。</p><p class="note">撳「清走限制」就返返所有堂都計。</p>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<div class="sc" id="n6">
+  <h3><span class="n">N6</span>仲未做完 ／ ✅ 啱啱做完</h3>
+  <p class="q">「仲未做完」係成個 tab 嘅主角。</p>
+<ul><li><b>仲未做完</b>：所有未剔完嘅功課。過咗期嗰啲排最前，有 ⚠。</li><li><b>✅ 啱啱做完（7 日內）</b>：做完之後喺呢度留 7 日，然後自動淡出。撳錯咗要拎返出嚟就喺呢度撳「↩ 未做完」。</li></ul><p class="note">每張卡有咩掣，睇 <a href="#p2">P2</a>。</p>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<div class="sc" id="n7">
+  <h3><span class="n">N7</span>➕ 加練習俾佢（爸爸專用）</h3>
+  <p class="q">摺埋位，喺「✅ 啱啱做完」下面。<b>學校功課、一次性嘅嘢，全部走呢條路。</b></p>
+<table class="tbl"><tr><th>格</th><th>填乜</th></tr><tr><td>練習名<br><span class="mini">例如：數學變種題 ×10</span></td><td>呢件嘢叫咩。建議加個前綴分開來源，例如 <code>港同 · 抄寫簿 P.12–13</code>。</td></tr><tr><td>要做幾轉</td><td>要坐低做幾多次。唔知就 <code>1</code>。</td></tr><tr><td>幾時之前做完</td><td>死線。留空＝<b>永遠唔會過期</b>，會一直留喺板上直到你剔完。</td></tr><tr><td>邊個做</td><td>Charlotte 或者 Jasmine。</td></tr><tr><td>加落去</td><td>撳落去就即刻出現喺「仲未做完」。</td></tr></table><div class="ok">加完之後，<b>佢自己排時間表嗰陣個「撳我揀一份功課」清單會自動有埋</b>，你唔使再做嘢。</div><div class="pen"><b>「要做幾轉」唔係「幾多個步驟」。</b>填 3 佢會見到「0/3」，但佢唔知邊一步未做。一件事有幾步（例如：洗餐具、貼名、放返書包），應該<b>幾轉填 1</b>，啲步驟寫落個名度：<code>港同 · 餐具：① 洗　② 貼名　③ 放返書包</code>。</div>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<div class="sc" id="n8">
+  <h3><span class="n">N8</span>🗂 風琴 folder 工作紙</h3>
+  <p class="q">同上面同一個摺埋位入面，下半截。實體紙嘅格仔。</p>
+<ul><li>喺「<b>呢格叫咩名（留空就叫「工作紙 #N」）</b>」打個名，再揀「邊個做」。</li><li><b>撳空格</b>＝派呢格俾佢做（會用你打嘅名）。</li><li><b>撳已經派咗嗰格</b>：上面有打名就係改名，冇打名就係收返。</li></ul><p class="note">派咗嘅工作紙會以「🗂 實體工作紙」呢個來源出喺功課板。</p>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<div class="sc" id="n9">
+  <h3><span class="n">N9</span>⚙ 規矩：上完邊堂 ➜ 要跟進乜</h3>
+  <p class="q">摺埋位。呢度定義「邊啲堂會自動派邊啲功課」。</p>
+<p>入面每個班一行卡，欄位逐個講喺 <a href="#r1">R1</a>。最底三粒掣：</p><table class="tbl"><tr><th>掣</th><th>做乜</th></tr><tr><td>⚡ 重設做預設規矩</td><td>載入內置嗰批常見班別。<b>會覆蓋你而家啲規矩</b>，平時唔好撳。</td></tr><tr><td>＋ 加一條規矩</td><td>開一條空白規矩。<br><b>⚠ 佢會自動送一件叫「新功課」嘅項目，記得撳 ✕ 刪走。</b>想開班別，用 <a href="#n4">N4</a> 好過——留空就真係零項目。</td></tr><tr><td>💥 超級清除：所有功課記錄一次過清光</td><td>字面咁解。<b>唔可以還原。</b></td></tr></table>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<div class="sc" id="n10">
+  <h3><span class="n">N10</span>🚫 交叉咗嘅（話咗今次冇功課）</h3>
+  <p class="q">最底一個摺埋位。</p>
+<p>你喺功課卡撳過「✕ 今次冇呢份功課」嗰啲會收埋喺呢度。每件有一粒「<b>↩ 放返出嚟</b>」，撳返轉頭就得。</p><div class="ok">呢度件數大，唔係代表佢懶——係代表<b>條規矩估錯咗</b>。去 <a href="#a4">A4</a>。</div>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<h2 class="grpTitle"><span class="g">第二部</span>一張功課卡上面有乜</h2>
+<div class="sc" id="p1">
+  <h3><span class="n">P1</span>卡面讀得出啲乜</h3>
+<table class="tbl"><tr><th>見到</th><th>意思</th></tr><tr><td>⚠</td><td>過咗期。</td></tr><tr><td>0/2</td><td>要做兩轉，做咗零轉。</td></tr><tr><td>🗓 排咗 X 節排咗喺…</td><td>已經喺時間表度霸咗位。</td></tr><tr><td>未排時間</td><td>仲未有時段。</td></tr><tr><td>之後會由清單度消失（仲有 N 日）</td><td>做完之後喺「啱啱做完」倒數緊。</td></tr><tr><td>因果鏈</td><td>「YYYY-MM-DD 上咗 X ➜ 派咗呢份功課 ➜ …之前做完」。呢句會按你條規矩嘅死線設定講返真話，唔會硬寫「前一日」。</td></tr></table>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<div class="sc" id="p2">
+  <h3><span class="n">P2</span>六粒掣</h3>
+<table class="tbl wide"><tr><th>掣</th><th>做乜</th><th>幾時用</th></tr><tr><td>🗓 排時間 ／ ＋ 再排一節</td><td>開排程窗，喺時間表霸個位做呢份功課。</td><td>想安排幾時做。</td></tr><tr><td>📅 排落時間表 ／ ↻ 更新時間表</td><td>一鍵排（或者改）嗰個時段。</td><td>唔想自己揀時間。</td></tr><tr><td>✕ 唔排</td><td>拎走已經排咗嘅時段（唔會刪功課本身）。</td><td>改咗主意。</td></tr><tr><td>➕ 加多一節做埋佢</td><td>同一份功課再霸多一個時段。</td><td>一節做唔完。</td></tr><tr><td>✓ 做完喇 ／ ✓ 做咗一轉</td><td>打剔。夠轉數就會跳去「啱啱做完」。</td><td>真係做完。</td></tr><tr><td>↩ 撳錯 ／ ↩ 未做完</td><td>還原上一下打剔。</td><td>撳錯。</td></tr><tr><td>✕ 今次冇呢份功課</td><td>（補習班來源）話俾系統聽呢堂冇派過。收埋去 <a href="#n10">N10</a>，撳得返。</td><td>規矩估錯咗。</td></tr><tr><td>✕ 刪走</td><td>（爸爸練習／工作紙來源）真係刪走件嘢。</td><td>加錯咗。</td></tr></table><div class="pen"><b>「✓ 做完喇」同行事曆嗰粒「✓ 確認做咗」係兩件事。</b><br>前者＝呢份功課整體完成。後者＝嗰段時間佢真係有坐低做過嘢。撳前者<b>唔會</b>自動幫後者填——嗰本係你嘅事實紀錄，唔可以由系統代你寫。功課剔完之後如果仲有過去嘅時段冇撳「確認做咗」，系統會出一句提你，但唔會代你撳。</div>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<h2 class="grpTitle"><span class="g">第三部</span>班別卡撳開之後</h2>
+<div class="sc" id="q1">
+  <h3><span class="n">Q1</span>已經上咗嘅堂（最近 4 堂）</h3>
+  <p class="q">逐堂攤開嗰堂派咗啲乜。</p>
+<p>每一堂下面列住嗰堂嘅功課，每件有：<span class="press">🤖 一鍵排落時間表</span>／<span class="press">↻ 換個時間</span>、<span class="press">✕ 拎走個時段</span>、<span class="press">✓ 完成</span>、<span class="press">↩ 改返做未完成</span>、<span class="press">✕ 今次冇呢份</span>／<span class="press">↩ 放返出嚟</span>。</p><p class="note">冇功課嘅堂會寫返點解：唔使跟進／喺「由邊日開始計功課」之前／條規矩冇項目。</p>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<div class="sc" id="q2">
+  <h3><span class="n">Q2</span>邊個先係正堂？</h3>
+  <p class="q">同一日對得上幾個項目嗰陣先會出現。</p>
+<p>例如同一日有「Charlotte 大眾中文堂」同埋「婆婆帶Charlotte去大眾中文堂」，兩個都夾到條規矩。系統<b>預設揀最長嗰格</b>。</p><p>估錯咗就喺呢個下拉度自己指定，指定咗之後永遠以你揀嗰個為準。</p><div class="ok">接送嘅人會變（婆婆／Auntie／爸爸），所以<b>用呢度指定正堂，好過喺排除詞逐個名去打</b>。</div>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<div class="sc" id="q3">
+  <h3><span class="n">Q3</span>將來嘅堂 ＋ 一鍵排晒</h3>
+<p>列住已經排咗、仲未上嘅堂。上面有一粒<span class="press">🤖 一鍵排晒呢個班未排嘅功課（N 份）</span>，一下過幫呢個班所有未排時間嘅功課搵位。</p><p class="note">想控制佢排喺上堂前幾耐，去 <a href="#r1">R1</a> 嘅「上堂前幾多分鐘做」。</p>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<div class="sc" id="q4">
+  <h3><span class="n">Q4</span>呢一堂嘅組合拳</h3>
+  <p class="q">一堂唔止一格：去程、正堂、返程。</p>
+<p>續排新堂嗰陣會一次過出晒呢幾格。每格有名同偏移分鐘：</p><ul><li><b>負數</b>＝正堂之前（接送 -10 即係早 10 分鐘）</li><li><b>正數</b>＝正堂之後</li></ul><table class="tbl"><tr><th>掣</th><th>做乜</th></tr><tr><td>＋ 加正堂之前一格</td><td>例如去程。</td></tr><tr><td>＋ 加正堂之後一格</td><td>例如返程。</td></tr><tr><td>🔍 由最近一堂重新偵測</td><td>掃描最近嗰堂前後貼住、又短過半個鐘嘅項目。</td></tr><tr><td>✕ 全部清走</td><td>淨返正堂一格。</td></tr></table>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<div class="sc" id="q5">
+  <h3><span class="n">Q5</span>逢星期幾上堂</h3>
+  <p class="q"><b>一星期唔止一堂、或者唔同日唔同鐘數，一定要用呢個。</b></p>
+<p>撳「＋ 加一個時段」，每行三格：<b>星期幾 · 幾點上 · 幾多個鐘 ＋ 幾多分</b>。右邊會即時寫返「7 個鐘 25 分　→　15:15 完」。</p><table class="tbl"><tr><th>例</th><th>點填</th></tr><tr><td>逢三、五 19:30，各半個鐘</td><td>兩行：星期三 19:30 0 個鐘 30 分／星期五 19:30 0 個鐘 30 分</td></tr><tr><td>逢三 16:00 一個鐘、逢五 17:00 一個鐘</td><td>兩行，時間各自唔同</td></tr><tr><td>全日制小學</td><td>五行，星期一至五 07:50，7 個鐘 25 分</td></tr></table><div class="ok">設咗就<b>以你填嘅為準</b>，唔會再靠推算，而且<b>一堂都未上過都排得到</b>。全部時段刪走就會跌返去推算。</div><div class="pen">限制：同一日只表達到一堂。一日兩個時段（例如逢三 16:00 同 18:00）會攞早嗰個。</div>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<div class="sc" id="q6">
+  <h3><span class="n">Q6</span>續排新堂 ＋ 草稿</h3>
+<p><b>續排新堂</b>入面填新堂用嘅標題、幾點上、一堂幾耐、一路排到邊日，然後：</p><table class="tbl"><tr><th>掣</th><th>做乜</th></tr><tr><td>＋ 推算多一堂</td><td>出一堂草稿。</td></tr><tr><td>⏩ 一路排到指定日期</td><td>出一批草稿。</td></tr></table><p><b>草稿（仲未落時間表）</b>係一個中間狀態——出咗嚟你可以逐堂改日期，或者<span class="press">✕ 唔要呢堂</span>。滿意先撳：</p><table class="tbl"><tr><th>掣</th><th>做乜</th></tr><tr><td>⬆ 同步落時間表（N 堂）</td><td>真正寫入行事曆。</td></tr><tr><td>✕ 唔要呢批草稿</td><td>全部倒咗佢。</td></tr></table><div class="pen"><b>草稿唔會自己入行事曆。</b>唔撳「⬆ 同步」就永遠只係草稿。</div><p class="note">設咗 <a href="#q5">Q5</a> 之後，續排會跟你設嘅時段行（三、五、三、五…），而且每堂用返嗰日自己嘅鐘數同長度。</p>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<div class="sc" id="q7">
+  <h3><span class="n">Q7</span>📦 收檔（呢個課程完咗）</h3>
+<p>班別卡最底。收咗檔＝<b>唔再認堂、唔再派新功課，但所有歷史記錄留返</b>。</p><p>收咗檔嘅班會摺埋喺「📦 已經完結嘅班別」入面，撳「↩ 拎返出嚟」就復原。</p><div class="pen"><b>唔好用「🗑 刪走」嚟結束一個班。</b>刪咗連歷史一齊冇。兩者分別睇 <a href="#s4">S4</a>。</div>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<h2 class="grpTitle"><span class="g">第四部</span>⚙ 規矩每一格</h2>
+<div class="sc" id="r1">
+  <h3><span class="n">R1</span>九個欄位逐個講</h3>
+<table class="tbl wide"><tr><th>欄位</th><th>意思</th><th>注意</th></tr><tr><td>班別個名</td><td>你自己叫佢做乜。</td><td>淨係顯示用，唔影響認堂。</td></tr><tr><td>上堂項目要含有<br><span class="mini">逗號＝而且</span></td><td>行事曆嗰格個標題要含有呢啲字先算一堂。</td><td><b>逗號係「而且」，唔係「或者」</b>。<code>大眾,中文</code> 要兩個字都出現。越窄越安全。</td></tr><tr><td>但唔可以含有<br><span class="mini">逗號＝任何一個</span></td><td>出現任何一個就唔算。</td><td>預設已經有「功課,練習,溫習…」，防止「做功課」嗰啲格被當成上堂。</td></tr><tr><td>死線點計</td><td>下一堂之前 … 日／呢一堂之後 … 日／唔使跟進。</td><td>詳見 <a href="#s2">S2</a>。</td></tr><tr><td>幾多日</td><td>配合上面嗰個家族。</td><td>「下一堂之前 0 日」＝下一堂當日、上堂之前。</td></tr><tr><td>上堂前幾多分鐘做</td><td>排功課時間嗰陣，建議排喺下一堂前幾多分鐘。</td><td><code>0</code>＝唔指定。</td></tr><tr><td>由邊日開始生效 ／ 到邊日為止</td><td>規矩嘅有效期。</td><td>「到邊日為止」填咗＝之後嘅堂唔再認。停咗個班可以用，但<a href="#q7">收檔</a>正路啲。</td></tr><tr><td>開住</td><td>熄咗＝暫時唔認堂、唔派功課。</td><td>同收檔唔同：熄咗係臨時，收檔係結束。</td></tr><tr><td>上完堂要做</td><td>每堂自動派嘅項目：<b>項目名 ＋ 幾轉</b>。</td><td><b>改項目名會順手搬埋完成記錄</b>（見 <a href="#s3">S3</a>）。</td></tr></table>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<div class="sc" id="r2">
+  <h3><span class="n">R2</span>三粒掣</h3>
+<table class="tbl"><tr><th>掣</th><th>做乜</th></tr><tr><td>＋ 加一件要做嘅嘢</td><td>喺呢條規矩加多一個每堂都派嘅項目。</td></tr><tr><td>⧉ 複製一條</td><td>照抄成條規矩。開一個similar嘅班好用。</td></tr><tr><td>🗑 刪走</td><td>刪走成條規矩。<b>歷史記錄會變孤兒。</b>結束一個班應該用<a href="#q7">收檔</a>。</td></tr></table><p class="note">每個項目右邊仲有一粒 ✕，刪走嗰個項目。</p>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<h2 class="grpTitle"><span class="g">第五部</span>情境：想做呢件事，撳邊度</h2>
 <div class="sc" id="a1">
-  <h3><span class="n">A1</span>有新嘅功課類型出咗，要加落個班度</h3>
-  <p class="q">例：學而思除咗三樣，而家仲多咗一本「速算工作紙」。</p>
-
-  <div class="flowLbl">① 先擋住舊堂（唔想過去三個禮拜嘅堂都彈新功課出嚟）</div>
-  <div class="flow">
-    <span class="loc hw">課後功課</span><i class="arw">➜</i>
-    <span class="press">🎓 班別總覽</span><i class="arw">➜</i>
-    <span class="pick">拉到最底</span><i class="arw">➜</i>
-    <span class="press">由邊日開始計功課</span><i class="arw">➜</i>
-    <span class="type">填今日</span><i class="arw">➜</i>
-    <span class="press">套用</span>
-  </div>
-
-  <div class="flowLbl">② 加落規矩</div>
-  <div class="flow">
-    <span class="loc hw">課後功課</span><i class="arw">➜</i>
-    <span class="press">⚙ 規矩</span><i class="arw">➜</i>
-    <span class="pick">搵「學而思數學」</span><i class="arw">➜</i>
-    <span class="pick">跟進項目 · 加多一行</span><i class="arw">➜</i>
-    <span class="type">學而思數學速算工作紙</span><i class="arw">➜</i>
-    <span class="type">要做幾轉：1</span><i class="arw">➜</i>
-    <span class="end">下次上堂自動出</span>
-  </div>
-
-  <div class="pen"><b>⚑ 個名唔可以係另一個嘅一部分。</b>「速算工作紙」同「速算練習簿」互不包含 → 得。但「速算」同「速算練習簿」→ 唔得，排時間嗰陣會夾錯格。跟返你現有嗰三條嘅全名寫法就最穩陣。</div>
-  <div class="pen"><b>⚑ 跳過第 ① 步會點？</b>加落去嗰一刻，過去 21 日<b>所有</b>學而思堂都會即刻補派一份。逢星期六 = 一次過多咗 3 件。</div>
-  <a class="top" href="#top">↑ 返目錄</a>
+  <h3><span class="n">A1</span>學校派咗一份功課，有交收日期</h3>
+  <p class="q">例：9 月 7 號要交班徽、班口號工作紙。</p>
+<div class="flow"><span class="loc hw">課後功課</span><i class="arw">▸</i><span class="press">➕ 加練習俾佢（爸爸專用）</span><i class="arw">▸</i><span class="type">港同 · 班徽同班口號工作紙</span><i class="arw">▸</i><span class="type">要做幾轉 1</span><i class="arw">▸</i><span class="type">幾時之前做完 2026-09-07</span><i class="arw">▸</i><span class="pick">邊個做：Charlotte</span><i class="arw">▸</i><span class="press">加落去</span><i class="arw">▸</i><span class="end">即刻出現喺「仲未做完」</span></div><div class="ok">佢排時間表嗰陣個「撳我揀一份功課」會自動有埋，你唔使再做嘢。</div>
+  <a class="top" href="#top">↑ 返上面</a>
 </div>
-
 <div class="sc" id="a2">
-  <h3><span class="n">A2</span>舊嘅功課類型唔再出，要拎走</h3>
-  <p class="q">例：中文默書停咗，唔想再見到佢。</p>
-  <div class="flow">
-    <span class="loc hw">課後功課</span><i class="arw">➜</i>
-    <span class="press">⚙ 規矩</span><i class="arw">➜</i>
-    <span class="pick">搵嗰個班</span><i class="arw">➜</i>
-    <span class="pick">跟進項目 · 刪走嗰一行</span><i class="arw">➜</i>
-    <span class="end">清單即刻少咗</span>
-  </div>
-  <div class="ok"><b>✓ 打過嘅勾唔會消失</b> 記錄仲喺資料入面，淨係唔再顯示。第日想加返，打返同一個名就接返轉頭。</div>
-  <div class="pen"><b>⚑ 想整個班停晒</b>（唔止一份功課）→ 去 <a href="#b6">B6</a>，唔好逐行刪。</div>
-  <a class="top" href="#top">↑ 返目錄</a>
+  <h3><span class="n">A2</span>一份功課要分幾步先算完成</h3>
+  <p class="q">例：已派餐具，請清洗和貼姓名，並在 9 月 10 日或之前帶回。</p>
+<div class="flow"><span class="loc hw">課後功課</span><i class="arw">▸</i><span class="press">➕ 加練習俾佢</span><i class="arw">▸</i><span class="type">港同 · 餐具：① 洗　② 貼名　③ 放返書包</span><i class="arw">▸</i><span class="type">要做幾轉 1</span><i class="arw">▸</i><span class="type">幾時之前做完 2026-09-10</span><i class="arw">▸</i><span class="press">加落去</span></div><div class="pen"><b>唔好填「要做幾轉 3」。</b>三個剔係匿名嘅——佢見到「0/3」但唔知邊一步未做，你隔幾日返嚟睇都唔知。步驟寫落個名度，佢撳開就見到成句。</div>
+  <a class="top" href="#top">↑ 返上面</a>
 </div>
-
 <div class="sc" id="a3">
-  <h3><span class="n">A3</span>已經排咗時間表嘅功課，要改期／向後褪</h3>
-  <p class="q">例：今日排咗做拼音，佢做唔到，要褪去聽日。</p>
-  <div class="flow">
-    <span class="loc hw">課後功課</span><i class="arw">➜</i>
-    <span class="pick">搵返張功課卡</span><i class="arw">➜</i>
-    <span class="pick">🗓 排咗喺 · 改個日期／鐘數</span><i class="arw">➜</i>
-    <span class="press">↻ 更新時間表</span><i class="arw">➜</i>
-    <span class="end">時間表嗰格自己搬咗</span>
-  </div>
-  <div class="ok"><b>✓ 唔會多咗格</b> 佢係<b>搬走</b>原本嗰格，唔係開多一格。時間表唔會愈積愈多。</div>
-  <div class="note">褪到第 2 次開始，卡上面會多一行 <span class="press">⏭ 褪咗 3 次 · 褪得到 08-11（死線，仲有 6 日）</span>。淨係報數，唔會攔你。</div>
-  <div class="pen"><b>⚑ 唯一一條硬界線</b> 上堂日 <b>+ 21 日</b>。過咗，就算未做完又冇打交叉，張卡都會由清單度消失，冇提示。近到 7 日內，卡上面會出<b>紅色</b>同確實日子。</div>
-  <div class="note"><b>褪去邊日好？</b>褪去一個<i>結構性得閒</i>嘅位（週末朝早、放學即刻），唔好褪去「聽日夜晚」—— 聽日通常同今日一樣咁逼。褪到第三四次，考慮唔係褪時間而係<b>劈細份量</b>（見 <a href="#a4">A4</a>）。</div>
-  <a class="top" href="#top">↑ 返目錄</a>
+  <h3><span class="n">A3</span>有新嘅功課類型，要加落個班度</h3>
+  <p class="q">例：學而思由今個月起多咗一本速算簿，以後每堂都派。</p>
+<div class="flow"><span class="loc hw">課後功課</span><i class="arw">▸</i><span class="press">⚙ 規矩</span><i class="arw">▸</i><span class="pick">搵返「學而思數學」</span><i class="arw">▸</i><span class="press">＋ 加一件要做嘅嘢</span><i class="arw">▸</i><span class="type">打個名</span><i class="arw">▸</i><span class="type">幾轉</span><i class="arw">▸</i><span class="end">之後每堂自動派</span></div><div class="pen"><b>淨係「今次派咗」嘅嘢唔好加落規矩。</b>加落規矩＝以後每堂都派，你就要每堂手動交叉。一次性嘅走 <a href="#a1">A1</a>。</div>
+  <a class="top" href="#top">↑ 返上面</a>
 </div>
-
 <div class="sc" id="a4">
-  <h3><span class="n">A4</span>做唔完，要加多一節時間繼續做埋</h3>
-  <p class="q">例：今晚做咗一半，聽晚繼續做埋同一份。</p>
-  <div class="flow">
-    <span class="loc hw">課後功課</span><i class="arw">➜</i>
-    <span class="pick">搵返張功課卡</span><i class="arw">➜</i>
-    <span class="press">➕ 加多一節做埋佢</span><i class="arw">➜</i>
-    <span class="pick">第 2 節 · 改個日期／鐘數</span><i class="arw">➜</i>
-    <span class="press">↻ 更新時間表</span><i class="arw">➜</i>
-    <span class="end">時間表有兩格</span>
-  </div>
-  <div class="ok"><b>✓ 同「改期」唔同</b> 「↻ 更新時間表」係<b>搬走</b>原本嗰格；「➕ 加多一節」係<b>再開多一格</b>，原本嗰格唔郁。卡上面會分開寫「第 1 節」「第 2 節」，每節有自己嘅 ↻ 同 ✕。</div>
-  <div class="note">撳落去預設係<b>下一日、同一個鐘數</b>，改咗再撳 ↻ 就得。要幾多節都得。</div>
-  <div class="ok"><b>✓ 順便一提</b> 如果係「一份嘢太大，成日做唔完」，除咗劈時段，仲可以喺 <span class="press">⚙ 規矩</span> 將「要做幾轉」由 1 改做 2 —— 卡上面會變成「做咗 0／2 轉」加條進度條，做一半都撳得，睇得到進度。</div>
-  <a class="top" href="#top">↑ 返目錄</a>
+  <h3><span class="n">A4</span>呢件嘢成日交叉，唔想再自動派</h3>
+<p>先睇證據：撳 <span class="press">⬇ 匯出功課設定</span>，每條規矩下面會列住逐件功課「做完 N 堂 · 交叉 M 堂」。</p><p>交叉多過做完、而且交叉咗三堂以上，份檔會標一句：<b>⚠ 交叉多過做完——呢件嘢唔似係每堂都派</b>。</p><div class="flow"><span class="loc hw">課後功課</span><i class="arw">▸</i><span class="press">⚙ 規矩</span><i class="arw">▸</i><span class="pick">搵返嗰條規矩</span><i class="arw">▸</i><span class="press">嗰個項目右邊嘅 ✕</span><i class="arw">▸</i><span class="end">以後唔再自動派</span></div><p class="note">真係派嗰次先用 <a href="#a1">A1</a> 手動加。</p>
+  <a class="top" href="#top">↑ 返上面</a>
 </div>
-
 <div class="sc" id="a5">
-  <h3><span class="n">A5</span>爸爸加補充練習 ＋ 排時間 ＋ 通知佢</h3>
-  <p class="q">例：買咗本補充擺咗喺書架，想佢星期六朝早做 p.10–12。</p>
-
-  <div class="flowLbl">① 加落功課清單</div>
-  <div class="flow">
-    <span class="loc hw">課後功課</span><i class="arw">➜</i>
-    <span class="press">➕ 加練習俾佢（爸爸專用）</span><i class="arw">➜</i>
-    <span class="type">書架《數學思維》p.10-12</span><i class="arw">➜</i>
-    <span class="type">要做幾轉：1</span><i class="arw">➜</i>
-    <span class="type">幾時之前做完：填死線</span><i class="arw">➜</i>
-    <span class="pick">邊個做：Charlotte</span><i class="arw">➜</i>
-    <span class="press">加落去</span>
-  </div>
-
-  <div class="flowLbl">② 排落時間表</div>
-  <div class="flow">
-    <span class="pick">喺新出嗰張卡</span><i class="arw">➜</i>
-    <span class="pick">🗓 未排時間 · 填日期＋鐘數</span><i class="arw">➜</i>
-    <span class="press">📅 排落時間表</span><i class="arw">➜</i>
-    <span class="end">時間表出咗琥珀色嗰格</span>
-  </div>
-
-  <div class="flowLbl">③ 通知 Charlotte</div>
-  <div class="flow">
-    <span class="press">💬 Charlotte</span><i class="arw">➜</i>
-    <span class="type">爹哋加咗本書喺書架，星期六朝早做 p.10-12</span><i class="arw">➜</i>
-    <span class="press">送出</span><i class="arw">➜</i>
-    <span class="end">佢部 iPad 即刻彈出</span>
-  </div>
-  <div class="ok"><b>✓ 個名就係佢會見到嘅字</b> 直接寫清楚放喺邊、做邊幾頁，例如 <span class="type">書架《數學思維》p.10-12</span>。佢望住張卡就知去邊度攞。</div>
-  <div class="note">佢可以喺留言度撳 <span class="press">🔊 讀出嚟</span> 聽你寫咗乜。</div>
-  <a class="top" href="#top">↑ 返目錄</a>
+  <h3><span class="n">A5</span>功課類型要改名</h3>
+  <p class="q">例：「Charlotte 練習鋼琴」想改做「練琴」。</p>
+<div class="flow"><span class="loc hw">課後功課</span><i class="arw">▸</i><span class="press">⚙ 規矩</span><i class="arw">▸</i><span class="pick">搵返嗰個項目</span><i class="arw">▸</i><span class="type">直接改個名</span><i class="arw">▸</i><span class="end">會彈「順手搬咗 N 條完成／交叉記錄過新名度」</span></div><div class="ok">完成記錄係綁喺項目名度（<a href="#s3">S3</a>），所以改名嗰刻系統會自動搬。<b>見到嗰句 toast 先算搬咗。</b></div><p class="note">兩個安全閥：只搬尾段完全等於舊名嗰啲（「練琴」唔會誤搬「練琴（慢手）」）；新名已經有記錄就唔覆蓋。</p>
+  <a class="top" href="#top">↑ 返上面</a>
 </div>
-
 <div class="sc" id="a6">
   <h3><span class="n">A6</span>今次真係冇功課</h3>
-  <p class="q">堂上咗，但老師話今次唔使做。</p>
-  <div class="flow">
-    <span class="loc hw">課後功課</span><i class="arw">➜</i>
-    <span class="pick">搵返嗰件</span><i class="arw">➜</i>
-    <span class="press">✕ 今次冇呢份功課</span><i class="arw">➜</i>
-    <span class="end">搬咗去「🚫 交叉咗嘅」</span>
-  </div>
-  <div class="ok"><b>✓ 撳錯救得返</b> 攤開「🚫 交叉咗嘅」→ <span class="press">↩ 放返出嚟</span>。</div>
-  <div class="pen"><b>⚑ 唔好用「刪堂」代替打交叉。</b>堂上咗就要留住嗰格，刪咗會連接送同記錄一齊亂。</div>
-  <a class="top" href="#top">↑ 返目錄</a>
+<div class="flow"><span class="loc hw">課後功課</span><i class="arw">▸</i><span class="pick">搵返嗰件嘢</span><i class="arw">▸</i><span class="press">✕ 今次冇呢份功課</span><i class="arw">▸</i><span class="end">收埋去「🚫 交叉咗嘅」</span></div><p class="note">撳錯咗就去 <a href="#n10">N10</a> 撳「↩ 放返出嚟」。</p>
+  <a class="top" href="#top">↑ 返上面</a>
 </div>
-
 <div class="sc" id="a7">
-  <h3><span class="n">A7</span>以為做完打咗勾，原來未做完</h3>
-  <p class="q">例：以為 Grammar 同 Reading 做晒，check 完先發現未。</p>
-  <div class="flow">
-    <span class="loc hw">課後功課</span><i class="arw">➜</i>
-    <span class="pick">攤開「✅ 啱啱做完（7 日內）」</span><i class="arw">➜</i>
-    <span class="pick">搵返嗰件</span><i class="arw">➜</i>
-    <span class="press">↩ 未做完</span><i class="arw">➜</i>
-    <span class="end">返咗去「仲未做完」</span><i class="arw">➜</i>
-    <span class="press">📅 排落時間表</span>
-  </div>
-  <div class="ok"><b>✓ 英文係三件獨立嘅嘢</b> Grammar、Reading、Writing 係三張卡三個勾。你要撤兩件就撳兩次，Writing 唔郁。</div>
-  <div class="pen"><b>⚑ 撤銷都有時限：7 日。</b>做完超過 7 日就會由「啱啱做完」淡出，兩邊清單都搵唔返。嗰陣唯一辦法係去 <span class="press">➕ 加練習俾佢</span> 加一件同名嘅（見 <a href="#a5">A5</a>）。</div>
-  <a class="top" href="#top">↑ 返目錄</a>
+  <h3><span class="n">A7</span>撳錯咗做完</h3>
+<p>啱啱撳錯：張卡上面即刻有 <span class="press">↩ 撳錯</span>。</p><p>已經跳咗去「✅ 啱啱做完」：撳開嗰個摺埋位，搵返件嘢撳 <span class="press">↩ 未做完</span>。</p><p class="note">7 日之後會淡出，嗰陣就要去 <a href="#a1">A1</a> 重新加返。</p>
+  <a class="top" href="#top">↑ 返上面</a>
 </div>
-
 <div class="sc" id="a8">
-  <h3><span class="n">A8</span>同一份功課堆咗兩三件</h3>
-  <p class="q">清單有三件一模一樣名嘅「普通話拼音功課」。</p>
-  <div class="flow">
-    <span class="pick">睇每張卡下面條日期</span><i class="arw">➜</i>
-    <span class="pick">留返最新嗰件</span><i class="arw">➜</i>
-    <span class="press">✕（舊嗰啲）</span><i class="arw">➜</i>
-    <span class="end">剩返一行</span>
-  </div>
-  <div class="note"><b>點解會堆：</b>每上一堂就派一份新嘅。三堂都冇做 = 三件。分辨方法係卡下面嗰行「<span class="press">2026-07-25 上咗「Charlotte 普通話堂」</span>」。</div>
-  <div class="ok"><b>✓ 真係要補晒？</b>去 <span class="press">⚙ 規矩</span> 將「要做幾轉」由 1 改做 3，留返最新嗰件一次過補，清單得一行。</div>
-  <a class="top" href="#top">↑ 返目錄</a>
+  <h3><span class="n">A8</span>排咗時間表但做唔完</h3>
+<div class="flow"><span class="loc hw">課後功課</span><i class="arw">▸</i><span class="pick">搵返嗰件功課</span><i class="arw">▸</i><span class="press">➕ 加多一節做埋佢</span><i class="arw">▸</i><span class="pick">揀新時段</span></div><p class="note">原本嗰節唔會消失。想拎走就撳「✕ 唔排」。</p>
+  <a class="top" href="#top">↑ 返上面</a>
 </div>
-
 <div class="sc" id="a9">
-  <h3><span class="n">A9</span>派／收實體工作紙（風琴 folder）</h3>
-  <div class="flowLbl">派出去</div>
-  <div class="flow">
-    <span class="loc hw">課後功課</span><i class="arw">➜</i>
-    <span class="press">➕ 加練習俾佢</span><i class="arw">➜</i>
-    <span class="pick">拉到「🗂 風琴 folder 工作紙」</span><i class="arw">➜</i>
-    <span class="type">呢格叫咩名</span><i class="arw">➜</i>
-    <span class="pick">邊個做</span><i class="arw">➜</i>
-    <span class="press">撳一個空格</span>
-  </div>
-  <div class="flowLbl">改名（上面打新名）／收返（上面留空）</div>
-  <div class="flow">
-    <span class="type">上面打新名</span><i class="arw">➜</i>
-    <span class="press">撳返嗰格</span><i class="arw">➜</i>
-    <span class="end">改咗名</span>
-  </div>
-  <div class="flow">
-    <span class="type">上面留空</span><i class="arw">➜</i>
-    <span class="press">撳返嗰格</span><i class="arw">➜</i>
-    <span class="end">收返</span>
-  </div>
-  <a class="top" href="#top">↑ 返目錄</a>
+  <h3><span class="n">A9</span>派／收實體工作紙</h3>
+<p><b>派：</b>喺 <a href="#n8">N8</a> 打個名 → 揀邊個做 → <b>撳一個空格</b>。</p><p><b>改名：</b>打個新名 → 撳嗰個已經派咗嘅格。</p><p><b>收返：</b>個名格留空 → 撳嗰個已經派咗嘅格。</p>
+  <a class="top" href="#top">↑ 返上面</a>
 </div>
-
-<h2 class="grpTitle"><span class="g">B 組</span>上堂</h2>
-
+<h2 class="grpTitle"><span class="g">第六部</span>情境：關於堂</h2>
 <div class="sc" id="b1">
-  <h3><span class="n">B1</span>一堂課要改時間</h3>
-  <div class="flow">
-    <span class="loc cal">時間表</span><i class="arw">➜</i>
-    <span class="pick">揀返嗰日</span><i class="arw">➜</i>
-    <span class="pick">雙擊個時間直接改</span><i class="arw">➜</i>
-    <span class="end">搞掂</span>
-  </div>
-  <div class="flowLbl">有接送格嘅話，仲要——</div>
-  <div class="flow">
-    <span class="loc cal">時間表</span><i class="arw">➜</i>
-    <span class="pick">去程格</span><i class="arw">➜</i>
-    <span class="pick">改到「完結時間 ＝ 上堂開始時間」</span><i class="arw">➜</i>
-    <span class="pick">返程格一樣跟住搬</span>
-  </div>
-  <div class="ok"><b>✓ 完全唔使擔心功課</b> 改時間唔會影響任何打過嘅勾，死線會自動重新計。</div>
-  <div class="pen"><b>⚑ 千祈唔好「刪咗再加」。</b>刪完再開一格 = 全新編號，嗰堂所有打過嘅勾即刻作廢，功課會彈返晒出嚟。</div>
-  <div class="pen"><b>⚑ 接送冇跟住搬會點？</b>下次「推算多一堂」會用錯偏移，甚至唔會幫你出接送格。</div>
-  <a class="top" href="#top">↑ 返目錄</a>
+  <h3><span class="n">B1</span>開一個新班別</h3>
+<p><b>時間表仲未有呢啲堂：</b></p><div class="flow"><span class="loc hw">課後功課</span><i class="arw">▸</i><span class="press">🎓 班別總覽</span><i class="arw">▸</i><span class="press">＋ 開一個新班別</span><i class="arw">▸</i><span class="type">班別個名</span><i class="arw">▸</i><span class="type">時間表用嘅標題</span><i class="arw">▸</i><span class="pick">逢星期幾 · 幾點 · 由邊日到邊日</span><i class="arw">▸</i><span class="pick">接送</span><i class="arw">▸</i><span class="type">上完要跟進乜</span><i class="arw">▸</i><span class="press">開班＋排晒落時間表</span></div><p><b>時間表已經有：</b>同上，但<b>一定要剔</b>「時間表已經排好，唔使再排」，而「認邊個字」只填一兩個字。</p><div class="pen">學校呢類班別（每日功課唔同），「上完要跟進乜」<b>要留空</b>。留空＝零項目＋唔使跟進，個班會出現喺總覽，但唔會自動派功課。</div>
+  <a class="top" href="#top">↑ 返上面</a>
 </div>
-
 <div class="sc" id="b2">
-  <h3><span class="n">B2</span>一堂課取消咗，嗰個時段點計</h3>
-  <p class="q">堂根本冇上到（老師病、打風、去咗旅行）。</p>
-  <div class="flow">
-    <span class="loc cal">時間表</span><i class="arw">➜</i>
-    <span class="pick">攤開嗰格</span><i class="arw">➜</i>
-    <span class="press">🗑 刪除</span><i class="arw">➜</i>
-    <span class="pick">接送格一樣刪走</span><i class="arw">➜</i>
-    <span class="end">嗰堂嘅功課自己消失</span>
-  </div>
-  <div class="flowLbl">跟住一定要做呢一步——</div>
-  <div class="flow">
-    <span class="loc cal">時間表</span><i class="arw">➜</i>
-    <span class="pick">睇下同一段日子有冇「做功課：XXX」孤兒格</span><i class="arw">➜</i>
-    <span class="press">🗑 刪除</span>
-  </div>
-  <div class="pen"><b>⚑ 點解要多行呢一步</b> 你之前幫嗰份功課排咗做嘅時段，係一格獨立嘅行事曆項目。刪咗堂，功課會消失，但<b>嗰格做功課時段仍然留喺時間表度</b>。個 app 開機會自動斷開條線索，但唔會幫你刪格（怕誤刪你自己排嘅嘢）。</div>
-  <div class="ok"><b>✓ 分清楚兩件事</b> 堂<b>冇上到</b> → 刪堂。堂<b>上咗但冇功課</b> → 唔好刪堂，去 <a href="#a6">A6</a> 打交叉。</div>
-  <a class="top" href="#top">↑ 返目錄</a>
+  <h3><span class="n">B2</span>一星期唔止一堂，或者唔同日唔同鐘數</h3>
+<div class="flow"><span class="loc hw">課後功課</span><i class="arw">▸</i><span class="press">🎓 班別總覽</span><i class="arw">▸</i><span class="pick">撳開嗰個班</span><i class="arw">▸</i><span class="press">逢星期幾上堂</span><i class="arw">▸</i><span class="press">＋ 加一個時段</span><i class="arw">▸</i><span class="pick">星期幾 · 幾點 · 幾多個鐘幾多分</span></div><p class="note">詳細睇 <a href="#q5">Q5</a>。設完個 pill 會由「推算：…」變成你設嘅嘢。</p>
+  <a class="top" href="#top">↑ 返上面</a>
 </div>
-
 <div class="sc" id="b3">
-  <h3><span class="n">B3</span>加一堂補堂</h3>
-  <div class="flow">
-    <span class="loc cal">時間表</span><i class="arw">➜</i>
-    <span class="pick">揀日子</span><i class="arw">➜</i>
-    <span class="press">＋ 喺 X 新增項目</span><i class="arw">➜</i>
-    <span class="type">照抄平時嗰堂個標題</span><i class="arw">➜</i>
-    <span class="type">指定完結時間</span><i class="arw">➜</i>
-    <span class="pick">唔好剔「呢個係做功課／練習嘅時段」</span><i class="arw">➜</i>
-    <span class="press">儲存</span>
-  </div>
-  <div class="pen"><b>⚑ 標題唔好加「補充」「練習」呢類字。</b>呢啲字喺每條規矩嘅「唔好含有」名單度，中咗就唔會認做一堂，功課唔會出。想叫補堂就寫「Charlotte 鋼琴課（補堂）」。</div>
-  <div class="ok"><b>✓ 點驗</b> 去 <span class="loc hw">課後功課</span> 睇「仲未做完」，應該多咗一件，後面寫住「← 今日 上咗『Charlotte 鋼琴課』」。</div>
-  <a class="top" href="#top">↑ 返目錄</a>
+  <h3><span class="n">B3</span>續排未來幾個月嘅堂</h3>
+<div class="flow"><span class="loc hw">課後功課</span><i class="arw">▸</i><span class="press">🎓 班別總覽</span><i class="arw">▸</i><span class="pick">撳開嗰個班</span><i class="arw">▸</i><span class="pick">續排新堂：填標題／時間／一堂幾耐</span><i class="arw">▸</i><span class="type">一路排到邊日</span><i class="arw">▸</i><span class="press">⏩ 一路排到指定日期</span><i class="arw">▸</i><span class="pick">逐堂睇下啲草稿</span><i class="arw">▸</i><span class="press">⬆ 同步落時間表</span></div><div class="pen">唔撳「⬆ 同步」，啲草稿永遠唔會入行事曆。</div>
+  <a class="top" href="#top">↑ 返上面</a>
 </div>
-
 <div class="sc" id="b4">
-  <h3><span class="n">B4</span>續排一個班（再排多幾個月）</h3>
-  <div class="flow">
-    <span class="loc hw">課後功課</span><i class="arw">➜</i>
-    <span class="press">🎓 班別總覽</span><i class="arw">➜</i>
-    <span class="pick">攤開嗰個班</span><i class="arw">➜</i>
-    <span class="press">推算多一堂</span><i class="arw">➜</i>
-    <span class="pick">睇清楚草稿</span><i class="arw">➜</i>
-    <span class="press">同步落時間表</span><i class="arw">➜</i>
-    <span class="end">真係寫入咗</span>
-  </div>
-  <div class="note">想一次過排到某日：填個日期再撳 <span class="press">排到嗰日為止</span>。</div>
-  <div class="pen"><b>⚑ 未撳「同步落時間表」＝ 冇存過。</b>refresh 或者閂咗個 app，草稿就冇晒。</div>
-  <div class="pen"><b>⚑ 冇幫你出接送格？</b>因為最近一堂嘅接送格<b>冇貼實</b>正堂（前一格完結時間 ≠ 正堂開始時間），或者長過 30 分鐘。去最近一堂修好，再推算。</div>
-  <a class="top" href="#top">↑ 返目錄</a>
+  <h3><span class="n">B4</span>一堂改期／取消／補堂</h3>
+<p>呢三樣全部喺<b>行事曆</b>做，唔喺功課板做。</p><table class="tbl"><tr><th>要做</th><th>點做</th></tr><tr><td>改期</td><td><span class="loc cal">行事曆</span> 撳嗰格 → ✎ 編輯 → 改日期時間 → 儲存。</td></tr><tr><td>取消</td><td><span class="loc cal">行事曆</span> 撳嗰格 → 🗑 刪除。撈得返，去垃圾桶。</td></tr><tr><td>補堂</td><td><span class="loc cal">行事曆</span> ＋ 新增項目，標題用返同一個關鍵字（噉條規矩先認到）。</td></tr></table><div class="ok">改完返去功課板，因果鏈同死線會自己跟住變——死線係每次重畫都計一次，唔係存落去嘅。</div>
+  <a class="top" href="#top">↑ 返上面</a>
 </div>
-
 <div class="sc" id="b5">
-  <h3><span class="n">B5</span>開一個全新班</h3>
-  <div class="flowLbl">堂仲未排</div>
-  <div class="flow">
-    <span class="loc hw">課後功課</span><i class="arw">➜</i>
-    <span class="press">🎓 班別總覽</span><i class="arw">➜</i>
-    <span class="press">＋ 開一個新班別</span><i class="arw">➜</i>
-    <span class="type">班名／標題／逢星期幾／幾點／由邊日到邊日</span><i class="arw">➜</i>
-    <span class="type">接送：邊個／去邊／去程幾耐／返程幾耐</span><i class="arw">➜</i>
-    <span class="type">上完要跟進乜（逗號分開）</span><i class="arw">➜</i>
-    <span class="press">開班＋排晒落時間表</span>
-  </div>
-  <div class="flowLbl">堂已經排好咗</div>
-  <div class="flow">
-    <span class="pick">同上</span><i class="arw">➜</i>
-    <span class="press">☑ 時間表已經排好，唔使再排</span><i class="arw">➜</i>
-    <span class="press">開班＋排晒落時間表</span><i class="arw">➜</i>
-    <span class="end">淨係開規矩</span>
-  </div>
-  <div class="pen"><b>⚑ 唔剔嗰個掣</b>，每堂會變兩格，功課出雙份。</div>
-  <div class="ok"><b>✓ 撳完睇個提示</b> 應該寫「喺時間表認返到 N 堂」。如果係「一堂都認唔到」＝「上堂項目要含有」填錯咗，去班別卡改。</div>
-  <a class="top" href="#top">↑ 返目錄</a>
+  <h3><span class="n">B5</span>個班完咗</h3>
+<div class="flow"><span class="loc hw">課後功課</span><i class="arw">▸</i><span class="press">🎓 班別總覽</span><i class="arw">▸</i><span class="pick">撳開嗰個班</span><i class="arw">▸</i><span class="press">📦 收檔（呢個課程完咗）</span><i class="arw">▸</i><span class="end">摺埋去「已經完結嘅班別」</span></div><div class="pen"><b>唔好撳「🗑 刪走」。</b>睇 <a href="#s4">S4</a>。</div>
+  <a class="top" href="#top">↑ 返上面</a>
 </div>
-
 <div class="sc" id="b6">
-  <h3><span class="n">B6</span>個班畢業／下個月唔再上</h3>
-  <div class="flowLbl">① 清走將來嘅堂</div>
-  <div class="flow">
-    <span class="loc cal">時間表</span><i class="arw">➜</i>
-    <span class="press">📅 批量計劃</span><i class="arw">➜</i>
-    <span class="pick">動作揀「刪除」</span><i class="arw">➜</i>
-    <span class="type">日期範圍：由下個月 1 號起</span><i class="arw">➜</i>
-    <span class="pick">揀返嗰個任務</span><i class="arw">➜</i>
-    <span class="press">執行</span>
-  </div>
-  <div class="flowLbl">② 熄咗條規矩（唔好刪）</div>
-  <div class="flow">
-    <span class="loc hw">課後功課</span><i class="arw">➜</i>
-    <span class="press">⚙ 規矩</span><i class="arw">➜</i>
-    <span class="pick">搵返嗰條</span><i class="arw">➜</i>
-    <span class="press">熄咗個開關</span><i class="arw">➜</i>
-    <span class="end">唔再派功課</span>
-  </div>
-  <div class="note">或者喺規矩填 <span class="press">到邊日為止</span>，過咗日子自動停，唔使你記得返嚟熄。</div>
-  <div class="ok"><b>✓ 熄好過刪</b> 過去嗰啲打勾記錄仲喺度，第日再讀返都開得返。</div>
-  <div class="pen"><b>⚑ 淨係刪堂而唔熄規矩</b>，過去 21 日入面淨低嗰幾堂會繼續彈功課出嚟。</div>
-  <a class="top" href="#top">↑ 返目錄</a>
+  <h3><span class="n">B6</span>條規矩認錯咗嘢</h3>
+  <p class="q">例：港同小學認到 33 堂，但實際得 18 堂。</p>
+<p>撳 <span class="press">⬇ 匯出功課設定</span>，每條規矩下面會列住<b>「認到嘅標題（N 種）」</b>，逐個標題連堂數。一眼睇到係邊啲格被當咗上堂。</p><p>超過三種標題份檔會標一句提你認得太闊。</p><div class="flow"><span class="loc hw">課後功課</span><i class="arw">▸</i><span class="press">⚙ 規矩</span><i class="arw">▸</i><span class="type">收窄「上堂項目要含有」</span><i class="arw">▸</i><span class="type">喺「但唔可以含有」加返啲字</span><i class="arw">▸</i><span class="end">再匯出一次核對</span></div><div class="ok">收窄「要含有」<b>好過</b>喺排除詞度追住補——由源頭隔走，唔使將來逐個新標題去執手尾。</div>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<h2 class="grpTitle"><span class="g">第七部</span>要知嘅五件事</h2>
+<div class="sc" id="s1">
+  <h3><span class="n">S1</span>功課有三個來源</h3>
+<table class="tbl wide"><tr><th>來源</th><th>邊度嚟</th><th>點刪</th></tr><tr><td>📖 補習班功課</td><td>班別規矩自動派：上完堂就出。</td><td>「✕ 今次冇呢份功課」＝今次唔算。以後都唔要就去規矩度刪走個項目。</td></tr><tr><td>✍️ 爸爸俾嘅練習</td><td>你喺 <a href="#n7">N7</a> 手動加。</td><td>「✕ 刪走」。</td></tr><tr><td>🗂 實體工作紙</td><td>風琴 folder 格仔。</td><td>喺 <a href="#n8">N8</a> 收返。</td></tr></table>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<div class="sc" id="s2">
+  <h3><span class="n">S2</span>死線有兩個家族</h3>
+<table class="tbl wide"><tr><th>家族</th><th>意思</th><th>改咗上堂日期會點</th></tr><tr><td>下一堂之前 N 日</td><td>N＝0 就係下一堂當日、上堂之前。</td><td><b>會跟住郁。</b></td></tr><tr><td>呢一堂之後 N 日</td><td>由派功課嗰堂起計。</td><td><b>唔會郁</b>（釘死喺自己嗰堂）。</td></tr><tr><td>唔使跟進</td><td>呢個班唔派功課。</td><td>—</td></tr></table><div class="ok">死線<b>冇存落去</b>，係每次重畫都計一次。所以改咗規矩或者改咗上堂日期，即刻會反映。</div>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<div class="sc" id="s3">
+  <h3><span class="n">S3</span>完成記錄係綁喺「項目名」度</h3>
+<p>每一次打剔，系統存嘅 key 係 <code>嗰堂嘅 id ∷ 項目名</code>。</p><table class="tbl"><tr><th>你改乜</th><th>記錄會唔會斷</th></tr><tr><td>班別個名</td><td>唔會</td></tr><tr><td>上堂項目要含有 ／ 排除</td><td>唔會</td></tr><tr><td>死線點計</td><td>唔會</td></tr><tr><td><b>項目名</b></td><td>會斷——<b>但系統會自動幫你搬</b>，見 <a href="#a5">A5</a></td></tr></table>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<div class="sc" id="s4">
+  <h3><span class="n">S4</span>收檔 ≠ 刪走</h3>
+<table class="tbl wide"><tr><th></th><th>📦 收檔</th><th>🗑 刪走</th></tr><tr><td>之後仲認唔認堂</td><td>唔認</td><td>唔認</td></tr><tr><td>歷史記錄</td><td><b>全部留返</b></td><td>變孤兒</td></tr><tr><td>喺總覽度</td><td>摺埋喺「已經完結嘅班別」</td><td>完全消失</td></tr><tr><td>復原</td><td>撳「↩ 拎返出嚟」</td><td>冇得</td></tr></table><div class="ok">結束一個班，一律用<b>收檔</b>。</div>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<div class="sc" id="s5">
+  <h3><span class="n">S5</span>交叉 ≠ 做完</h3>
+<p><b>✓ 做完</b>＝佢真係做咗。<br><b>🚫 交叉</b>＝<b>呢堂根本冇派過呢份功課</b>，系統估錯咗。</p><div class="pen">「交叉咗嘅」件數大，唔係反映佢懶，係反映<b>你條規矩準唔準</b>。睇 <a href="#a4">A4</a> 點用匯出嘅統計去修。</div>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<h2 class="grpTitle"><span class="g">第八部</span>出事點算</h2>
+<div class="sc" id="x1">
+  <h3><span class="n">X1</span>認唔到堂 ／ 認到太多堂</h3>
+<p><b>⚠ 認唔到堂</b>（而且個班仲上緊）：</p><ol><li>對一對行事曆嗰格個標題，同規矩嘅「上堂項目要含有」。記住逗號係「而且」。</li><li>睇下係咪撞正「但唔可以含有」入面某個字。</li><li>睇下「由邊日開始生效／到邊日為止」係咪隔走咗。</li><li>睇下「開住」有冇熄咗、係咪收咗檔。</li></ol><p><b>認到太多堂</b>：去 <a href="#b6">B6</a>。</p><p class="note">收咗檔嘅班一定係 0 堂，份匯出會寫「（收咗檔，唔再認堂）」，唔係壞咗。</p>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<div class="sc" id="x2">
+  <h3><span class="n">X2</span>功課板出咗一堆唔應該有嘅嘢</h3>
+<ol><li><b>係咪某條規矩認錯咗堂？</b> → <a href="#b6">B6</a></li><li><b>係咪某件嘢根本唔應該每堂派？</b> → <a href="#a4">A4</a></li><li><b>係咪暑假前嘅舊堂彈返出嚟？</b> → <a href="#n5">N5</a> 填個日期</li><li><b>係咪新開規矩嗰件「新功課」冇刪？</b> → <a href="#n9">N9</a></li></ol>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<div class="sc" id="x3">
+  <h3><span class="n">X3</span>剔過嘅嘢變返未做</h3>
+<p>幾乎一定係<b>項目名改咗</b>。改名應該會彈「順手搬咗 N 條記錄」；冇見過嗰句就係冇搬到。</p><p>補救：喺規矩度<b>改返做原本個名</b>（記錄會搬返轉頭），確認記錄返晒嚟，再改一次。</p>
+  <a class="top" href="#top">↑ 返上面</a>
+</div>
+<div class="sc" id="x4">
+  <h3><span class="n">X4</span>想由頭嚟過</h3>
+<table class="tbl"><tr><th>想清幾多</th><th>撳邊度</th></tr><tr><td>一個班</td><td><a href="#q7">📦 收檔</a></td></tr><tr><td>由某日之前嘅一律唔計</td><td><a href="#n5">N5</a> 由邊日開始計功課</td></tr><tr><td>全部功課記錄</td><td><a href="#n9">N9</a> 💥 超級清除　<b>（唔可以還原）</b></td></tr><tr><td>規矩返做內置預設</td><td><a href="#n9">N9</a> ⚡ 重設做預設規矩　<b>（會覆蓋你而家啲規矩）</b></td></tr></table>
+  <a class="top" href="#top">↑ 返上面</a>
 </div>
 
-<div class="sc" id="b7">
-  <h3><span class="n">B7</span>由某一日開始重新計功課</h3>
-  <p class="q">新學期、或者啱啱大改咗規矩，唔想幾個禮拜前嘅舊堂湧一堆嘢出嚟。</p>
-  <div class="flow">
-    <span class="loc hw">課後功課</span><i class="arw">➜</i>
-    <span class="press">🎓 班別總覽</span><i class="arw">➜</i>
-    <span class="pick">拉到最底</span><i class="arw">➜</i>
-    <span class="press">由邊日開始計功課</span><i class="arw">➜</i>
-    <span class="type">填日期</span><i class="arw">➜</i>
-    <span class="press">套用</span>
-  </div>
-  <div class="ok"><b>✓ 呢個係最溫和嘅「重新嚟過」</b> 一樣嘢都唔會刪。撳 <span class="press">清走限制</span> 就恢復原狀。功課爆量嗰陣，第一時間用呢個，唔好用「💥 超級清除」。</div>
-  <a class="top" href="#top">↑ 返目錄</a>
-</div>
-
-<h2 class="grpTitle"><span class="g">C 組</span>其他</h2>
-
-<div class="sc" id="c1">
-  <h3><span class="n">C1</span>Charlotte 撳咗 🆘 搵我</h3>
-  <p class="q">佢部 iPad 右下角有粒 <span class="press">🆘 搵爹哋</span>。撳咗打字送出，你部機就會浮出嚟。</p>
-  <div class="flowLbl">你收到之後</div>
-  <div class="flow">
-    <span class="pick">個面板自己彈出（右下角）</span><i class="arw">➜</i>
-    <span class="pick">睇佢寫咗乜</span><i class="arw">➜</i>
-    <span class="type">打你嘅回覆</span><i class="arw">➜</i>
-    <span class="press">送出</span><i class="arw">➜</i>
-    <span class="end">佢部 iPad 即刻彈出</span>
-  </div>
-  <div class="ok"><b>✓ 佢聽得到你把聲</b> 你回覆嘅文字下面有粒 <span class="press">🔊 讀出嚟</span>，佢撳咗就會讀出嚟。</div>
-  <div class="note">冇彈出？撳右下角粒 <span class="press">💬 Charlotte</span>。有未讀嘅時候佢會閃紅色同顯示數字。</div>
-  <div class="pen"><b>⚑ 第一次用之前一定要做</b>：去 Firebase Console → Realtime Database → 規則，加多一段 <span class="type">"diary_calendar_sos"</span>（同 <span class="type">database.rules.json</span> 一樣）。冇加嘅話送唔到嘢，面板下面會出紅字提你。</div>
-  <a class="top" href="#top">↑ 返目錄</a>
-</div>
-
-<div class="sc" id="c2">
-  <h3><span class="n">C2</span>出咗事點查</h3>
-  <table class="tbl">
-    <thead><tr><th>症狀</th><th>多數係因為</th><th>點解決</th></tr></thead>
-    <tbody>
-      <tr><td>功課清單突然爆量</td><td>啱啱加咗新功課類型（會追返 21 日）／撳咗「⚡ 重設做預設規矩」／續排咗好多堂落過去日期</td><td>用 <a href="#b7">B7</a>：由邊日開始計 → 填今日</td></tr>
-      <tr><td>同一份功課出咗兩件</td><td>同一日有兩格都認做「一堂」，或者開新班冇剔「時間表已經排好」</td><td>時間表刪走重複格；或者去班別卡指定邊格先係正堂</td></tr>
-      <tr><td>一個班派兩套唔同功課</td><td>兩條規矩都認得同一堂</td><td>⚙ 規矩 → 其中一條嘅「唔好含有」加返分辨字（例如 <span class="type">Zoom</span>）</td></tr>
-      <tr><td>上咗堂但功課冇出</td><td>①標題唔夠「要含有」嘅字 ②標題撞咗「唔好含有」（最常見：有「補充」「練習」）③早過「由邊日開始計」 ④超過 21 日 ⑤規矩熄咗／過咗期</td><td>逐項查。②去 ⚙ 規矩剷走嗰隻字，或者改堂名</td></tr>
-      <tr><td>打過勾又彈返出嚟</td><td>刪咗堂再重新開過（新編號），或者改咗功課個名</td><td>重新打勾。以後用 <a href="#b1">B1</a> 改，唔好刪咗再加</td></tr>
-      <tr><td>功課我冇做又冇打交叉，但消失咗</td><td>上堂日 + 21 日已經過咗</td><td>仲要做就用 <a href="#a5">A5</a> 加返一件</td></tr>
-      <tr><td>打錯勾想撤但搵唔返</td><td>做完超過 7 日，已經淡出</td><td>用 <a href="#a5">A5</a> 加一件同名嘅</td></tr>
-      <tr><td>兩件名似嘅功課，排時間夾錯格</td><td>一個名係另一個嘅一部分</td><td>改名令兩者互不包含（<a href="#a1">A1</a>）</td></tr>
-      <tr><td>「做功課」格被當成上堂</td><td>喺編輯視窗剔走咗「呢個係做功課／練習嘅時段」</td><td>開返嗰格，剔返個掣，儲存</td></tr>
-      <tr><td>死線唔啱</td><td>將來嗰啲堂未排好，計唔到「下一堂」</td><td>用 <a href="#b4">B4</a> 續排多幾堂，死線自動啱返</td></tr>
-      <tr><td>續排冇帶埋接送</td><td>最近一堂嘅接送格冇貼實正堂，或者長過 30 分鐘</td><td>去最近一堂修好，再推算</td></tr>
-    </tbody>
-  </table>
-  <a class="top" href="#top">↑ 返目錄</a>
-</div>
-
-<div class="sc" id="c3">
-  <h3><span class="n">C3</span>唔好亂撳嘅掣</h3>
-  <table class="tbl">
-    <thead><tr><th>粒掣</th><th>真正會做啲乜</th><th>撳之前</th></tr></thead>
-    <tbody>
-      <tr><td>💥 超級清除</td><td>清光所有功課記錄（未做完、過期、做完、交叉、爸爸加嘅、工作紙），同時將「由邊日開始計」設做今日。唔郁規矩／行事曆／Data Log</td><td>先 <span class="press">⬇ 匯出 JSON</span>。冇得還原</td></tr>
-      <tr><td>⚡ 重設做預設規矩</td><td>用預設嗰 8 條<b>換走</b>你全部規矩（連你改過嘅班、接送、指定正堂）</td><td>先匯出</td></tr>
-      <tr><td>🗑 全部清走（Data Log）</td><td>清走成個 Data Log，General Rules 之後冇材料提煉</td><td>先 <span class="press">⬇ 備份</span></td></tr>
-      <tr><td>📅 批量計劃 → 刪除</td><td>指定日期範圍內同一任務嘅項目<b>全部刪走</b></td><td>日期範圍打清楚</td></tr>
-    </tbody>
-  </table>
-  <div class="ok"><b>✓ 最穩陣嘅習慣</b> 每星期撳一次 <span class="press">⬇ 匯出 JSON</span>，擺去雲端硬碟。一分鐘換返所有後悔藥。</div>
-  <a class="top" href="#top">↑ 返目錄</a>
-</div>
-
-<div class="sc check" id="c4">
-  <h3><span class="n">C4</span>改完之後，30 秒檢查</h3>
-  <label><input type="checkbox"><span><b>「仲未做完」條數啱唔啱？</b>多咗少咗都即刻查</span></label>
-  <label><input type="checkbox"><span><b>有冇兩件一模一樣嘅？</b>有 = 同日兩格當咗堂，或者兩條規矩撞咗</span></label>
-  <label><input type="checkbox"><span><b>班別總覽：每個班嘅「最近一堂」係咪真係最近嗰堂？</b></span></label>
-  <label><input type="checkbox"><span><b>每個班有冇「下一堂」？</b>冇 = 將來未排堂，死線會計錯</span></label>
-  <label><input type="checkbox"><span><b>時間表嗰日望一眼</b>：接送格、上堂格、做功課格，數目啱唔啱</span></label>
-  <label><input type="checkbox"><span><b>刪過堂？</b>睇下有冇「做功課：XXX」孤兒格留低（<a href="#b2">B2</a>）</span></label>
-  <label><input type="checkbox"><span><b>有冇卡出咗<span style="color:var(--pen)">紅色</span>「就快由清單消失」？</b>得嗰個係硬界線</span></label>
-  <label><input type="checkbox"><span><b>做咗大改動？</b>撳 <span class="press">⬇ 匯出 JSON</span></span></label>
-  <a class="top" href="#top">↑ 返目錄</a>
-</div>
-
-<div class="sc" id="c5">
-  <h3><span class="n">C5</span>附錄：點解會咁</h3>
-  <p class="q">唔使記，出事嗰陣返嚟查就得。</p>
-  <table class="tbl">
-    <thead><tr><th>個 app 內部規矩</th><th>意思</th></tr></thead>
-    <tbody>
-      <tr><td>點認出「一堂」</td><td>標題要中晒「要含有」嗰幾隻字 → 唔可以中「唔好含有」（預設：功課、練習、溫習、複習、預習、做卷、工作紙、特訓、補充）→ 同一日幾格都中就揀<b>最長</b>嗰格</td></tr>
-      <tr><td>只睇最近 21 日</td><td>再舊嘅堂唔會派功課。未做完嘅亦會喺 21 日後消失</td></tr>
-      <tr><td>做完留 7 日</td><td>喺「啱啱做完」留 7 日先淡出。過咗就撤唔返</td></tr>
-      <tr><td>打勾記錄點綁</td><td>綁死喺「嗰格嘅內部編號 ＋ 功課個名」。改時間／改堂名 = 編號唔變，勾唔會甩。<b>刪咗再加 = 新編號，勾作廢</b>。改功課個名 = 等於開咗件新嘢</td></tr>
-      <tr><td>死線點計</td><td><b>next</b>＝下堂前一日（冇下堂就上堂後 6 日）／<b>week</b>＝上堂後 7 日，但唔會遲過下堂前一日／<b>sameday</b>＝下堂當日／<b>none</b>＝唔跟進</td></tr>
-      <tr><td>做功課格點認</td><td>標題有「功課／練習／溫習／預習／工作紙」等字，或者係用「排落時間表」個掣開嘅（帶住暗記）</td></tr>
-      <tr><td>接送點跟住續排</td><td>由最近一堂反推。要求：貼實正堂（前一格完結時間 ＝ 正堂開始時間）而且唔長過 30 分鐘</td></tr>
-    </tbody>
-  </table>
-  <a class="top" href="#top">↑ 返目錄</a>
-</div>
 
 <footer>
-  日程日記 · 功課 × 上堂 SOP　·　配合 index.html 使用<br>
-  <span class="loc cal" style="padding:2px 7px;font-size:12px">綠＝時間表</span>
-  <span class="loc hw" style="padding:2px 7px;font-size:12px">藍＝課後功課</span>
-  <span style="color:var(--pen)">紅＝會整爛記錄嘅動作</span>
+  呢份嘢係跟住 app 入面實際見到嘅字寫嘅。<br>
+  如果你見到畫面上啲字同呢度唔同，<b>以畫面為準</b>，同時話返個負責改 code 嗰個知——
+  代表份手冊過時咗。
 </footer>
 
 </div>
