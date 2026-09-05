@@ -2293,7 +2293,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-05f";
+const BUILD = "2026-09-05g";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -7884,13 +7884,21 @@ function hwSched(rule){
     return x && x.wd >= 0 && x.wd <= 6 && /^\d{2}:\d{2}$/.test(String(x.time || ''));
   });
 }
+/* 445 分鐘冇人心算得到。全日制小學一堂七個幾鐘，寫「445」等於冇寫。 */
+function durTxt(m){
+  const n = Math.max(0, parseInt(m, 10) || 0);
+  if(!n) return '';
+  const h = Math.floor(n / 60), mm = n % 60;
+  if(!h) return mm + ' 分鐘';
+  return h + ' 個鐘' + (mm ? (' ' + mm + ' 分') : '');
+}
 function hwSchedTxt(rule){
   const a = hwSched(rule);
   if(!a.length) return '';
   return a.slice().sort(function(x,y){
     return (x.wd - y.wd) || String(x.time).localeCompare(String(y.time));
   }).map(function(x){
-    return '逢' + WD[x.wd] + ' ' + x.time + (x.dur ? ('（' + x.dur + ' 分鐘）') : '');
+    return '逢' + WD[x.wd] + ' ' + x.time + (x.dur ? ('（' + durTxt(x.dur) + '）') : '');
   }).join('　·　');
 }
 /* 由 baseDate（唔包括嗰日）起，搵下一個對得上嘅時段。 */
@@ -8299,7 +8307,9 @@ function renderHwCourses(){
       }
       scHtml += '<div class="hwBHead"><span style="flex:0 0 108px">星期幾</span>' +
         '<span style="flex:0 0 100px">幾點上</span>' +
-        '<span style="flex:0 0 116px">一堂幾耐（分鐘）</span><span style="flex:1"></span></div>';
+        '<span style="flex:0 0 74px">幾多個鐘</span>' +
+        '<span style="flex:0 0 74px">幾多分</span>' +
+        '<span style="flex:1">下堂幾點完</span></div>';
       scNow.forEach(function(x, si){
         scHtml += '<div class="hwBRow">' +
           '<select data-sc="wd" data-s="' + si + '" style="flex:0 0 108px">' +
@@ -8307,8 +8317,13 @@ function renderHwCourses(){
               (x.wd === wi ? ' selected' : '') + '>星期' + w + '</option>'; }).join('') +
           '</select>' +
           '<input type="time" data-sc="time" data-s="' + si + '" value="' + x.time + '" style="flex:0 0 100px">' +
-          '<input type="number" min="0" step="5" data-sc="dur" data-s="' + si + '" value="' +
-            (x.dur|0) + '" style="flex:0 0 116px" title="0 ＝ 唔設定完結時間">' +
+          '<input type="number" min="0" max="23" step="1" data-sc="h" data-s="' + si + '" value="' +
+            Math.floor((x.dur|0)/60) + '" style="flex:0 0 74px">' +
+          '<input type="number" min="0" max="59" step="5" data-sc="m" data-s="' + si + '" value="' +
+            ((x.dur|0)%60) + '" style="flex:0 0 74px" title="兩格都填 0 ＝ 唔設定完結時間">' +
+          '<span class="hwSub" style="flex:1">' +
+            ((x.dur|0) ? (durTxt(x.dur) + '　→　' + endHHMM(minutes(x.time) + (x.dur|0)) + ' 完')
+                       : '（唔設定完結時間）') + '</span>' +
           '<button class="btn danger" data-scdel="' + si + '" style="flex:0 0 auto">✕</button>' +
         '</div>';
       });
@@ -8331,7 +8346,16 @@ function renderHwCourses(){
           const t2 = (rule.sched || [])[si]; if(!t2) return;
           if(k === 'wd') t2.wd = Math.max(0, Math.min(6, parseInt(inp.value, 10) || 0));
           else if(k === 'time') t2.time = inp.value || '16:00';
-          else if(k === 'dur') t2.dur = Math.max(0, parseInt(inp.value, 10) || 0);
+          /* 個鐘同分兩格分開填，但存落去照舊係一個分鐘數——
+             唔想因為改個介面就要搬 state，亦都唔想兩種格式並存。 */
+          else if(k === 'h' || k === 'm'){
+            const cur = Math.max(0, t2.dur|0);
+            const hh = (k === 'h') ? Math.max(0, Math.min(23, parseInt(inp.value, 10) || 0))
+                                   : Math.floor(cur / 60);
+            const mm = (k === 'm') ? Math.max(0, Math.min(59, parseInt(inp.value, 10) || 0))
+                                   : (cur % 60);
+            t2.dur = hh * 60 + mm;
+          }
           save(); renderHw();
         };
       });
@@ -8716,8 +8740,13 @@ function hwCfgMd(){
     const nx = v.futr[0] || null;
     L.push('| ' + (r.name || r.match || '（未命名）') +
       ' | ' + st +
-      ' | ' + (v.days.length ? v.days.length : '⚠ 認唔到堂') +
-      ' | ' + (last ? (last.start.slice(0,10) + ' ' + last.start.slice(11)) : '仲未上過') +
+      /* ⚠ 收咗檔嘅規矩，ruleMatches() 一律唔認堂，所以 days 一定係 0。
+         照出「⚠ 認唔到堂 / 仲未上過」係講咗大話——嗰啲班明明上過好多堂，
+         而且啲完成記錄仲喺度。收咗檔就唔好扮驗到嘢。 */
+      ' | ' + (r.retired ? '（收咗檔，唔再認堂）'
+                         : (v.days.length ? v.days.length : '⚠ 認唔到堂')) +
+      ' | ' + (r.retired ? '—'
+                         : (last ? (last.start.slice(0,10) + ' ' + last.start.slice(11)) : '仲未上過')) +
       ' | ' + (nx ? (nx.start.slice(0,10) + ' ' + nx.start.slice(11))
                   : (r.retired ? '—' : '**⚠ 未排下一堂**')) +
       ' | ' + (hwSchedTxt(r) || (v.p ? ('推算：逢星期' + v.p.weekday + ' ' + v.p.time +
