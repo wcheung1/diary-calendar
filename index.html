@@ -2293,7 +2293,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-05e";
+const BUILD = "2026-09-05f";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -7871,8 +7871,64 @@ function hwPattern(rule){
 }
 
 /* 續多一堂（入草稿，未寫入行事曆）。一堂 = 正堂 + 組合拳嘅其他格。 */
+/* ---------- 逢星期幾上堂（rule.sched） ----------
+   ⚠ hwPattern() 係由過往嘅堂**推算**返一個間隔出嚟，所以佢天生只表達到
+   「每 N 日一堂」。逢三 16:00 ＋ 逢五 17:00 呢種，佢推出嚟會變成
+   「每 2 日／每 5 日」交替，時間亦都只得一個——即係表達唔到。
+   rule.sched 係**明講**嘅時間表：一個班可以有幾個時段，各有自己嘅鐘數同長度。
+   設咗就以佢為準，冇設就照舊推算（唔想逼所有現有班別都要重新填一次）。
+   wd：0＝星期一 … 6＝星期日，同全檔 WD[] 一致。 */
+function hwSched(rule){
+  const a = (rule && Array.isArray(rule.sched)) ? rule.sched : [];
+  return a.filter(function(x){
+    return x && x.wd >= 0 && x.wd <= 6 && /^\d{2}:\d{2}$/.test(String(x.time || ''));
+  });
+}
+function hwSchedTxt(rule){
+  const a = hwSched(rule);
+  if(!a.length) return '';
+  return a.slice().sort(function(x,y){
+    return (x.wd - y.wd) || String(x.time).localeCompare(String(y.time));
+  }).map(function(x){
+    return '逢' + WD[x.wd] + ' ' + x.time + (x.dur ? ('（' + x.dur + ' 分鐘）') : '');
+  }).join('　·　');
+}
+/* 由 baseDate（唔包括嗰日）起，搵下一個對得上嘅時段。 */
+function hwSchedNext(rule, baseDate){
+  const a = hwSched(rule); if(!a.length) return null;
+  const d = new Date(String(baseDate) + 'T00:00');
+  if(isNaN(d)) return null;
+  for(let i = 1; i <= 70; i++){
+    d.setDate(d.getDate() + 1);
+    const wd = (d.getDay() + 6) % 7;
+    const hit = a.filter(function(x){ return x.wd === wd; })
+                 .sort(function(x,y){ return String(x.time).localeCompare(String(y.time)); })[0];
+    if(hit) return {date:fmtDate(d), time:hit.time, dur:Math.max(0, hit.dur|0)};
+  }
+  return null;
+}
+function hwSchedSlotOn(rule, dateStr){
+  const a = hwSched(rule); if(!a.length) return null;
+  const d = new Date(String(dateStr) + 'T00:00');
+  if(isNaN(d)) return null;
+  const wd = (d.getDay() + 6) % 7;
+  return a.filter(function(x){ return x.wd === wd; })
+          .sort(function(x,y){ return String(x.time).localeCompare(String(y.time)); })[0] || null;
+}
 function hwNextDate(rule){
-  const p = hwPattern(rule); if(!p) return null;
+  const p = hwPattern(rule);
+  const sc = hwSched(rule);
+  /* 設咗時間表就唔使靠過往嘅堂——新開嘅班一堂都未有過，一樣排到。 */
+  if(sc.length){
+    const list0 = (hwDraft[rule.id] || []).slice()
+      .sort(function(a,b){ return String(a.date).localeCompare(String(b.date)); });
+    const days0 = lessonDays(rule);
+    const base0 = list0.length ? list0[list0.length-1].date
+                : (days0.length ? days0[days0.length-1].start.slice(0,10) : fmtDate(new Date()));
+    const nx = hwSchedNext(rule, base0);
+    return nx ? nx.date : null;
+  }
+  if(!p) return null;
   /* 草稿嘅日期改得，改完可能唔再順序，所以攞最遲嗰個做基準，唔可以靠位置。 */
   const list = (hwDraft[rule.id] || []).slice().sort(function(a,b){ return String(a.date).localeCompare(String(b.date)); });
   const days = lessonDays(rule);
@@ -7887,11 +7943,15 @@ function hwMakeDraft(rule, dateStr){
   const tmInp  = document.getElementById('hwTime_' + rule.id);
   const drInp  = document.getElementById('hwDur_' + rule.id);
   const title = (tplInp && tplInp.value.trim()) || (p ? p.title : (rule.name||'新堂'));
-  const time  = (tmInp && tmInp.value) || (p ? p.time : '16:00');
+  /* ⚠ 設咗時間表就以嗰個時段為準，唔可以用畫面上一個共用嘅「幾點上」——
+     逢三 16:00、逢五 17:00 呢種，一個共用時間就一定有一日係錯。 */
+  const slot  = hwSchedSlotOn(rule, dateStr);
+  const time  = slot ? slot.time : ((tmInp && tmInp.value) || (p ? p.time : '16:00'));
   /* 三個來源，由近到遠：畫面上填緊嗰個 → 呢個班記低咗嘅 → 由過往堂偵測返嚟。
      全部都冇就當 0（＝唔設定完結時間，同以前一樣）。 */
-  const dur = drInp ? Math.max(0, parseInt(drInp.value, 10) || 0)
-            : (rule.dur != null ? Math.max(0, rule.dur|0) : (p && p.mainDur ? p.mainDur : 0));
+  const dur = (slot && slot.dur) ? Math.max(0, slot.dur|0)
+            : (drInp ? Math.max(0, parseInt(drInp.value, 10) || 0)
+            : (rule.dur != null ? Math.max(0, rule.dur|0) : (p && p.mainDur ? p.mainDur : 0)));
   const base  = minutes(time);
   const parts = [{title:title, start:dateStr + 'T' + time, main:true, dur:dur || 0}];
   (rule.bundle||[]).forEach(function(b){
@@ -7901,13 +7961,15 @@ function hwMakeDraft(rule, dateStr){
   return {date:dateStr, parts:parts};
 }
 function hwGenNext(rule){
-  if(!hwPattern(rule)){ toast('呢個班一堂都認唔到，冇規律可以推算'); return; }
+  if(!hwPattern(rule) && !hwSched(rule).length){
+    toast('呢個班一堂都認唔到，又未設「逢星期幾上堂」，冇嘢可以推算'); return; }
   const d = hwNextDate(rule); if(!d) return;
   (hwDraft[rule.id] = hwDraft[rule.id] || []).push(hwMakeDraft(rule, d));
   renderHw();
 }
 function hwGenUntil(rule, endDate){
-  if(!hwPattern(rule)){ toast('冇規律可以推算'); return; }
+  if(!hwPattern(rule) && !hwSched(rule).length){
+    toast('冇規律可以推算，去下面設「逢星期幾上堂」'); return; }
   let guard = 0;
   while(guard++ < 60){
     const d = hwNextDate(rule);
@@ -7994,7 +8056,10 @@ function renderHwCourses(){
                                       : '<b style="color:var(--overdue)">未排下一堂</b>') + '</span>' +
       ((rule.bundle||[]).length ? '<span class="hwPill">組合拳 ' + ((rule.bundle||[]).length+1) + ' 格</span>' : '') +
       (drafts.length ? '<span class="hwPill draft">草稿 ' + drafts.length + ' 堂</span>' : '') +
-      (p ? '<span class="hwPill">逢星期' + p.weekday + ' ' + p.time + '　每 ' + p.interval + ' 日</span>' : '');
+      (hwSchedTxt(rule)
+        ? '<span class="hwPill">' + esc(hwSchedTxt(rule)) + '</span>'
+        : (p ? '<span class="hwPill">推算：逢星期' + p.weekday + ' ' + p.time +
+               '　每 ' + p.interval + ' 日</span>' : ''));
     head.onclick = ()=>{ hwOpenRule = open ? '' : rule.id; renderHw(); };
     card.appendChild(head);
 
@@ -8215,6 +8280,69 @@ function renderHwCourses(){
         };
       });
       body.appendChild(bd);
+
+      /* ── 逢星期幾上堂 ──
+         ⚠ 一定要擺喺「續排新堂」上面：續排會用呢度啲時段，
+         擺喺下面嘅話，人會先填咗個共用「幾點上」，然後先發現原來有呢個位。 */
+      const sw = document.createElement('div'); sw.className = 'hwGen';
+      const scNow = hwSched(rule);
+      let scHtml = '<div class="hwSecT">逢星期幾上堂</div>';
+      if(!scNow.length){
+        scHtml += '<p class="hwSub" style="margin:0 0 6px">' +
+          '而家係<b>由最近幾堂推算</b>' +
+          (p ? ('：逢星期' + p.weekday + ' ' + p.time + '，每 ' + p.interval + ' 日') : '（但一堂都認唔到，推算唔到）') +
+          '。<br>一星期唔止一堂、又或者唔同日唔同鐘數（例如逢三 16:00、逢五 17:00），' +
+          '推算係表達唔到嘅——喺下面加時段就會以你填嘅為準。</p>';
+      }else{
+        scHtml += '<p class="hwSub" style="margin:0 0 6px">以下面呢啲時段為準，' +
+          '唔會再靠推算。全部刪走就會跌返去推算。</p>';
+      }
+      scHtml += '<div class="hwBHead"><span style="flex:0 0 108px">星期幾</span>' +
+        '<span style="flex:0 0 100px">幾點上</span>' +
+        '<span style="flex:0 0 116px">一堂幾耐（分鐘）</span><span style="flex:1"></span></div>';
+      scNow.forEach(function(x, si){
+        scHtml += '<div class="hwBRow">' +
+          '<select data-sc="wd" data-s="' + si + '" style="flex:0 0 108px">' +
+            WD.map(function(w, wi){ return '<option value="' + wi + '"' +
+              (x.wd === wi ? ' selected' : '') + '>星期' + w + '</option>'; }).join('') +
+          '</select>' +
+          '<input type="time" data-sc="time" data-s="' + si + '" value="' + x.time + '" style="flex:0 0 100px">' +
+          '<input type="number" min="0" step="5" data-sc="dur" data-s="' + si + '" value="' +
+            (x.dur|0) + '" style="flex:0 0 116px" title="0 ＝ 唔設定完結時間">' +
+          '<button class="btn danger" data-scdel="' + si + '" style="flex:0 0 auto">✕</button>' +
+        '</div>';
+      });
+      sw.innerHTML = scHtml;
+      const scAdd = document.createElement('button');
+      scAdd.className = 'btn'; scAdd.textContent = '＋ 加一個時段';
+      scAdd.onclick = function(ev2){
+        ev2.stopPropagation();
+        if(!Array.isArray(rule.sched)) rule.sched = [];
+        /* 起手值跟返推算出嚟嗰個，唔係就要佢由零填起 */
+        rule.sched.push({wd:(p ? WD.indexOf(p.weekday) : 2),
+                         time:(p ? p.time : '16:00'),
+                         dur:(rule.dur != null ? (rule.dur|0) : (p && p.mainDur ? p.mainDur : 60))});
+        save(); renderHw();
+      };
+      sw.appendChild(scAdd);
+      sw.querySelectorAll('[data-sc]').forEach(function(inp){
+        inp.onchange = function(){
+          const si = +inp.dataset.s, k = inp.dataset.sc;
+          const t2 = (rule.sched || [])[si]; if(!t2) return;
+          if(k === 'wd') t2.wd = Math.max(0, Math.min(6, parseInt(inp.value, 10) || 0));
+          else if(k === 'time') t2.time = inp.value || '16:00';
+          else if(k === 'dur') t2.dur = Math.max(0, parseInt(inp.value, 10) || 0);
+          save(); renderHw();
+        };
+      });
+      sw.querySelectorAll('[data-scdel]').forEach(function(b2){
+        b2.onclick = function(ev2){
+          ev2.stopPropagation();
+          (rule.sched || []).splice(+b2.dataset.scdel, 1);
+          save(); renderHw();
+        };
+      });
+      body.appendChild(sw);
 
       /* ── 續期工具 ── */
       const tools = document.createElement('div'); tools.className = 'hwGen';
@@ -8592,7 +8720,8 @@ function hwCfgMd(){
       ' | ' + (last ? (last.start.slice(0,10) + ' ' + last.start.slice(11)) : '仲未上過') +
       ' | ' + (nx ? (nx.start.slice(0,10) + ' ' + nx.start.slice(11))
                   : (r.retired ? '—' : '**⚠ 未排下一堂**')) +
-      ' | ' + (v.p ? ('逢星期' + v.p.weekday + ' ' + v.p.time + '　每 ' + v.p.interval + ' 日') : '—') +
+      ' | ' + (hwSchedTxt(r) || (v.p ? ('推算：逢星期' + v.p.weekday + ' ' + v.p.time +
+                                        '　每 ' + v.p.interval + ' 日') : '—')) +
       ' |');
   });
   L.push('');
