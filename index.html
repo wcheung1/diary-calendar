@@ -1934,6 +1934,8 @@ body.hubOpen{overflow:hidden}
     <div class="hwTop hwOwner">
       <a class="sopBtn" href="HW_SOP.html" target="_blank" rel="noopener"
          title="開操作手冊：功課同上堂點加、點減、點褪">📘 SOP</a>
+      <button class="btn" type="button" id="hwCfgExport"
+        title="班別總覽＋規矩＋任務。冇 Data Log、冇對話、冇 General Rules">⬇ 匯出功課設定</button>
     </div>
     <p class="subnote" id="hwIntro">上完堂 <b>預設就係有功課</b>。行事曆一出現嗰堂，跟進項目自動彈落「未做完」，唔使你打。真係冇功課嗰次，撳嗰件嘢右邊嘅 ✕ 交叉走佢就得。做完嘅嘢會喺「啱啱做完」度留 7 日然後自動淡出，唔會塞住個畫面。</p>
 
@@ -1953,7 +1955,7 @@ body.hubOpen{overflow:hidden}
         <summary>＋ 開一個新班別（例如九月開學嘅小學功課、常識科）</summary>
         <div class="aiRow" style="gap:8px;align-items:flex-end;margin-top:8px">
           <div style="flex:2"><label>班別個名</label><input type="text" id="ncName" placeholder="例如：小學常識科"></div>
-          <div style="flex:2"><label>時間表用嘅標題</label><input type="text" id="ncTitle" placeholder="例如：Charlotte 常識科"></div>
+          <div style="flex:2"><label id="ncTitleLbl">時間表用嘅標題</label><input type="text" id="ncTitle" placeholder="例如：Charlotte 常識科"></div>
         </div>
         <div class="aiRow" style="gap:8px;align-items:flex-end;margin-top:7px">
           <div style="flex:0 0 120px"><label>逢星期幾</label><select id="ncWd"></select></div>
@@ -2023,7 +2025,6 @@ body.hubOpen{overflow:hidden}
         <button class="btn primary" id="hwSeed">⚡ 重設做預設規矩</button>
         <button class="btn" id="hwAdd">＋ 加一條規矩</button>
         <button class="btn danger" id="hwWipe">💥 超級清除：所有功課記錄一次過清光</button>
-        <button class="btn" id="hwCfgExport" title="淨係規矩同任務，冇 Data Log、冇對話、冇 General Rules">⬇ 匯出功課設定</button>
       </div>
       <div id="hwRules"></div>
     </details>
@@ -2285,7 +2286,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-05c";
+const BUILD = "2026-09-05d";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -8549,16 +8550,50 @@ function hwCfgMd(){
   const L = [];
   L.push('# 功課設定匯出　' + today);
   L.push('');
-  L.push('包含：班別規矩（' + R.length + ' 條）、一次性任務（' + T.length + ' 件）。');
+  L.push('包含：班別總覽同規矩（' + R.length + ' 條）、一次性任務（' + T.length + ' 件）、'
+         + '行事曆入面嘅堂、功課板實況。');
   L.push('**唔包含**：Data Log、同 AI 嘅對話、General Rules（出世日期）、用量、相機設定、行事曆。');
   L.push('');
   L.push('---');
   L.push('');
-  L.push('## 一、班別規矩（上完邊堂 ➜ 派乜功課）');
+  /* 班別總覽：同畫面上「🎓 班別總覽」同一批數。
+     ⚠ 唔可以淨係出規矩本身——「共幾多堂、最近一堂、下一堂」呢三樣係由
+     行事曆算出嚟嘅，規矩入面一個字都冇。冇咗佢，睇份檔嘅人就唔知邊個班仲上緊、
+     邊個班其實已經停咗但條規矩仲開住。 */
+  L.push('## 一、班別總覽（邊啲堂上緊、最近一堂、下一堂）');
+  L.push('');
+  const nowS = (function(){ try{ return nowStr(); }catch(e){ return today + 'T00:00'; } })();
+  const info = {};
+  R.forEach(function(r){
+    let days = [];
+    try{ days = lessonDays(r) || []; }catch(e){ days = []; }
+    const past = days.filter(function(e){ return String(e.start||'') <= nowS; });
+    const futr = days.filter(function(e){ return String(e.start||'') >  nowS; });
+    let p = null; try{ p = hwPattern(r); }catch(e){ p = null; }
+    info[r.id] = {days:days, past:past, futr:futr, p:p};
+  });
+  L.push('| 班別 | 狀態 | 共幾多堂 | 最近一堂 | 下一堂 | 節奏 |');
+  L.push('|---|---|---|---|---|---|');
+  R.forEach(function(r){
+    const v = info[r.id];
+    const st = r.retired ? '📦 已完結' : (r.on === false ? '⏸ 熄咗' : '▶ 上緊');
+    const last = v.past.length ? v.past[v.past.length-1] : null;
+    const nx = v.futr[0] || null;
+    L.push('| ' + (r.name || r.match || '（未命名）') +
+      ' | ' + st +
+      ' | ' + (v.days.length ? v.days.length : '⚠ 認唔到堂') +
+      ' | ' + (last ? (last.start.slice(0,10) + ' ' + last.start.slice(11)) : '仲未上過') +
+      ' | ' + (nx ? (nx.start.slice(0,10) + ' ' + nx.start.slice(11))
+                  : (r.retired ? '—' : '**⚠ 未排下一堂**')) +
+      ' | ' + (v.p ? ('逢星期' + v.p.weekday + ' ' + v.p.time + '　每 ' + v.p.interval + ' 日') : '—') +
+      ' |');
+  });
+  L.push('');
+  L.push('## 二、班別規矩（上完邊堂 ➜ 派乜功課）');
   L.push('');
   if(!R.length) L.push('（一條都冇）');
   R.forEach(function(r, i){
-    const days = (function(){ try{ return lessonDays(r).length; }catch(e){ return '?'; } })();
+    const days = (info[r.id] ? info[r.id].days.length : 0);
     L.push('### ' + (i+1) + '. ' + (r.name || '（冇名）') +
            (r.on === false ? '　【熄咗】' : '') + (r.retired ? '　【收咗檔】' : ''));
     L.push('- 認邊個字（**全部都要出現**）：`' + (r.match || '（空）') + '`');
@@ -8582,7 +8617,7 @@ function hwCfgMd(){
     }
     L.push('');
   });
-  L.push('## 二、一次性任務（➕ 加一件練習／工作紙）');
+  L.push('## 三、一次性任務（➕ 加一件練習／工作紙）');
   L.push('');
   if(!T.length) L.push('（一件都冇）');
   else{
@@ -8603,7 +8638,7 @@ function hwCfgMd(){
      所以行事曆入面有堂但冇規矩認嘅（例如新學校啲科），一個字都唔會出現。
      而真正嘅風險係反方向嗰邊：一個太闊嘅 match（例如淨係一個「中文」）
      會喺新時間表一入行事曆嗰刻，靜靜雞認晒學校啲堂，跟住派幾十件功課出嚟。 */
-  L.push('## 三、行事曆入面嘅堂（邊啲有規矩認、邊啲冇）');
+  L.push('## 四、行事曆入面嘅堂（邊啲有規矩認、邊啲冇）');
   L.push('');
   try{
     const d0 = new Date(); d0.setDate(d0.getDate() - 60);
@@ -8654,7 +8689,7 @@ function hwCfgMd(){
     }
   }catch(e){ L.push('（掃唔到行事曆：' + String(e && e.message || e).slice(0,80) + '）'); }
   L.push('');
-  L.push('## 四、而家個功課板實際出緊乜');
+  L.push('## 五、而家個功課板實際出緊乜');
   L.push('');
   try{
     const b = homeworkBoard();
@@ -8722,6 +8757,25 @@ $('hwWipe').onclick = async ()=>{
 };
 
 /* ＋ 開一個新班別：一次過建規矩、按星期幾排晒堂、寫入時間表 */
+/* ⚠ 剔咗「時間表已經排好」之後，ncTitle 就唔再係用嚟整格嘅標題，
+   而係直接變咗條規矩嘅 match（認邊個字）。個 label 唔跟住變嘅話，
+   人就會照住「標題」兩個字填成句「Charlotte 港同小學（全日制）」，
+   結果只認到一半嘅堂。（我自己讀 code 嗰陣都撞到呢個。） */
+(function(){
+  const ck = $('ncNoEvents'), lb = $('ncTitleLbl'), tt = $('ncTitle');
+  if(!ck || !lb) return;
+  const sync = function(){
+    if(ck.checked){
+      lb.textContent = '認邊個字（時間表嗰個標題含有嘅字）';
+      if(tt) tt.placeholder = '例如：港同　←　填一兩個字就得，唔好填成句';
+    }else{
+      lb.textContent = '時間表用嘅標題';
+      if(tt) tt.placeholder = '例如：Charlotte 常識科';
+    }
+  };
+  ck.addEventListener('change', sync);
+  sync();
+})();
 $('ncGo').onclick = ()=>{
   ensureHw();
   const name = $('ncName').value.trim();
