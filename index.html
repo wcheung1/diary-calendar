@@ -2285,7 +2285,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-05a";
+const BUILD = "2026-09-05c";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -7095,6 +7095,47 @@ const HW_FADE_DAYS     = 7;    /* 做完之後仲喺「啱啱做完」度留幾�
 const HW_SHEET_MAX     = 12;   /* 風琴 folder 有幾多格 */
 
 function hwKey(evId, itemName){ return evId + '::' + itemName; }
+/* 改項目名嗰陣，將所有 `*::舊名` 嘅完成／交叉記錄搬去 `*::新名`。
+   ⚠ 只搬**尾段完全等於舊名**嗰啲。用 indexOf 或者 startsWith 會誤搬：
+   例如「練琴」同「練琴（慢手）」，前者係後者嘅前綴。
+   ⚠ 新名已經有記錄嘅話唔覆蓋——嗰邊嘅記錄係另一件事嚟嘅，覆蓋咗就冇得返轉頭。 */
+/* 一件功課歷史上「做完咗幾多堂」同「交叉咗幾多堂」。
+   ⚠ 用嚟答一個好實際嘅問題：條規矩派緊嘅嘢，係咪真係每堂都派？
+   交叉多過做完，即係條規矩估錯咗——嗰件嘢唔應該硬派，應該用一次性任務。
+   同 hwRenameItem 一樣，只數尾段完全等於個名嗰啲，唔准用 indexOf。 */
+function hwItemStat(name){
+  ensureHw();
+  const tail = '::' + String(name || '');
+  if(tail.length <= 2) return {done:0, skip:0};
+  const cnt = function(bag, needTruthy){
+    let n = 0;
+    Object.keys(bag || {}).forEach(function(k){
+      if(k.length <= tail.length) return;
+      if(k.slice(-tail.length) !== tail) return;
+      if(needTruthy && !bag[k]) return;
+      n++;
+    });
+    return n;
+  };
+  return {done:cnt(state.ai.hwDone, true), skip:cnt(state.ai.hwSkip, false)};
+}
+function hwRenameItem(oldName, newName){
+  if(!oldName || !newName || oldName === newName) return 0;
+  ensureHw();
+  let n = 0;
+  [state.ai.hwDone, state.ai.hwSkip].forEach(function(bag){
+    if(!bag || typeof bag !== 'object') return;
+    const tailOld = '::' + oldName;
+    Object.keys(bag).forEach(function(k){
+      if(k.length <= tailOld.length) return;
+      if(k.slice(-tailOld.length) !== tailOld) return;
+      const nk = k.slice(0, k.length - tailOld.length) + '::' + newName;
+      if(Object.prototype.hasOwnProperty.call(bag, nk)) return;   /* 唔覆蓋 */
+      bag[nk] = bag[k]; delete bag[k]; n++;
+    });
+  });
+  return n;
+}
 
 /* 分清「上堂嘅時段」同「做功課嘅時段」。
    點解一定要分：爸爸自己喺行事曆加一格「做中文功課」，如果當咗佢係一堂中文，
@@ -8449,7 +8490,19 @@ function renderHwRules(){
       else if(k==='to') rule.to = inp.value;
       else if(k==='on') rule.on = inp.checked;
       else if(k==='preMin') rule.preMin = Math.max(0, parseInt(inp.value,10)||0);
-      else if(k==='iname') rule.items[j].name = inp.value.trim() || '功課';
+      else if(k==='iname'){
+        /* ⚠ 完成／交叉記錄係用 `事件id::項目名` 做 key（見 hwKey）。
+           淨係改個名唔搬 key，所有已經剔咗嘅堂就會一次過變返「未做」，
+           而且冇任何提示。呢個係最容易中、又最難察覺嘅一種資料流失。
+           所以：改名嗰刻順手將 hwDone／hwSkip 入面舊名嘅 key 全部搬去新名。 */
+        const oldN = String(rule.items[j].name || '');
+        const newN = inp.value.trim() || '功課';
+        rule.items[j].name = newN;
+        if(oldN && oldN !== newN){
+          const moved = hwRenameItem(oldN, newN);
+          if(moved) toast('順手搬咗 ' + moved + ' 條完成／交叉記錄過新名度');
+        }
+      }
       else if(k==='itimes') rule.items[j].times = Math.max(1, parseInt(inp.value,10)||1);
       save(); renderHw();
     };
@@ -8515,9 +8568,18 @@ function hwCfgMd(){
     L.push('- 死線點計：' + dueDesc(r));
     L.push('- 而家認到 ' + days + ' 堂');
     const its = (r.items || []);
-    L.push('- 每堂派：' + (its.length
-      ? its.map(function(x){ return (x.name || '功課') + ' ×' + (x.times || 1); }).join('、')
-      : '（冇項目——即係認到堂都唔會派功課）'));
+    if(!its.length) L.push('- 每堂派：（冇項目——即係認到堂都唔會派功課）');
+    else{
+      L.push('- 每堂派：');
+      its.forEach(function(x){
+        const st = hwItemStat(x.name || '功課');
+        /* 交叉多過做完＝條規矩估錯咗。呢一句就係答「有冇嘢需要 adjust」。 */
+        const bad = (st.skip > st.done && st.skip >= 3);
+        L.push('  - ' + (x.name || '功課') + ' ×' + (x.times || 1) +
+               '　（做完 ' + st.done + ' 堂 · 交叉 ' + st.skip + ' 堂）' +
+               (bad ? '　**⚠ 交叉多過做完——呢件嘢唔似係每堂都派，唔應該硬掛喺條規矩度**' : ''));
+      });
+    }
     L.push('');
   });
   L.push('## 二、一次性任務（➕ 加一件練習／工作紙）');
