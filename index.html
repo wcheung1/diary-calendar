@@ -2302,7 +2302,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-05h";
+const BUILD = "2026-09-05i";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -6542,7 +6542,7 @@ async function callAIJSON(messages, opt){
 }
 
 /* ---------- 2. Data Log ---------- */
-const TYPE_NAME = {request:'我講嘅嘢', plan:'AI 嘅安排', correction:'我嘅糾正', feedback:'我教佢', rule:'規則更新', story:'📖 聽故事', list:'📋 清單', kidplan:'🧒 佢自己排嘅格', help:'❓ 問點樣用'};
+const TYPE_NAME = {request:'我講嘅嘢', plan:'AI 嘅安排', correction:'我嘅糾正', feedback:'我教佢', rule:'規則更新', story:'📖 聽故事', list:'📋 清單', kidplan:'🧒 佢自己排嘅格', help:'❓ 問點樣用', hub:'📚 學習角'};
 
 /* ===== 兩個上限 =====
    原本 300／2000 係硬上限，超咗就 slice() 靜靜雞剷走最舊嗰啲，用戶完全冇提示。
@@ -18291,6 +18291,8 @@ function guestChatsInRange(fromD, toD, who){
        而你要好耐之後先發現。交接檔 6.14 已經喺兩個方向各中過一次。 */
     if(x.type === 'story' && (_kind === 'open' || _kind === 'read' ||
                               _kind === 'gen'  || _kind === 'brief')) continue;
+    /* 學習角嘅出入記錄同上面一樣：唔係對話，唔准入匯出。 */
+    if(x.type === 'hub') continue;
     const isOwnerChat = _kind === 'owner-chat' || /^🧑 主人對話記錄/.test(String(x.text||''));
     const isGuestChat = !isOwnerChat
                      && (_kind === 'guest-chat' || x.guest || (x.meta||{}).guest
@@ -20506,6 +20508,32 @@ function hvOnLoad(){
   if(!href || href.indexOf('about:') === 0) return;   /* about:blank 唔算 */
   hvTick();
 }
+/* 佢入咗學習角邊一課、睇咗幾耐。
+   ⚠ 呢度係另一個 IIFE，logPush 住喺 AI 嗰個 IIFE 入面——所以行頂層嗰個 kidLog()，
+     佢會自己搵 window.logPush，攞唔到就數低而唔會拖冧開 link 呢件事。
+   ⚠ 同聽故事一樣用 by:'kid'|'dad'，唔用 guest——guestChatsInRange() 認 x.guest，
+     標咗就會漏入「👧 匯出訪客對話」，變成一堆冇 q／a 嘅假對話。 */
+let hvOpenAt = 0, hvOpenItem = null;
+function hvSecTxt(sec){
+  const n = Math.max(0, sec|0);
+  if(n < 60) return n + ' 秒';
+  const m = Math.floor(n / 60), ss = n % 60;
+  return m + ' 分' + (ss ? (' ' + ss + ' 秒') : '');
+}
+function hvLogClose(){
+  if(!hvOpenAt || !hvOpenItem) return;
+  const sec = Math.round((Date.now() - hvOpenAt) / 1000);
+  const it = hvOpenItem, byKid = isGuest();
+  /* ⚠ 一定要喺 log 之前清走，唔係第二次閂（例如粒 ✕ 之後又行 Esc）會記多次。 */
+  hvOpenAt = 0; hvOpenItem = null;
+  if(sec < 5) return;                 /* 撳錯即刻閂，唔算入過 */
+  try{
+    kidLog('hub',
+      (byKid ? '睇咗《' : '🧑 爹哋試機 · 睇咗《') + (it.title || '冇標題') + '》　' + hvSecTxt(sec),
+      {kind:'read', hid:it.id, subj:it.subj, cat:it.cat || '', sec:sec,
+       by:(byKid ? 'kid' : 'dad')});
+  }catch(e){}
+}
 function hubOpen(item){
   const bad = urlProblem(item.url);
   const fr = el('hvFrame'), v = el('hubView');
@@ -20525,11 +20553,22 @@ function hubOpen(item){
   hvLast = '';
   clearInterval(hvPoll);
   hvPoll = setInterval(hvTick, 400);
+  /* 上一次冇閂乾淨（例如直接開第二條）就先結返上一單數 */
+  hvLogClose();
+  hvOpenAt = Date.now(); hvOpenItem = item;
+  try{
+    const byKid = isGuest();
+    kidLog('hub',
+      (byKid ? '入咗《' : '🧑 爹哋試機 · 入咗《') + (item.title || '冇標題') + '》',
+      {kind:'open', hid:item.id, subj:item.subj, cat:item.cat || '',
+       by:(byKid ? 'kid' : 'dad')});
+  }catch(e){}
   hvGo(item.url);
 }
 function hubViewClose(){
   const v = el('hubView'), fr = el('hvFrame');
   if(!v) return;
+  hvLogClose();
   clearTimeout(hvTimer);
   clearInterval(hvPoll); hvPoll = null;
   hvWant = ''; hvLast = '';
@@ -20585,6 +20624,12 @@ el('hvHome').onclick = function(){
   if(first){ hvStack = [first]; hvGo(first); }
 };
 el('hvClose').onclick = hubViewClose;
+/* ⚠ 佢唔一定會撳 ✕：熄畫面、切走去第二個 app、閂 browser 都會離開。
+   冇呢兩句，嗰啲情況就只會留低一條「入咗」，永遠冇「睇咗幾耐」。 */
+window.addEventListener('pagehide', hvLogClose);
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'hidden') hvLogClose();
+});
 el('hvFrame').addEventListener('load', hvOnLoad);
 /* Esc 閂個框。用 capture 兼 stopPropagation：唔係嘅話下面嗰啲 Esc handler
    會順手連學習角個 modal 都閂埋，佢撳一下 Esc 就一路彈返出時間表。 */
