@@ -957,6 +957,15 @@ body.readonly .aiTabs button[data-p="todo"]{display:none!important}
 #hubModal{z-index:59}
 #hubEditModal{z-index:59}   /* 寫喺 #hubModal 後面，同層之下自然疊喺佢上面 */
 body.readonly #hubManage{display:none!important}
+.hrGrip{flex:0 0 auto;cursor:grab;color:var(--muted);font-size:17px;line-height:1;
+  padding:2px 4px;touch-action:none;-webkit-user-select:none;user-select:none}
+.hubRow.dragging{opacity:.55;outline:2px dashed var(--accent)}
+.hrSt{font-size:11.5px;padding:3px 7px}
+.hrSt.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.hubStSec{border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin-bottom:10px}
+.hubStSec > summary{cursor:pointer;font-size:14px}
+.hubMgSubj{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13.5px;margin:10px 0 2px}
+.hubMgCat{font-size:12.5px;color:var(--muted);margin:4px 0 2px 14px}
 .hubSec{margin:14px 0 0}
 .hubSec:first-child{margin-top:4px}
 .hubSecT{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;margin:0 0 6px}
@@ -1545,7 +1554,7 @@ body.hubOpen{overflow:hidden}
     標題請用佢讀得明嘅字——佢喺卡片度撳 🔊 就會讀出嚟。</p>
   <div id="hubRows"></div>
   <datalist id="hubCatList"></datalist>
-  <div class="aiBar" style="margin-top:8px"><button class="btn" id="hubAdd">＋ 加一條</button></div>
+  <div class="aiBar" style="margin-top:8px"><button class="btn" id="hubAdd">＋ 加一條</button><button class="btn" id="hubExport" title="科目、分類、標題、網址、狀態、次序">⬇ 匯出連結設定</button></div>
   <p class="subnote" id="hubEditNote" style="margin-top:8px"></p>
   <div class="modalActs"><span style="flex:1"></span><button class="btn primary" id="hubEditDone">完成</button></div>
 </div></div>
@@ -2293,7 +2302,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-05g";
+const BUILD = "2026-09-05h";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -8860,12 +8869,14 @@ function hwCfgMd(){
       L.push('| ' + t + ' | ' + grp[t].length + ' | ' + who + ' | ' + cnt + ' |');
     });
     /* 未爆但一定會爆嘅：match 淨係一個字，而嗰個字係學校科目名。 */
-    const SUBJ = ['中文','英文','數學','常識','人文','科學','音樂','視藝','體育',
-                  '普通話','電腦','戲劇','舞蹈','閱讀','圖書'];
+    /* ⚠ 唔可以叫 SUBJ：學習角嗰邊已經有一個 const SUBJ（科目物件 array）。
+       同名唔同意思，就算 block scope 遮得住，下一個人一樣會睇錯。 */
+    const SUBJ_WORDS = ['中文','英文','數學','常識','人文','科學','音樂','視藝','體育',
+                        '普通話','電腦','戲劇','舞蹈','閱讀','圖書'];
     const risky = R.filter(function(r){
       if(r.retired || r.on === false) return false;
       const m = splitCsv(r.match);
-      return m.length === 1 && SUBJ.indexOf(m[0]) >= 0;
+      return m.length === 1 && SUBJ_WORDS.indexOf(m[0]) >= 0;
     });
     if(risky.length){
       L.push('');
@@ -20016,12 +20027,58 @@ function ensureHub(){
     if(typeof x.title !== 'string') x.title = '';
     if(typeof x.url   !== 'string') x.url = '';
     if(x.on === undefined) x.on = true;
+    /* 三個狀態：live＝出咗街（Charlotte 見到）、pool＝儲住未放、arch＝睇完收起。
+       ⚠ 舊資料只有 on（true／false）。false 一律當「池」——嗰啲係「加咗但未放出去」，
+       同「睇完收起」語意唔同，唔可以撈埋。要封存嘅自己撳一下就得。
+       ⚠ on 保留返做鏡像，唔好各自為政：全部經 hubSetSt() 改。 */
+    if(x.st !== 'live' && x.st !== 'pool' && x.st !== 'arch')
+      x.st = (x.on === false) ? 'pool' : 'live';
+    x.on = (x.st === 'live');
   });
   return state.hub;
 }
 function hubItems(onlyOn){
   const list = ensureHub().items;
-  return onlyOn ? list.filter(x => x.on !== false && x.url && x.title) : list;
+  return onlyOn ? list.filter(x => x.st === 'live' && x.url && x.title) : list;
+}
+/* 改狀態嘅唯一入口。on 同 st 分兩處改就一定有一日會唔同步。 */
+function hubSetSt(x, st){
+  if(!x) return;
+  x.st = (st === 'pool' || st === 'arch') ? st : 'live';
+  x.on = (x.st === 'live');
+}
+const HUB_ST = [{k:'live', name:'▶ 出咗街', note:'Charlotte 而家見到'},
+                {k:'pool', name:'⏸ 池',     note:'儲住，未放出去'},
+                {k:'arch', name:'📦 封存',   note:'睇完收起，第日放得返'}];
+/* Charlotte 眼中嘅次序：科目跟 SUBJ 排，分類跟第一次出現排，同一分類入面跟 array 次序。
+   爹哋張管理表要用**一模一樣**嘅次序，唔係佢拖完都唔知拖咗去邊。 */
+function hubOrdered(st){
+  const all = hubItems(false).filter(x => x.st === st);
+  const out = [];
+  SUBJ.forEach(function(sj){
+    const mine = all.filter(x => x.subj === sj.k);
+    if(!mine.length) return;
+    const cats = [];
+    mine.forEach(function(x){ if(cats.indexOf(x.cat||'') < 0) cats.push(x.cat||''); });
+    cats.forEach(function(c){
+      mine.filter(x => (x.cat||'') === c).forEach(function(x){
+        out.push({it:x, subj:sj, cat:c});
+      });
+    });
+  });
+  return out;
+}
+/* 將 a 搬到 b 前面（或者後面）。改嘅係全域 array 嘅次序，
+   因為 Charlotte 嗰邊就係讀呢個 array 嘅次序。 */
+function hubMove(fromId, toId, after){
+  const a = ensureHub().items;
+  const fi = a.findIndex(x => x.id === fromId);
+  if(fi < 0) return false;
+  const item = a.splice(fi, 1)[0];
+  let ti = a.findIndex(x => x.id === toId);
+  if(ti < 0){ a.splice(fi, 0, item); return false; }
+  a.splice(after ? ti + 1 : ti, 0, item);
+  return true;
 }
 /* 一條 link 嘅「範圍」＝ 佢個 origin 加第一段路徑，即係嗰個 GitHub Pages 專案嘅根。
    https://wcheung1.github.io/homework-hub/maths/… → https://wcheung1.github.io/homework-hub/
@@ -20125,6 +20182,79 @@ function renderHubList(){
 }
 
 /* ================= 爹哋嗰張管理表 ================= */
+/* 拖拉排序。用 Pointer Events：iPad 同滑鼠一套 code。
+   ⚠ 一定要限住由粒 ⠿ 起手——成行都可以拖嘅話，佢想 select 個 input 入面啲字
+   都會變咗拖行，改嘢就改唔到。 */
+let hubDrag = null;
+function hubBindDrag(box){
+  box.querySelectorAll('.hrGrip').forEach(function(g){
+    g.addEventListener('pointerdown', function(e){
+      const row = g.closest('.hubRow'); if(!row) return;
+      hubDrag = {id:row.dataset.id, row:row, y:e.clientY, moved:false};
+      row.classList.add('dragging');
+      try{ g.setPointerCapture(e.pointerId); }catch(err){}
+      e.preventDefault();
+    });
+    g.addEventListener('pointermove', function(e){
+      if(!hubDrag) return;
+      if(Math.abs(e.clientY - hubDrag.y) < 6) return;
+      hubDrag.moved = true;
+      /* 淨係喺同一段（出街／池／封存）入面搬——跨段拖嘅話人會以為
+         順手改咗狀態，但佢冇撳過嗰粒狀態掣。 */
+      const sec = hubDrag.row.closest('.hubStSec'); if(!sec) return;
+      const rows = [].slice.call(sec.querySelectorAll('.hubRow'));
+      let tgt = null, after = false;
+      rows.forEach(function(r){
+        if(r === hubDrag.row) return;
+        const b = r.getBoundingClientRect();
+        if(e.clientY >= b.top && e.clientY <= b.bottom){
+          tgt = r; after = (e.clientY > b.top + b.height/2);
+        }
+      });
+      if(!tgt) return;
+      if(hubMove(hubDrag.id, tgt.dataset.id, after)){
+        hubDrag.y = e.clientY;
+        save(); renderHubRows();
+        /* 重畫之後原本嗰個 DOM 節點冇咗，要接返新嗰個，唔係跟住嗰下就斷。 */
+        const nr = document.querySelector('.hubRow[data-id="' + hubDrag.id + '"]');
+        if(nr){ hubDrag.row = nr; nr.classList.add('dragging'); }
+      }
+    });
+    const stop = function(){
+      if(!hubDrag) return;
+      try{ hubDrag.row.classList.remove('dragging'); }catch(err){}
+      const moved = hubDrag.moved;
+      hubDrag = null;
+      if(moved) renderHubRows();
+    };
+    g.addEventListener('pointerup', stop);
+    g.addEventListener('pointercancel', stop);
+  });
+}
+/* ⬇ 匯出連結設定：出返一份**同 Charlotte 見到嘅次序一模一樣**嘅清單。
+   次序本身就係設定嘅一部分——冇咗次序，份檔就講唔到「邊個擺上面」。 */
+function hubExportMd(){
+  ensureHub();
+  const all = hubItems(false);
+  const L = ['# 學習連結設定　' + fmtDate(new Date()), '',
+             '共 ' + all.length + ' 條。下面嘅上下次序，就係 Charlotte 版面上見到嘅次序。', ''];
+  HUB_ST.forEach(function(st){
+    const ord = hubOrdered(st.k);
+    L.push('---', '', '## ' + st.name + '（' + st.note + '）　' + ord.length + ' 條', '');
+    if(!ord.length){ L.push('（冇）', ''); return; }
+    let ls = '', lc = null;
+    ord.forEach(function(o){
+      if(o.subj.k !== ls){ L.push('### ' + o.subj.name); ls = o.subj.k; lc = null; }
+      if(o.cat !== lc){ L.push('', '**' + (o.cat || '（冇分類）') + '**'); lc = o.cat; }
+      const bad = urlProblem(o.it.url);
+      L.push('- ' + (o.it.title || '（冇標題）') +
+             '　<' + (o.it.url || '（冇網址）') + '>' +
+             (bad ? ('　⚠ ' + bad) : ''));
+    });
+    L.push('');
+  });
+  return L.join('\n');
+}
 function renderHubRows(){
   const box = el('hubRows'); if(!box) return;
   box.innerHTML = '';
@@ -20138,10 +20268,20 @@ function renderHubRows(){
   if(!list.length){
     box.innerHTML = '<p class="subnote">一條都未有。撳下面「＋ 加一條」。</p>';
   }
-  list.forEach(function(x, i){
+  /* ⚠ 呢張表以前係一條平鋪嘅清單，同 Charlotte 見到嗰個「科目 → 分類 → 卡」
+     完全對唔上。粒 ↑↓ 郁嘅係全域 array，但爹哋喺呢張表上面睇唔出嗰下郁會令
+     Charlotte 嗰邊變成點——所以佢話「↑↓ 對 visual 版面冇咩幫助」。
+     而家張表**用返一模一樣嘅次序同分組**，拖邊度就係邊度。 */
+  const mkRow = function(x, ord, oi){
     const bad = urlProblem(x.url);
     const row = document.createElement('div');
-    row.className = 'hubRow' + (x.on === false ? ' off' : '');
+    row.className = 'hubRow' + (x.st !== 'live' ? ' off' : '');
+    row.dataset.id = x.id;
+
+    const grip = document.createElement('span');
+    grip.className = 'hrGrip'; grip.textContent = '⠿';
+    grip.title = '拖我上下移動';
+    row.appendChild(grip);
 
     const sel = document.createElement('select');
     sel.innerHTML = SUBJ.map(sj => '<option value="' + sj.k + '"' +
@@ -20170,24 +20310,34 @@ function renderHubRows(){
     row.appendChild(url);
 
     const ops = document.createElement('div'); ops.className = 'hrOps';
-    const onB = document.createElement('button'); onB.className = 'btn';
-    onB.textContent = x.on === false ? '熄咗' : '開住';
-    onB.title = '熄咗＝Charlotte 見唔到，但條記錄仲喺度';
-    onB.onclick = () => { x.on = (x.on === false); save(); renderHubRows(); };
-    ops.appendChild(onB);
+    /* 三個狀態明擺出嚟，唔用一粒 toggle——toggle 表達唔到三個狀態，
+       而且人要撳兩次先知自己去咗邊。 */
+    HUB_ST.forEach(function(st){
+      const b = document.createElement('button');
+      b.className = 'btn hrSt' + (x.st === st.k ? ' on' : '');
+      b.textContent = st.name; b.title = st.note;
+      b.onclick = () => { hubSetSt(x, st.k); save(); renderHubRows(); };
+      ops.appendChild(b);
+    });
     const up = document.createElement('button'); up.className = 'btn'; up.textContent = '↑';
-    up.disabled = i === 0;
-    up.onclick = () => { const a = state.hub.items; a.splice(i-1, 0, a.splice(i,1)[0]); save(); renderHubRows(); };
+    up.title = '同上面嗰條調位';
+    up.disabled = oi === 0;
+    up.onclick = () => { hubMove(x.id, ord[oi-1].it.id, false); save(); renderHubRows(); };
     ops.appendChild(up);
     const dn = document.createElement('button'); dn.className = 'btn'; dn.textContent = '↓';
-    dn.disabled = i === list.length - 1;
-    dn.onclick = () => { const a = state.hub.items; a.splice(i+1, 0, a.splice(i,1)[0]); save(); renderHubRows(); };
+    dn.title = '同下面嗰條調位';
+    dn.disabled = oi === ord.length - 1;
+    dn.onclick = () => { hubMove(x.id, ord[oi+1].it.id, true); save(); renderHubRows(); };
     ops.appendChild(dn);
     const del = document.createElement('button'); del.className = 'btn danger'; del.textContent = '✕';
     del.title = '刪走（撳錯咗 Ctrl+Z 返到嚟）';
     del.onclick = async () => {
-      if(await confirmBox('刪走「' + (x.title || x.url) + '」？\n（撳錯咗可以 Ctrl+Z 返轉頭）')){
-        state.hub.items.splice(i, 1); save(); renderHubRows();
+      if(await confirmBox('刪走「' + (x.title || x.url) + '」？\n'
+                          + '（唔想見到但想留返，撳「📦 封存」好過刪。撳錯咗可以 Ctrl+Z）')){
+        const a = state.hub.items;
+        const fi = a.findIndex(y => y.id === x.id);
+        if(fi >= 0) a.splice(fi, 1);
+        save(); renderHubRows();
       }
     };
     ops.appendChild(del);
@@ -20196,22 +20346,46 @@ function renderHubRows(){
     if(bad){ const p = document.createElement('p'); p.className = 'hrBad';
              p.textContent = '⚠ ' + bad; row.appendChild(p); }
     else if(x.url && !sameOriginAsApp(x.url)){
-      /* 唔擋——照開得。但要講清楚會失去乜，唔好等佢自己發現「上一頁」灰咗。 */
       const p = document.createElement('p'); p.className = 'hrBad';
-      p.style.color = 'var(--muted)';
-      p.textContent = 'ℹ 呢條唔係同一個網域（' + location.origin + ' 以外），'
-        + '個框開得到，但「← 上一頁」同「唔准遊走去第二個網站」呢兩樣會失效'
-        + '——瀏覽器唔准我望入去。';
+      p.textContent = '⚠ 呢條唔係同一個網站，框入面「上一頁」會用唔到。';
       row.appendChild(p);
     }
-    box.appendChild(row);
+    return row;
+  };
+
+  HUB_ST.forEach(function(st){
+    const ord = hubOrdered(st.k);
+    const sec = document.createElement('details');
+    sec.className = 'hubStSec';
+    sec.open = (st.k === 'live') || ord.length > 0 && st.k === 'pool';
+    const sm = document.createElement('summary');
+    sm.innerHTML = '<b>' + st.name + '</b>　<span class="subnote">' + st.note +
+                   '　·　' + ord.length + ' 條</span>';
+    sec.appendChild(sm);
+    if(!ord.length){
+      const p = document.createElement('p'); p.className = 'subnote';
+      p.textContent = '（呢度冇嘢）';
+      sec.appendChild(p);
+    }
+    let lastSubj = '', lastCat = null;
+    ord.forEach(function(o, oi){
+      /* 分組標題：同 Charlotte 見到嗰個一模一樣，佢先知拖完會變成點 */
+      if(o.subj.k !== lastSubj){
+        const h = document.createElement('div'); h.className = 'hubMgSubj';
+        h.innerHTML = '<span class="hubDot" style="background:' + o.subj.color + '"></span>' +
+                      '<span style="color:' + o.subj.color + '">' + o.subj.name + '</span>';
+        sec.appendChild(h); lastSubj = o.subj.k; lastCat = null;
+      }
+      if(o.cat !== lastCat){
+        const c = document.createElement('div'); c.className = 'hubMgCat';
+        c.textContent = o.cat || '（冇分類）';
+        sec.appendChild(c); lastCat = o.cat;
+      }
+      sec.appendChild(mkRow(o.it, ord, oi));
+    });
+    box.appendChild(sec);
   });
-  const note = el('hubEditNote');
-  if(note){
-    const n = hubItems(true).length, tot = list.length;
-    note.textContent = 'Charlotte 而家見到 ' + n + ' 條（總共 ' + tot + ' 條）。'
-      + '改完撳「完成」就會同步落佢部機。';
-  }
+  hubBindDrag(box);
 }
 
 /* ================= 睇緊嘢嗰個框 ================= */
@@ -20382,6 +20556,18 @@ el('hubStoryAdmin').onclick = function(){
 el('hubManage').onclick = function(){
   if(isGuest()) return;                 /* CSS 已經收埋咗，呢度再擋一次 */
   ensureHub(); renderHubRows(); show('hubEditModal');
+};
+if(el('hubExport')) el('hubExport').onclick = function(){
+  try{
+    const md = hubExportMd();
+    const blob = new Blob([md], {type:'text/markdown;charset=utf-8'});
+    const u = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = u; a.download = '學習連結_' + fmtDate(new Date()) + '.md';
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ try{ a.remove(); URL.revokeObjectURL(u); }catch(e){} }, 4000);
+    toast('匯出咗（連次序）');
+  }catch(e){ toast('匯出唔到：' + String(e && e.message || e).slice(0,70)); }
 };
 el('hubAdd').onclick = function(){
   ensureHub();
