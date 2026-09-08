@@ -2302,7 +2302,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-05i";
+const BUILD = "2026-09-08a";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -6166,6 +6166,48 @@ async function readAIStream(res, onDelta, ctrl){
 }
 const AI_TIMEOUT_MS = 90000;
 function aiCancel(){ try{ if(AI_CTRL) AI_CTRL.abort(); }catch(e){} }
+/* 探測：分清「冇網」／「去唔到嗰個 host」／「去到但俾人擋」。
+   ⚠ 用 mode:'no-cors'。噉樣個 request 唔會因為 CORS 而死——
+     連得到就當數（回一個 opaque response），連唔到先算真係去唔到。
+     即係話：no-cors 成功 ＋ 正常 fetch 失敗 ＝ 唔係網絡問題，係個 request 俾人擋。 */
+async function probeOnce(u, ms){
+  const c = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  const t = c ? setTimeout(function(){ try{ c.abort(); }catch(e){} }, ms || 4000) : null;
+  try{
+    const init = {method:'GET', mode:'no-cors', cache:'no-store'};
+    if(c) init.signal = c.signal;
+    await fetch(u, init);
+    return true;
+  }catch(e){ return false; }
+  finally{ if(t) clearTimeout(t); }
+}
+async function netProbe(apiUrl){
+  let host = '';
+  try{ host = new URL(apiUrl).origin; }catch(e){ return '① Base URL 唔係一條正常網址，睇下係咪打錯字。'; }
+  /* 第一層：部機有冇網。用自己嗰個 origin，唔靠第三方網站。 */
+  const mine = await probeOnce(location.origin + '/?netprobe=' + Date.now(), 4000);
+  if(!mine){
+    return '🔴 **部機而家上唔到網**（連自己個網站都攞唔到）。\n'
+         + '　· 睇下 WiFi／行動數據仲通唔通\n'
+         + '　· 飛行模式係咪開咗';
+  }
+  /* 第二層：去唔去到嗰個 host。 */
+  const reach = await probeOnce(host + '/', 5000);
+  if(!reach){
+    return '🔴 **有網，但去唔到 ' + host + '**。\n'
+         + '同一部機兩個 browser 都係噉，就一定唔係 browser 問題，係部機／個網絡層面擋住：\n'
+         + '　· 換另一個網絡試（WiFi ⇄ 行動數據）——最快分到係咪個網絡問題\n'
+         + '　· Android：設定 → 網絡與互聯網 → 私人 DNS，暫時揀「關閉」\n'
+         + '　· 有冇裝 VPN／廣告攔截 app（AdGuard、Blokada 之類）\n'
+         + '　· 直接喺個 browser 打 ' + host + ' 睇下開唔開到——開唔到就實錘咗係網絡';
+  }
+  /* 第三層：去到，但個 request 死咗 ＝ 俾人擋，唔係網絡。 */
+  return '🟠 **去到 ' + host + '，但個 request 俾人擋咗**（唔係網絡問題）。\n'
+       + '　· Brave：撳網址列旁邊個獅子頭，將 Shields 熄咗再試\n'
+       + '　· Chrome：有冇裝廣告攔截／私隱擴充功能\n'
+       + '　· 個 API Key 打錯／未儲值／未開通，都會喺呢一層死\n'
+       + '　· Base URL 尾巴打錯（例如漏咗 /chat/completions）';
+}
 async function callAI(messages, opt){
   AI_LAST_REASON = '';
   opt = opt || {};
@@ -6262,13 +6304,13 @@ async function callAI(messages, opt){
       throw e2;
     }
     const viaFile = /^file:/i.test(location.protocol);
-    throw new Error('連唔到個 API：' + url +
-      '\n常見原因：' +
-      (viaFile ? '\n⓪ 你用 file:// 開網頁，部分瀏覽器會拒絕。改用 GitHub Pages 或 http://localhost 開就冇問題。' : '') +
-      '\n① Base URL 打錯字；' +
-      '\n② 冇上網 / 公司防火牆擋咗；' +
-      '\n③ API Key 打錯、未儲值、或者未開通。' +
-      '\n技術訊息：' + err.message);
+    /* ⚠ 'Failed to fetch' 係瀏覽器喺**收到任何 HTTP 回應之前**就死咗嘅通用訊息。
+       佢可以係三件完全唔同嘅事：冇網／去唔到嗰個 host／去到但個 request 俾人擋。
+       三者嘅處理方法完全唔同，所以列三條「常見原因」等於冇講。探測一次先。 */
+    const why = await netProbe(url);
+    throw new Error('連唔到個 API：' + url + '\n\n' + why +
+      (viaFile ? '\n\n⓪ 你用 file:// 開網頁，部分瀏覽器會拒絕。改用 GitHub Pages 或 http://localhost 開就冇問題。' : '') +
+      '\n\n技術訊息：' + err.message);
   }
   const isStream = !!body.stream;
   /* 串流成功嗰陣唔可以行 res.text()（會等到成個 stream 完），
