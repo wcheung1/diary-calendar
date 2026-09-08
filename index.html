@@ -2302,7 +2302,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-08a";
+const BUILD = "2026-09-08b";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -6181,6 +6181,21 @@ async function probeOnce(u, ms){
   }catch(e){ return false; }
   finally{ if(t) clearTimeout(t); }
 }
+/* 唔會觸發預檢嘅 POST：no-cors ＋ text/plain ＋ 冇自訂 header。
+   ⚠ 一加 Authorization 或者 application/json 就會有預檢——嗰個正正就係
+   我哋要繞開嚟做對照嘅嘢。 */
+async function probePost(u, ms){
+  const c = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  const t = c ? setTimeout(function(){ try{ c.abort(); }catch(e){} }, ms || 6000) : null;
+  try{
+    const init = {method:'POST', mode:'no-cors', cache:'no-store',
+                  headers:{'Content-Type':'text/plain'}, body:'{}'};
+    if(c) init.signal = c.signal;
+    await fetch(u, init);
+    return true;
+  }catch(e){ return false; }
+  finally{ if(t) clearTimeout(t); }
+}
 async function netProbe(apiUrl){
   let host = '';
   try{ host = new URL(apiUrl).origin; }catch(e){ return '① Base URL 唔係一條正常網址，睇下係咪打錯字。'; }
@@ -6201,12 +6216,34 @@ async function netProbe(apiUrl){
          + '　· 有冇裝 VPN／廣告攔截 app（AdGuard、Blokada 之類）\n'
          + '　· 直接喺個 browser 打 ' + host + ' 睇下開唔開到——開唔到就實錘咗係網絡';
   }
-  /* 第三層：去到，但個 request 死咗 ＝ 俾人擋，唔係網絡。 */
-  return '🟠 **去到 ' + host + '，但個 request 俾人擋咗**（唔係網絡問題）。\n'
+  /* 第三層：個 host 通，但呢條**路徑**通唔通？
+     閘門式攔截（例如某個 plan 唔准某條 path）可以只擋一條路徑，個根照樣開。 */
+  const okPath = await probeOnce(apiUrl, 5000);
+  if(!okPath){
+    return '🔴 **' + host + ' 通，但呢條路徑去唔到。**\n'
+         + '　· Base URL 尾巴打錯？逐個字對一次\n'
+         + '　· 個閘門擋咗呢條 path（唔係擋成個網站）';
+  }
+  /* 第四層：分開「個 POST 去唔到」同「CORS 預檢俾人擋」。
+     ⚠ 呢兩樣喺 JS 度**一模一樣**都係 Failed to fetch，但成因同解法完全唔同。
+     用 no-cors ＋ text/plain 嘅 POST：呢種係「簡單請求」，唔會觸發預檢。
+     佢過到而正常個 POST 過唔到 ＝ 死喺預檢，即係伺服器嗰邊嘅 CORS 設定，唔係你部機。 */
+  const okPost = await probePost(apiUrl, 6000);
+  if(okPost){
+    return '🟠 **個 POST 本身去到，死喺 CORS 預檢。**\n'
+         + '即係話：唔係你部機、唔係個 browser、唔係條網絡。係**伺服器嗰邊冇俾呢個網頁嘅來源用**。\n'
+         + '　· 而家呢一版嘅來源係 ' + location.origin + '\n'
+         + '　· 同一條 key 喺電腦得、手機唔得，就試下同一時間喺電腦再試一次——\n'
+         + '　　兩邊一齊死 ＝ 伺服器改咗設定；電腦仲得 ＝ 兩邊嘅網絡去咗唔同節點\n'
+         + '　· 試下將 Base URL 入面 /coding/ 嗰段拎走（唔同 plan 用唔同 endpoint，\n'
+         + '　　有啲 endpoint 唔容許瀏覽器直接呼叫）\n'
+         + '　· 呢一層同 API Key 冇關——key 錯會回 401，係有回應嘅';
+  }
+  return '🟠 **去到 ' + host + '，但個 POST 過唔到**（唔係 DNS 問題）。\n'
        + '　· Brave：撳網址列旁邊個獅子頭，將 Shields 熄咗再試\n'
        + '　· Chrome：有冇裝廣告攔截／私隱擴充功能\n'
-       + '　· 個 API Key 打錯／未儲值／未開通，都會喺呢一層死\n'
-       + '　· Base URL 尾巴打錯（例如漏咗 /chat/completions）';
+       + '　· 有啲網絡淨係擋非 GET 嘅請求，換個網絡再試\n'
+       + '　· 呢一層同 API Key 冇關——key 錯會回 401，係有回應嘅';
 }
 async function callAI(messages, opt){
   AI_LAST_REASON = '';
