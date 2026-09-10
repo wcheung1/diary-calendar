@@ -989,6 +989,71 @@ body.readonly #hubManage{display:none!important}
 .hubRow .hrBad{color:var(--overdue);font-size:11.5px;flex:1 1 100%;margin:0}
 .hubRow .hrOps{display:flex;gap:4px;flex:0 0 auto}
 .hubRow .hrOps button{padding:3px 8px;font-size:12px}
+/* ===== 📕 睇書模式 =====
+   本書擺喺同一個 origin 嘅 GitHub Pages 上面（wcheung1.github.io/homework-hub/books/…）。
+   同 origin ＝ 唔使 CORS、canvas 唔會被 taint（第三期要 cap 圖交俾睇相 model 就靠呢一點）。
+   pdf.js 係撳開一本書嗰陣先至載入，唔喺開機嗰陣載——Charlotte 唔睇書嗰日
+   完全唔會為佢畀過任何代價，而且 CDN 去唔到嗰陣只影響呢一個功能。 */
+body.readonly #bkAdmin{display:none!important}
+#bkAdminModal{z-index:59}   /* 同 #hubEditModal 一樣，寫喺 #hubModal 後面自然疊上去 */
+.bkShelf{margin:4px 0 2px}
+.bkShelfT{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;margin:0 0 6px}
+.bkCards{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px}
+.bkCard{display:flex;flex-direction:column;gap:6px;text-align:left;padding:8px;
+  border:1px solid var(--line);border-radius:12px;background:var(--card);cursor:pointer}
+.bkCard:hover{background:var(--hover)}
+.bkCov{width:100%;aspect-ratio:3/4;border-radius:8px;border:1px solid var(--line);
+  background:#f3f3f0 center/cover no-repeat;display:flex;align-items:center;
+  justify-content:center;color:var(--muted);font-size:12px;overflow:hidden}
+.bkCov img{width:100%;height:100%;object-fit:cover;display:block}
+.bkCardB{display:flex;align-items:center;gap:6px}
+.bkCardB .bkT{flex:1;min-width:0;font-weight:600;font-size:13.5px;line-height:1.35}
+.bkCardB .hcSpk{flex:0 0 auto;border:1px solid var(--line);background:var(--card);
+  border-radius:9px;width:34px;height:34px;font-size:16px;line-height:1;padding:0;cursor:pointer}
+/* 爹哋嗰張管理表。刻意同 .hubRow 用同一套視覺，唔想佢學兩套。 */
+.bkRow{border-bottom:1px solid var(--line);padding:8px 0}
+.bkRow.dragging{opacity:.55;outline:2px dashed var(--accent)}
+.bkLine{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.bkLine + .bkLine{margin-top:5px}
+.bkRow select,.bkRow input[type=text]{padding:4px 6px;font-size:13px}
+.bkRow .bkUrl{flex:1 1 300px;min-width:0}
+.bkRow .bkTi{flex:1 1 170px;min-width:0}
+.bkRow .bkOps{display:flex;gap:4px;flex:0 0 auto}
+.bkRow .bkOps button{padding:3px 8px;font-size:12px}
+.bkNote{font-size:11.5px;line-height:1.6;margin:4px 0 0;color:var(--muted);flex:1 1 100%;white-space:pre-wrap}
+.bkNote.bad{color:var(--overdue)}
+.bkNote.ok{color:var(--accent)}
+.bkLbl{font-size:12px;color:var(--muted)}
+/* ---- 全螢幕閱讀器 ---- */
+#bkReader{position:fixed;inset:0;z-index:205;background:#20211f;display:none;flex-direction:column}
+#bkReader.show{display:flex}
+.bkBar{flex:0 0 auto;display:flex;gap:6px;align-items:center;padding:6px 8px;
+  background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:nowrap;overflow-x:auto}
+.bkBar button{flex:0 0 auto;padding:7px 10px;font-size:14px;border:1px solid var(--line);
+  border-radius:9px;background:var(--card);cursor:pointer;line-height:1}
+.bkBar button:disabled{opacity:.4;cursor:default}
+.bkBar .bkPos{flex:0 0 auto;font-size:13px;color:var(--muted);white-space:nowrap;padding:0 4px}
+.bkBar .bkGap{flex:1 1 auto}
+.bkBar .bkX{background:var(--accent);color:#fff;border-color:var(--accent)}
+#bkStage{flex:1 1 auto;position:relative;overflow:hidden;touch-action:none;
+  -webkit-user-select:none;user-select:none;background:#20211f}
+#bkWrap{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
+#bkWrap canvas{display:block;box-shadow:0 6px 26px rgba(0,0,0,.5);background:#fff}
+.bkBusy{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:#e8eae7;font-size:15px;pointer-events:none}
+.bkHint{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);
+  background:rgba(20,22,20,.86);color:#fff;padding:8px 14px;border-radius:999px;
+  font-size:13px;pointer-events:none;transition:opacity .5s;max-width:88%;text-align:center}
+/* 縮圖跳頁。逐張 lazy 畫——500 版嘅書一次過畫會即刻卡死部 iPad。 */
+#bkThumbs{position:absolute;inset:0;background:rgba(24,26,24,.96);overflow:auto;
+  padding:12px;display:none}
+#bkThumbs.show{display:block}
+.bkThGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px}
+.bkTh{border:2px solid transparent;border-radius:7px;background:#33352f;cursor:pointer;
+  padding:4px;color:#cfd3cd;font-size:11px;text-align:center}
+.bkTh.now{border-color:var(--accent)}
+.bkTh canvas{width:100%;height:auto;display:block;border-radius:4px;background:#fff}
+.bkThBox{width:100%;aspect-ratio:3/4;border-radius:4px;background:#44463f}
 /* ===== 📖 聽故事 =====
    爹哋審核完先放出去。draft／ready 喺訪客模式根本唔會入 DOM
    （唔係靠下面呢啲 class 收埋——storyRenderKid 壓根唔會畫佢哋出嚟）。 */
@@ -1546,8 +1611,9 @@ body.hubOpen{overflow:hidden}
 <div class="overlay" id="hubModal"><div class="modal" style="width:min(760px,100%)"><h3>📚 學習角</h3>
   <p class="subnote" id="hubIntro"></p>
   <div id="stHubBox"></div>
+  <div id="bkHubBox"></div>
   <div id="hubList"></div>
-  <div class="modalActs"><button class="btn" id="hubManage">⚙ 管理連結</button><button class="btn" id="hubStoryAdmin">📖 故事</button><span style="flex:1"></span><button class="btn primary" id="hubClose">完成</button></div>
+  <div class="modalActs"><button class="btn" id="hubManage">⚙ 管理連結</button><button class="btn" id="hubStoryAdmin">📖 故事</button><button class="btn" id="bkAdmin">📕 睇書</button><span style="flex:1"></span><button class="btn primary" id="hubClose">完成</button></div>
 </div></div>
 <div class="overlay" id="hubEditModal"><div class="modal" style="width:min(940px,100%)"><h3>⚙ 管理學習連結</h3>
   <p class="subnote">Charlotte 只會見到「科目 ＋ 分類 ＋ 標題」，條網址佢見唔到，亦都改唔到。<br>
@@ -1733,6 +1799,40 @@ body.hubOpen{overflow:hidden}
   <div id="stAdminList"></div>
   <div class="modalActs"><span style="flex:1"></span><button class="btn primary" id="stAdminDone">完成</button></div>
 </div></div>
+<!-- 📕 睇書模式：爹哋嗰張管理表。訪客模式連粒入口掣都撳唔到（CSS 收埋 ＋ JS 再擋一次），
+     而且下面呢個 modal 入面一條 URL 都唔會喺訪客模式畫出嚟——同管理連結同一條底線。 -->
+<div class="overlay" id="bkAdminModal"><div class="modal" style="width:min(940px,100%)"><h3>📕 管理睇書</h3>
+  <p class="subnote">一本書 ＝ 一個資料夾。入面要有 <code>book.pdf</code>，可以有 <code>text.md</code>（OCR 出嚟嗰份）。<br>
+    例：<code>https://wcheung1.github.io/homework-hub/books/sci-1a/</code><br>
+    貼完撳「🔍 檢查」——即刻話你知開唔開得到、幾多版、封面攞唔攞到、<code>text.md</code> 有冇窿。<b>唔會等 Charlotte 撳開先發現。</b></p>
+  <div id="bkRows"></div>
+  <datalist id="bkCatList"></datalist>
+  <div class="aiBar" style="margin-top:8px"><button class="btn" id="bkAdd">＋ 加一本書</button><button class="btn" id="bkExport" title="科目、分類、書名、資料夾、排版、狀態、次序、text.md 情況">⬇ 匯出書單</button></div>
+  <p class="subnote" id="bkEditNote" style="margin-top:8px"></p>
+  <div class="modalActs"><span style="flex:1"></span><button class="btn primary" id="bkEditDone">完成</button></div>
+</div></div>
+<!-- 📕 睇書模式：Charlotte 睇嗰版。全螢幕、孖頁、撥左撥右、兩指放大。
+     ⚠ 唔靠 requestFullscreen——position:fixed + inset:0 + z-index 已經蓋住成個畫面。
+        iOS Safari 唔支援網頁全螢幕，靠佢就等於喺 iPad 上面永遠開唔到書。 -->
+<div id="bkReader" aria-hidden="true">
+  <div class="bkBar">
+    <button type="button" id="bkPrev" aria-label="上一版">◀</button>
+    <button type="button" id="bkNext" aria-label="下一版">▶</button>
+    <span class="bkPos" id="bkPos"></span>
+    <button type="button" id="bkThumbBtn" aria-label="睇晒所有版">▦ 揀版</button>
+    <span class="bkGap"></span>
+    <button type="button" id="bkZoomOut" aria-label="細啲">－</button>
+    <button type="button" id="bkZoomFit" aria-label="啱晒個畫面">⤢</button>
+    <button type="button" id="bkZoomIn" aria-label="大啲">＋</button>
+    <button type="button" id="bkClose" class="bkX" aria-label="出返去">✕ 出返去</button>
+  </div>
+  <div id="bkStage">
+    <div id="bkWrap"></div>
+    <div class="bkBusy" id="bkBusy" style="display:none">畫緊…</div>
+    <div class="bkHint" id="bkHint" style="display:none"></div>
+    <div id="bkThumbs"><div class="bkThGrid" id="bkThGrid"></div></div>
+  </div>
+</div>
 <div id="hubView" aria-hidden="true">
   <div class="hvBar">
     <button class="hvBtn" id="hvBack" disabled>← 上一頁</button>
@@ -2302,7 +2402,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-08b";
+const BUILD = "2026-09-10a";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -2330,13 +2430,20 @@ console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;p
          "diary_calendar_story":  { "$uid": { ".read": "$uid === auth.uid",
                                               ".write": "$uid === auth.uid" } },
          "diary_calendar_list":   { "$uid": { ".read": "$uid === auth.uid",
+                                              ".write": "$uid === auth.uid" } },
+         "diary_calendar_book":   { "$uid": { ".read": "$uid === auth.uid",
                                               ".write": "$uid === auth.uid" } }
        }
      }
    邊個節點做乜：data＝主 state；think＝AI 推理記錄；sos＝「🆘 搵爹哋」；
    log＝Data Log；cost＝用量計數；notice＝📋 待辦嘅通告原文；
    story＝📖 聽故事（idx＝索引，doc＝逐篇正文）；
-   list＝📋 清單（idx＝索引，doc＝逐張嘅項目）。
+   list＝📋 清單（idx＝索引，doc＝逐張嘅項目）；
+   book＝📕 睇書（cov＝封面縮圖，doc＝text.md 切好嘅逐版文字）。
+   ⚠ 睇書嘅**索引**（書名／科目／資料夾／排版／狀態／次序）擺喺主 state 嘅
+     state.books，同 state.hub.items 一樣——三十本書大約 6KB，順序同 undo 即刻有得用。
+     但封面（一張二十幾 KB）同 text.md（成本書幾十 KB）一定唔可以入主 state，
+     因為主 state 掛住全樹監聽，Charlotte 部機每次開機都要拖。
    ⚠ 清單係全 app 第一個 **Charlotte 自己寫得入去** 嘅平行節點。
      「佢改唔到爹哋張清單」呢條規矩係喺 JS 度做嘅——同一個 uid，
      Firebase 規則層面攔唔到。攔唔攔到嘅分別：佢用個 app 係攔到嘅；
@@ -6237,7 +6344,9 @@ async function netProbe(apiUrl){
          + '　　兩邊一齊死 ＝ 伺服器改咗設定；電腦仲得 ＝ 兩邊嘅網絡去咗唔同節點\n'
          + '　· 試下將 Base URL 入面 /coding/ 嗰段拎走（唔同 plan 用唔同 endpoint，\n'
          + '　　有啲 endpoint 唔容許瀏覽器直接呼叫）\n'
-         + '　· 呢一層同 API Key 冇關——key 錯會回 401，係有回應嘅';
+         + '　· 呢一層同 API Key 冇關——key 錯會回 401，係有回應嘅\n'
+         + '\n長遠解法：起一個自己嘅中轉（Cloudflare Worker），Base URL 指去佢。\n'
+         + '順帶會將張 API key 由呢部機搬走。';
   }
   return '🟠 **去到 ' + host + '，但個 POST 過唔到**（唔係 DNS 問題）。\n'
        + '　· Brave：撳網址列旁邊個獅子頭，將 Shields 熄咗再試\n'
@@ -9267,6 +9376,16 @@ function ctxText(){
   L.push('\n【📖 聽故事——你淨係知道有邊幾篇，篇入面寫乜、佢喺嗰邊同 AI 傾過乜，你一個字都睇唔到】\n'
     + _stL
     + '\n佢問起故事嘅內容或者佢喺嗰邊傾過嘅嘢：照直講你睇唔到，叫佢去「📚 學習角」撳「📖 聽故事」喺嗰度問返。唔准靠估，唔准作。');
+  /* 📕 睇書：同聽故事一樣，報返有邊幾本，一個字內容都唔畀。
+     唔報嘅話佢喺傾偈度問「本書講乜」，個 AI 唔知有呢樣嘢存在就會靠估——
+     直接撞北極星第二條。（睇得到內容係第三期嘅嘢，而家一版都睇唔到。） */
+  try{
+    const _bk = (Array.isArray(state.books) ? state.books : [])
+      .filter(function(b){ return b && b.st === 'live' && b.title; }).slice(0, 6);
+    if(_bk.length) L.push('\n【📕 睇書——你淨係知道爹哋擺咗邊幾本出嚟，入面寫乜你一個字都睇唔到】\n'
+      + _bk.map(function(b){ return '- 《' + b.title + '》'; }).join('\n')
+      + '\n佢問起本書入面嘅內容：照直講你睇唔到，叫佢去「📚 學習角」撳「📕 睇書」自己揭。唔准靠估，唔准作。');
+  }catch(e){}
 
   /* 📖 聽故事嘅記錄一樣要剔走，但理由同 owner-chat 唔同：
      佢唔係私隱問題，係「呢啲唔係佢哋屋企嘅習慣」。餵返入去嘅話，
@@ -9274,7 +9393,7 @@ function ctxText(){
      記錄照樣留喺 Data Log 俾爹哋睇（北極星 6），淨係唔餵返個 AI。 */
   const _all = (state.ai.log||[]).filter(function(x){
     if(!x) return true;
-    if(x.type === 'story' || x.type === 'help') return false;
+    if(x.type === 'story' || x.type === 'help' || x.type === 'book') return false;
     /* ⚠ kidplan **唔剔**：佢自己排咗啲乜，正正係 AI 排程要知嘅嘢。
        story 剔係因為嗰啲唔係屋企習慣；呢啲係。 */
     return (x.kind || (x.meta||{}).kind) !== 'owner-chat';
@@ -10434,7 +10553,9 @@ async function genRules(silent){
        「Charlotte 8月28號聽咗一篇故事」會經 SYS_RULE 寫成一條屋企規則。 */
     const all = (state.ai.log||[]).filter(function(x){
       if(!x) return true;
-      if(x.type === 'story' || x.type === 'help') return false;
+      /* 📕 睇書一樣剔走：唔剔嘅話「Charlotte 睇咗一本書」會經 SYS_RULE
+         寫成一條屋企規則。 */
+      if(x.type === 'story' || x.type === 'help' || x.type === 'book') return false;
       return (x.kind || (x.meta||{}).kind) !== 'owner-chat';
     });
     const fresh = all.filter(x=>x && !x.digested);
@@ -18372,6 +18493,10 @@ function guestChatsInRange(fromD, toD, who){
                               _kind === 'gen'  || _kind === 'brief')) continue;
     /* 學習角嘅出入記錄同上面一樣：唔係對話，唔准入匯出。 */
     if(x.type === 'hub') continue;
+    /* 📕 睇書嘅「入咗／睇咗幾耐」一樣：唔係對話。
+       佢哋標嘅係 by:'kid'|'dad'（唔係 guest），所以本來就漏唔入嚟——
+       呢句係第二道閂，將來有人手快標返個 guest:true 落去都攔得住（交接檔 6.14）。 */
+    if(x.type === 'book') continue;
     const isOwnerChat = _kind === 'owner-chat' || /^🧑 主人對話記錄/.test(String(x.text||''));
     const isGuestChat = !isOwnerChat
                      && (_kind === 'guest-chat' || x.guest || (x.meta||{}).guest
@@ -20199,6 +20324,10 @@ function renderHubList(){
         一定要行 window.——直接叫會 ReferenceError（地雷 6.2）。 */
   try{ if(typeof window.storyRenderKid === 'function') window.storyRenderKid(el('stHubBox')); }
   catch(e){ console.warn('storyRenderKid', e); }
+  /* 📕 睇書擺喺聽故事同連結之間。同樣住喺另一個 div（bkHubBox），
+     所以唔會俾下面嗰句 box.innerHTML='' 抹走；同樣住喺另一個 IIFE，一定要行 window.。 */
+  try{ if(typeof window.bookRenderShelf === 'function') window.bookRenderShelf(); }
+  catch(e){ console.warn('bookRenderShelf', e); }
   box.innerHTML = '';
   const items = hubItems(true);
   const intro = el('hubIntro');
@@ -20721,6 +20850,1135 @@ document.addEventListener('keydown', function(e){
   }
 }, true);
 })();
+
+/* =========================================================
+   📕 睇書模式（第一期）
+   爹哋貼一條「資料夾網址」，Charlotte 喺學習角撳封面就揭得到書。
+
+   四條底線：
+   ① 條 URL 喺訪客模式根本唔會寫入 DOM——同管理連結一樣。佢見到嘅係封面同書名。
+   ② 唔准留白畫面。開唔到、CDN 去唔到、PDF 壞咗，一律出一句佢睇得明嘅嘢
+      加粒「再試一次」。對一個七歲人嚟講，白畫面同「我撳錯咗」係同一件事。
+   ③ 唔准講大話。爹哋貼完 URL 撳「🔍 檢查」嗰一刻就要知結果——
+      唔可以話咗「加咗」，等 Charlotte 撳開先發現本書開唔到。
+   ④ 佢篤錯咗出去，返嚟要接返上次嗰版（localStorage，逐部機獨立）。
+
+   點解本書一定要擺喺同一個 origin（wcheung1.github.io）：
+   pdf.js 要 fetch 個 PDF 嘅原始 bytes，跨 origin 就一定要對方送
+   Access-Control-Allow-Origin，而 Google Drive／OneDrive 嗰種分享連結唔會送。
+   同 origin 仲有第二個好處，第三期先食得着：canvas 唔會被 taint，
+   所以 toDataURL() 攞得到孖頁嘅圖交俾睇相 model。
+   時間表住喺 …/diary-calendar/，書擺喺 …/homework-hub/books/ —— origin 一樣。
+
+   pdf.js 係**撳開一本書嗰陣先至載入**，唔喺開機載：
+   佢唔睇書嗰日完全唔會為呢個功能畀過任何代價，而且 CDN 去唔到嗰陣
+   淨係影響呢一個功能，唔會拖冧成個 app。
+========================================================= */
+(function(){
+'use strict';
+const el = id => document.getElementById(id);
+const isGuest = () => document.body.classList.contains('readonly');
+const say = m => { try{ window.toast(m); }catch(e){ console.warn(m); } };
+const cut = (s, n) => { s = String(s == null ? '' : s); return s.length > n ? s.slice(0, n) + '…' : s; };
+
+const BK_ROOT     = 'diary_calendar_book';
+const BK_TARGET_W = 2000;   /* 一個孖頁畫成幾多 px 闊。2000×1400 RGBA ≈ 11MB，×6 ≈ 67MB。 */
+const BK_CACHE    = 6;      /* spec 原本寫 12 個（≈100MB）——iPad Safari 會直接殺咗個 tab。 */
+const BK_HI_MULT  = 2;      /* 放大到一定程度先重畫一次高清（150 DPI 放大會蒙） */
+const BK_HI_AT    = 1.8;
+const BK_COV_W    = 240;    /* 封面縮圖闊度。q 0.7 之下大約 15–30KB 一張。 */
+const BK_EMPTY_CH = 20;     /* text.md 一版少過咁多字＝當佢抽唔到嘢（多數係成版一幅圖） */
+const PDFJS_LIB   = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+const PDFJS_WORK  = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+/* 三個狀態同管理連結一模一樣。特登唔另外發明一套字——爹哋唔應該學兩套。 */
+const BK_ST = [{k:'live', name:'▶ 出咗街', note:'Charlotte 而家見到'},
+               {k:'pool', name:'⏸ 池',     note:'儲住，未放出去'},
+               {k:'arch', name:'📦 封存',   note:'睇完收起，第日放得返'}];
+const BK_SUBJ = [
+  {k:'chi',   name:'中文', color:'#d92d20'},
+  {k:'eng',   name:'英文', color:'#1971c2'},
+  {k:'math',  name:'數學', color:'#2f9e44'},
+  {k:'sci',   name:'科學', color:'#e8590c'},
+  {k:'other', name:'其他', color:'#6741d9'}
+];
+const bkSubjOf = k => BK_SUBJ.filter(x => x.k === k)[0] || BK_SUBJ[BK_SUBJ.length - 1];
+
+/* ================= 資料 ================= */
+/* 索引擺喺主 state（同 state.hub.items 一樣）：三十本書大約 6KB，
+   而且順序、拖拉、undo、匯出全部即刻有得用。
+   ⚠ 封面同 text.md 唔可以擺主 state——主 state 掛住全樹監聽，
+     一張縮圖已經二十幾 KB，Charlotte 部機每次開機都要拖。
+     嗰兩樣擺去平行節點 diary_calendar_book。 */
+function ensureBooks(){
+  if(!Array.isArray(state.books)) state.books = [];
+  state.books = state.books.filter(x => x && typeof x === 'object');
+  state.books.forEach(function(x){
+    if(!x.id) x.id = uid();
+    if(typeof x.subj !== 'string' || !BK_SUBJ.some(y => y.k === x.subj)) x.subj = 'other';
+    if(typeof x.cat   !== 'string') x.cat = '';
+    if(typeof x.title !== 'string') x.title = '';
+    if(typeof x.url   !== 'string') x.url = '';
+    if(x.cover === undefined) x.cover = true;      /* 第 1 頁自己一版 */
+    if(x.rtl   === undefined) x.rtl   = false;     /* 由左揭到右 */
+    if(x.st !== 'live' && x.st !== 'pool' && x.st !== 'arch') x.st = 'pool';
+    if(typeof x.pages !== 'number' || !(x.pages > 0)) x.pages = 0;
+  });
+  return state.books;
+}
+function bkItems(onlyLive){
+  const list = ensureBooks();
+  return onlyLive ? list.filter(x => x.st === 'live' && x.url && x.title) : list;
+}
+function bkSetSt(x, st){ if(x) x.st = (st === 'live' || st === 'arch') ? st : 'pool'; }
+/* Charlotte 眼中嘅次序：科目跟 BK_SUBJ 排，分類跟第一次出現排，同一分類跟 array 次序。
+   爹哋張管理表用**一模一樣**嘅次序，唔係佢拖完都唔知拖咗去邊。 */
+function bkOrdered(st){
+  const all = bkItems(false).filter(x => x.st === st);
+  const out = [];
+  BK_SUBJ.forEach(function(sj){
+    const mine = all.filter(x => x.subj === sj.k);
+    if(!mine.length) return;
+    const cats = [];
+    mine.forEach(function(x){ if(cats.indexOf(x.cat || '') < 0) cats.push(x.cat || ''); });
+    cats.forEach(function(c){
+      mine.filter(x => (x.cat || '') === c).forEach(function(x){ out.push({it:x, subj:sj, cat:c}); });
+    });
+  });
+  return out;
+}
+function bkMove(fromId, toId, after){
+  const a = ensureBooks();
+  const fi = a.findIndex(x => x.id === fromId);
+  if(fi < 0) return false;
+  const item = a.splice(fi, 1)[0];
+  const ti = a.findIndex(x => x.id === toId);
+  if(ti < 0){ a.splice(fi, 0, item); return false; }
+  a.splice(after ? ti + 1 : ti, 0, item);
+  return true;
+}
+
+/* ---------- 網址 ---------- */
+/* 收一條資料夾網址，一律補返尾巴嗰條斜線。
+   貼咗成條 …/book.pdf 落嚟都收得返——佢一定會咁貼過一次。 */
+function bkFolder(u){
+  let t = String(u || '').trim();
+  if(!t) return '';
+  t = t.replace(/[?#].*$/, '');
+  t = t.replace(/\/(book\.pdf|text\.md)$/i, '/');
+  if(!/\/$/.test(t)) t += '/';
+  return t;
+}
+function bkPdfUrl(b){ return bkFolder(b.url) + 'book.pdf'; }
+function bkTxtUrl(b){ return bkFolder(b.url) + 'text.md'; }
+function bkUrlProblem(u){
+  const t = bkFolder(u);
+  if(!t) return '未填資料夾網址';
+  if(!/^https:\/\//i.test(t)) return '一定要 https:// 開頭';
+  let a;
+  try{ a = new URL(t); }catch(e){ return '呢條唔似一條網址'; }
+  if(/(^|\.)github\.com$/i.test(a.hostname))
+    return 'github.com 嗰種 repo 網址攞唔到個檔。要用 Pages 網址，即係 xxx.github.io 嗰條。';
+  if(a.origin !== location.origin)
+    return '跨網域：' + a.origin + ' 要送 Access-Control-Allow-Origin 先攞到個 PDF，' +
+           'Google Drive／OneDrive 嗰種分享連結一定唔得。擺入 ' + location.origin + ' 最穩陣。';
+  return '';
+}
+
+/* ---------- 雲端（封面 ＋ text.md 切好嘅逐版） ---------- */
+const BookCloud = {
+  lastError:'', cov:{}, doc:{},
+  ref(){
+    try{
+      if(!currentUser || !currentUser.uid || typeof db === 'undefined') return null;
+      return db.ref(BK_ROOT + '/' + currentUser.uid);
+    }catch(e){ return null; }
+  },
+  async covGet(id){
+    if(this.cov[id] !== undefined) return this.cov[id];
+    const r = this.ref(); if(!r){ this.lastError = '未登入 Google'; return null; }
+    try{
+      const sn = await r.child('cov/' + id).once('value');
+      const v = sn.val();
+      const d = (v && typeof v.d === 'string') ? v.d : null;
+      this.cov[id] = d; this.lastError = ''; return d;
+    }catch(e){ this.lastError = String((e && e.message) || e); return null; }
+  },
+  async covPut(id, d){
+    const r = this.ref(); if(!r){ this.lastError = '未登入 Google'; return false; }
+    try{ await r.child('cov/' + id).set({id:id, d:d}); this.cov[id] = d; this.lastError = ''; return true; }
+    catch(e){ this.lastError = String((e && e.message) || e); return false; }
+  },
+  async docPut(id, doc){
+    const r = this.ref(); if(!r){ this.lastError = '未登入 Google'; return false; }
+    try{ await r.child('doc/' + id).set(doc); this.doc[id] = doc; this.lastError = ''; return true; }
+    catch(e){ this.lastError = String((e && e.message) || e); return false; }
+  },
+  async del(id){
+    const r = this.ref(); if(!r) return false;
+    try{
+      await r.child('cov/' + id).remove();
+      await r.child('doc/' + id).remove();
+      delete this.cov[id]; delete this.doc[id];
+      return true;
+    }catch(e){ this.lastError = String((e && e.message) || e); return false; }
+  }
+};
+
+/* ---------- text.md ----------
+   分頁線 [PAGE::N] 係爹哋自己個 OCR script 寫落去嘅（唔係模型出嘅），
+   所以佢係全份檔入面唯一保證統一嘅嘢。呢度**只認呢一樣**，
+   一版入面點排、有冇表格、標題深淺，一律唔理——
+   將來換咗 OCR 工具，只要分頁線唔變，呢度一個字都唔使改。
+   ⚠ N 係 PDF 嘅物理頁碼（第 1 版＝封面），唔係書上面印嗰個頁碼。
+     全個功能由頭到尾只用物理頁碼：MP3 檔名、Firebase key、畫面上「第 N 版」。
+     兩套編號撈埋一齊，就會出現「差開六版」而又冇人睇得出嘅錯。 */
+function bkParseText(md, pageCount){
+  const src = String(md || '');
+  const out = {pages:{}, found:[], gaps:[], empty:[], suspect:[], max:0};
+  const re = /\[PAGE::(\d+)\]/g;
+  const hits = [];
+  let m;
+  while((m = re.exec(src))) hits.push({n:parseInt(m[1], 10), s:m.index, e:re.lastIndex});
+  for(let i = 0; i < hits.length; i++){
+    const n = hits[i].n;
+    if(!(n > 0)) continue;
+    const body = src.slice(hits[i].e, i + 1 < hits.length ? hits[i + 1].s : src.length).trim();
+    out.pages[n] = body;
+    out.found.push(n);
+    if(n > out.max) out.max = n;
+    if(body.replace(/\s/g, '').length < BK_EMPTY_CH) out.empty.push(n);
+    if(/F16_SUSPECT_REPETITION/.test(body)) out.suspect.push(n);
+  }
+  const top = Math.max(out.max, pageCount > 0 ? pageCount : 0);
+  for(let n = 1; n <= top; n++) if(out.pages[n] === undefined) out.gaps.push(n);
+  return out;
+}
+
+/* ---------- 頁 → 孖頁 ----------
+   呢兩條係成個功能嘅心臟，只可以寫一次：閱讀、縮圖、跳頁、將來嘅錄音對位
+   全部行返呢兩條，唔會出現「睇嘅時候啱、跳頁嗰陣調轉」。 */
+function bkBuildSpreads(pageCount, cover){
+  const out = [];
+  let p = 1;
+  if(!(pageCount > 0)) return out;
+  if(cover){ out.push([1]); p = 2; }
+  for(; p <= pageCount; p += 2) out.push(p + 1 <= pageCount ? [p, p + 1] : [p]);
+  return out;
+}
+/* rtl 只掉轉**孖頁**，唔掂單頁。直排中文書、日文漫畫由右揭到左，細頁數擺右邊。 */
+function bkVisualOrder(spread, rtl){
+  return (rtl && spread.length === 2) ? [spread[1], spread[0]] : spread.slice();
+}
+function bkSpreadOfPage(spreads, pageNo){
+  for(let i = 0; i < spreads.length; i++) if(spreads[i].indexOf(pageNo) >= 0) return i;
+  return -1;
+}
+
+/* ================= pdf.js（撳開先載） ================= */
+let pdfReady = null;
+function loadPdfJs(){
+  if(pdfReady) return pdfReady;
+  pdfReady = new Promise(function(res, rej){
+    if(window.pdfjsLib){ res(window.pdfjsLib); return; }
+    const s = document.createElement('script');
+    s.src = PDFJS_LIB;
+    s.onload = function(){
+      if(!window.pdfjsLib){ rej(new Error('pdf.js 載入咗但攞唔到')); return; }
+      try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORK; }catch(e){}
+      res(window.pdfjsLib);
+    };
+    /* ⚠ 唔可以靜靜雞死。CDN 俾人擋咗（公司網絡、廣告攔截）喺呢度先發現，
+       而且要講得出係「攞唔到個睇書工具」而唔係「本書壞咗」。 */
+    s.onerror = function(){ pdfReady = null; rej(new Error('攞唔到 pdf.js（' + PDFJS_LIB + '）')); };
+    document.head.appendChild(s);
+  });
+  return pdfReady;
+}
+async function bkOpenDoc(url){
+  const lib = await loadPdfJs();
+  return await lib.getDocument({url:url}).promise;
+}
+/* 畫一版落一個新 canvas。填白底係硬要求：PDF 透明位唔填白就會變黑。 */
+async function bkPageCanvas(doc, n, scale){
+  const pg = await doc.getPage(n);
+  const vp = pg.getViewport({scale:scale});
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(vp.width));
+  c.height = Math.max(1, Math.round(vp.height));
+  const cx = c.getContext('2d');
+  cx.fillStyle = '#ffffff'; cx.fillRect(0, 0, c.width, c.height);
+  await pg.render({canvasContext:cx, viewport:vp}).promise;
+  return c;
+}
+
+/* ================= 閱讀器 ================= */
+const RD = {
+  book:null, doc:null, pageCount:0, spreads:[], idx:0,
+  scale:1, cache:new Map(), busy:0, natW:0, natH:0, hintT:0, hi:false
+};
+const VW = {z:1, fit:1, x:0, y:0};
+
+function bkStage(){ return el('bkStage'); }
+function bkWrapEl(){ return el('bkWrap'); }
+function bkBusy(on, msg){
+  const b = el('bkBusy'); if(!b) return;
+  b.textContent = msg || '畫緊…';
+  b.style.display = on ? 'flex' : 'none';
+}
+function bkHint(msg, ms){
+  const h = el('bkHint'); if(!h) return;
+  clearTimeout(RD.hintT);
+  if(!msg){ h.style.display = 'none'; return; }
+  h.textContent = msg; h.style.display = ''; h.style.opacity = '1';
+  RD.hintT = setTimeout(function(){ h.style.opacity = '0';
+    setTimeout(function(){ h.style.display = 'none'; }, 520); }, ms || 2600);
+}
+/* 出唔到書就要出一句佢睇得明嘅嘢加粒掣，唔准淨係一片黑。 */
+function bkFail(msg, detail, retry){
+  const w = bkWrapEl(); if(!w) return;
+  bkBusy(false);
+  w.style.transform = ''; w.style.width = ''; w.style.height = '';
+  RD.natW = RD.natH = 0;
+  w.innerHTML = '';
+  const box = document.createElement('div');
+  box.style.cssText = 'max-width:min(520px,86vw);margin:14vh auto 0;background:var(--panel);' +
+    'border-radius:12px;padding:18px 20px;color:var(--ink);font-size:15px;line-height:1.7';
+  const p = document.createElement('p');
+  p.style.margin = '0 0 10px';
+  p.textContent = msg;
+  box.appendChild(p);
+  if(detail && !isGuest()){
+    const d = document.createElement('p');
+    d.style.cssText = 'margin:0 0 10px;font-size:12px;color:var(--muted);word-break:break-all';
+    d.textContent = detail;
+    box.appendChild(d);
+  }
+  if(typeof retry === 'function'){
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'btn primary'; b.textContent = '↻ 再試一次';
+    b.onclick = retry;
+    box.appendChild(b);
+  }
+  w.appendChild(box);
+}
+
+function bkCacheKey(i, hi){ return i + (hi ? '|hi' : '|lo'); }
+async function bkCanvasFor(i, hi){
+  const key = bkCacheKey(i, hi);
+  if(RD.cache.has(key)) return RD.cache.get(key);
+  const sp = RD.spreads[i];
+  if(!sp) return null;
+  const order = bkVisualOrder(sp, !!RD.book.rtl);
+  const sc = RD.scale * (hi ? BK_HI_MULT : 1);
+  const cvs = [];
+  for(let k = 0; k < order.length; k++) cvs.push(await bkPageCanvas(RD.doc, order[k], sc));
+  const gap = cvs.length > 1 ? Math.max(2, Math.round(sc * 6)) : 0;
+  const H = cvs.reduce(function(a, c){ return Math.max(a, c.height); }, 1);
+  const W = cvs.reduce(function(a, c){ return a + c.width; }, 0) + gap * (cvs.length - 1);
+  const out = document.createElement('canvas');
+  out.width = W; out.height = H;
+  const ox = out.getContext('2d');
+  ox.fillStyle = '#ffffff'; ox.fillRect(0, 0, W, H);
+  let x = 0;
+  cvs.forEach(function(c){
+    /* 打直置中：掃描書兩頁高度成日差幾個 pixel，唔置中就一高一低好核突。 */
+    ox.drawImage(c, x, Math.round((H - c.height) / 2));
+    x += c.width + gap;
+    c.width = c.height = 0;      /* 即刻放走子 canvas 嘅記憶體。手機好緊要。 */
+  });
+  RD.cache.set(key, out);
+  /* 爆咗就刪最舊插入嗰個，但**唔准刪緊睇緊嗰個**——刪咗就會即刻重畫，
+     跟住又爆，變成一路畫一路刪。 */
+  const keep = [bkCacheKey(RD.idx, false), bkCacheKey(RD.idx, true), key];
+  while(RD.cache.size > BK_CACHE){
+    let victim = null;
+    for(const k of RD.cache.keys()){ if(keep.indexOf(k) < 0){ victim = k; break; } }
+    if(victim === null) break;
+    const old = RD.cache.get(victim);
+    RD.cache.delete(victim);
+    try{ old.width = old.height = 0; }catch(e){}
+  }
+  return out;
+}
+
+function bkClamp(){
+  const st = bkStage(); if(!st) return;
+  const sw = st.clientWidth, sh = st.clientHeight;
+  const cw = RD.natW * VW.z, ch = RD.natH * VW.z;
+  VW.x = (cw <= sw) ? (sw - cw) / 2 : Math.min(0, Math.max(sw - cw, VW.x));
+  VW.y = (ch <= sh) ? (sh - ch) / 2 : Math.min(0, Math.max(sh - ch, VW.y));
+}
+function bkApply(){
+  const w = bkWrapEl(); if(!w) return;
+  bkClamp();
+  w.style.transform = 'translate(' + Math.round(VW.x) + 'px,' + Math.round(VW.y) + 'px) scale(' + VW.z + ')';
+  const z = el('bkZoomFit');
+  if(z) z.title = Math.round(VW.z / (VW.fit || 1) * 100) + '%';
+}
+function bkFit(){
+  const st = bkStage(); if(!st || !RD.natW) return;
+  const sw = Math.max(40, st.clientWidth - 16), sh = Math.max(40, st.clientHeight - 16);
+  VW.fit = Math.min(sw / RD.natW, sh / RD.natH);
+  if(!(VW.fit > 0)) VW.fit = 1;
+  VW.z = VW.fit;
+  bkApply();
+}
+function bkZoom(mult, cx, cy){
+  const st = bkStage(); if(!st) return;
+  const lo = VW.fit * 0.9, hi = VW.fit * 8;
+  const z0 = VW.z;
+  let z = z0 * mult;
+  z = Math.min(hi, Math.max(lo, z));
+  if(z === z0) return;
+  const px = (cx === undefined) ? st.clientWidth / 2 : cx;
+  const py = (cy === undefined) ? st.clientHeight / 2 : cy;
+  VW.x = px - (px - VW.x) * (z / z0);
+  VW.y = py - (py - VW.y) * (z / z0);
+  VW.z = z;
+  bkApply();
+  bkMaybeHi();
+}
+/* 放大過頭就重畫一次高清。150 DPI 放大就係會蒙——呢個係 canvas 嘅本質，
+   唔係 bug，但對住一本課本嘅細字就唔夠用。 */
+let hiTimer = 0;
+function bkMaybeHi(){
+  clearTimeout(hiTimer);
+  if(RD.hi) return;                      /* 已經係高清就唔好再換——換一次 bkPut 就調一次
+                                            VW.z，換兩次就會縮到得返四分一。 */
+  if(VW.z < VW.fit * BK_HI_AT) return;
+  hiTimer = setTimeout(async function(){
+    if(RD.hi) return;
+    const i = RD.idx;
+    try{
+      const c = await bkCanvasFor(i, true);
+      if(c && RD.idx === i && !RD.hi && VW.z >= VW.fit * BK_HI_AT){ bkPut(c, true); RD.hi = true; }
+    }catch(e){ console.warn('hi-res', e); }
+  }, 420);
+}
+/* 換 canvas 但唔郁 zoom／位置：所以要按新舊 natW 嘅比例調返 VW.z。 */
+function bkPut(c, keepView){
+  const w = bkWrapEl(); if(!w || !c) return;
+  const oldW = RD.natW;
+  w.innerHTML = '';
+  w.appendChild(c);
+  RD.natW = c.width; RD.natH = c.height;
+  w.style.width = c.width + 'px'; w.style.height = c.height + 'px';
+  c.style.width = c.width + 'px'; c.style.height = c.height + 'px';
+  if(keepView && oldW > 0){
+    const r = oldW / c.width;
+    VW.z = VW.z * r; VW.fit = VW.fit * r;
+    bkApply();
+  }
+}
+
+function bkPosTxt(){
+  const sp = RD.spreads[RD.idx] || [];
+  if(!sp.length) return '';
+  const s = sp.length > 1 ? (sp[0] + '–' + sp[1]) : String(sp[0]);
+  return '第 ' + s + ' 版　/　共 ' + RD.pageCount;
+}
+function bkSyncBar(){
+  const p = el('bkPrev'), n = el('bkNext'), t = el('bkPos');
+  if(p) p.disabled = (RD.idx <= 0);
+  if(n) n.disabled = (RD.idx >= RD.spreads.length - 1);
+  if(t) t.textContent = bkPosTxt();
+  const g = el('bkThGrid');
+  if(g) g.querySelectorAll('.bkTh').forEach(function(d){
+    d.classList.toggle('now', bkSpreadOfPage(RD.spreads, parseInt(d.dataset.p, 10)) === RD.idx);
+  });
+}
+function bkSavePos(){
+  try{
+    if(RD.book && RD.book.id) localStorage.setItem('bk_pos_' + RD.book.id, String(RD.idx));
+  }catch(e){}
+}
+function bkLoadPos(id, max){
+  try{
+    const v = parseInt(localStorage.getItem('bk_pos_' + id) || '0', 10);
+    return (v > 0 && v < max) ? v : 0;
+  }catch(e){ return 0; }
+}
+
+let renderSeq = 0;
+async function bkShow(i){
+  if(!RD.spreads.length) return;
+  RD.idx = Math.max(0, Math.min(RD.spreads.length - 1, i | 0));
+  bkSavePos();
+  bkSyncBar();
+  const my = ++renderSeq;
+  bkBusy(true);
+  try{
+    const c = await bkCanvasFor(RD.idx, false);
+    if(my !== renderSeq) return;            /* 佢一連撳三下「下一版」，中間嗰啲唔好覆蓋最後嗰下 */
+    if(!c){ bkFail('呢一版畫唔到。'); return; }
+    RD.hi = false;
+    bkPut(c, false);
+    bkFit();
+    bkBusy(false);
+    /* 揭完順手偷偷畫下一版，揭下一次就即刻出到。 */
+    setTimeout(function(){
+      if(my !== renderSeq) return;
+      bkCanvasFor(RD.idx + 1, false).catch(function(){});
+    }, 260);
+  }catch(e){
+    if(my !== renderSeq) return;
+    bkFail('呢一版畫唔到，撳一下再試。', String((e && e.message) || e), function(){ bkShow(RD.idx); });
+  }
+}
+function bkGo(d){
+  const t = RD.idx + d;
+  if(t < 0 || t >= RD.spreads.length){
+    bkHint(t < 0 ? '已經係第一版喇' : '已經係最後一版喇', 1400);
+    return;
+  }
+  bkShow(t);
+}
+
+/* ---------- Data Log：入咗邊本、睇咗幾耐 ----------
+   ⚠ 同學習角一樣用 by:'kid'|'dad'，唔用 guest——guestChatsInRange() 認 x.guest，
+     標咗就會漏入「👧 匯出訪客對話」，變成一堆冇 q／a 嘅假對話（交接檔 6.14）。
+   ⚠ logPush 住喺 AI 嗰個 IIFE，呢度係另一個 IIFE，所以行頂層嗰個 kidLog()。 */
+let bkOpenAt = 0, bkOpenIt = null;
+function bkSecTxt(sec){
+  const n = Math.max(0, sec | 0);
+  if(n < 60) return n + ' 秒';
+  const m = Math.floor(n / 60), s = n % 60;
+  return m + ' 分' + (s ? (' ' + s + ' 秒') : '');
+}
+function bkLogClose(){
+  if(!bkOpenAt || !bkOpenIt) return;
+  const sec = Math.round((Date.now() - bkOpenAt) / 1000);
+  const it = bkOpenIt, byKid = isGuest();
+  bkOpenAt = 0; bkOpenIt = null;      /* 一定要喺 log 之前清走，唔係閂兩次會記兩次 */
+  if(sec < 5) return;                 /* 撳錯即刻閂，唔算睇過 */
+  try{
+    kidLog('book',
+      (byKid ? '睇咗《' : '🧑 爹哋試機 · 睇咗《') + (it.title || '冇書名') + '》　' + bkSecTxt(sec),
+      {kind:'read', bid:it.id, subj:it.subj, cat:it.cat || '', sec:sec, by:(byKid ? 'kid' : 'dad')});
+  }catch(e){}
+}
+
+async function bkOpen(b){
+  const bad = bkUrlProblem(b.url);
+  const v = el('bkReader');
+  if(!v) return;
+  if(bad){
+    say(isGuest() ? '呢本書而家開唔到，同爹哋講聲。' : '呢條網址有問題：' + bad);
+    return;
+  }
+  try{ if(typeof window.stopAllMedia === 'function') window.stopAllMedia('開睇書'); }catch(e){}
+  bkLogClose();                       /* 上一次冇閂乾淨（直接開第二本）就先結返上一單數 */
+  RD.book = b; RD.doc = null; RD.spreads = []; RD.pageCount = 0;
+  RD.cache.forEach(function(c){ try{ c.width = c.height = 0; }catch(e){} });
+  RD.cache.clear();
+  RD.natW = RD.natH = 0;
+  renderSeq++;
+  el('bkThumbs').classList.remove('show');
+  el('bkThGrid').innerHTML = '';
+  bkWrapEl().innerHTML = '';
+  bkWrapEl().style.transform = ''; bkWrapEl().style.width = ''; bkWrapEl().style.height = '';
+  RD.hi = false;
+  v.classList.add('show');
+  v.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('hubOpen');
+  el('bkPos').textContent = '';
+  bkBusy(true, '開緊本書…');
+  bkOpenAt = Date.now(); bkOpenIt = b;
+  try{
+    const byKid = isGuest();
+    kidLog('book',
+      (byKid ? '入咗《' : '🧑 爹哋試機 · 入咗《') + (b.title || '冇書名') + '》',
+      {kind:'open', bid:b.id, subj:b.subj, cat:b.cat || '', by:(byKid ? 'kid' : 'dad')});
+  }catch(e){}
+  try{
+    RD.doc = await bkOpenDoc(bkPdfUrl(b));
+    RD.pageCount = RD.doc.numPages;
+    RD.spreads = bkBuildSpreads(RD.pageCount, !!b.cover);
+    const pg1 = await RD.doc.getPage(1);
+    const vp1 = pg1.getViewport({scale:1});
+    const wide = vp1.width * (RD.spreads.some(function(s){ return s.length > 1; }) ? 2 : 1);
+    RD.scale = Math.min(2.6, Math.max(1, BK_TARGET_W / Math.max(1, wide)));
+    bkBusy(false);
+    await bkShow(bkLoadPos(b.id, RD.spreads.length));
+    bkHint(isGuest()
+      ? '撥左撥右揭書，兩隻手指可以放大'
+      : '撥左撥右揭書 · 兩指放大 · ← → 揭版 · Esc 出返去', 3400);
+  }catch(e){
+    const msg = String((e && e.message) || e);
+    bkBusy(false);
+    if(/pdf\.js/.test(msg)){
+      bkFail(isGuest() ? '而家攞唔到睇書嗰個工具。撳一下再試，唔得就同爹哋講聲。'
+                       : '攞唔到 pdf.js（CDN 去唔到——公司網絡／廣告攔截都會咁）。',
+             msg, function(){ bkOpen(b); });
+    }else{
+      bkFail(isGuest() ? '呢本書而家開唔到。撳一下再試，唔得就同爹哋講聲。'
+                       : '開唔到 ' + bkPdfUrl(b),
+             msg, function(){ bkOpen(b); });
+    }
+  }
+}
+function bkClose(){
+  const v = el('bkReader'); if(!v) return;
+  bkLogClose();
+  renderSeq++;
+  clearTimeout(hiTimer);
+  v.classList.remove('show');
+  v.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('hubOpen');
+  el('bkThumbs').classList.remove('show');
+  el('bkThGrid').innerHTML = '';
+  try{ if(thObs) thObs.disconnect(); }catch(e){}
+  thObs = null;
+  RD.cache.forEach(function(c){ try{ c.width = c.height = 0; }catch(e){} });
+  RD.cache.clear();
+  bkWrapEl().innerHTML = '';
+  try{ if(RD.doc && RD.doc.destroy) RD.doc.destroy(); }catch(e){}
+  RD.doc = null; RD.book = null; RD.spreads = []; RD.natW = RD.natH = 0;
+}
+
+/* ---------- 縮圖跳頁 ---------- */
+let thObs = null;
+function bkThumbsOpen(){
+  const box = el('bkThumbs'), grid = el('bkThGrid');
+  if(!box || !grid || !RD.doc) return;
+  if(box.classList.contains('show')){ box.classList.remove('show'); return; }
+  box.classList.add('show');
+  if(grid.childElementCount){ bkSyncBar(); return; }
+  for(let p = 1; p <= RD.pageCount; p++){
+    const d = document.createElement('div');
+    d.className = 'bkTh'; d.dataset.p = String(p);
+    const ph = document.createElement('div'); ph.className = 'bkThBox';
+    d.appendChild(ph);
+    const lb = document.createElement('div'); lb.textContent = '第 ' + p + ' 版';
+    d.appendChild(lb);
+    d.onclick = function(){
+      const i = bkSpreadOfPage(RD.spreads, p);
+      box.classList.remove('show');
+      if(i >= 0) bkShow(i);
+    };
+    grid.appendChild(d);
+  }
+  /* 500 版嘅書一次過畫會即刻卡死。見到先畫，畫完插個記號防止重畫。 */
+  thObs = new IntersectionObserver(function(ents){
+    ents.forEach(function(en){
+      if(!en.isIntersecting) return;
+      const d = en.target;
+      if(d.dataset.done === '1') return;
+      d.dataset.done = '1';
+      const p = parseInt(d.dataset.p, 10);
+      bkPageCanvas(RD.doc, p, 0.22).then(function(c){
+        const ph = d.querySelector('.bkThBox');
+        if(ph){ ph.replaceWith(c); }
+      }).catch(function(){ d.dataset.done = ''; });
+    });
+  }, {root:box, rootMargin:'400px'});
+  grid.querySelectorAll('.bkTh').forEach(function(d){ thObs.observe(d); });
+  bkSyncBar();
+}
+
+/* ---------- 手指 ----------
+   ⚠ 一律自己做 pan／zoom，唔靠原生捲動：原生捲動之下「而家仲揀唔揀得郁」
+     好難問得準，而「撥一下」同「捲一下」就會爭。
+   ⚠ 由掣起手嘅 touch 唔算撥頁——唔係佢想撳 🔊（第二期）就會變咗揭頁。 */
+let TT = null;
+function tDist(t){
+  const dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY;
+  return Math.sqrt(dx * dx + dy * dy) || 1;
+}
+function tMid(t, r){
+  return {x:(t[0].clientX + t[1].clientX) / 2 - r.left, y:(t[0].clientY + t[1].clientY) / 2 - r.top};
+}
+function bkBindTouch(){
+  const st = bkStage(); if(!st) return;
+  st.addEventListener('touchstart', function(e){
+    if(e.target.closest('button')) return;
+    const r = st.getBoundingClientRect();
+    if(e.touches.length === 2){
+      const m = tMid(e.touches, r);
+      TT = {mode:'pinch', d0:tDist(e.touches), z0:VW.z, x0:VW.x, y0:VW.y, cx:m.x, cy:m.y};
+      e.preventDefault();
+    }else if(e.touches.length === 1){
+      const sw = st.clientWidth;
+      TT = {mode:'pan', sx:e.touches[0].clientX, sy:e.touches[0].clientY,
+            x0:VW.x, y0:VW.y, t0:Date.now(), moved:false,
+            wide:(RD.natW * VW.z > sw + 2)};
+    }
+  }, {passive:false});
+  st.addEventListener('touchmove', function(e){
+    if(!TT) return;
+    if(TT.mode === 'pinch' && e.touches.length === 2){
+      const r = st.getBoundingClientRect();
+      const z = Math.min(VW.fit * 8, Math.max(VW.fit * 0.9, TT.z0 * (tDist(e.touches) / TT.d0)));
+      VW.x = TT.cx - (TT.cx - TT.x0) * (z / TT.z0);
+      VW.y = TT.cy - (TT.cy - TT.y0) * (z / TT.z0);
+      VW.z = z;
+      bkApply();
+      e.preventDefault();
+      return;
+    }
+    if(TT.mode === 'pan' && e.touches.length === 1){
+      const dx = e.touches[0].clientX - TT.sx, dy = e.touches[0].clientY - TT.sy;
+      if(Math.abs(dx) > 6 || Math.abs(dy) > 6) TT.moved = true;
+      VW.x = TT.x0 + dx; VW.y = TT.y0 + dy;
+      bkApply();
+      e.preventDefault();
+    }
+  }, {passive:false});
+  const done = function(e){
+    if(!TT) return;
+    const t = TT; TT = null;
+    if(t.mode === 'pinch'){ bkMaybeHi(); return; }
+    const ch = e.changedTouches && e.changedTouches[0];
+    if(!ch) return;
+    const dx = ch.clientX - t.sx, dy = ch.clientY - t.sy;
+    /* 撥頁：淨係喺「橫向已經冇嘢好捲」嗰陣先算，唔係佢想睇右邊嗰版都會跳版。 */
+    if(!t.wide && Math.abs(dx) > 60 && Math.abs(dy) < 60 && (Date.now() - t.t0) < 700){
+      /* 右至左嘅書（直排中文、日文漫畫）撥返轉頭先係「下一版」。 */
+      bkGo((RD.book && RD.book.rtl) ? (dx > 0 ? 1 : -1) : (dx < 0 ? 1 : -1));
+      return;
+    }
+    if(!t.moved && (Date.now() - t.t0) < 320){
+      const now = Date.now();
+      if(now - (bkBindTouch._tap || 0) < 320){
+        bkBindTouch._tap = 0;
+        const r = st.getBoundingClientRect();
+        if(VW.z > VW.fit * 1.05) bkFit();
+        else bkZoom(2, ch.clientX - r.left, ch.clientY - r.top);
+      }else bkBindTouch._tap = now;
+    }
+  };
+  st.addEventListener('touchend', done, {passive:false});
+  st.addEventListener('touchcancel', function(){ TT = null; });
+  /* 滑鼠（爹哋喺電腦度試機）：拖住 pan，滾輪縮放。 */
+  let md = null;
+  st.addEventListener('mousedown', function(e){
+    if(e.target.closest('button')) return;
+    md = {sx:e.clientX, sy:e.clientY, x0:VW.x, y0:VW.y};
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', function(e){
+    if(!md) return;
+    VW.x = md.x0 + (e.clientX - md.sx); VW.y = md.y0 + (e.clientY - md.sy);
+    bkApply();
+  });
+  window.addEventListener('mouseup', function(){ md = null; });
+  st.addEventListener('wheel', function(e){
+    if(!el('bkReader').classList.contains('show')) return;
+    const r = st.getBoundingClientRect();
+    bkZoom(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX - r.left, e.clientY - r.top);
+    e.preventDefault();
+  }, {passive:false});
+}
+
+/* ================= Charlotte 嗰個書架 ================= */
+async function bkRenderShelf(){
+  const box = el('bkHubBox'); if(!box) return;
+  ensureBooks();
+  const items = bkItems(true);
+  box.innerHTML = '';
+  if(!items.length) return;
+  const sec = document.createElement('div');
+  sec.className = 'bkShelf';
+  const h = document.createElement('div');
+  h.className = 'bkShelfT';
+  h.textContent = '📕 睇書';
+  sec.appendChild(h);
+  const grid = document.createElement('div');
+  grid.className = 'bkCards';
+  sec.appendChild(grid);
+  box.appendChild(sec);
+  items.forEach(function(x){
+    const card = document.createElement('div');
+    card.className = 'bkCard';
+    /* ⚠ 條 URL 由頭到尾唔會入 DOM：唔做 data-url、唔做 <a href>。
+       撳落去嗰刻先由 state 攞返。 */
+    const cov = document.createElement('div');
+    cov.className = 'bkCov';
+    cov.textContent = '📕';
+    card.appendChild(cov);
+    const bot = document.createElement('div');
+    bot.className = 'bkCardB';
+    const t = document.createElement('span');
+    t.className = 'bkT'; t.textContent = x.title;
+    bot.appendChild(t);
+    /* 🔊：佢讀唔曬啲字。一排冇喇叭嘅書名，對佢嚟講就係一堆花紋。 */
+    const spk = document.createElement('button');
+    spk.type = 'button'; spk.className = 'hcSpk'; spk.textContent = '🔊';
+    spk.setAttribute('aria-label', '讀出：' + x.title);
+    let fired = 0;
+    const doSpeak = function(e){
+      const now = Date.now();
+      if(now - fired < 400) return;
+      fired = now;
+      e.stopPropagation(); e.preventDefault();
+      if(typeof window.ttsSpeak === 'function') window.ttsSpeak(x.title, spk);
+    };
+    spk.addEventListener('touchend', doSpeak, {passive:false});
+    spk.addEventListener('click', doSpeak);
+    bot.appendChild(spk);
+    card.appendChild(bot);
+    card.onclick = function(){ bkOpen(x); };
+    grid.appendChild(card);
+    /* 封面陸續填返落去——唔可以等齊晒先畫，本本書都要等就變咗一版空白。 */
+    BookCloud.covGet(x.id).then(function(d){
+      if(!d) return;
+      const img = document.createElement('img');
+      img.alt = ''; img.src = d;
+      cov.textContent = ''; cov.appendChild(img);
+    }).catch(function(){});
+  });
+}
+
+/* ================= 爹哋張管理表 ================= */
+let bkDrag = null;
+function bkBindDrag(box){
+  box.querySelectorAll('.bkGrip').forEach(function(g){
+    g.addEventListener('pointerdown', function(e){
+      const row = g.closest('.bkRow'); if(!row) return;
+      bkDrag = {id:row.dataset.id, row:row, y:e.clientY, moved:false};
+      row.classList.add('dragging');
+      try{ g.setPointerCapture(e.pointerId); }catch(err){}
+      e.preventDefault();
+    });
+    g.addEventListener('pointermove', function(e){
+      if(!bkDrag) return;
+      if(Math.abs(e.clientY - bkDrag.y) < 6) return;
+      bkDrag.moved = true;
+      const sec = bkDrag.row.closest('.hubStSec'); if(!sec) return;
+      const rows = [].slice.call(sec.querySelectorAll('.bkRow'));
+      let tgt = null, after = false;
+      rows.forEach(function(r){
+        if(r === bkDrag.row) return;
+        const b = r.getBoundingClientRect();
+        if(e.clientY >= b.top && e.clientY <= b.bottom){ tgt = r; after = (e.clientY > b.top + b.height / 2); }
+      });
+      if(!tgt) return;
+      if(bkMove(bkDrag.id, tgt.dataset.id, after)){
+        bkDrag.y = e.clientY;
+        save(); bkRenderRows();
+        const nr = document.querySelector('.bkRow[data-id="' + bkDrag.id + '"]');
+        if(nr){ bkDrag.row = nr; nr.classList.add('dragging'); }
+      }
+    });
+    const stop = function(){
+      if(!bkDrag) return;
+      try{ bkDrag.row.classList.remove('dragging'); }catch(err){}
+      const moved = bkDrag.moved;
+      bkDrag = null;
+      if(moved) bkRenderRows();
+    };
+    g.addEventListener('pointerup', stop);
+    g.addEventListener('pointercancel', stop);
+  });
+}
+function bkNoteTxt(b){
+  if(!b.pages) return '仲未檢查過。貼咗網址就撳「🔍 檢查」。';
+  const L = ['✓ ' + b.pages + ' 版' + (b.cov ? ' · 有封面' : ' · 冇封面')];
+  if(b.txt === 'ok'){
+    let s = '✓ text.md：' + (b.txtN || 0) + ' 版';
+    if(b.empty && b.empty.length) s += ' · 抽唔到字嘅版：' + b.empty.join('、');
+    if(b.gaps && b.gaps.length)   s += ' · 缺咗：' + b.gaps.join('、');
+    if(b.suspect && b.suspect.length) s += ' · ⚠ OCR 自己標咗有機會出錯：' + b.suspect.join('、');
+    L.push(s);
+  }else if(b.txt === 'none'){
+    L.push('· 冇 text.md（唔影響睇書。第三期要 AI 答書入面嘅嘢就要有）');
+  }
+  return L.join('\n');
+}
+function bkRenderRows(){
+  const box = el('bkRows'); if(!box) return;
+  ensureBooks();
+  box.innerHTML = '';
+  const dl = el('bkCatList');
+  if(dl){
+    dl.innerHTML = '';
+    const seen = [];
+    bkItems(false).forEach(function(x){ if(x.cat && seen.indexOf(x.cat) < 0) seen.push(x.cat); });
+    seen.forEach(function(c){ const o = document.createElement('option'); o.value = c; dl.appendChild(o); });
+  }
+  BK_ST.forEach(function(st){
+    const ord = bkOrdered(st.k);
+    const sec = document.createElement('details');
+    sec.className = 'hubStSec';
+    sec.open = (st.k === 'live') || (st.k === 'pool' && ord.length > 0);
+    const sm = document.createElement('summary');
+    sm.textContent = st.name + '　' + ord.length + ' 本　（' + st.note + '）';
+    sec.appendChild(sm);
+    if(!ord.length){
+      const p = document.createElement('p');
+      p.className = 'subnote'; p.textContent = '（冇）';
+      sec.appendChild(p);
+    }
+    let ls = '', lc = null;
+    ord.forEach(function(o){
+      const x = o.it;
+      if(o.subj.k !== ls){
+        const h = document.createElement('div');
+        h.className = 'hubMgSubj';
+        h.innerHTML = '<span class="hubDot" style="background:' + o.subj.color + '"></span>' +
+                      '<span style="color:' + o.subj.color + '">' + o.subj.name + '</span>';
+        sec.appendChild(h); ls = o.subj.k; lc = null;
+      }
+      if((o.cat || '') !== lc){
+        lc = o.cat || '';
+        if(lc){ const c = document.createElement('div'); c.className = 'hubMgCat'; c.textContent = lc; sec.appendChild(c); }
+      }
+      const row = document.createElement('div');
+      row.className = 'bkRow'; row.dataset.id = x.id;
+
+      const l1 = document.createElement('div'); l1.className = 'bkLine';
+      const grip = document.createElement('span');
+      grip.className = 'hrGrip bkGrip'; grip.textContent = '⠿'; grip.title = '拖住換位';
+      l1.appendChild(grip);
+      const sel = document.createElement('select');
+      BK_SUBJ.forEach(function(s){
+        const op = document.createElement('option'); op.value = s.k; op.textContent = s.name;
+        if(s.k === x.subj) op.selected = true;
+        sel.appendChild(op);
+      });
+      sel.onchange = function(){ x.subj = sel.value; save(); bkRenderRows(); };
+      l1.appendChild(sel);
+      const cat = document.createElement('input');
+      cat.type = 'text'; cat.placeholder = '分類（例：單元一）'; cat.value = x.cat || '';
+      cat.setAttribute('list', 'bkCatList');
+      cat.style.cssText = 'flex:0 1 150px;min-width:0';
+      cat.onchange = function(){ x.cat = cat.value.trim(); save(); bkRenderRows(); };
+      l1.appendChild(cat);
+      const ti = document.createElement('input');
+      ti.type = 'text'; ti.className = 'bkTi'; ti.placeholder = '書名（Charlotte 見到嘅字）';
+      ti.value = x.title || '';
+      ti.onchange = function(){ x.title = ti.value.trim(); save(); };
+      l1.appendChild(ti);
+      row.appendChild(l1);
+
+      const l2 = document.createElement('div'); l2.className = 'bkLine';
+      const url = document.createElement('input');
+      url.type = 'text'; url.className = 'bkUrl';
+      url.placeholder = 'https://wcheung1.github.io/homework-hub/books/sci-1a/';
+      url.value = x.url || '';
+      url.onchange = function(){
+        const v = bkFolder(url.value);
+        if(v !== x.url){ x.url = v; x.pages = 0; x.txt = ''; save(); }
+        url.value = v;
+        bkRenderRows();
+      };
+      l2.appendChild(url);
+      const chk = document.createElement('button');
+      chk.type = 'button'; chk.className = 'btn'; chk.textContent = '🔍 檢查';
+      chk.onclick = function(){ bkCheck(x, chk); };
+      l2.appendChild(chk);
+      row.appendChild(l2);
+
+      const l3 = document.createElement('div'); l3.className = 'bkLine';
+      const cl = document.createElement('label'); cl.className = 'bkLbl';
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!x.cover;
+      cb.onchange = function(){ x.cover = cb.checked; save(); };
+      cl.appendChild(cb);
+      cl.appendChild(document.createTextNode(' 第 1 版自己一版（封面）'));
+      l3.appendChild(cl);
+      const rl = document.createElement('label'); rl.className = 'bkLbl';
+      const rb = document.createElement('input'); rb.type = 'checkbox'; rb.checked = !!x.rtl;
+      rb.onchange = function(){ x.rtl = rb.checked; save(); };
+      rl.appendChild(rb);
+      rl.appendChild(document.createTextNode(' 由右揭到左'));
+      l3.appendChild(rl);
+      const ops = document.createElement('div'); ops.className = 'bkOps';
+      BK_ST.forEach(function(s){
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'btn hrSt' + (x.st === s.k ? ' on' : '');
+        b.textContent = s.name; b.title = s.note;
+        b.onclick = function(){ bkSetSt(x, s.k); save(); bkRenderRows(); };
+        ops.appendChild(b);
+      });
+      const pv = document.createElement('button');
+      pv.type = 'button'; pv.className = 'btn'; pv.textContent = '👁 睇下';
+      pv.onclick = function(){ hide('bkAdminModal'); bkOpen(x); };
+      ops.appendChild(pv);
+      const del = document.createElement('button');
+      del.type = 'button'; del.className = 'btn danger'; del.textContent = '🗑';
+      del.title = '刪走';
+      del.onclick = function(){
+        if(!confirm('刪走《' + (x.title || '冇書名') + '》？\n\n唔想 Charlotte 見到但想留返，撳「📦 封存」好過刪。')) return;
+        const i = state.books.indexOf(x);
+        if(i >= 0) state.books.splice(i, 1);
+        save();
+        BookCloud.del(x.id).catch(function(){});
+        bkRenderRows(); bkRenderShelf();
+      };
+      ops.appendChild(del);
+      l3.appendChild(ops);
+      row.appendChild(l3);
+
+      const bad = bkUrlProblem(x.url);
+      const note = document.createElement('p');
+      note.className = 'bkNote' + (bad ? ' bad' : (x.pages ? ' ok' : ''));
+      note.textContent = bad ? ('⚠ ' + bad) : bkNoteTxt(x);
+      row.appendChild(note);
+      sec.appendChild(row);
+    });
+    box.appendChild(sec);
+  });
+  bkBindDrag(box);
+  const n = el('bkEditNote');
+  if(n) n.textContent = '共 ' + bkItems(false).length + ' 本。上下次序就係 Charlotte 書架上見到嘅次序（拖粒 ⠿ 換位）。' +
+    '　MP3 語音伴讀係第二期，AI 睇孖頁答問題係第三期。';
+}
+
+/* 🔍 檢查：貼完即刻試一次，唔會等 Charlotte 撳開先發現（北極星第二條）。
+   做三件事：開個 PDF 數版數、抽第 1 頁做封面、順手攞 text.md 切版報窿。 */
+async function bkCheck(b, btn){
+  const bad = bkUrlProblem(b.url);
+  if(bad){ say(bad); return; }
+  const old = btn ? btn.textContent : '';
+  if(btn){ btn.disabled = true; btn.textContent = '⏳ 試緊…'; }
+  try{
+    const doc = await bkOpenDoc(bkPdfUrl(b));
+    b.pages = doc.numPages;
+    /* 封面：第 1 版縮到 240px 闊，JPEG q0.7，大約 15–30KB。
+       擺去平行節點，唔可以入主 state（全樹監聽）。 */
+    b.cov = false;
+    try{
+      const pg = await doc.getPage(1);
+      const v1 = pg.getViewport({scale:1});
+      const c = await bkPageCanvas(doc, 1, Math.max(0.1, BK_COV_W / Math.max(1, v1.width)));
+      const d = c.toDataURL('image/jpeg', 0.7);
+      c.width = c.height = 0;
+      b.cov = await BookCloud.covPut(b.id, d);
+    }catch(e){ console.warn('封面', e); }
+    /* text.md 可有可無。攞唔到唔係錯——但一定要講返，唔可以靜靜雞當佢有。 */
+    b.txt = 'none'; b.txtN = 0; b.empty = []; b.gaps = []; b.suspect = [];
+    try{
+      const r = await fetch(bkTxtUrl(b), {cache:'no-store'});
+      if(r.ok){
+        const p = bkParseText(await r.text(), b.pages);
+        b.txt = 'ok'; b.txtN = p.found.length;
+        b.empty = p.empty; b.gaps = p.gaps; b.suspect = p.suspect;
+        await BookCloud.docPut(b.id, {id:b.id, txt:p.pages, empty:p.empty, gaps:p.gaps, at:fmtDate(new Date())});
+      }
+    }catch(e){ console.warn('text.md', e); }
+    try{ if(doc.destroy) doc.destroy(); }catch(e){}
+    save();
+    bkRenderRows();
+    say('✓ ' + b.pages + ' 版' + (b.cov ? '、封面攞到' : '、封面攞唔到') +
+        (b.txt === 'ok' ? '、text.md ' + b.txtN + ' 版' : '、冇 text.md'));
+  }catch(e){
+    b.pages = 0; save(); bkRenderRows();
+    const msg = String((e && e.message) || e);
+    say(/pdf\.js/.test(msg) ? ('攞唔到 pdf.js：' + cut(msg, 90))
+                            : ('開唔到 ' + bkPdfUrl(b) + '　' + cut(msg, 90)));
+  }finally{
+    if(btn){ btn.disabled = false; btn.textContent = old; }
+  }
+}
+
+/* ⬇ 匯出書單：次序就係 Charlotte 見到嘅次序——冇咗次序，份檔就講唔到「邊本擺上面」。
+   順手出埋 text.md 嘅情況，等你貼上嚟嗰陣我一眼睇到邊本要補。 */
+function bkExportMd(){
+  ensureBooks();
+  const all = bkItems(false);
+  const L = ['# 睇書設定　' + fmtDate(new Date()), '',
+             '共 ' + all.length + ' 本。下面嘅上下次序，就係 Charlotte 書架上見到嘅次序。',
+             '頁碼一律係 PDF 物理頁碼（第 1 版＝封面），唔係書上面印嗰個。', ''];
+  BK_ST.forEach(function(st){
+    const ord = bkOrdered(st.k);
+    L.push('---', '', '## ' + st.name + '（' + st.note + '）　' + ord.length + ' 本', '');
+    if(!ord.length){ L.push('（冇）', ''); return; }
+    let ls = '', lc = null;
+    ord.forEach(function(o){
+      const x = o.it;
+      if(o.subj.k !== ls){ L.push('### ' + o.subj.name); ls = o.subj.k; lc = null; }
+      if((o.cat || '') !== lc){ lc = o.cat || ''; if(lc) L.push('', '**' + lc + '**'); }
+      L.push('', '- **' + (x.title || '（冇書名）') + '**');
+      L.push('  - 資料夾：' + (x.url || '（未填）'));
+      L.push('  - 排版：' + (x.cover ? '第 1 版自己一版' : '由第 1 版就孖埋') +
+             ' · ' + (x.rtl ? '由右揭到左' : '由左揭到右'));
+      L.push('  - 版數：' + (x.pages || '（未檢查）') + ' · 封面：' + (x.cov ? '有' : '冇'));
+      if(x.txt === 'ok'){
+        L.push('  - text.md：' + (x.txtN || 0) + ' 版' +
+               (x.empty && x.empty.length ? ' · 抽唔到字：' + x.empty.join('、') : '') +
+               (x.gaps && x.gaps.length ? ' · 缺咗：' + x.gaps.join('、') : '') +
+               (x.suspect && x.suspect.length ? ' · ⚠ OCR 標咗有機會出錯：' + x.suspect.join('、') : ''));
+      }else if(x.pages){
+        L.push('  - text.md：冇');
+      }
+    });
+    L.push('');
+  });
+  L.push('---', '', '## 未做嘅', '',
+         '- 語音伴讀（MP3）：第二期。檔名約定 `audio/pNN-MM.mp3`，用 PDF 物理頁碼。',
+         '- AI 睇孖頁答問題：第三期。要有 text.md，冇字嗰幾版要行睇相線補。', '');
+  return L.join('\n');
+}
+
+/* ================= 掛掣 ================= */
+function bkAdminOpen(){
+  if(isGuest()) return;               /* CSS 已經收埋咗粒掣，呢度再擋一次 */
+  ensureBooks(); bkRenderRows(); show('bkAdminModal');
+}
+if(el('bkAdmin')) el('bkAdmin').onclick = bkAdminOpen;
+el('bkAdd').onclick = function(){
+  ensureBooks();
+  state.books.push({id:uid(), subj:'other', cat:'', title:'', url:'',
+                    cover:true, rtl:false, st:'pool', pages:0});
+  save(); bkRenderRows();
+};
+el('bkEditDone').onclick = function(){ hide('bkAdminModal'); bkRenderShelf(); };
+el('bkExport').onclick = function(){
+  try{
+    const md = bkExportMd();
+    const blob = new Blob([md], {type:'text/markdown;charset=utf-8'});
+    const u = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = u; a.download = '睇書設定_' + fmtDate(new Date()) + '.md';
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ try{ a.remove(); URL.revokeObjectURL(u); }catch(e){} }, 4000);
+    say('匯出咗（連次序）');
+  }catch(e){ say('匯出唔到：' + cut(String((e && e.message) || e), 70)); }
+};
+el('bkPrev').onclick = function(){ bkGo(-1); };
+el('bkNext').onclick = function(){ bkGo(1); };
+el('bkClose').onclick = bkClose;
+el('bkThumbBtn').onclick = bkThumbsOpen;
+el('bkZoomIn').onclick  = function(){ bkZoom(1.25); };
+el('bkZoomOut').onclick = function(){ bkZoom(1 / 1.25); };
+el('bkZoomFit').onclick = function(){ bkFit(); };
+bkBindTouch();
+window.addEventListener('resize', function(){
+  if(el('bkReader').classList.contains('show') && RD.natW) bkFit();
+});
+/* ⚠ 佢唔一定會撳 ✕：熄畫面、切走去第二個 app、閂 browser 都會離開。
+   冇呢兩句，嗰啲情況就只會留低一條「入咗」，永遠冇「睇咗幾耐」。 */
+window.addEventListener('pagehide', bkLogClose);
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'hidden') bkLogClose();
+});
+/* 鍵盤。兩個守衛缺一不可：閱讀器未開就唔好搶掣；打緊字更加唔好搶。
+   冇第二個守衛，佢喺跳頁格打「10」，個「0」會即刻 reset zoom。 */
+document.addEventListener('keydown', function(e){
+  const v = el('bkReader');
+  if(!v || !v.classList.contains('show')) return;
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || '')) return;
+  const k = e.key;
+  if(k === 'Escape'){ e.stopPropagation(); e.preventDefault(); bkClose(); return; }
+  if(k === 'ArrowLeft'  || k === 'PageUp'){   bkGo(-1); e.preventDefault(); return; }
+  if(k === 'ArrowRight' || k === 'PageDown'){ bkGo(1);  e.preventDefault(); return; }
+  if(k === '+' || k === '='){ bkZoom(1.25); e.preventDefault(); return; }
+  if(k === '-' || k === '_'){ bkZoom(1 / 1.25); e.preventDefault(); return; }
+  if(k === '0'){ bkFit(); e.preventDefault(); return; }
+}, true);
+modalX('bkAdminModal');
+
+/* 學習角個 IIFE 同頂層都要叫得到。呢度係另一個 IIFE——唔掛上 window 就 ReferenceError，
+   而且會俾空 catch 食咗（交接檔 6.2、6.19）。 */
+Object.assign(window, {
+  bookAdminOpen: bkAdminOpen,
+  bookRenderShelf: bkRenderShelf,
+  bookCloseReader: bkClose,
+  bookReaderOpen: function(){ const v = el('bkReader'); return !!(v && v.classList.contains('show')); }
+});
+})();
+
 </script>
 
 </body>
