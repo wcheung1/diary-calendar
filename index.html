@@ -1045,7 +1045,7 @@ body.readonly #bkAdmin{display:none!important}
   background:rgba(20,22,20,.86);color:#fff;padding:8px 14px;border-radius:999px;
   font-size:13px;pointer-events:none;transition:opacity .5s;max-width:88%;text-align:center}
 /* 縮圖跳頁。逐張 lazy 畫——500 版嘅書一次過畫會即刻卡死部 iPad。 */
-#bkThumbs{position:absolute;inset:0;background:rgba(24,26,24,.96);overflow:auto;
+#bkThumbs{position:absolute;inset:0;z-index:4;background:rgba(24,26,24,.96);overflow:auto;
   padding:12px;display:none}
 #bkThumbs.show{display:block}
 .bkThGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px}
@@ -1056,11 +1056,12 @@ body.readonly #bkAdmin{display:none!important}
 .bkThBox{width:100%;aspect-ratio:3/4;border-radius:4px;background:#44463f}
 /* 問答個 box 佔右邊（打橫）或者下面（打直）。書嗰邊會自動縮返落剩低嗰忽，
    所以佢望緊嗰一版由頭到尾一個字都唔會俾遮住。 */
-.bkChat{position:absolute;right:0;top:0;bottom:0;width:42%;display:none;
+.bkChat{position:absolute;right:0;top:0;bottom:0;width:clamp(300px,42%,520px);
+  z-index:3;display:none;
   flex-direction:column;background:var(--panel);border-left:1px solid var(--line)}
 .bkChat.show{display:flex}
 @media (orientation:portrait){
-  .bkChat{right:0;left:0;top:auto;bottom:0;width:auto;height:46%;
+  .bkChat{right:0;left:0;top:auto;bottom:0;width:auto;height:min(46%,320px);
     border-left:0;border-top:1px solid var(--line)}
 }
 .bkChatBar{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:7px 9px;
@@ -1076,12 +1077,22 @@ body.readonly #bkAdmin{display:none!important}
 .bkChat .bkChatIn{flex:0 0 auto;display:flex;gap:6px;padding:8px;border-top:1px solid var(--line)}
 .bkChat .bkChatIn textarea{flex:1 1 auto;min-width:0;font-size:15px;padding:7px 9px;
   border:1px solid var(--line);border-radius:10px;resize:none}
+/* ⚠ 16px 係硬要求，唔係美術決定：iOS Safari 見到 font-size < 16px 嘅輸入框，
+   一撳就會自動放大成版。喺一個 position:fixed 嘅全螢幕閱讀器度，
+   嗰下放大睇落就係「成個 app 爆咗」。 */
+.bkChat .bkChatIn textarea{font-size:16px}
 .bkChatGo{flex:0 0 auto;border:0;background:var(--accent);color:#fff;border-radius:10px;
   padding:0 14px;font-size:17px;cursor:pointer}
 .bkDescGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:8px 0}
 .bkDescCard{border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--card)}
 /* 語音伴讀嗰條 bar。冇錄音嘅版根本唔會出——唔好出一條撳極都冇聲嘅嘢。 */
-.bkAu{position:absolute;left:0;right:0;bottom:0;display:none;gap:8px;align-items:center;
+/* ⚠ 條 bar 本來係 left:0;right:0;bottom:0 —— 即係成條底邊。
+   問答個 box 一開（打橫貼右、打直貼底），兩樣就會疊埋，而條 bar 喺 DOM 度
+   排喺後面，會蓋住問答嗰個輸入格 ＋ 送出掣：打得字，但撳唔到送，
+   打直嗰陣連個輸入格都摸唔到。
+   而家條 bar 嘅右邊／下邊由 --bkAuR / --bkAuB 控制，同 RD.inset 同一個來源。 */
+.bkAu{position:absolute;left:0;right:var(--bkAuR,0px);bottom:var(--bkAuB,0px);
+  z-index:2;display:none;gap:8px;align-items:center;
   padding:9px 10px;background:rgba(20,22,20,.92);color:#eef0ed}
 .bkAu.show{display:flex}
 .bkAu button{flex:0 0 auto;border:1px solid #4a4d46;background:#33352f;color:#eef0ed;
@@ -2465,7 +2476,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-11a";
+const BUILD = "2026-09-11b";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -21824,6 +21835,8 @@ function bkClose(){
   el('bkAu').classList.remove('show');
   el('bkChat').classList.remove('show');
   RD.inset = null; bkChatMsgs = []; bkChatPage = 0;
+  bkAuInset(0, 0);
+  v.style.height = ''; v.style.top = '';
   try{ if(thObs) thObs.disconnect(); }catch(e){}
   thObs = null;
   RD.cache.forEach(function(c){ try{ c.width = c.height = 0; }catch(e){} });
@@ -21888,7 +21901,10 @@ function tMid(t, r){
 function bkBindTouch(){
   const st = bkStage(); if(!st) return;
   st.addEventListener('touchstart', function(e){
-    if(e.target.closest('button')) return;
+    /* ⚠ 本來淨係排除 button。個 textarea 唔係 button，所以喺 iPad 上面
+       撳落個輸入格會當咗「篤一下版面」＝ 播／停錄音；用手指想捲問答嗰段字，
+       亦都會變咗拖緊本書。#bkChat 成橛要排除埋。 */
+    if(e.target.closest('button, input, textarea, #bkAu, #bkThumbs, #bkChat')) return;
     const r = st.getBoundingClientRect();
     if(e.touches.length === 2){
       const m = tMid(e.touches, r);
@@ -21944,13 +21960,13 @@ function bkBindTouch(){
   /* 滑鼠（爹哋喺電腦度試機）：拖住 pan，滾輪縮放。 */
   let md = null;
   st.addEventListener('mousedown', function(e){
-    if(e.target.closest('button, input, #bkAu, #bkThumbs')) return;
+    if(e.target.closest('button, input, textarea, #bkAu, #bkThumbs, #bkChat')) return;
     md = {sx:e.clientX, sy:e.clientY, x0:VW.x, y0:VW.y, moved:false};
     e.preventDefault();
   });
   /* 爹哋喺電腦度試機：撳一下（冇拖過）一樣係播／停。 */
   st.addEventListener('click', function(e){
-    if(e.target.closest('button, input, #bkAu, #bkThumbs')) return;
+    if(e.target.closest('button, input, textarea, #bkAu, #bkThumbs, #bkChat')) return;
     if(md && md.moved) return;
     auTapAt(e.clientX, e.clientY);
   });
@@ -21963,6 +21979,8 @@ function bkBindTouch(){
   window.addEventListener('mouseup', function(){ setTimeout(function(){ md = null; }, 0); });
   st.addEventListener('wheel', function(e){
     if(!el('bkReader').classList.contains('show')) return;
+    /* 冇呢句，喺電腦度想碌問答嗰段字，會變咗放大本書（因為下面有 preventDefault）。 */
+    if(e.target.closest('#bkChat, #bkThumbs, #bkAu')) return;
     const r = st.getBoundingClientRect();
     bkZoom(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX - r.left, e.clientY - r.top);
     e.preventDefault();
@@ -22580,13 +22598,41 @@ function bkChatClose(){
   const panel = el('bkChat'); if(!panel) return;
   panel.classList.remove('show');
   RD.inset = null;
+  bkAuInset(0, 0);
+  try{ el('bkChatIn').blur(); }catch(e){}   /* 唔收鍵盤，個閱讀器會一直縮住 */
   bkFit();
 }
-function bkInsetApply(){
+function bkAuInset(r, b){
   const st = bkStage(); if(!st) return;
-  const land = st.clientWidth >= st.clientHeight;
-  RD.inset = land ? {r:Math.round(st.clientWidth * 0.42), b:0}
-                  : {r:0, b:Math.round(st.clientHeight * 0.46)};
+  st.style.setProperty('--bkAuR', (r | 0) + 'px');
+  st.style.setProperty('--bkAuB', (b | 0) + 'px');
+}
+/* ⚠ 本來呢度寫死 42%／46%，同 CSS 各抄一份。CSS 一改（例如桌面封頂 520px），
+   JS 就會算錯，結果係「本書 fit 咗落個 box 底下」——而畫面上冇任何錯誤訊息。
+   而家一律度返個 box 實際佔咗幾多，CSS 係唯一來源。 */
+function bkInsetApply(){
+  const st = bkStage(), p = el('bkChat');
+  if(!st) return;
+  if(!p || !p.classList.contains('show')){ RD.inset = null; bkAuInset(0, 0); return; }
+  const sr = st.getBoundingClientRect(), pr = p.getBoundingClientRect();
+  const wide = pr.width < sr.width - 4;      /* 貼右 ＝ 打橫；霸晒成條闊 ＝ 貼底 */
+  RD.inset = wide ? {r:Math.max(0, Math.round(sr.right - pr.left)), b:0}
+                  : {r:0, b:Math.max(0, Math.round(sr.bottom - pr.top))};
+  bkAuInset(RD.inset.r, RD.inset.b);
+}
+/* 鍵盤。iOS Safari 同而家嘅 Android Chrome 都係「唔縮 layout viewport，
+   直接將鍵盤蓋上去」——position:fixed 嘅閱讀器唔會自己縮，個輸入格就會
+   匿咗喺鍵盤下面，佢打字睇唔到自己打緊乜。
+   所以跟 visualViewport 嘅實際高度同位置去縮返個閱讀器。 */
+function bkVV(){
+  const v = el('bkReader');
+  if(!v) return;
+  const vv = window.visualViewport;
+  if(!v.classList.contains('show') || !vv){ v.style.height = ''; v.style.top = ''; return; }
+  v.style.top = Math.round(vv.offsetTop) + 'px';
+  v.style.height = Math.round(vv.height) + 'px';
+  if(el('bkChat').classList.contains('show')){ bkInsetApply(); bkFitPage(bkChatPage); }
+  else if(RD.natW) bkFit();
 }
 /* 將指定嗰一版 fit 落「扣走個 box 之後」剩返嗰忽。 */
 function bkFitPage(p){
@@ -22735,8 +22781,12 @@ el('bkZoomOut').onclick = function(){ bkZoom(1 / 1.25); };
 el('bkZoomFit').onclick = function(){ bkFit(); };
 bkBindTouch();
 window.addEventListener('resize', function(){
-  if(el('bkReader').classList.contains('show') && RD.natW) bkFit();
+  if(el('bkReader').classList.contains('show') && RD.natW){ bkInsetApply(); bkFit(); }
 });
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize', bkVV);
+  window.visualViewport.addEventListener('scroll', bkVV);
+}
 /* ⚠ 佢唔一定會撳 ✕：熄畫面、切走去第二個 app、閂 browser 都會離開。
    冇呢兩句，嗰啲情況就只會留低一條「入咗」，永遠冇「睇咗幾耐」。 */
 window.addEventListener('pagehide', bkLogClose);
