@@ -1070,10 +1070,18 @@ body.readonly #bkAdmin{display:none!important}
 .bkChatX{border:1px solid var(--line);background:var(--card);border-radius:9px;
   padding:5px 9px;font-size:14px;line-height:1;cursor:pointer}
 .bkChatLog{flex:1 1 auto;overflow:auto;padding:9px;display:flex;flex-direction:column;gap:7px}
-.bkMsg{max-width:92%;padding:8px 10px;border-radius:12px;font-size:14.5px;line-height:1.6;
-  white-space:pre-wrap;word-break:break-word}
-.bkMsg.me{align-self:flex-end;background:var(--accent-soft)}
-.bkMsg.ai{align-self:flex-start;background:var(--hover);border:1px solid var(--line)}
+.bkMsgRow{display:flex;align-items:flex-start;gap:6px;max-width:96%}
+.bkMsgRow.me{align-self:flex-end;flex-direction:row-reverse}
+.bkMsgRow.ai{align-self:flex-start}
+.bkMsgRow .bkMsgSpk{flex:0 0 auto;border:1px solid var(--line);background:var(--card);
+  border-radius:9px;width:32px;height:32px;font-size:15px;line-height:1;padding:0;cursor:pointer}
+.bkMsg{flex:1 1 auto;min-width:0;padding:8px 10px;border-radius:12px;font-size:14.5px;
+  line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.bkMsg.me{background:var(--accent-soft)}
+.bkMsg.ai{background:var(--hover);border:1px solid var(--line)}
+.bkMsgNote{align-self:flex-start;font-size:11.5px;color:var(--muted);padding:0 4px}
+/* 串流嗰陣 makeStreamView 會喺個氣泡入面起返 .chatThink／.chatStream，
+   所以嗰兩個 class 嘅樣式喺呢度唔使再寫——行返傾偈嗰邊同一套。 */
 .bkChat .bkChatIn{flex:0 0 auto;display:flex;gap:6px;padding:8px;border-top:1px solid var(--line)}
 .bkChat .bkChatIn textarea{flex:1 1 auto;min-width:0;font-size:15px;padding:7px 9px;
   border:1px solid var(--line);border-radius:10px;resize:none}
@@ -2476,7 +2484,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-11b";
+const BUILD = "2026-09-11c";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -14475,14 +14483,23 @@ Object.assign(window, {bookAI:{
     return String(out || '').trim();
   },
   /* 問答。ctx 係睇書模組砌好嘅四層上下文，呢度唔砌——
-     邊幾版、點揀、幾多層，係睇書嗰邊嘅知識。 */
-  async ask(question, ctx, history, onDelta){
+     邊幾版、點揀、幾多層，係睇書嗰邊嘅知識。
+     ⚠ 串流一定要行返 makeStreamView(host, guest)，唔好自己寫一個。
+       嗰個 function 入面已經分開咗兩套：
+       · 爹哋　　→ 成段推理攤出嚟（剪到最近 900 字）、答完縮細變淡
+       · Charlotte → 一條走馬燈 ＋ guestThinkLine()（「我個腦喺度轉緊，已經諗咗 N 個字」，
+         仲會分「🔍 搵緊資料」同「👀 望緊你張相」），一開口答就即刻消失
+       自己另寫一個 ＝ 呢兩套喺睇書度全部冇晒，而且第日改咗嗰邊呢邊唔會跟。 */
+  async ask(question, ctx, history, host, guest){
     const msgs = (Array.isArray(history) ? history : []).slice(-12);
+    const view = host ? makeStreamView(host, !!guest) : null;
     const reply = await callAI([
       {role:'system', content: PERSONA_KID + '\n\n' + SYS_BOOK_TALK + '\n\n' + String(ctx || '')}
     ].concat(msgs, [{role:'user', content:String(question || '')}]),
-      {json:false, temp:0.6, max:(cfg().maxTok || CHAT_MAX_DEFAULT), onDelta:onDelta});
-    return (typeof kidClean === 'function') ? kidClean(String(reply || '')) : String(reply || '');
+      {json:false, temp:0.6, max:(cfg().maxTok || CHAT_MAX_DEFAULT), onDelta:view});
+    const clean = (typeof kidClean === 'function') ? kidClean(String(reply || '')) : String(reply || '');
+    /* note 係爹哋先睇嘅（token／錢）；think 嘅字數兩邊都用得，但呈現方式唔同。 */
+    return {text:clean, note:cacheNote(), think:String(AI_LAST_REASON || '')};
   },
   lastUsage(){ try{ return AI_LAST_USAGE ? Object.assign({}, AI_LAST_USAGE) : null; }catch(e){ return null; } }
 }});
@@ -22649,14 +22666,53 @@ function bkFitPage(p){
   const wrap = bkWrapEl();
   if(wrap) wrap.style.transform = 'translate(' + Math.round(VW.x) + 'px,' + Math.round(VW.y) + 'px) scale(' + VW.z + ')';
 }
-function bkChatSay(who, text){
+/* 每一句（佢問嗰句、AI 答嗰句）旁邊都有粒喇叭，各讀各嘅。
+   ⚠ 粒喇叭一定要綁死自己嗰個氣泡，唔可以「讀最後一句」——
+     佢想聽返自己頭先問咗乜，撳落去讀咗個答案出嚟就係錯。 */
+function bkChatBubble(who, text){
   const log = el('bkChatLog'); if(!log) return null;
+  const row = document.createElement('div');
+  row.className = 'bkMsgRow ' + (who === 'me' ? 'me' : 'ai');
   const d = document.createElement('div');
   d.className = 'bkMsg ' + (who === 'me' ? 'me' : 'ai');
-  d.textContent = text;
+  if(text !== undefined) d.textContent = text;
+  const spk = document.createElement('button');
+  spk.type = 'button'; spk.className = 'hcSpk bkMsgSpk'; spk.textContent = '🔊';
+  spk.setAttribute('aria-label', who === 'me' ? '讀返我問咗乜' : '讀返個答案');
+  let fired = 0;
+  const go = function(e){
+    const now = Date.now();
+    if(now - fired < 400) return;
+    fired = now;
+    e.stopPropagation(); e.preventDefault();
+    if(typeof window.ttsSpeak === 'function') window.ttsSpeak(d.textContent, spk);
+  };
+  spk.addEventListener('touchend', go, {passive:false});
+  spk.addEventListener('click', go);
+  row.appendChild(d); row.appendChild(spk);
+  log.appendChild(row);
+  log.scrollTop = log.scrollHeight;
+  return {row:row, box:d, spk:spk};
+}
+function bkChatSay(who, text){
+  const b = bkChatBubble(who, text);
+  return b ? b.box : null;
+}
+/* 爹哋見到 token／錢，Charlotte 見到「我諗咗幾多個字」——同傾偈嗰邊同一條界線。 */
+function bkChatNote(r){
+  const log = el('bkChatLog'); if(!log || !r) return;
+  const guest = isGuest();
+  let txt = '';
+  if(!guest && r.note) txt = r.note;
+  const n = String(r.think || '').replace(/\s+/g, '').length;
+  if(guest) txt = n ? ('🧠 我諗咗 ' + n + ' 個字') : '';
+  else if(n) txt = (txt ? (txt + '　') : '') + '🧠 推理 ' + n + ' 個字';
+  if(!txt) return;
+  const d = document.createElement('div');
+  d.className = 'bkMsgNote';
+  d.textContent = txt;
   log.appendChild(d);
   log.scrollTop = log.scrollHeight;
-  return d;
 }
 async function bkChatSend(){
   if(bkChatBusy) return;
@@ -22665,21 +22721,24 @@ async function bkChatSend(){
   if(!q) return;
   if(!window.bookAI){ bkChatSay('ai', '而家問唔到，同爹哋講聲。'); return; }
   inp.value = '';
-  bkChatSay('me', q);
+  bkChatBubble('me', q);
   bkChatBusy = true;
-  const box = bkChatSay('ai', '諗緊…');
+  const b = bkChatBubble('ai');
+  const box = b && b.box;
   try{
     await bkDocLoad(RD.book.id);
     const ctx = bkAskCtx(bkChatPage);
-    const ans = await window.bookAI.ask(q, ctx, bkChatMsgs, function(d){
-      if(box) { box.textContent = d; el('bkChatLog').scrollTop = el('bkChatLog').scrollHeight; }
-    });
+    /* 個 host 交俾 bookAI，串流由 makeStreamView 負責畫。
+       第五個參數就係「邊個喺度問」——爹哋同 Charlotte 兩套唔同嘅呈現。 */
+    const r = await window.bookAI.ask(q, ctx, bkChatMsgs, box, isGuest());
+    const ans = (r && typeof r === 'object') ? r.text : String(r || '');
     if(box) box.textContent = ans;
+    bkChatNote(r);
     bkChatMsgs.push({role:'user', content:q});
     bkChatMsgs.push({role:'assistant', content:ans});
     bkChatMsgs = bkChatMsgs.slice(-12);
     /* 佢七歲，一段字答案讀得好辛苦。讀返出嚟，個 box 就唔使做得大。 */
-    try{ if(typeof window.ttsSpeak === 'function') window.ttsSpeak(ans, el('bkChatSpk')); }catch(e){}
+    try{ if(typeof window.ttsSpeak === 'function') window.ttsSpeak(ans, b && b.spk); }catch(e){}
     try{
       const byKid = isGuest();
       kidLog('book', (byKid ? '問咗：' : '🧑 爹哋試機 · 問咗：') + cut(q, 40),
