@@ -1054,6 +1054,32 @@ body.readonly #bkAdmin{display:none!important}
 .bkTh.now{border-color:var(--accent)}
 .bkTh canvas{width:100%;height:auto;display:block;border-radius:4px;background:#fff}
 .bkThBox{width:100%;aspect-ratio:3/4;border-radius:4px;background:#44463f}
+/* 問答個 box 佔右邊（打橫）或者下面（打直）。書嗰邊會自動縮返落剩低嗰忽，
+   所以佢望緊嗰一版由頭到尾一個字都唔會俾遮住。 */
+.bkChat{position:absolute;right:0;top:0;bottom:0;width:42%;display:none;
+  flex-direction:column;background:var(--panel);border-left:1px solid var(--line)}
+.bkChat.show{display:flex}
+@media (orientation:portrait){
+  .bkChat{right:0;left:0;top:auto;bottom:0;width:auto;height:46%;
+    border-left:0;border-top:1px solid var(--line)}
+}
+.bkChatBar{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:7px 9px;
+  border-bottom:1px solid var(--line)}
+.bkChatPg{font-size:13px;font-weight:700}
+.bkChatX{border:1px solid var(--line);background:var(--card);border-radius:9px;
+  padding:5px 9px;font-size:14px;line-height:1;cursor:pointer}
+.bkChatLog{flex:1 1 auto;overflow:auto;padding:9px;display:flex;flex-direction:column;gap:7px}
+.bkMsg{max-width:92%;padding:8px 10px;border-radius:12px;font-size:14.5px;line-height:1.6;
+  white-space:pre-wrap;word-break:break-word}
+.bkMsg.me{align-self:flex-end;background:var(--accent-soft)}
+.bkMsg.ai{align-self:flex-start;background:var(--hover);border:1px solid var(--line)}
+.bkChat .bkChatIn{flex:0 0 auto;display:flex;gap:6px;padding:8px;border-top:1px solid var(--line)}
+.bkChat .bkChatIn textarea{flex:1 1 auto;min-width:0;font-size:15px;padding:7px 9px;
+  border:1px solid var(--line);border-radius:10px;resize:none}
+.bkChatGo{flex:0 0 auto;border:0;background:var(--accent);color:#fff;border-radius:10px;
+  padding:0 14px;font-size:17px;cursor:pointer}
+.bkDescGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:8px 0}
+.bkDescCard{border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--card)}
 /* 語音伴讀嗰條 bar。冇錄音嘅版根本唔會出——唔好出一條撳極都冇聲嘅嘢。 */
 .bkAu{position:absolute;left:0;right:0;bottom:0;display:none;gap:8px;align-items:center;
   padding:9px 10px;background:rgba(20,22,20,.92);color:#eef0ed}
@@ -1815,6 +1841,13 @@ body.hubOpen{overflow:hidden}
     例：<code>https://wcheung1.github.io/homework-hub/books/sci-1a/</code><br>
     貼完撳「🔍 檢查」——即刻話你知開唔開得到、幾多版、封面攞唔攞到、<code>text.md</code> 有冇窿。<b>唔會等 Charlotte 撳開先發現。</b></p>
   <div id="bkRows"></div>
+  <details id="bkDescWrap" style="margin-top:10px"><summary>🖼 補圖（逐版叫 Vision 講返幅圖畫咗乜）</summary>
+    <p class="subnote">張圖係 app 自己由 PDF 畫出嚟、喺記憶體行完就掉——<b>唔會寫落 repo，唔會寫落 Firebase，一張圖都唔會儲</b>。存低嘅淨係嗰段文字。<br>
+      「抽唔到字」唔等於「白紙」：成版一幅大圖嘅值得補，真白紙唔值得。睇縮圖自己揀。<br>
+      補完改得——AI 寫錯咗，喺下面個格改，改咗蓋過佢。</p>
+    <div class="bkLine" style="margin-bottom:6px"><span class="bkLbl">揀本書：</span><select id="bkDescPick"></select><button class="btn" id="bkDescGo">開</button></div>
+    <div id="bkDescBox"></div>
+  </details>
   <datalist id="bkCatList"></datalist>
   <div class="aiBar" style="margin-top:8px"><button class="btn" id="bkAdd">＋ 加一本書</button><button class="btn" id="bkExport" title="科目、分類、書名、資料夾、排版、狀態、次序、text.md 情況">⬇ 匯出書單</button><button class="btn" id="bkLogExport" title="逐日、逐本、逐版：停留幾耐、有冇錄音、聽咗幾多">⬇ 匯出睇書記錄</button></div>
   <p class="subnote" id="bkEditNote" style="margin-top:8px"></p>
@@ -1829,6 +1862,7 @@ body.hubOpen{overflow:hidden}
     <button type="button" id="bkNext" aria-label="下一版">▶</button>
     <span class="bkPos" id="bkPos"></span>
     <button type="button" id="bkThumbBtn" aria-label="睇晒所有版">▦ 揀版</button>
+    <button type="button" id="bkAskBtn" aria-label="問呢一版">💬 問</button>
     <span class="bkGap"></span>
     <button type="button" id="bkZoomOut" aria-label="細啲">－</button>
     <button type="button" id="bkZoomFit" aria-label="啱晒個畫面">⤢</button>
@@ -1840,6 +1874,19 @@ body.hubOpen{overflow:hidden}
     <div class="bkBusy" id="bkBusy" style="display:none">畫緊…</div>
     <div class="bkHint" id="bkHint" style="display:none"></div>
     <div id="bkThumbs"><div class="bkThGrid" id="bkThGrid"></div></div>
+    <div class="bkChat" id="bkChat">
+      <div class="bkChatBar">
+        <span class="bkChatPg" id="bkChatPg"></span>
+        <span style="flex:1"></span>
+        <button type="button" id="bkChatSpk" aria-label="讀返" class="bkChatX">🔊</button>
+        <button type="button" id="bkChatClose" class="bkChatX" aria-label="唔問住">✕</button>
+      </div>
+      <div class="bkChatLog" id="bkChatLog"></div>
+      <div class="bkChatIn">
+        <textarea id="bkChatIn" rows="2" placeholder="想問呢一版啲乜？"></textarea>
+        <button type="button" id="bkChatSend" class="bkChatGo">➤</button>
+      </div>
+    </div>
     <div class="bkAu" id="bkAu">
       <button type="button" id="bkAuPlay" aria-label="播／停">▶</button>
       <span class="bkAuPg" id="bkAuPg"></span>
@@ -2418,7 +2465,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-10b";
+const BUILD = "2026-09-11a";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -9268,6 +9315,28 @@ $('hwAdd').onclick = ()=>{
   save(); renderHw();
 };
 
+/* 📚 學習角：由「逐條餵」改為「濃縮一句」。
+   點解唔逐條餵：佢一個下晝入三五次，最近 14 條就俾呢啲霸晒，
+   真正重要嗰啲（你糾正過乜、佢有咩習慣）會俾擠走。
+   點解唔一刀剔走：佢啱啱學過乜，對排程同傾偈都有用。
+   ⚠ 只數 Charlotte 自己嗰啲。爹哋試機嗰幾條唔應該算落佢頭上。
+   ⚠ 一個字內容都唔畀——個 AI 由頭到尾冇睇過嗰條 link 入面有乜。 */
+function hubBriefLine(log, now){
+  const all = (Array.isArray(log) ? log : []).filter(function(x){
+    return x && x.type === 'hub' && (x.kind || '') === 'open' && x.by !== 'dad';
+  });
+  if(!all.length) return '';
+  const today = fmtDate(now);
+  let n = 0;
+  all.forEach(function(x){ try{ if(fmtDate(new Date(x.at)) === today) n++; }catch(e){} });
+  const last = all[all.length - 1];
+  const nm = String(last.text || '').replace(/^[^《]*《/, '').replace(/》.*$/, '');
+  return '\n【📚 學習角——你淨係知道佢入過邊度，入面嘅內容你一個字都睇唔到】\n'
+    + '今日入咗 ' + n + ' 次，總共 ' + all.length + ' 次。'
+    + (nm ? ('最近一次係《' + nm + '》。') : '')
+    + '\n佢問起入面嘅內容：照直講你睇唔到，叫佢去「📚 學習角」自己開返。唔准靠估，唔准作。';
+}
+
 function ctxText(){
   ensureAI();
   const now = new Date();
@@ -9402,6 +9471,9 @@ function ctxText(){
       + _bk.map(function(b){ return '- 《' + b.title + '》'; }).join('\n')
       + '\n佢問起本書入面嘅內容：照直講你睇唔到，叫佢去「📚 學習角」撳「📕 睇書」自己揭。唔准靠估，唔准作。');
   }catch(e){}
+  /* 學習角唔再逐條餵，改為濃縮一句。擺喺呢度＝同聽故事、睇書兩段 referral 一齊，
+     三樣嘅形狀一致：報返佢去過邊度，一個字內容都唔畀。 */
+  try{ const _hb = hubBriefLine(state.ai && state.ai.log, now); if(_hb) L.push(_hb); }catch(e){}
 
   /* 📖 聽故事嘅記錄一樣要剔走，但理由同 owner-chat 唔同：
      佢唔係私隱問題，係「呢啲唔係佢哋屋企嘅習慣」。餵返入去嘅話，
@@ -9409,7 +9481,7 @@ function ctxText(){
      記錄照樣留喺 Data Log 俾爹哋睇（北極星 6），淨係唔餵返個 AI。 */
   const _all = (state.ai.log||[]).filter(function(x){
     if(!x) return true;
-    if(x.type === 'story' || x.type === 'help' || x.type === 'book') return false;
+    if(x.type === 'story' || x.type === 'help' || x.type === 'book' || x.type === 'hub') return false;
     /* ⚠ kidplan **唔剔**：佢自己排咗啲乜，正正係 AI 排程要知嘅嘢。
        story 剔係因為嗰啲唔係屋企習慣；呢啲係。 */
     return (x.kind || (x.meta||{}).kind) !== 'owner-chat';
@@ -10571,7 +10643,9 @@ async function genRules(silent){
       if(!x) return true;
       /* 📕 睇書一樣剔走：唔剔嘅話「Charlotte 睇咗一本書」會經 SYS_RULE
          寫成一條屋企規則。 */
-      if(x.type === 'story' || x.type === 'help' || x.type === 'book') return false;
+      /* 📚 學習角一樣剔走。唔剔嘅話，「Charlotte 入咗《10 以內加法》」
+         會經 SYS_RULE 變成一條屋企規則——佢唔係屋企習慣，佢係一個動作。 */
+      if(x.type === 'story' || x.type === 'help' || x.type === 'book' || x.type === 'hub') return false;
       return (x.kind || (x.meta||{}).kind) !== 'owner-chat';
     });
     const fresh = all.filter(x=>x && !x.digested);
@@ -14319,6 +14393,89 @@ function storyCloseRead(){
 
    用返 PERSONA_KID（唔行 personaBlock()：呢個場合永遠係對住細路，
    就算爹哋自己撳入嚟試都應該見到同一個語氣）。 */
+/* ================= 📕 睇書：AI 嗰半邊 =================
+   ⚠ 呢一橛特登住喺**呢個 IIFE**（AI 嗰個），唔係住喺睇書模組度。
+     原因：callAI、imgTranscribe、PERSONA_KID、PIC_MAX_CH、kidClean 全部喺呢度。
+     要喺睇書模組度用，就要將佢哋七樣逐個掛上 window——即係開七道永久嘅門，
+     而呢個 app 已經俾跨 IIFE 嘅問題咬過兩次（交接檔 6.2、6.19）。
+     所以改為：個腦寫喺呢度，**只開一道門 window.bookAI**。
+     代價係第三期嘅 code 拆咗兩橛，rollback 要收兩處——呢個係明知而揀嘅。 */
+
+/* 第 17 個 prompt 常數。**特登唔改 VIS_TR_SYS**：嗰個係為功課紙寫嘅
+   （有【題目】【空格】呢啲節），攞去抄故事書會出「總共 0 題」呢類廢話，
+   而且嗰 16 個常數逐字比對係成套檢查嘅地基，唔可以為咗一個新場合去郁佢。 */
+const VIS_BOOK_SYS = [
+'你係一個描述員。你面前係一本俾細路睇嘅書嘅其中一版。',
+'',
+'【你要做嘅】',
+'用兩三句講呢一版嘅圖畫咗乜：有啲乜嘢、邊個喺度、佢哋喺度做緊乜、乜嘢顏色同位置。',
+'如果我下面俾咗「呢版嘅字」，嗰啲字已經確認係啱嘅——你唔使再抄一次，淨係講幅圖。',
+'',
+'【唔准做嘅】',
+'· 唔准解釋本書想教乜、唔准講道理、唔准俾答案。你係講你見到乜，唔係講佢意思。',
+'· 唔准估。見唔到就寫【我睇唔清】加一句講明邊部分睇唔到。',
+'· 唔准輸出方括號標記（除咗【我睇唔清】）、唔准 markdown、唔准開場白。',
+'· 全部繁體中文，一個簡體字都唔准有。',
+'',
+'【格式】',
+'直接出嗰兩三句。冇圖（例如成版白紙）就淨係寫：【我睇唔清】呢版冇嘢睇得到。'
+].join('\n');
+
+/* 第 18 個。同 SYS_STORY_TALK 一樣唔行 personaBlock()——
+   爹哋自己撳入去試嗰陣，都應該見到 Charlotte 會見到嗰個語氣。 */
+const SYS_BOOK_TALK = [
+'【今次呢個場合】',
+'你同佢一齊揭緊一本書。上面份人格設定全部照計，以下係今次多出嚟嘅嘢。',
+'',
+'【今次冇嘅嘢】',
+'· 冇相機、冇行事曆、冇功課、冇時間表。唔准輸出任何用方括號包住嘅標記。',
+'· 你睇唔到佢，亦都唔知佢今日做過乜。唔准扮知。',
+'· 佢喺傾偈嗰邊同 AI 講過乜，你一個字都睇唔到。',
+'',
+'【你手上有咩】',
+'· 佢而家揭開嗰版嘅全部字（如果嗰版有字）。',
+'· 嗰版幅圖嘅描述（如果爹哋補咗先有，唔係每版都有）。',
+'· 前後各一版嘅字，俾你接得返上文下理。',
+'· 成本書嘅骨幹：逐版一句，講嗰版大概講緊邊一忽。',
+'',
+'【最緊要嗰條】',
+'你手上冇嘅嘢，你就係唔知。唔准用常識填返個窿，唔准靠估，唔准當自己睇過成本書。',
+'答唔到嘅時候，睇返個骨幹，指返佢去邊一版：',
+'　「呢個我而家見唔到喎，睇落好似喺後面嗰度。我哋揭去第 22 版睇下好唔好？」',
+'呢個做法比亂答有用，亦都係老實。',
+'',
+'【點答】',
+'· 佢七歲。一段最多三句。',
+'· 佢問乜你答乜。唔好順手教多樣嘢，唔好考返佢。',
+'· 版面上寫住嘅字，佢話幾多就幾多，你唔准改佢。',
+'· 如果嗰版寫住【我睇唔清】，即係嗰部分你真係睇唔到，照直同佢講。'
+].join('\n');
+
+/* 唯一一道門。睇書模組只識叫呢兩隻手，其餘一律唔知。 */
+Object.assign(window, {bookAI:{
+  /* 由一張版面圖攞返一段描述。張圖係 app 自己由 PDF 畫出嚟嘅，
+     喺記憶體行完就掉——唔會寫落 repo，唔會寫落 Firebase，冇任何圖片被儲存。 */
+  async desc(dataUrl, pageNo, knownText){
+    if(!dataUrl) throw new Error('冇圖');
+    if(dataUrl.length > PIC_MAX_CH) throw new Error('張圖太大（' + dataUrl.length + ' 字元）');
+    const ask = '呢一版係第 ' + pageNo + ' 版。'
+      + (knownText ? ('\n\n【呢版嘅字（已經確認，唔使再抄）】\n' + String(knownText).slice(0, 1200)) : '');
+    const out = await imgTranscribe([dataUrl], '', {sys:VIS_BOOK_SYS, head:ask});
+    return String(out || '').trim();
+  },
+  /* 問答。ctx 係睇書模組砌好嘅四層上下文，呢度唔砌——
+     邊幾版、點揀、幾多層，係睇書嗰邊嘅知識。 */
+  async ask(question, ctx, history, onDelta){
+    const msgs = (Array.isArray(history) ? history : []).slice(-12);
+    const reply = await callAI([
+      {role:'system', content: PERSONA_KID + '\n\n' + SYS_BOOK_TALK + '\n\n' + String(ctx || '')}
+    ].concat(msgs, [{role:'user', content:String(question || '')}]),
+      {json:false, temp:0.6, max:(cfg().maxTok || CHAT_MAX_DEFAULT), onDelta:onDelta});
+    return (typeof kidClean === 'function') ? kidClean(String(reply || '')) : String(reply || '');
+  },
+  lastUsage(){ try{ return AI_LAST_USAGE ? Object.assign({}, AI_LAST_USAGE) : null; }catch(e){ return null; } }
+}});
+
 const SYS_STORY_TALK = [
 '【今次呢個場合】',
 '你同佢一齊睇緊一篇故事。上面份人格設定全部照計，以下係今次多出嚟嘅嘢。',
@@ -17910,15 +18067,19 @@ function imgKeepSet(useImgs){
 
 /* 叫睇相 model 抄一次。特登唔帶 PERSONA_KID、唔帶 ctxText、唔帶對話歷史——
    佢係抄寫員，多餘 context 對佢冇幫助，但每個字都要俾錢。noThink：抄嘢唔使諗。 */
-async function imgTranscribe(imgs, ask){
+/* ⚠ 加咗第三個參數 opt，**特登唔郁頭兩個**——交接檔講過「改簽名太傷」。
+   opt.sys 換走 VIS_TR_SYS（睇書要 VIS_BOOK_SYS，功課紙嗰個攞去抄故事書會出「總共 0 題」），
+   opt.head 換走嗰句「照返格式抄多次」。唔傳 opt 就同以前一模一樣。 */
+async function imgTranscribe(imgs, ask, opt){
+  opt = opt || {};
   const visM = String(cfg().visionModel||'').trim();
   if(!visM) throw new Error('未填睇相用嘅 Model');
   const list = visM.split(/[,，]/).map(function(x){ return x.trim(); }).filter(Boolean);
-  const head = ask
+  const head = opt.head ? String(opt.head) : (ask
     ? '照返格式抄多次，同時特別答清楚呢樣：' + ask
-    : '抄呢' + (imgs.length > 1 ? imgs.length + '張相' : '張相') + '。';
+    : '抄呢' + (imgs.length > 1 ? imgs.length + '張相' : '張相') + '。');
   const msgs = [
-    {role:'system', content: VIS_TR_SYS},
+    {role:'system', content: opt.sys || VIS_TR_SYS},
     {role:'user', content:[{type:'text', text:head}].concat(
       imgs.map(function(u){ return {type:'image_url', image_url:{url:u}}; }))}
   ];
@@ -21149,7 +21310,7 @@ async function bkPageCanvas(doc, n, scale){
 const RD = {
   book:null, doc:null, pageCount:0, spreads:[], idx:0,
   scale:1, cache:new Map(), busy:0, natW:0, natH:0, hintT:0, hi:false,
-  rects:[], dwell:{}, heard:{}, dwellAt:0, dwellSp:null
+  rects:[], dwell:{}, heard:{}, dwellAt:0, dwellSp:null, inset:null
 };
 const VW = {z:1, fit:1, x:0, y:0};
 
@@ -21243,7 +21404,10 @@ async function bkCanvasFor(i, hi){
 
 function bkClamp(){
   const st = bkStage(); if(!st) return;
-  const sw = st.clientWidth, sh = st.clientHeight;
+  /* 問答開住嗰陣，可視範圍細咗一忽（個 box 佔咗）。唔扣走就會 clamp 到
+     佢望緊嗰版被推咗入個 box 下面。 */
+  const _i = RD.inset || {r:0, b:0};
+  const sw = st.clientWidth - _i.r, sh = st.clientHeight - _i.b;
   const cw = RD.natW * VW.z, ch = RD.natH * VW.z;
   VW.x = (cw <= sw) ? (sw - cw) / 2 : Math.min(0, Math.max(sw - cw, VW.x));
   VW.y = (ch <= sh) ? (sh - ch) / 2 : Math.min(0, Math.max(sh - ch, VW.y));
@@ -21257,7 +21421,8 @@ function bkApply(){
 }
 function bkFit(){
   const st = bkStage(); if(!st || !RD.natW) return;
-  const sw = Math.max(40, st.clientWidth - 16), sh = Math.max(40, st.clientHeight - 16);
+  const _i = RD.inset || {r:0, b:0};
+  const sw = Math.max(40, st.clientWidth - _i.r - 16), sh = Math.max(40, st.clientHeight - _i.b - 16);
   VW.fit = Math.min(sw / RD.natW, sh / RD.natH);
   if(!(VW.fit > 0)) VW.fit = 1;
   VW.z = VW.fit;
@@ -21358,6 +21523,12 @@ async function bkShow(i){
     bkBusy(false);
     bkDwellStart();
     auAuto();
+    /* 揭咗版，問答個 box 要跟住指向新嗰版，唔係佢問緊嘅嘢同畫面對唔上。 */
+    if(el('bkChat').classList.contains('show')){
+      bkChatPage = (RD.spreads[RD.idx] || [])[0] || bkChatPage;
+      el('bkChatPg').textContent = '第 ' + bkChatPage + ' 版';
+      bkInsetApply(); bkFitPage(bkChatPage);
+    }
     /* 揭完順手偷偷畫下一版，揭下一次就即刻出到。 */
     setTimeout(function(){
       if(my !== renderSeq) return;
@@ -21651,6 +21822,8 @@ function bkClose(){
   el('bkThumbs').classList.remove('show');
   el('bkThGrid').innerHTML = '';
   el('bkAu').classList.remove('show');
+  el('bkChat').classList.remove('show');
+  RD.inset = null; bkChatMsgs = []; bkChatPage = 0;
   try{ if(thObs) thObs.disconnect(); }catch(e){}
   thObs = null;
   RD.cache.forEach(function(c){ try{ c.width = c.height = 0; }catch(e){} });
@@ -22198,10 +22371,295 @@ function bkDownload(name, txt){
   setTimeout(function(){ try{ a.remove(); URL.revokeObjectURL(u); }catch(e){} }, 4000);
 }
 
+/* ================= 第三期：問答 ＋ 補圖 =================
+   ⚠ 呢度只識叫 window.bookAI 一道門。prompt、callAI、睇相線全部喺 AI 嗰個 IIFE，
+     呢邊一個字都唔知——見嗰邊嘅註解。 */
+let bkDoc = null, bkDocId = '';
+async function bkDocLoad(id){
+  if(bkDocId === id && bkDoc) return bkDoc;
+  const r = BookCloud.ref(); if(!r) return null;
+  try{
+    const sn = await r.child('doc/' + id).once('value');
+    bkDoc = sn.val() || {}; bkDocId = id;
+    return bkDoc;
+  }catch(e){ BookCloud.lastError = String((e && e.message) || e); return null; }
+}
+function bkTxtOf(p){ return (bkDoc && bkDoc.txt && bkDoc.txt[p]) ? String(bkDoc.txt[p]) : ''; }
+/* 爹哋改過嗰段蓋過 AI 嗰段。AI 寫錯咗要改得到，唔可以「錯咗但冇得郁」。 */
+function bkDescOf(p){
+  const fix = bkDoc && bkDoc.descFix && bkDoc.descFix[p];
+  if(fix) return String(fix);
+  return (bkDoc && bkDoc.desc && bkDoc.desc[p]) ? String(bkDoc.desc[p]) : '';
+}
+/* 骨幹：逐版壓成一句。有標題就攞標題，冇就攞第一行頭廿幾個字。
+   佢**唔會知**第 8 版寫乜，但佢知第 8 版屬於邊一忽——答唔到嗰陣指得返路。 */
+function bkSpineLine(txt){
+  const s = String(txt || '').replace(/\r/g, '');
+  if(!s.trim()) return '（冇字）';
+  const lines = s.split('\n').map(function(x){ return x.trim(); }).filter(Boolean);
+  for(let i = 0; i < lines.length; i++){
+    if(/^#{1,6}\s/.test(lines[i])) return lines[i].replace(/^#+\s*/, '').slice(0, 24);
+    if(i + 1 < lines.length && /^[=-]{3,}$/.test(lines[i + 1])) return lines[i].slice(0, 24);
+  }
+  return lines[0].replace(/^[#*\->\s]+/, '').slice(0, 24);
+}
+/* 四層上下文。④「答唔到就指路」嗰條規矩住喺 SYS_BOOK_TALK，唔喺呢度。 */
+function bkAskCtx(page){
+  const b = RD.book || {}, L = [];
+  L.push('【今次揭開嘅書】《' + (b.title || '') + '》　共 ' + RD.pageCount + ' 版');
+  const tx = bkTxtOf(page), ds = bkDescOf(page);
+  L.push('\n【佢而家望住嘅：第 ' + page + ' 版】');
+  L.push(tx ? ('字：\n' + tx) : '字：（呢版抽唔到字）');
+  if(ds) L.push('幅圖：' + ds);
+  else if(!tx) L.push('幅圖：（爹哋未補過。即係話呢一版你係完全睇唔到嘅，唔准估。）');
+  const near = [];
+  (RD.spreads[RD.idx] || []).forEach(function(p){ if(p !== page) near.push(p); });
+  [RD.idx - 1, RD.idx + 1].forEach(function(i){
+    (RD.spreads[i] || []).forEach(function(p){ if(p !== page && near.indexOf(p) < 0) near.push(p); });
+  });
+  near.sort(function(a, b){ return a - b; });
+  if(near.length) L.push('\n【前後嗰幾版（淨係俾你接返上文下理）】\n' + near.map(function(p){
+    const t2 = bkTxtOf(p);
+    return '第 ' + p + ' 版：' + (t2 ? t2.slice(0, 400) : '（冇字）');
+  }).join('\n'));
+  const sp = [];
+  for(let p = 1; p <= RD.pageCount; p++) sp.push('第 ' + p + ' 版：' + bkSpineLine(bkTxtOf(p)));
+  L.push('\n【成本書嘅骨幹（逐版一句。內容你冇睇過，淨係知邊版講緊邊一忽）】\n' + sp.join('\n'));
+  return L.join('\n');
+}
+
+/* ---------- 🖼 補圖（爹哋嗰邊，一版一世一次） ----------
+   張圖係 app 自己由 PDF 畫出嚟、喺記憶體行完就掉。
+   **冇任何圖片會寫落 repo 或者 Firebase**——存低嘅淨係嗰段文字。 */
+async function bkDescOne(b, p, doc){
+  const own = !doc;
+  if(own) doc = await bkOpenDoc(bkPdfUrl(b));
+  try{
+    const pg = await doc.getPage(p);
+    const v1 = pg.getViewport({scale:1});
+    /* 唔可以用閱讀嗰個 canvas：150 DPI 孖頁出 JPEG 再 base64 會頂穿 PIC_MAX_CH。
+       呢度另外畫一張闊 1200、q 0.75 嘅細版，專門俾睇相線。 */
+    const c = await bkPageCanvas(doc, p, Math.max(0.2, 1200 / Math.max(1, v1.width)));
+    const d = c.toDataURL('image/jpeg', 0.75);
+    c.width = c.height = 0;
+    const out = await window.bookAI.desc(d, p, bkTxtOf(p));
+    const r = BookCloud.ref();
+    if(r) await r.child('doc/' + b.id + '/desc/' + p).set(out);
+    if(!bkDoc || bkDocId !== b.id){ bkDoc = bkDoc || {}; bkDocId = b.id; }
+    if(!bkDoc.desc) bkDoc.desc = {};
+    bkDoc.desc[p] = out;
+    return out;
+  }finally{
+    if(own){ try{ if(doc.destroy) doc.destroy(); }catch(e){} }
+  }
+}
+/* 抽唔到字嘅版逐版列出嚟，連縮圖——「md 度冇字」≠「嗰版係白紙」。
+   第 21 版係跨頁大圖（第 20 版就係問緊嗰幅圖），第 39 版先係真白紙。
+   邊版值得補，分得出嘅係爹哋，唔係個 app。 */
+async function bkDescPanel(b){
+  const box = el('bkDescBox'); if(!box) return;
+  box.innerHTML = '';
+  const head = document.createElement('p');
+  head.className = 'subnote';
+  head.textContent = '載入緊…';
+  box.appendChild(head);
+  await bkDocLoad(b.id);
+  const empty = (bkDoc && Array.isArray(bkDoc.empty)) ? bkDoc.empty.slice() : [];
+  head.textContent = empty.length
+    ? ('抽唔到字嘅版：' + empty.join('、') + '。睇下縮圖先決定邊版值得補——成版一幅圖嘅值得，白紙唔值得。')
+    : '呢本書每一版都抽到字。想補某一版幅圖嘅描述，下面揀版。';
+  let doc = null;
+  try{ doc = await bkOpenDoc(bkPdfUrl(b)); }catch(e){
+    const w = document.createElement('p');
+    w.className = 'bkNote bad'; w.textContent = '⚠ 開唔到本書：' + cut(String((e && e.message) || e), 80);
+    box.appendChild(w); return;
+  }
+  const list = empty.length ? empty : [];
+  const grid = document.createElement('div');
+  grid.className = 'bkDescGrid';
+  box.appendChild(grid);
+  const bar = document.createElement('div');
+  bar.className = 'aiBar';
+  const all = document.createElement('button');
+  all.className = 'btn'; all.textContent = '🖼 一次過補晒上面嗰 ' + list.length + ' 版';
+  all.disabled = !list.length;
+  bar.appendChild(all);
+  const pick = document.createElement('input');
+  pick.type = 'number'; pick.min = '1'; pick.max = String(b.pages || 1);
+  pick.placeholder = '第幾版'; pick.style.cssText = 'width:90px;padding:4px 6px';
+  bar.appendChild(pick);
+  const one = document.createElement('button');
+  one.className = 'btn'; one.textContent = '🖼 補呢一版';
+  bar.appendChild(one);
+  box.appendChild(bar);
+  const cost = document.createElement('p');
+  cost.className = 'subnote'; cost.textContent = '';
+  box.appendChild(cost);
+
+  function card(p){
+    const d = document.createElement('div');
+    d.className = 'bkDescCard';
+    const ph = document.createElement('div'); ph.className = 'bkThBox';
+    d.appendChild(ph);
+    const lb = document.createElement('div');
+    lb.style.cssText = 'font-size:12px;margin:4px 0';
+    lb.textContent = '第 ' + p + ' 版';
+    d.appendChild(lb);
+    const tx = document.createElement('textarea');
+    tx.rows = 3; tx.style.cssText = 'width:100%;font-size:12px';
+    tx.value = bkDescOf(p);
+    tx.placeholder = '（仲未補）';
+    tx.onchange = async function(){
+      const r = BookCloud.ref(); if(!r) return;
+      try{
+        await r.child('doc/' + b.id + '/descFix/' + p).set(tx.value.trim());
+        if(!bkDoc.descFix) bkDoc.descFix = {};
+        bkDoc.descFix[p] = tx.value.trim();
+        say('改咗第 ' + p + ' 版');
+      }catch(e){ say('存唔到：' + cut(String((e && e.message) || e), 60)); }
+    };
+    d.appendChild(tx);
+    const go = document.createElement('button');
+    go.className = 'btn'; go.textContent = '🖼 補';
+    go.onclick = async function(){
+      go.disabled = true; go.textContent = '⏳';
+      try{
+        tx.value = await bkDescOne(b, p, doc);
+        const u = window.bookAI.lastUsage && window.bookAI.lastUsage();
+        if(u) cost.textContent = '最近一次用咗：' + JSON.stringify(u);
+      }catch(e){ say('補唔到第 ' + p + ' 版：' + cut(String((e && e.message) || e), 80)); }
+      go.disabled = false; go.textContent = '🖼 補';
+    };
+    d.appendChild(go);
+    bkPageCanvas(doc, p, 0.22).then(function(c){ ph.replaceWith(c); }).catch(function(){});
+    grid.appendChild(d);
+    return {p:p, tx:tx};
+  }
+  const cards = list.map(card);
+  all.onclick = async function(){
+    all.disabled = true;
+    for(let i = 0; i < cards.length; i++){
+      all.textContent = '⏳ 補緊 ' + (i + 1) + '/' + cards.length + '…';
+      try{ cards[i].tx.value = await bkDescOne(b, cards[i].p, doc); }
+      catch(e){ say('第 ' + cards[i].p + ' 版補唔到：' + cut(String((e && e.message) || e), 70)); break; }
+    }
+    const u = window.bookAI.lastUsage && window.bookAI.lastUsage();
+    if(u) cost.textContent = '最近一次用咗：' + JSON.stringify(u);
+    all.textContent = '🖼 補完'; all.disabled = false;
+  };
+  one.onclick = function(){
+    const p = parseInt(pick.value, 10);
+    if(!(p > 0 && p <= b.pages)){ say('第幾版？'); return; }
+    if(cards.some(function(c){ return c.p === p; })) return;
+    cards.push(card(p));
+  };
+}
+
+/* ---------- 💬 問呢一版（Charlotte 嗰邊） ----------
+   ⚠ 個 box 唔准遮住嗰一版——遮住咗，成個功能就冇晒意義。
+     做法：唔改 canvas、唔重畫，淨係將可視範圍縮細（RD.inset），
+     再將佢問嗰一版 fit 落剩返嗰忽。孖頁變單版，嗰版反而大咗。 */
+let bkChatMsgs = [], bkChatPage = 0, bkChatBusy = false;
+function bkChatOpen(page){
+  if(!RD.book) return;
+  const panel = el('bkChat'); if(!panel) return;
+  bkChatPage = page || (RD.spreads[RD.idx] || [])[0] || 1;
+  bkChatMsgs = [];
+  el('bkChatLog').innerHTML = '';
+  el('bkChatPg').textContent = '第 ' + bkChatPage + ' 版';
+  panel.classList.add('show');
+  auStop(false);
+  bkInsetApply();
+  bkFitPage(bkChatPage);
+  bkDocLoad(RD.book.id).then(function(){
+    const tx = bkTxtOf(bkChatPage), ds = bkDescOf(bkChatPage);
+    if(!tx && !ds) bkChatSay('ai', '呢一版我睇唔到喎。你可以講俾我聽你見到乜，我再同你傾。');
+  });
+}
+function bkChatClose(){
+  const panel = el('bkChat'); if(!panel) return;
+  panel.classList.remove('show');
+  RD.inset = null;
+  bkFit();
+}
+function bkInsetApply(){
+  const st = bkStage(); if(!st) return;
+  const land = st.clientWidth >= st.clientHeight;
+  RD.inset = land ? {r:Math.round(st.clientWidth * 0.42), b:0}
+                  : {r:0, b:Math.round(st.clientHeight * 0.46)};
+}
+/* 將指定嗰一版 fit 落「扣走個 box 之後」剩返嗰忽。 */
+function bkFitPage(p){
+  const st = bkStage(); if(!st || !RD.natW) return;
+  const q = RD.rects.filter(function(x){ return x.p === p; })[0];
+  const ins = RD.inset || {r:0, b:0};
+  const sw = Math.max(40, st.clientWidth - ins.r - 16);
+  const sh = Math.max(40, st.clientHeight - ins.b - 16);
+  const w = q ? (q.x1 - q.x0) : RD.natW;
+  VW.fit = Math.min(sw / w, sh / RD.natH);
+  VW.z = VW.fit;
+  VW.x = 8 - (q ? q.x0 * VW.z : 0) + Math.max(0, (sw - w * VW.z) / 2);
+  VW.y = 8 + Math.max(0, (sh - RD.natH * VW.z) / 2);
+  const wrap = bkWrapEl();
+  if(wrap) wrap.style.transform = 'translate(' + Math.round(VW.x) + 'px,' + Math.round(VW.y) + 'px) scale(' + VW.z + ')';
+}
+function bkChatSay(who, text){
+  const log = el('bkChatLog'); if(!log) return null;
+  const d = document.createElement('div');
+  d.className = 'bkMsg ' + (who === 'me' ? 'me' : 'ai');
+  d.textContent = text;
+  log.appendChild(d);
+  log.scrollTop = log.scrollHeight;
+  return d;
+}
+async function bkChatSend(){
+  if(bkChatBusy) return;
+  const inp = el('bkChatIn');
+  const q = String(inp.value || '').trim();
+  if(!q) return;
+  if(!window.bookAI){ bkChatSay('ai', '而家問唔到，同爹哋講聲。'); return; }
+  inp.value = '';
+  bkChatSay('me', q);
+  bkChatBusy = true;
+  const box = bkChatSay('ai', '諗緊…');
+  try{
+    await bkDocLoad(RD.book.id);
+    const ctx = bkAskCtx(bkChatPage);
+    const ans = await window.bookAI.ask(q, ctx, bkChatMsgs, function(d){
+      if(box) { box.textContent = d; el('bkChatLog').scrollTop = el('bkChatLog').scrollHeight; }
+    });
+    if(box) box.textContent = ans;
+    bkChatMsgs.push({role:'user', content:q});
+    bkChatMsgs.push({role:'assistant', content:ans});
+    bkChatMsgs = bkChatMsgs.slice(-12);
+    /* 佢七歲，一段字答案讀得好辛苦。讀返出嚟，個 box 就唔使做得大。 */
+    try{ if(typeof window.ttsSpeak === 'function') window.ttsSpeak(ans, el('bkChatSpk')); }catch(e){}
+    try{
+      const byKid = isGuest();
+      kidLog('book', (byKid ? '問咗：' : '🧑 爹哋試機 · 問咗：') + cut(q, 40),
+        {kind:'ask', bid:RD.book.id, page:bkChatPage, by:(byKid ? 'kid' : 'dad')});
+    }catch(e){}
+  }catch(e){
+    if(box) box.textContent = '我而家答唔到喎，撳多次試下。';
+    console.warn('bookAsk', e);
+  }
+  bkChatBusy = false;
+}
+
 /* ================= 掛掣 ================= */
 function bkAdminOpen(){
   if(isGuest()) return;               /* CSS 已經收埋咗粒掣，呢度再擋一次 */
-  ensureBooks(); bkRenderRows(); show('bkAdminModal');
+  ensureBooks(); bkRenderRows();
+  try{
+    const sel = el('bkDescPick');
+    sel.innerHTML = '';
+    bkItems(false).forEach(function(x){
+      const o = document.createElement('option');
+      o.value = x.id; o.textContent = (x.title || '（冇書名）') + (x.pages ? ('　' + x.pages + ' 版') : '　未檢查');
+      sel.appendChild(o);
+    });
+  }catch(e){}
+  show('bkAdminModal');
 }
 if(el('bkAdmin')) el('bkAdmin').onclick = bkAdminOpen;
 el('bkAdd').onclick = function(){
@@ -22249,6 +22707,25 @@ el('bkAuRate').onclick = function(){
   sk.addEventListener('change', up);
   sk.addEventListener('pointerup', up);
 })();
+el('bkAskBtn').onclick = function(){
+  const sp = RD.spreads[RD.idx] || [];
+  /* 孖頁嗰陣問邊一版？用緊播錄音嗰版最準；冇就用左手邊嗰版。 */
+  bkChatOpen(AU.page && sp.indexOf(AU.page) >= 0 ? AU.page : sp[0]);
+};
+el('bkChatClose').onclick = bkChatClose;
+el('bkChatSend').onclick = bkChatSend;
+el('bkChatSpk').onclick = function(){
+  const last = el('bkChatLog').querySelector('.bkMsg.ai:last-child');
+  if(last && typeof window.ttsSpeak === 'function') window.ttsSpeak(last.textContent, el('bkChatSpk'));
+};
+/* ⚠ 唔可以 Enter 就送：觸控機淨㩒 Enter 一律當換行（enterSends 嗰條規矩）。 */
+el('bkDescGo').onclick = function(){
+  const id = el('bkDescPick').value;
+  const b = bkItems(false).filter(function(x){ return x.id === id; })[0];
+  if(!b){ say('揀本書先'); return; }
+  if(!b.pages){ say('呢本仲未檢查過，撳「🔍 檢查」先'); return; }
+  bkDescPanel(b);
+};
 el('bkPrev').onclick = function(){ bkGo(-1); };
 el('bkNext').onclick = function(){ bkGo(1); };
 el('bkClose').onclick = bkClose;
