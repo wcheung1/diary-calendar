@@ -27,6 +27,14 @@
   --now:#6b4fd8;          /* 而家進行緊：紫色，特登避開紅（逾期）／琥珀（訪客待確認）／綠（主色） */
   --now-soft:#f2efff;     /* 淺紫底色，唔會同 #fdf3f3 逾期紅底、#fffbf2 待確認底撞 */
   --now-ring:rgba(107,79,216,.28);
+  /* 時間表頂嗰條橫額。一條橫額講三件事，用**顏色分類型**，唔係用顏色叫大聲啲。
+     ⚠ 兩條一模一樣嘅橫額 ＝ 由「一件大聲嘢」變成「兩件中聲嘢」，兩條都弱咗。
+     ⚠ 呢三隻色係佔位，唔係結論：問返 Charlotte 鍾意咩色，改呢三行就得。
+        佢自己揀嗰個，永遠勁過大人估。 */
+  --bn-story:#2e7d64;   /* 📖 聽故事（原本嗰隻，唔郁） */
+  --bn-book:#c2255c;    /* 📕 睇書 */
+  --bn-hub:#e8590c;     /* 📚 學習角 */
+  --bn-edge:#ffd43b;
   --radius:8px;
   --shadow:0 4px 18px rgba(32,41,31,.12);
 }
@@ -1379,10 +1387,17 @@ body.readonly #hubStoryAdmin{display:none!important}
      而家用實色底 ＋ 白字 ＋ 大字 ＋ 左邊一條粗黃邊，仲有一下好慢嘅呼吸。
      慢係故意嘅：閃得快係廣告，佢會學識當佢透明。 */
 #stBanner{display:none;align-items:center;gap:10px;margin:0;padding:13px 14px;
-  border:0;border-left:7px solid #ffd43b;background:var(--accent);color:#fff;
+  border:0;border-left:7px solid var(--bn-edge);background:var(--bn-story);color:#fff;
   cursor:pointer;font-size:17px;font-weight:700;
   box-shadow:0 2px 10px rgba(0,0,0,.14);animation:stBreathe 3.2s ease-in-out infinite}
 #stBanner.show{display:flex}
+#stBanner.k-book{background:var(--bn-book)}
+#stBanner.k-hub{background:var(--bn-hub)}
+/* 有啲人（同埋部分暈車浪／前庭敏感嘅小朋友）開咗「減少動態效果」。
+   要尊重——呢個係系統設定，唔係我哋嘅設計選擇。 */
+@media (prefers-reduced-motion: reduce){
+  #stBanner{animation:none}
+}
 #stBanner:active{filter:brightness(.94)}
 #stBanner .stbT{flex:1;min-width:0}
 #stBanner .stbGo{flex:0 0 auto;font-size:20px;opacity:.9}
@@ -2485,7 +2500,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-11d";
+const BUILD = "2026-09-11e";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -15516,15 +15531,93 @@ function lsOpenModal(){
 
 Object.assign(window, {listBoot: lsBoot, listOpen: lsOpenModal, listExport: lsExport});
 
-/* ================= 橫額 ================= */
+/* ================= 橫額 =================
+   一條橫額，三種內容（新故事／新書／新一課），同一個位、同一個形狀、同一粒喇叭。
+   佢學一次就識——而唔係要記三個唔同嘅入口。
+
+   四條底線：
+   ① **「新」要係真嘅。** 三樣都係查返佢自己有冇入過（故事查 stHeard，
+      書同課查 Data Log 嘅 open 記錄）。唔係砌出嚟嘅「限時」「快啲入嚟」——
+      假稀缺性喺一個七歲人身上真係有效，但嗰個就係呃佢。
+   ② **冇新嘢就唔出。** 成日掛住就會變佈景板，同冇一樣（北極星 7）。
+   ③ **輪流。** 幾樣都有新嘅時候，按日輪——唔係日日都係故事，
+      亦唔會今日綠聽日綠。
+   ④ **應景勝過顯眼。** 而家張時間表係功課／溫習時段的話，
+      學習角同睇書行先——喺啱嘅時候出現一次，好過成日喺度嗌。
+   ⚠ 特登冇做：連續入咗幾多日、星星、積分、倒數。
+      嗰啲會令佢為咗粒星做嘢，獎勵一停，興趣會跌返落去低過原本。 */
+function bnSeenIds(type){
+  const out = {};
+  try{
+    ((state.ai && state.ai.log) || []).forEach(function(x){
+      if(!x || x.type !== type || (x.kind || '') !== 'open') return;
+      if(x.by === 'dad') return;              /* 爹哋試機唔算佢睇過 */
+      const id = (type === 'hub') ? x.hid : x.bid;
+      if(id) out[id] = 1;
+    });
+  }catch(e){}
+  return out;
+}
+/* 而家嗰格係咪做緊功課／溫習？係就將學習角同睇書排前面。 */
+function bnStudyNow(){
+  try{
+    return currentSlotEvents().some(function(e){
+      return /功課|溫習|做嘢|讀書|練習|默書|測驗|考試/.test(String((e && e.title) || ''));
+    });
+  }catch(e){ return false; }
+}
+function bnCandidates(){
+  const out = [];
+  try{
+    const s = stPublic().filter(function(x){ return !stHeard(x.id); })[0];
+    if(s) out.push({k:'story', cls:'', icon:'📖',
+                    txt:'爹哋擺咗一個新故事俾你：' + short(s.title || '', 20), sid:s.id});
+  }catch(e){}
+  try{
+    const seen = bnSeenIds('book');
+    const b = (Array.isArray(state.books) ? state.books : [])
+      .filter(function(x){ return x && x.st === 'live' && x.title && x.url && !seen[x.id]; })[0];
+    if(b) out.push({k:'book', cls:'k-book', icon:'📕',
+                    txt:'爹哋擺咗一本新書俾你：' + short(b.title || '', 20)});
+  }catch(e){}
+  try{
+    const seen = bnSeenIds('hub');
+    const h = ((state.hub && state.hub.items) || [])
+      .filter(function(x){ return x && x.st === 'live' && x.title && x.url && !seen[x.id]; })[0];
+    if(h) out.push({k:'hub', cls:'k-hub', icon:'📚',
+                    txt:'學習角有新嘢睇：' + short(h.title || '', 20)});
+  }catch(e){}
+  return out;
+}
 function storyBanner(){
   const el = document.getElementById('stBanner');
   if(!el) return;
-  const fresh = stPublic().filter(x=>!stHeard(x.id))[0];
-  if(!fresh){ el.classList.remove('show'); el.dataset.sid = ''; return; }
-  el.dataset.sid = fresh.id;
+  let list = bnCandidates();
+  if(!list.length){
+    el.classList.remove('show', 'k-book', 'k-hub');
+    el.dataset.sid = ''; el.dataset.kind = '';
+    return;
+  }
+  /* 應景：功課／溫習時段，學習角同睇書行先。
+     ⚠ 呢度本來寫 sort（將 story 推去最後）——**錯嘅**。
+       下面嗰個輪換係按日揀 index，story 排最後一樣會三日輪到一次，
+       即係做功課嗰陣仲會彈「新故事」出嚟。排序解決唔到，要**篩走**。
+       但如果嗰陣淨係得故事一樣新嘢，就照出——冇嘢好過有嘢係假嘅。 */
+  if(bnStudyNow()){
+    const study = list.filter(function(x){ return x.k !== 'story'; });
+    if(study.length) list = study;
+  }
+  /* 輪流：按日輪。同一日入面唔會跳嚟跳去（佢會覺得部機壞咗），
+     但日日都唔同一樣。 */
+  let day = 0;
+  try{ day = Math.floor(Date.parse(nowStr().slice(0, 10)) / 86400000) || 0; }catch(e){}
+  const pick = list[Math.abs(day) % list.length];
+  el.classList.remove('k-book', 'k-hub');
+  if(pick.cls) el.classList.add(pick.cls);
+  el.dataset.sid = pick.sid || '';
+  el.dataset.kind = pick.k;
   const t = el.querySelector('.stbT');
-  if(t) t.textContent = '📖 爹哋擺咗一個新故事俾你：' + short(fresh.title || '', 20);
+  if(t) t.textContent = pick.icon + ' ' + pick.txt;
   el.classList.add('show');
 }
 
@@ -16459,8 +16552,19 @@ Object.assign(window, {
   });
   const bn = g('stBanner');
   if(bn) bn.onclick = function(){
-    const id = bn.dataset.sid;
-    if(id) storyOpen(id);
+    /* ⚠ 舊版淨係識開故事（靠 dataset.sid）。條橫額而家講三件事，
+       唔按 kind 分流嘅話，新書／新一課嗰兩種撳落去係**乜都唔會發生**——
+       而佢唔會再撳第二次。
+       書同課一律開返「📚 學習角」：書架同連結都喺嗰度，
+       而且係行返粒掣本來嗰條路，唔另開一條。 */
+    const k = bn.dataset.kind || 'story';
+    if(k === 'story'){
+      const id = bn.dataset.sid;
+      if(id) storyOpen(id);
+      return;
+    }
+    const hb = document.getElementById('btnHub');
+    if(hb) hb.click();
   };
   /* 粒喇叭要食咗個 click，唔係讀完順手開埋個故事，佢就唔知發生咗咩事。
      觸控機照學習角嗰套：touchend 處理 ＋ 擋走跟住嗰個合成 click。 */
