@@ -1073,6 +1073,7 @@ body.readonly #bkAdmin{display:none!important}
 .bkMsgRow{display:flex;align-items:flex-start;gap:6px;max-width:96%}
 .bkMsgRow.me{align-self:flex-end;flex-direction:row-reverse}
 .bkMsgRow.ai{align-self:flex-start}
+.bkMsgRow .chatCopyBtn{flex:0 0 auto;align-self:flex-start}
 .bkMsgRow .bkMsgSpk{flex:0 0 auto;border:1px solid var(--line);background:var(--card);
   border-radius:9px;width:32px;height:32px;font-size:15px;line-height:1;padding:0;cursor:pointer}
 .bkMsg{flex:1 1 auto;min-width:0;padding:8px 10px;border-radius:12px;font-size:14.5px;
@@ -2484,7 +2485,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-11c";
+const BUILD = "2026-09-11d";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -14501,7 +14502,16 @@ Object.assign(window, {bookAI:{
     /* note 係爹哋先睇嘅（token／錢）；think 嘅字數兩邊都用得，但呈現方式唔同。 */
     return {text:clean, note:cacheNote(), think:String(AI_LAST_REASON || '')};
   },
-  lastUsage(){ try{ return AI_LAST_USAGE ? Object.assign({}, AI_LAST_USAGE) : null; }catch(e){ return null; } }
+  lastUsage(){ try{ return AI_LAST_USAGE ? Object.assign({}, AI_LAST_USAGE) : null; }catch(e){ return null; } },
+  /* 📋 複製。**唔喺睇書度另寫一粒**——makeCopyBtn（連「✓ 已複製」嗰下回饋）
+     同 copyPlainText（連 clipboard 失敗嗰條後備路）全部住喺呢個 IIFE。
+     另寫一粒 ＝ 又多一份劣化複製品，第日呢邊改咗，嗰邊唔會跟。
+     加喺已經開咗嘅 bookAI 上面，唔算開多一道門。 */
+  copyBtn(label, title, getText){
+    return makeCopyBtn(label || '📋', title || '複製呢段字', function(){
+      return copyPlainText(String((typeof getText === 'function' ? getText() : getText) || ''));
+    });
+  }
 }});
 
 const SYS_STORY_TALK = [
@@ -18701,7 +18711,10 @@ function guestChatsInRange(fromD, toD, who){
     /* 📕 睇書嘅「入咗／睇咗幾耐」一樣：唔係對話。
        佢哋標嘅係 by:'kid'|'dad'（唔係 guest），所以本來就漏唔入嚟——
        呢句係第二道閂，將來有人手快標返個 guest:true 落去都攔得住（交接檔 6.14）。 */
-    if(x.type === 'book') continue;
+    /* ⚠ 唔可以一刀剔走成個 book：入咗／睇咗唔係對話，但**問答係**。
+       一刀剔走＝佢揭住本書同 AI 傾嘅嘢永遠唔會出現喺「👧 匯出訪客對話」，
+       而嗰份嘢就係你攞去 refine persona 嗰份。 */
+    if(x.type === 'book' && (x.kind || '') !== 'ask') continue;
     const isOwnerChat = _kind === 'owner-chat' || /^🧑 主人對話記錄/.test(String(x.text||''));
     const isGuestChat = !isOwnerChat
                      && (_kind === 'guest-chat' || x.guest || (x.meta||{}).guest
@@ -22690,6 +22703,12 @@ function bkChatBubble(who, text){
   spk.addEventListener('touchend', go, {passive:false});
   spk.addEventListener('click', go);
   row.appendChild(d); row.appendChild(spk);
+  /* 📋 同粒喇叭一樣：綁死自己嗰個氣泡。借返傾偈嗰邊嘅真身，唔自己寫。 */
+  try{
+    if(window.bookAI && typeof window.bookAI.copyBtn === 'function'){
+      row.appendChild(window.bookAI.copyBtn('📋', '複製呢段字', function(){ return d.textContent; }));
+    }
+  }catch(e){}
   log.appendChild(row);
   log.scrollTop = log.scrollHeight;
   return {row:row, box:d, spk:spk};
@@ -22739,10 +22758,22 @@ async function bkChatSend(){
     bkChatMsgs = bkChatMsgs.slice(-12);
     /* 佢七歲，一段字答案讀得好辛苦。讀返出嚟，個 box 就唔使做得大。 */
     try{ if(typeof window.ttsSpeak === 'function') window.ttsSpeak(ans, b && b.spk); }catch(e){}
+    /* ⚠ 舊版淨係記咗「問咗：（頭 40 個字）」，**一個答案字都冇記**。
+       即係話佢揭住本書同 AI 傾咗幾十轉，爹哋開 Data Log 淨係見到幾條斷句，
+       AI 講過乜完全冇痕跡——同成個 app「佢同 AI 傾過乜，爹哋一定睇得到」
+       呢條線相反。
+       而家照跟「❓ 我唔識撳」嗰條已經定咗嘅規矩：q／a 存全文，
+       text 行入面放埋答案（剪到 500 字），訪客標 guest、主人標 owner。 */
     try{
       const byKid = isGuest();
-      kidLog('book', (byKid ? '問咗：' : '🧑 爹哋試機 · 問咗：') + cut(q, 40),
-        {kind:'ask', bid:RD.book.id, page:bkChatPage, by:(byKid ? 'kid' : 'dad')});
+      kidLog('book',
+        (byKid ? '📕 睇書問 AI（第 ' + bkChatPage + ' 版）：'
+               : '🧑 主人對話記錄 · 睇書問 AI（第 ' + bkChatPage + ' 版）：') +
+        '\n我：' + q + '\n\nAI：' + (ans.length > 500 ? (ans.slice(0, 500) + '…') : ans),
+        Object.assign({kind:'ask', bid:RD.book.id, page:bkChatPage,
+                       q:q, a:ans, brief:'(睇書問 AI) ' + cut(q, 160),
+                       by:(byKid ? 'kid' : 'dad')},
+                      byKid ? {guest:true} : {owner:true}));
     }catch(e){}
   }catch(e){
     if(box) box.textContent = '我而家答唔到喎，撳多次試下。';
