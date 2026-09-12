@@ -2545,7 +2545,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-12d";
+const BUILD = "2026-09-12e";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -22311,6 +22311,9 @@ function bkThumbsOpen(){
      好難問得準，而「撥一下」同「捲一下」就會爭。
    ⚠ 由掣起手嘅 touch 唔算撥頁——唔係佢想撳 🔊（第二期）就會變咗揭頁。 */
 let TT = null;
+let TAPT = 0;                          /* 最後一次手指離開個畫面嘅時間 */
+const TAP_SLOP = 16;                   /* 手指郁幾多 px 之內仍然當佢「篤一下」 */
+const TAP_MS   = 900;                  /* 撳幾耐之內仍然當佢「篤一下」 */
 function tDist(t){
   const dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY;
   return Math.sqrt(dx * dx + dy * dy) || 1;
@@ -22351,7 +22354,13 @@ function bkBindTouch(){
     }
     if(TT.mode === 'pan' && e.touches.length === 1){
       const dx = e.touches[0].clientX - TT.sx, dy = e.touches[0].clientY - TT.sy;
-      if(Math.abs(dx) > 6 || Math.abs(dy) > 6) TT.moved = true;
+      /* ⚠ 本來係 6px。一隻七歲嘅手指撳落塊芒，輕微滾動十幾 px 係常態——
+         6px 之下，佢每一下「撳」都會被當成「拖」。
+         而且本來一過 6px 就即刻開始拖，本書會喺佢手指下面郁，
+         睇落就係「撳極唔得，仲要成本書喺度震」。
+         而家：郁夠 TAP_SLOP 先至開始拖，喺呢個範圍內本書紋風不動。 */
+      if(Math.abs(dx) > TAP_SLOP || Math.abs(dy) > TAP_SLOP) TT.moved = true;
+      if(!TT.moved) return;              /* 未過門檻 ＝ 仲係「撳緊」，本書唔准郁 */
       VW.x = TT.x0 + dx; VW.y = TT.y0 + dy;
       bkApply();
       e.preventDefault();
@@ -22373,19 +22382,36 @@ function bkBindTouch(){
     /* 篤一下 ＝ 播／停嗰一版。
        ⚠ 第一期嘅「篤兩下放大」已經拆走：篤第一下要即刻出聲，就冇得等第二下。
          放大仲有兩指同粒 ⤢——對一個七歲人嚟講「篤一下就有聲」直接得多。 */
-    if(!t.moved && (Date.now() - t.t0) < 400) auTapAt(ch.clientX, ch.clientY);
+    /* ⚠ 本來係 400 毫秒。細路撳嘢好多時係「按落去、諗一諗、先放手」，
+       一路撳到 600–800 毫秒好平常。過咗時限就乜都唔會發生，
+       而佢完全唔知自己做錯咗乜。 */
+    if(!t.moved && (Date.now() - t.t0) < TAP_MS) auTapAt(ch.clientX, ch.clientY);
   };
-  st.addEventListener('touchend', done, {passive:false});
-  st.addEventListener('touchcancel', function(){ TT = null; });
+  st.addEventListener('touchend', function(e){
+    /* ⚠⚠ 主因喺呢度。iOS（同 Android）喺 touchend 之後，會補返一串
+       mousedown／mouseup／click 出嚟畀啲舊網頁用。
+       而下面粒滑鼠 click 又會叫多次 auTapAt ——
+       即係佢篤一下，auTapAt 行咗**兩次**：播，跟住即刻停。
+       畫面上乜都冇發生，感覺就係「撳極都唔得」。
+       時而又得，係因為有時手指郁大咗，touch 嗰路當咗拖，
+       反而淨係剩返假 click 嗰一次。
+       修法：記低最後一次 touch 幾時，之後 800 毫秒內嘅滑鼠事件一律唔理。
+       （呢招個 app 本來就用緊——啲喇叭掣嗰句「touchend 處理 ＋ 擋走跟住嗰個合成 click」。） */
+    TAPT = Date.now();
+    done(e);
+  }, {passive:false});
+  st.addEventListener('touchcancel', function(){ TT = null; TAPT = Date.now(); });
   /* 滑鼠（爹哋喺電腦度試機）：拖住 pan，滾輪縮放。 */
   let md = null;
   st.addEventListener('mousedown', function(e){
+    if(Date.now() - TAPT < 800) return;
     if(e.target.closest('button, input, textarea, #bkAu, #bkThumbs, #bkChat')) return;
     md = {sx:e.clientX, sy:e.clientY, x0:VW.x, y0:VW.y, moved:false};
     e.preventDefault();
   });
   /* 爹哋喺電腦度試機：撳一下（冇拖過）一樣係播／停。 */
   st.addEventListener('click', function(e){
+    if(Date.now() - TAPT < 800) return;          /* 手指嗰下已經處理咗 */
     if(e.target.closest('button, input, textarea, #bkAu, #bkThumbs, #bkChat')) return;
     if(md && md.moved) return;
     auTapAt(e.clientX, e.clientY);
