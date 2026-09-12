@@ -1047,6 +1047,19 @@ body.readonly #bkAdmin{display:none!important}
   -webkit-user-select:none;user-select:none;background:#20211f}
 #bkWrap{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
 #bkWrap canvas{display:block;box-shadow:0 6px 26px rgba(0,0,0,.5);background:#fff}
+/* 播緊邊一版就框住邊一版。左右兩版好多時排版一模一樣，
+   淨係聽住把聲，佢唔知隻眼應該望邊邊。
+   ⚠ 特登**唔擺喺 #bkWrap 入面**：wrap 有 scale() transform，
+     框喺入面條邊會跟住縮——fit 到 0.4 倍嗰陣，4px 邊會變成 1.6px，
+     即係本書愈細，個提示愈睇唔到，啱啱好掉轉。
+     所以擺喺 stage 度，用螢幕座標畫，條邊永遠一樣粗。
+   ⚠ 唔閃。閃嘢喺細路眼中係廣告，佢好快就會學識當佢透明。 */
+#bkNow{position:absolute;display:none;pointer-events:none;z-index:1;
+  border:4px solid #e03131;border-radius:4px;
+  box-shadow:0 0 0 2px rgba(224,49,49,.28), 0 0 16px rgba(224,49,49,.45);
+  transition:opacity .25s}
+#bkNow.show{display:block}
+#bkNow.paused{opacity:.45}
 .bkBusy{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   color:#e8eae7;font-size:15px;pointer-events:none}
 .bkHint{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);
@@ -1117,21 +1130,26 @@ body.readonly #bkAdmin{display:none!important}
    右至左嘅書根本冇「隔籬版」，嗰條路要開兩三個分支先冚到。
    擺喺底邊 ＝ 兩版都完整，所有情況同一套。 */
 .bkSub{position:absolute;left:0;right:var(--bkSubR,0px);bottom:var(--bkSubB,0px);
-  z-index:2;display:none;gap:8px;align-items:flex-start;
-  padding:9px 10px;background:rgba(20,22,20,.92);color:#eef0ed;
+  z-index:2;display:none;
+  padding:9px 44px;background:rgba(20,22,20,.92);color:#eef0ed;
   border-bottom:1px solid rgba(255,255,255,.12)}
-.bkSub.show{display:flex}
-.bkSubLines{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:3px}
-.bkSubLine{font-size:16px;line-height:1.5;opacity:.42;cursor:pointer;
+.bkSub.show{display:block}
+/* ⚠ 置中要真置中：粒 ⌃ 唔可以佔 flex 位，否則啲字會俾佢推偏。
+   所以粒掣浮喺右邊，左右各留 44px padding 平衡返。 */
+.bkSubLines{display:flex;flex-direction:column;gap:4px;text-align:center}
+.bkSubLine{font-size:15px;line-height:1.5;opacity:.6;cursor:pointer;
   white-space:pre-wrap;word-break:break-word}
-.bkSubLine.now{opacity:1;font-weight:700}
-.bkSubX{flex:0 0 auto;border:1px solid #4a4d46;background:#33352f;color:#eef0ed;
-  border-radius:9px;padding:5px 9px;font-size:14px;line-height:1;cursor:pointer}
+/* 上一句／下一句照樣出**全句**，只係淡啲細啲；而家讀緊嗰句對比最大。 */
+.bkSubLine.now{opacity:1;font-weight:700;font-size:18px}
+.bkSubX{position:absolute;right:8px;top:8px;border:1px solid #4a4d46;background:#33352f;
+  color:#eef0ed;border-radius:9px;padding:5px 9px;font-size:14px;line-height:1;cursor:pointer}
 .bkAu button{flex:0 0 auto;border:1px solid #4a4d46;background:#33352f;color:#eef0ed;
   border-radius:9px;padding:7px 11px;font-size:15px;line-height:1;cursor:pointer}
 .bkAu .bkAuPg{flex:0 0 auto;font-size:12.5px;color:#c8ccc6;white-space:nowrap}
 .bkAu input[type=range]{flex:1 1 auto;min-width:50px;accent-color:#7fd1b0}
 .bkAu .bkAuT{flex:0 0 auto;font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
+#bkSubBtn{opacity:.45}
+#bkSubBtn.on{opacity:1;border-color:#7fd1b0}
 /* ===== 📖 聽故事 =====
    爹哋審核完先放出去。draft／ready 喺訪客模式根本唔會入 DOM
    （唔係靠下面呢啲 class 收埋——storyRenderKid 壓根唔會畫佢哋出嚟）。 */
@@ -1927,6 +1945,7 @@ body.hubOpen{overflow:hidden}
   </div>
   <div id="bkStage">
     <div id="bkWrap"></div>
+    <div id="bkNow" aria-hidden="true"></div>
     <div class="bkBusy" id="bkBusy" style="display:none">畫緊…</div>
     <div class="bkHint" id="bkHint" style="display:none"></div>
     <div id="bkThumbs"><div class="bkThGrid" id="bkThGrid"></div></div>
@@ -1952,6 +1971,7 @@ body.hubOpen{overflow:hidden}
       <span class="bkAuPg" id="bkAuPg"></span>
       <input type="range" id="bkAuSeek" min="0" max="1000" value="0" step="1" aria-label="聽到邊度">
       <span class="bkAuT" id="bkAuT">0:00 / 0:00</span>
+      <button type="button" id="bkSubBtn" aria-label="開／收字幕">💬</button>
       <button type="button" id="bkAuRate" aria-label="快啲定慢啲">1×</button>
     </div>
   </div>
@@ -2525,7 +2545,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-12a";
+const BUILD = "2026-09-12d";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -21445,6 +21465,45 @@ function bkParseText(md, pageCount){
   return out;
 }
 
+/* 掃全書，睇下邊幾版有錄音，同時決定本書用緊邊套補零。
+
+   ⚠⚠ 舊版嘅錯（2026-09-12a 出過）：佢係「先用兩位掃全書，掃到有嘢就收工，
+      掃唔到先改三位」。條線錯喺 **bkPad 對 100 或以上嘅頁碼，兩套補零出嚟
+      一模一樣**——p100 就係 p100。
+      所以一本用三位補零（p001…p099、p100…）嘅書：
+      　· 兩位嗰轉：p001 起嘅版全部 404（因為砌出嚟係 p01），
+      　　但去到第 100 版砌出 p100 —— **中咗**。
+      　· 中咗即係 b.aud 唔空 → break → audW 留喺 2。
+      　· 結果：第 1–99 版永遠搵唔到，第 100 版之後全部正常。
+      症狀同 William 報嗰個一模一樣。
+
+   而家嘅做法：**逐版試，兩套都試**，但只有「兩套名唔同」嗰啲版（即係細過 100）
+   先有投票權——因為得嗰啲版分得出本書用緊邊套。 */
+async function bkAuHead(url){
+  try{
+    const r = await fetch(url, {method:'HEAD', cache:'no-store'});
+    return !!(r && r.ok);
+  }catch(e){ return false; }
+}
+async function bkScanAudio(b, head){
+  const h = head || bkAuHead;
+  const base = bkFolder(b.url) + 'audio/p';
+  b.aud = [];
+  let v2 = 0, v3 = 0;
+  for(let p = 1; p <= (b.pages || 0); p++){
+    const n2 = bkPad(p, 2), n3 = bkPad(p, 3);
+    if(await h(base + n2 + '.mp3')){
+      b.aud.push(p);
+      if(n2 !== n3) v2++;                 /* 一百版以上兩套同名，唔算票 */
+    }else if(n2 !== n3 && await h(base + n3 + '.mp3')){
+      b.aud.push(p);
+      v3++;
+    }
+  }
+  b.audW = (v3 > v2) ? 3 : 2;
+  return b.aud;
+}
+
 /* ---------- 逐字稿（字幕） ----------
    ⚠ 同 text.md 係兩份唔同嘅嘢，唔可以溝埋：
      text.md ＝ 書上面**印住**嘅字（OCR 出嚟），AI 答問題用嗰份。
@@ -21663,10 +21722,32 @@ function bkClamp(){
   VW.x = (cw <= sw) ? (sw - cw) / 2 : Math.min(0, Math.max(sw - cw, VW.x));
   VW.y = (ch <= sh) ? (sh - ch) / 2 : Math.min(0, Math.max(sh - ch, VW.y));
 }
+/* 由 canvas 座標換算做螢幕座標。RD.rects 入面存嘅係 canvas 原始 pixel，
+   而 wrap 係 translate(VW.x,VW.y) scale(VW.z)，所以乘返個 z 加返個位移就得。 */
+function bkNowBox(){
+  const box = el('bkNow');
+  if(!box) return null;
+  const sp = RD.spreads[RD.idx] || [];
+  /* 得一版嘅時候（封面、尾頁）唔使框——冇第二版可以撈亂。 */
+  const need = !!(AU.page && sp.length > 1 && RD.rects && RD.rects.length > 1 && RD.natW);
+  const q = need ? RD.rects.filter(function(x){ return x.p === AU.page; })[0] : null;
+  if(!q){ box.classList.remove('show'); return null; }
+  const r = {left:VW.x + q.x0 * VW.z, top:VW.y,
+             width:(q.x1 - q.x0) * VW.z, height:RD.natH * VW.z};
+  box.style.left = Math.round(r.left) + 'px';
+  box.style.top = Math.round(r.top) + 'px';
+  box.style.width = Math.round(r.width) + 'px';
+  box.style.height = Math.round(r.height) + 'px';
+  box.classList.add('show');
+  const a = AU.el;
+  box.classList.toggle('paused', !!(a && a.paused));
+  return r;
+}
 function bkApply(){
   const w = bkWrapEl(); if(!w) return;
   bkClamp();
   w.style.transform = 'translate(' + Math.round(VW.x) + 'px,' + Math.round(VW.y) + 'px) scale(' + VW.z + ')';
+  bkNowBox();                         /* 揸大揸細、拉嚟拉去，個框都要跟住 */
   const z = el('bkZoomFit');
   if(z) z.title = Math.round(VW.z / (VW.fit || 1) * 100) + '%';
 }
@@ -21887,26 +21968,52 @@ function auSync(){
   const c = (a && a.currentTime > 0) ? a.currentTime : 0;
   if(sk && !sk.__drag) sk.value = String(d ? Math.round(c / d * 1000) : 0);
   if(tt) tt.textContent = auFmt(c) + ' / ' + auFmt(d);
+  bkNowBox();
 }
 /* 字幕跟住把聲行。⚠ 一定要由 audio.currentTime 推，唔可以自己行個計時器：
    佢一撳 ×1.5，計時器就會同把聲分道揚鑣，而 currentTime 永遠係啱。 */
-let SUB = {cues:null, page:0, idx:-1};
+let SUB = {cues:null, page:0, idx:-1, h:0};
 function bkSubText(p){
   return (bkDoc && bkDoc.sub && bkDoc.sub[p]) ? String(bkDoc.sub[p]) : '';
 }
 function bkSubBuild(p){
-  SUB = {cues:null, page:p, idx:-1};
+  SUB = {cues:null, page:p, idx:-1, h:0};
+  try{ el('bkSub').style.minHeight = ''; }catch(e){}
   const txt = bkSubText(p);
   const a = AU.el;
   if(!txt || !a || !(a.duration > 0)) return;
   SUB.cues = bkSubCues(bkSubSplit(txt), a.duration, (RD.book && RD.book.off) || 0);
 }
+/* ⚠ 遮住本書嘅真正原因（2026-09-12b 出過）：
+   舊版係「一 toggle 到 .show 就即刻 bkInsetApply() 量高度」——
+   但嗰一刻啲字幕**仲未畫落去**，條 bar 係空嘅，量到嘅高度接近零。
+   本書按住呢個「零」去 fit，跟住啲字一畫出嚟條 bar 就變高，
+   多出嗰截就蓋咗本書最底嗰部分。
+   而家改為：畫完啲字先量，而且只喺**高度真係變咗**嗰陣先重新 fit。
+   ⚠ 同時只准「變高」先重新預位：一句長一句短，逐句都郁會令本書
+     不停上下跳，睇得人好辛苦。留返本版最高嗰個，佢跳兩次就定。 */
+function bkSubMeasure(){
+  const box = el('bkSub');
+  if(!box || !box.classList.contains('show')) return;
+  const h = box.offsetHeight || 0;
+  if(h <= (SUB.h || 0)) return;
+  SUB.h = h;
+  box.style.minHeight = h + 'px';
+  bkInsetApply();
+  if(RD.natW && VW.z <= VW.fit * 1.02){
+    if(el('bkChat').classList.contains('show')) bkFitPage(bkChatPage); else bkFit();
+  }
+}
 function bkSubRender(force){
   const box = el('bkSub'), lines = el('bkSubLines');
   if(!box || !lines) return;
-  const on = !!(SUB.cues && SUB.cues.length && AU.page && !bkSubOff);
+  const btn = el('bkSubBtn');
+  const has = !!(SUB.cues && SUB.cues.length && AU.page);
+  const on = has && !bkSubOff;
+  if(btn){ btn.style.display = has ? '' : 'none'; btn.classList.toggle('on', on); }
   if(box.classList.contains('show') !== on){
     box.classList.toggle('show', on);
+    if(!on){ box.style.minHeight = ''; SUB.h = 0; }
     bkInsetApply();
     if(RD.natW && VW.z <= VW.fit * 1.02){
       if(el('bkChat').classList.contains('show')) bkFitPage(bkChatPage); else bkFit();
@@ -21931,6 +22038,7 @@ function bkSubRender(force){
     };
     lines.appendChild(d);
   });
+  bkSubMeasure();                     /* 一定要喺啲字畫完之後 */
 }
 let bkSubOff = false;
 function bkSpreadAu(){
@@ -21976,7 +22084,9 @@ function auEnded(){
 function auAuto(){
   const list = bkSpreadAu();
   auStop(true);
-  SUB = {cues:null, page:0, idx:-1};
+  try{ el('bkNow').classList.remove('show'); }catch(e){}
+  SUB = {cues:null, page:0, idx:-1, h:0};
+  try{ el('bkSub').style.minHeight = ''; }catch(e){}
   if(!list.length){ auSync(); return; }
   auPlay(list[0]);
 }
@@ -22139,8 +22249,10 @@ function bkClose(){
   el('bkThumbs').classList.remove('show');
   el('bkThGrid').innerHTML = '';
   el('bkAu').classList.remove('show');
+  el('bkNow').classList.remove('show');
   el('bkSub').classList.remove('show');
-  SUB = {cues:null, page:0, idx:-1}; bkSubOff = false;
+  SUB = {cues:null, page:0, idx:-1, h:0}; bkSubOff = false;
+  try{ el('bkSub').style.minHeight = ''; }catch(e){}
   el('bkChat').classList.remove('show');
   RD.inset = null; bkChatMsgs = []; bkChatPage = 0;
   bkAuInset(0, 0);
@@ -22597,20 +22709,7 @@ async function bkCheck(b, btn){
     }catch(e){ console.warn('text.md', e); }
     /* 逐版試一次 audio/pNN.mp3。GitHub Pages 冇 directory listing，
        所以只可以按約定去試，唔可以列表。攞唔到就當冇——冇錄音唔係錯。 */
-    b.aud = [];
-    /* 先試兩位（p02），試唔到先試三位（p002）。第一個試到嘅就係本書用緊嗰套。 */
-    b.audW = 2;
-    for(let w = 2; w <= 3; w++){
-      b.audW = w;
-      for(let p = 1; p <= b.pages; p++){
-        try{
-          const rr = await fetch(bkAuUrl(b, p), {method:'HEAD', cache:'no-store'});
-          if(rr.ok) b.aud.push(p);
-        }catch(e){}
-      }
-      if(b.aud.length) break;
-      if(w === 3) b.audW = 2;              /* 兩種都冇 → 當佢係預設嗰套 */
-    }
+    await bkScanAudio(b);
     /* read.txt 先，冇就試 read.md —— 你點放都唔會錯。 */
     b.sub = 0;
     for(const nm of ['read.txt', 'read.md']){
@@ -23149,10 +23248,10 @@ el('bkAuPlay').onclick = function(){
   if(!list.length) return;
   auPlay(AU.page || list[0]);
 };
-el('bkSubHide').onclick = function(){
-  bkSubOff = true;
-  bkSubRender(true);
-};
+/* ⌃ ＝ 快手收埋。開返就撳條 bar 上面粒 💬——
+   ⚠ 舊版收埋咗之後**冇任何掣開得返**，唯一方法係閂咗本書再開。 */
+el('bkSubHide').onclick = function(){ bkSubOff = true; bkSubRender(true); };
+el('bkSubBtn').onclick = function(){ bkSubOff = !bkSubOff; bkSubRender(true); };
 el('bkAuRate').onclick = function(){
   AU.rate = BK_RATES[(BK_RATES.indexOf(AU.rate) + 1) % BK_RATES.length];
   if(AU.el) AU.el.playbackRate = AU.rate;
