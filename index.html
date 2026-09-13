@@ -1043,6 +1043,9 @@ body.readonly #bkAdmin{display:none!important}
 .bkBar .bkPos{flex:0 0 auto;font-size:13px;color:var(--muted);white-space:nowrap;padding:0 4px}
 .bkBar .bkGap{flex:1 1 auto}
 .bkBar .bkX{background:var(--accent);color:#fff;border-color:var(--accent)}
+#bkDoneBtn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.bkTh.done{background:#2c4a3c}
+.bkTh.done::after{content:'☑';display:block;font-size:13px;color:#7fd1b0;margin-top:-2px}
 #bkStage{flex:1 1 auto;position:relative;overflow:hidden;touch-action:none;
   -webkit-user-select:none;user-select:none;background:#20211f}
 #bkWrap{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
@@ -1937,6 +1940,7 @@ body.hubOpen{overflow:hidden}
     <span class="bkPos" id="bkPos"></span>
     <button type="button" id="bkThumbBtn" aria-label="睇晒所有版">▦ 揀版</button>
     <button type="button" id="bkAskBtn" aria-label="問呢一版">💬 問</button>
+    <button type="button" id="bkDoneBtn" aria-label="呢版睇完未">☐ 睇完未</button>
     <span class="bkGap"></span>
     <button type="button" id="bkZoomOut" aria-label="細啲">－</button>
     <button type="button" id="bkZoomFit" aria-label="啱晒個畫面">⤢</button>
@@ -2545,7 +2549,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-12e";
+const BUILD = "2026-09-13a";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -21504,6 +21508,95 @@ async function bkScanAudio(b, head){
   return b.aud;
 }
 
+/* ---------- 「呢版睇完喇」 ----------
+   擺喺 diary_calendar_book/done/<書id>，**唔擺入 doc 入面**：
+   doc 裝住成本書嘅 text.md（七十幾版就幾十 KB），而剔嘅記錄係
+   開書嗰一刻就要有嘅。撈埋一齊，即係佢每次開書都要拖成份 OCR 落嚟。
+   ⚠ Firebase 規則一個字都唔使改：diary_calendar_book 呢個節點早就有，
+     規則管嘅係 $uid 嗰層，底下加幾多個子鍵都唔關規則事。 */
+const BkDone = {
+  cache:{},
+  ref(id){
+    try{
+      if(!currentUser || !currentUser.uid || typeof db === 'undefined') return null;
+      return db.ref(BK_ROOT + '/' + currentUser.uid + '/done/' + id);
+    }catch(e){ return null; }
+  },
+  async load(id){
+    if(this.cache[id]) return this.cache[id];
+    const r = this.ref(id);
+    if(!r){ this.cache[id] = {}; return this.cache[id]; }
+    try{
+      const sn = await r.once('value');
+      this.cache[id] = sn.val() || {};
+    }catch(e){ this.cache[id] = {}; }
+    return this.cache[id];
+  },
+  async set(id, pages, on){
+    const m = this.cache[id] || (this.cache[id] = {});
+    const up = {};
+    (pages || []).forEach(function(p){
+      if(on) m[p] = 1; else delete m[p];
+      up[p] = on ? 1 : null;
+    });
+    const r = this.ref(id);
+    if(r){ try{ await r.update(up); }catch(e){} }
+    return m;
+  },
+  async clear(id){
+    this.cache[id] = {};
+    const r = this.ref(id);
+    if(r){ try{ await r.remove(); }catch(e){} }
+  }
+};
+/* ⚠ 剔嘅單位係**一個孖頁**（即係佢見到嗰一版嘢），唔係逐頁。
+   佢望住兩版，出兩個剔係考佢，唔係幫佢。
+   但存返落去係**逐頁**存——同錄音檔名、text.md、字幕全部用同一套物理頁碼，
+   噉之後你改 cover／rtl，重新分組都唔會錯位。
+   ⚠ 冇錄音嗰啲版（封面、大圖頁）一樣剔得。唔准剔嘅話，
+     「第一版未剔」永遠會停喺封面，成個機制就冇用。 */
+function bkDoneOf(p){ return !!(RD.done && RD.done[p]); }
+function bkSpreadDone(i){
+  const sp = RD.spreads[(i === undefined) ? RD.idx : i] || [];
+  return sp.length > 0 && sp.every(function(p){ return bkDoneOf(p); });
+}
+function bkFirstUndone(){
+  for(let i = 0; i < RD.spreads.length; i++) if(!bkSpreadDone(i)) return i;
+  return -1;                            /* -1 ＝ 成本書都剔晒 */
+}
+function bkDoneCount(){
+  let n = 0;
+  for(const k in (RD.done || {})) if(RD.done[k]) n++;
+  return n;
+}
+function bkSyncDone(){
+  const b = el('bkDoneBtn');
+  if(!b) return;
+  const on = bkSpreadDone();
+  b.textContent = on ? '☑ 睇完喇' : '☐ 睇完未';
+  b.classList.toggle('on', on);
+  b.title = on ? '撳一下取消' : '睇完呢版就撳一下';
+  const g = el('bkThGrid');
+  if(g) g.querySelectorAll('.bkTh').forEach(function(d){
+    d.classList.toggle('done', bkDoneOf(parseInt(d.dataset.p, 10)));
+  });
+}
+async function bkDoneToggle(){
+  if(!RD.book) return;
+  const sp = RD.spreads[RD.idx] || [];
+  if(!sp.length) return;
+  const on = !bkSpreadDone();
+  RD.done = await BkDone.set(RD.book.id, sp, on);
+  bkSyncDone();
+  bkHint(on ? ('第 ' + sp.join('、') + ' 版 —— 剔咗 ☑') : '取消咗個剔', 1600);
+  try{
+    const byKid = isGuest();
+    kidLog('book', (byKid ? '' : '🧑 爹哋試機 · ') +
+      (on ? '剔咗《' : '取消剔《') + (RD.book.title || '') + '》第 ' + sp.join('、') + ' 版',
+      {kind:'tick', bid:RD.book.id, page:sp[0], on:on, by:(byKid ? 'kid' : 'dad')});
+  }catch(e){}
+}
+
 /* ---------- 逐字稿（字幕） ----------
    ⚠ 同 text.md 係兩份唔同嘅嘢，唔可以溝埋：
      text.md ＝ 書上面**印住**嘅字（OCR 出嚟），AI 答問題用嗰份。
@@ -21620,7 +21713,7 @@ async function bkPageCanvas(doc, n, scale){
 const RD = {
   book:null, doc:null, pageCount:0, spreads:[], idx:0,
   scale:1, cache:new Map(), busy:0, natW:0, natH:0, hintT:0, hi:false,
-  rects:[], dwell:{}, heard:{}, dwellAt:0, dwellSp:null, inset:null
+  rects:[], dwell:{}, heard:{}, dwellAt:0, dwellSp:null, inset:null, done:{}
 };
 const VW = {z:1, fit:1, x:0, y:0};
 
@@ -21631,10 +21724,35 @@ function bkBusy(on, msg){
   b.textContent = msg || '畫緊…';
   b.style.display = on ? 'flex' : 'none';
 }
+/* 「未剔嗰版喺第 N 版，去唔去？」——一粒掣，唔撳就唔會郁佢。 */
+function bkJump(i){
+  const h = el('bkHint');
+  if(!h) return;
+  const sp = RD.spreads[i] || [];
+  if(!sp.length) return;
+  clearTimeout(RD.hintT);
+  h.innerHTML = '';
+  h.style.display = ''; h.style.opacity = '1'; h.style.pointerEvents = 'auto';
+  const s = document.createElement('span');
+  s.textContent = '仲未剔嘅喺第 ' + sp[0] + ' 版　';
+  h.appendChild(s);
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.style.cssText = 'border:1px solid #fff;background:transparent;color:#fff;' +
+    'border-radius:999px;padding:4px 12px;font-size:13px;cursor:pointer';
+  b.textContent = '⏭ 去嗰度';
+  b.onclick = function(){ h.style.display = 'none'; h.style.pointerEvents = 'none'; bkShow(i); };
+  h.appendChild(b);
+  RD.hintT = setTimeout(function(){
+    h.style.opacity = '0';
+    setTimeout(function(){ h.style.display = 'none'; h.style.pointerEvents = 'none'; }, 520);
+  }, 6000);
+}
 function bkHint(msg, ms){
   const h = el('bkHint'); if(!h) return;
   clearTimeout(RD.hintT);
   if(!msg){ h.style.display = 'none'; return; }
+  h.style.pointerEvents = 'none';
   h.textContent = msg; h.style.display = ''; h.style.opacity = '1';
   RD.hintT = setTimeout(function(){ h.style.opacity = '0';
     setTimeout(function(){ h.style.display = 'none'; }, 520); }, ms || 2600);
@@ -21859,6 +21977,7 @@ async function bkShow(i){
        再 fit 一次，唔係第一版永遠會俾條 bar 遮住底下嗰截。 */
     bkInsetApply();
     bkFit();
+    bkSyncDone();
     /* 揭咗版，問答個 box 要跟住指向新嗰版，唔係佢問緊嘅嘢同畫面對唔上。 */
     if(el('bkChat').classList.contains('show')){
       bkChatPage = (RD.spreads[RD.idx] || [])[0] || bkChatPage;
@@ -22218,8 +22337,25 @@ async function bkOpen(b){
     const vp1 = pg1.getViewport({scale:1});
     const wide = vp1.width * (RD.spreads.some(function(s){ return s.length > 1; }) ? 2 : 1);
     RD.scale = Math.min(2.6, Math.max(1, BK_TARGET_W / Math.max(1, wide)));
+    RD.done = await BkDone.load(b.id);
     bkBusy(false);
-    await bkShow(bkLoadPos(b.id, RD.spreads.length));
+    /* 由邊版開始：
+       ① 部機上次睇到邊（localStorage，逐部機獨立）——爹哋講明呢個最理想
+       ② 冇嘅話（新機、清咗快取、第一次開）→ 第一版未剔嗰版
+       ③ 全部剔晒 → 由頭開始，但要講返一聲
+       ⚠ ① 同 ② 唔同嗰陣唔會靜靜雞改佢——佢可能特登揭去後面望幅圖。
+         改為出一粒掣俾佢自己跳，一撳就去。 */
+    const last = bkLoadPos(b.id, RD.spreads.length);
+    const undone = bkFirstUndone();
+    let start = last;
+    if(!last) start = (undone >= 0) ? undone : 0;
+    await bkShow(start);
+    bkSyncDone();
+    if(undone < 0){
+      bkHint('呢本書你已經全部剔晒喇 ☑', 3000);
+    }else if(last && undone !== last){
+      bkJump(undone);
+    }
     bkHint(isGuest()
       ? '撥左撥右揭書 · 兩隻手指放大 · 篤一下版面就播／停爹哋把聲'
       : '撥左撥右揭版 · 兩指放大 · 篤一下版面＝播／停 · ← → 揭版 · Esc 出返去', 3600);
@@ -22263,7 +22399,7 @@ function bkClose(){
   RD.cache.clear();
   bkWrapEl().innerHTML = '';
   try{ if(RD.doc && RD.doc.destroy) RD.doc.destroy(); }catch(e){}
-  RD.doc = null; RD.book = null; RD.spreads = []; RD.natW = RD.natH = 0;
+  RD.doc = null; RD.book = null; RD.spreads = []; RD.natW = RD.natH = 0; RD.done = {};
 }
 
 /* ---------- 縮圖跳頁 ---------- */
@@ -22304,6 +22440,7 @@ function bkThumbsOpen(){
   }, {root:box, rootMargin:'400px'});
   grid.querySelectorAll('.bkTh').forEach(function(d){ thObs.observe(d); });
   bkSyncBar();
+  bkSyncDone();                         /* 縮圖度要見到邊幾版剔咗 */
 }
 
 /* ---------- 手指 ----------
@@ -22550,6 +22687,13 @@ function bkNoteTxt(b){
   }else if(b.txt === 'none'){
     L.push('· 冇 text.md（唔影響睇書。第三期要 AI 答書入面嘅嘢就要有）');
   }
+  /* ⚠ read.txt 本來淨係喺撳完之後彈嗰句提示度出現一下，張表上面一個字都冇——
+     撳咗第二本書就永遠搵唔返。逐字稿（字幕）同 text.md 一樣要企喺度。 */
+  L.push(b.sub
+    ? ('💬 字幕 ' + b.sub + ' 版（read.txt）')
+    : '💬 冇字幕（放 read.txt 落本書個資料夾，再撳一次檢查。read.md 一樣收）');
+  const dn = (b.doneN || 0);
+  if(dn) L.push('☑ Charlotte 剔咗 ' + dn + ' / ' + b.pages + ' 版');
   return L.join('\n');
 }
 function bkRenderRows(){
@@ -22667,6 +22811,16 @@ function bkRenderRows(){
         b.onclick = function(){ bkSetSt(x, s.k); save(); bkRenderRows(); };
         ops.appendChild(b);
       });
+      const rs = document.createElement('button');
+      rs.type = 'button'; rs.className = 'btn'; rs.textContent = '↺ 清剔';
+      rs.title = '清走 Charlotte 喺呢本書剔咗嘅記錄（想佢重新睇一次嗰陣用）';
+      rs.onclick = async function(){
+        if(!confirm('清走《' + (x.title || '') + '》所有「睇完喇」嘅剔？\n\n佢要重新逐版剔過。')) return;
+        await BkDone.clear(x.id);
+        x.doneN = 0; save(); bkRenderRows();
+        say('清咗');
+      };
+      ops.appendChild(rs);
       const pv = document.createElement('button');
       pv.type = 'button'; pv.className = 'btn'; pv.textContent = '👁 睇下';
       pv.onclick = function(){ hide('bkAdminModal'); bkOpen(x); };
@@ -22737,6 +22891,10 @@ async function bkCheck(b, btn){
        所以只可以按約定去試，唔可以列表。攞唔到就當冇——冇錄音唔係錯。 */
     await bkScanAudio(b);
     /* read.txt 先，冇就試 read.md —— 你點放都唔會錯。 */
+    try{
+      const dn = await BkDone.load(b.id);
+      b.doneN = Object.keys(dn || {}).filter(function(k){ return dn[k]; }).length;
+    }catch(e){ b.doneN = 0; }
     b.sub = 0;
     for(const nm of ['read.txt', 'read.md']){
       try{
@@ -23322,6 +23480,7 @@ el('bkPrev').onclick = function(){ bkGo(-1); };
 el('bkNext').onclick = function(){ bkGo(1); };
 el('bkClose').onclick = bkClose;
 el('bkThumbBtn').onclick = bkThumbsOpen;
+el('bkDoneBtn').onclick = bkDoneToggle;
 el('bkZoomIn').onclick  = function(){ bkZoom(1.25); };
 el('bkZoomOut').onclick = function(){ bkZoom(1 / 1.25); };
 el('bkZoomFit').onclick = function(){ bkFit(); };
