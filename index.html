@@ -965,6 +965,7 @@ body.readonly .aiTabs button[data-p="todo"]{display:none!important}
 #hubModal{z-index:59}
 #hubEditModal{z-index:59}   /* 寫喺 #hubModal 後面，同層之下自然疊喺佢上面 */
 body.readonly #hubManage{display:none!important}
+.bkRow .bkGrip{touch-action:none}     /* 唔加呢句，iPad 上面一拖就變咗捲頁 */
 .hrGrip{flex:0 0 auto;cursor:grab;color:var(--muted);font-size:17px;line-height:1;
   padding:2px 4px;touch-action:none;-webkit-user-select:none;user-select:none}
 .hubRow.dragging{opacity:.55;outline:2px dashed var(--accent)}
@@ -2549,7 +2550,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-13c";
+const BUILD = "2026-09-13e";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -21292,6 +21293,7 @@ const BK_SUBJ = [
   {k:'eng',   name:'英文', color:'#1971c2'},
   {k:'math',  name:'數學', color:'#2f9e44'},
   {k:'sci',   name:'科學', color:'#e8590c'},
+  {k:'hum',   name:'人文', color:'#0b7285'},
   {k:'other', name:'其他', color:'#6741d9'}
 ];
 const bkSubjOf = k => BK_SUBJ.filter(x => x.k === k)[0] || BK_SUBJ[BK_SUBJ.length - 1];
@@ -21304,7 +21306,13 @@ const bkSubjOf = k => BK_SUBJ.filter(x => x.k === k)[0] || BK_SUBJ[BK_SUBJ.lengt
      嗰兩樣擺去平行節點 diary_calendar_book。 */
 function ensureBooks(){
   if(!Array.isArray(state.books)) state.books = [];
-  state.books = state.books.filter(x => x && typeof x === 'object');
+  /* ⚠ 本來無論有冇垃圾都照 filter 一次——即係**每次都換咗個新 array**。
+     任何「先攞個 array，中間又叫多次 ensureBooks()，然後改返嗰個 array」
+     嘅寫法，改嘅就會係一個已經被人掉咗嘅舊 array，改完乜都唔會發生。
+     bkNudge() 就中過呢個窿：▲▼ 撳落去 return true，但畫面完全冇郁。
+     所以：真係有垃圾先至換，冇就原封不動。 */
+  const clean = state.books.filter(x => x && typeof x === 'object');
+  if(clean.length !== state.books.length) state.books = clean;
   state.books.forEach(function(x){
     if(!x.id) x.id = uid();
     if(typeof x.subj !== 'string' || !BK_SUBJ.some(y => y.k === x.subj)) x.subj = 'other';
@@ -21347,6 +21355,27 @@ function bkOrdered(st){
     });
   });
   return out;
+}
+/* 喺**佢見到嗰個次序**入面同隔籬嗰本調位。
+   ⚠ 唔可以淨係喺 state.books 度前後行一格：中間隔住第二個科目／分類嘅書，
+     行一格可能畫面上完全冇郁（因為顯示係分組嘅）。
+     所以只同「同一個狀態 ＋ 同一科 ＋ 同一分類」嗰批換位——
+     嗰批喺畫面上就係連續嘅。 */
+function bkPeers(x){
+  return ensureBooks().filter(function(y){
+    return y.st === x.st && y.subj === x.subj && (y.cat || '') === (x.cat || '');
+  });
+}
+function bkNudge(x, dir){
+  const peers = bkPeers(x);           /* 呢句入面會叫 ensureBooks() */
+  const a = ensureBooks();            /* 所以個 array 一定要喺佢之後先攞 */
+  const k = peers.indexOf(x);
+  const to = peers[k + dir];
+  if(k < 0 || !to) return false;
+  const i = a.indexOf(x), j = a.indexOf(to);
+  if(i < 0 || j < 0) return false;
+  a[i] = to; a[j] = x;
+  return true;
 }
 function bkMove(fromId, toId, after){
   const a = ensureBooks();
@@ -22583,7 +22612,14 @@ function bkBindTouch(){
 async function bkRenderShelf(){
   const box = el('bkHubBox'); if(!box) return;
   ensureBooks();
-  const items = bkItems(true);
+  /* ⚠ 呢度本來係 bkItems(true) —— 即係 state.books 嘅**原始 array 次序**。
+     但管理表係用 bkOrdered() 顯示（科目 → 分類 → array 次序），
+     兩邊根本唔同。所以爹哋喺管理表拖完，書架上面睇落好似冇郁過。
+     而管理表底下嗰句仲寫住「上下次序就係 Charlotte 書架上見到嘅次序」——
+     嗰句由第一期開始就係假嘅。
+     而家兩邊行同一個 bkOrdered()，嗰句先至係真。 */
+  const items = bkOrdered('live').map(function(o){ return o.it; })
+    .filter(function(x){ return x.url && x.title; });
   box.innerHTML = '';
   if(!items.length) return;
   const sec = document.createElement('div');
@@ -22640,16 +22676,23 @@ async function bkRenderShelf(){
 
 /* ================= 爹哋張管理表 ================= */
 let bkDrag = null;
+/* ⚠ 舊版將 pointermove／pointerup 掛喺粒 ⠿ 度，仲 setPointerCapture()。
+   但拖成功一格之後我哋會 bkRenderRows() 重畫成張表——粒 ⠿ 連同個 capture
+   一齊俾人拆咗，之後嘅 pointermove 邊度都唔會去。
+   即係「拖得郁一格，然後就死咗」，睇落就係「拖唔郁」。
+   修法：郁同放手一律掛喺 window，重畫幾多次都唔關佢事。 */
 function bkBindDrag(box){
   box.querySelectorAll('.bkGrip').forEach(function(g){
     g.addEventListener('pointerdown', function(e){
       const row = g.closest('.bkRow'); if(!row) return;
       bkDrag = {id:row.dataset.id, row:row, y:e.clientY, moved:false};
       row.classList.add('dragging');
-      try{ g.setPointerCapture(e.pointerId); }catch(err){}
       e.preventDefault();
     });
-    g.addEventListener('pointermove', function(e){
+  });
+  if(bkBindDrag._on) return;            /* window 嗰兩個只掛一次 */
+  bkBindDrag._on = 1;
+  window.addEventListener('pointermove', function(e){
       if(!bkDrag) return;
       if(Math.abs(e.clientY - bkDrag.y) < 6) return;
       bkDrag.moved = true;
@@ -22668,17 +22711,16 @@ function bkBindDrag(box){
         const nr = document.querySelector('.bkRow[data-id="' + bkDrag.id + '"]');
         if(nr){ bkDrag.row = nr; nr.classList.add('dragging'); }
       }
-    });
-    const stop = function(){
-      if(!bkDrag) return;
-      try{ bkDrag.row.classList.remove('dragging'); }catch(err){}
-      const moved = bkDrag.moved;
-      bkDrag = null;
-      if(moved) bkRenderRows();
-    };
-    g.addEventListener('pointerup', stop);
-    g.addEventListener('pointercancel', stop);
   });
+  const stop = function(){
+    if(!bkDrag) return;
+    try{ bkDrag.row.classList.remove('dragging'); }catch(err){}
+    const moved = bkDrag.moved;
+    bkDrag = null;
+    if(moved){ bkRenderRows(); bkRenderShelf(); }
+  };
+  window.addEventListener('pointerup', stop);
+  window.addEventListener('pointercancel', stop);
 }
 function bkNoteTxt(b){
   if(!b.pages) return '仲未檢查過。貼咗網址就撳「🔍 檢查」。';
@@ -22813,6 +22855,18 @@ function bkRenderRows(){
       ol.appendChild(document.createTextNode(' 秒'));
       l3.appendChild(ol);
       const ops = document.createElement('div'); ops.className = 'bkOps';
+      /* 拖粒 ⠿ 喺電腦度好用，但喺 iPad 上面同埋一拖就重畫嘅情況下唔穩陣。
+         呢兩粒掣係同一件事嘅可靠版本，兩樣並存。 */
+      const peers = bkPeers(x), pk = peers.indexOf(x);
+      [['▲', -1, '同上面嗰本調位'], ['▼', 1, '同下面嗰本調位']].forEach(function(o){
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'btn'; b.textContent = o[0]; b.title = o[2];
+        b.disabled = !peers[pk + o[1]];
+        b.onclick = function(){
+          if(bkNudge(x, o[1])){ save(); bkRenderRows(); bkRenderShelf(); }
+        };
+        ops.appendChild(b);
+      });
       BK_ST.forEach(function(s){
         const b = document.createElement('button');
         b.type = 'button'; b.className = 'btn hrSt' + (x.st === s.k ? ' on' : '');
@@ -22860,8 +22914,10 @@ function bkRenderRows(){
   });
   bkBindDrag(box);
   const n = el('bkEditNote');
-  if(n) n.textContent = '共 ' + bkItems(false).length + ' 本。上下次序就係 Charlotte 書架上見到嘅次序（拖粒 ⠿ 換位）。' +
-    '　MP3 語音伴讀係第二期，AI 睇孖頁答問題係第三期。';
+  if(n) n.textContent = '共 ' + bkItems(false).length + ' 本。Charlotte 個書架同呢度一模一樣：' +
+    '先按科目（中文→英文→數學→科學→人文→其他），再按分類，然後先至係你排嘅次序。' +
+    '　調位撳 ▲ ▼（同上下嗰本換），或者拖粒 ⠿。' +
+    '　⚠ 只可以喺同一科同一分類入面調 —— 唔同科嘅書喺書架上本身就分開咗。';
 }
 
 /* 🔍 檢查：貼完即刻試一次，唔會等 Charlotte 撳開先發現（北極星第二條）。
