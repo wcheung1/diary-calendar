@@ -2549,7 +2549,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-13a";
+const BUILD = "2026-09-13b";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -22093,7 +22093,7 @@ function auSync(){
    佢一撳 ×1.5，計時器就會同把聲分道揚鑣，而 currentTime 永遠係啱。 */
 let SUB = {cues:null, page:0, idx:-1, h:0};
 function bkSubText(p){
-  return (bkDoc && bkDoc.sub && bkDoc.sub[p]) ? String(bkDoc.sub[p]) : '';
+  return (bkDocOK() && bkDoc.sub && bkDoc.sub[p]) ? String(bkDoc.sub[p]) : '';
 }
 function bkSubBuild(p){
   SUB = {cues:null, page:p, idx:-1, h:0};
@@ -22329,7 +22329,11 @@ async function bkOpen(b){
       {kind:'open', bid:b.id, subj:b.subj, cat:b.cat || '', by:(byKid ? 'kid' : 'dad')});
   }catch(e){}
   try{
-    if(b.sub) bkDocLoad(b.id).catch(function(){});   /* 字幕要用 doc/<id>/sub */
+    /* 開新一本書：快取一律掉空，唔理有冇字幕。
+       ⚠ 舊版寫 `if(b.sub) …`——即係冇字幕嗰啲書連清都唔清，
+         上一本書嘅嘢就噉留咗喺度。 */
+    if(bkDocId !== b.id){ bkDoc = null; bkDocId = ''; }
+    bkDocLoad(b.id).catch(function(){});
     RD.doc = await bkOpenDoc(bkPdfUrl(b));
     RD.pageCount = RD.doc.numPages;
     RD.spreads = bkBuildSpreads(RD.pageCount, !!b.cover);
@@ -23028,12 +23032,24 @@ async function bkDocLoad(id){
     return bkDoc;
   }catch(e){ BookCloud.lastError = String((e && e.message) || e); return null; }
 }
-function bkTxtOf(p){ return (bkDoc && bkDoc.txt && bkDoc.txt[p]) ? String(bkDoc.txt[p]) : ''; }
+/* ⚠⚠ 開住嘅書，同 bkDoc 入面嗰份，一定要係**同一本**。
+   出過嘅 bug（2026-09-13a）：bkDoc 係一個 module 層嘅快取，開完 A 書就留住 A 嘅嘢。
+   跟住開 B 書（冇 read.txt），bkOpen 嗰句係 `if(b.sub) bkDocLoad(...)`——
+   B 冇字幕，所以**根本唔會去載**，bkDoc 仍然係 A。
+   於是 B 播緊錄音嗰陣，出返 A 書嘅字幕。
+   更衰嘅係同一個窿嘅孿生版本：bkAskCtx() 一樣行 bkTxtOf()／bkDescOf()，
+   即係 AI 有機會攞住上一本書嘅內容去答佢——畫面上完全睇唔出。
+   修法兩層：① 開書即刻掉空個快取　② 每次攞之前都對返本書個 id。 */
+function bkDocOK(){
+  return !!(RD.book && bkDoc && bkDocId === RD.book.id);
+}
+function bkTxtOf(p){ return (bkDocOK() && bkDoc.txt && bkDoc.txt[p]) ? String(bkDoc.txt[p]) : ''; }
 /* 爹哋改過嗰段蓋過 AI 嗰段。AI 寫錯咗要改得到，唔可以「錯咗但冇得郁」。 */
 function bkDescOf(p){
-  const fix = bkDoc && bkDoc.descFix && bkDoc.descFix[p];
+  if(!bkDocOK()) return '';
+  const fix = bkDoc.descFix && bkDoc.descFix[p];
   if(fix) return String(fix);
-  return (bkDoc && bkDoc.desc && bkDoc.desc[p]) ? String(bkDoc.desc[p]) : '';
+  return (bkDoc.desc && bkDoc.desc[p]) ? String(bkDoc.desc[p]) : '';
 }
 /* 骨幹：逐版壓成一句。有標題就攞標題，冇就攞第一行頭廿幾個字。
    佢**唔會知**第 8 版寫乜，但佢知第 8 版屬於邊一忽——答唔到嗰陣指得返路。 */
