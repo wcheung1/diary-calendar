@@ -2549,7 +2549,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-13b";
+const BUILD = "2026-09-13c";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -14517,8 +14517,9 @@ const SYS_BOOK_TALK = [
 '· 佢喺傾偈嗰邊同 AI 講過乜，你一個字都睇唔到。',
 '',
 '【你手上有咩】',
-'· 佢而家揭開嗰版嘅全部字（如果嗰版有字）。',
+'· 佢而家揭開嗰版**印住**嘅字（如果嗰版有字）。',
 '· 嗰版幅圖嘅描述（如果爹哋補咗先有，唔係每版都有）。',
+'· 爹哋讀出嚟嗰段稿（如果嗰版有錄音先有）。佢啱啱真係聽過呢段。',
 '· 前後各一版嘅字，俾你接得返上文下理。',
 '· 成本書嘅骨幹：逐版一句，講嗰版大概講緊邊一忽。',
 '',
@@ -14532,6 +14533,10 @@ const SYS_BOOK_TALK = [
 '· 佢七歲。一段最多三句。',
 '· 佢問乜你答乜。唔好順手教多樣嘢，唔好考返佢。',
 '· 版面上寫住嘅字，佢話幾多就幾多，你唔准改佢。',
+'· 兩份嘢唔同嘅時候：**印住嘅字係正本**。但佢問嘅嘢明顯係把聲講過嘅，',
+'　就照讀稿答，同時講明「爹哋讀嗰陣係噉講嘅」。唔准將兩份撈埋整一個出嚟。',
+'· 讀稿入面有時會有講俾聽嘅人知嘅指示（例如「呢一頁唔使聽，揭去下一頁」）。',
+'　嗰啲唔係書嘅內容，唔好當佢係。',
 '· 如果嗰版寫住【我睇唔清】，即係嗰部分你真係睇唔到，照直同佢講。'
 ].join('\n');
 
@@ -23067,11 +23072,21 @@ function bkSpineLine(txt){
 function bkAskCtx(page){
   const b = RD.book || {}, L = [];
   L.push('【今次揭開嘅書】《' + (b.title || '') + '》　共 ' + RD.pageCount + ' 版');
-  const tx = bkTxtOf(page), ds = bkDescOf(page);
+  const tx = bkTxtOf(page), ds = bkDescOf(page), rd = bkSubText(page);
   L.push('\n【佢而家望住嘅：第 ' + page + ' 版】');
-  L.push(tx ? ('字：\n' + tx) : '字：（呢版抽唔到字）');
+  L.push(tx ? ('印住嘅字（正本）：\n' + tx) : '印住嘅字：（呢版抽唔到字）');
   if(ds) L.push('幅圖：' + ds);
-  else if(!tx) L.push('幅圖：（爹哋未補過。即係話呢一版你係完全睇唔到嘅，唔准估。）');
+  else if(!tx && !rd) L.push('幅圖：（爹哋未補過。即係話呢一版你係完全睇唔到嘅，唔准估。）');
+  /* ⚠ read.txt 係爹哋寫嘅讀稿，唔係書上面印嘅字。加佢入嚟有三個好處：
+     ① 佢啱啱**真係聽過**呢段。佢問「點解隻兔仔要走」，好多時問緊把聲講過嘅嘢，
+        唔係問印住嘅字。個 AI 冇聽過，就會答到牛頭唔搭馬嘴。
+     ② 一版成幅大圖、text.md 抽唔到字嗰啲（你本科學新領域係第 21、39、57 版），
+        讀稿好多時反而講到幅圖係乜——即係補返個窿，而且零成本，
+        唔使燒睇相額度。
+     ③ 已經載咗落嚟（字幕用緊），唔使多一次讀取。
+     ⚠ 但**只放佢而家望住嗰一版**：前後文同骨幹照舊用 text.md。
+       兩份都全書鋪落去，同一段內容會出現兩次，個模型會當係強調。 */
+  if(rd) L.push('爹哋讀出嚟嗰段（佢啱啱聽過，同印住嘅字未必一樣）：\n' + rd);
   const near = [];
   (RD.spreads[RD.idx] || []).forEach(function(p){ if(p !== page) near.push(p); });
   [RD.idx - 1, RD.idx + 1].forEach(function(i){
@@ -23083,7 +23098,10 @@ function bkAskCtx(page){
     return '第 ' + p + ' 版：' + (t2 ? t2.slice(0, 400) : '（冇字）');
   }).join('\n'));
   const sp = [];
-  for(let p = 1; p <= RD.pageCount; p++) sp.push('第 ' + p + ' 版：' + bkSpineLine(bkTxtOf(p)));
+  /* 骨幹一樣：印住嘅字冇就用讀稿。唔係嘅話，成幅圖嗰啲版喺骨幹入面
+     全部係「（冇字）」，佢問起就永遠指唔到路。 */
+  for(let p = 1; p <= RD.pageCount; p++)
+    sp.push('第 ' + p + ' 版：' + bkSpineLine(bkTxtOf(p) || bkSubText(p)));
   L.push('\n【成本書嘅骨幹（逐版一句。內容你冇睇過，淨係知邊版講緊邊一忽）】\n' + sp.join('\n'));
   return L.join('\n');
 }
