@@ -843,6 +843,13 @@ body.readonly #btnHub:hover{background:#ffe98a}
 /* ⚠ 本來「🔒 解鎖編輯」喺 Charlotte 個畫面度閃——即係成個畫面最搶眼嗰粒，
    係佢撳落去淨係見到個密碼框嘅嗰粒。而家讓位俾 📚 學習角：照舊橙色，但唔閃。 */
 body.readonly #btnUnlock{display:inline-block;animation:none}
+/* 🙋 爹哋嗰邊：有舉手先出，實心橙色 ＋ 一閃一閃，唔會走漏眼。Charlotte 嗰邊一律唔出。 */
+#btnTeachAlert{background:#e8590c;border-color:#e8590c;color:#fff;font-weight:800;
+  animation:teachPing 2.4s ease-in-out infinite}
+#btnTeachAlert:hover{filter:brightness(1.08)}
+#btnTeachAlert[hidden],body.readonly #btnTeachAlert{display:none!important}
+@keyframes teachPing{0%,100%{box-shadow:0 0 0 0 rgba(232,89,12,.55)}50%{box-shadow:0 0 0 8px rgba(232,89,12,0)}}
+@media (prefers-reduced-motion:reduce){#btnTeachAlert{animation:none}}
 body.readonly #btnGuest,
 body.readonly #btnKw,
 body.readonly #btnLogin,
@@ -1027,8 +1034,11 @@ body.readonly #bkAdmin{display:none!important}
   border:1px solid var(--line);border-radius:12px;background:var(--card);cursor:pointer}
 .bkCard:hover{background:var(--hover)}
 .bkCard{position:relative}
-.bkCardTeach{position:absolute;top:12px;right:12px;background:#e8590c;color:#fff;border-radius:999px;
-  padding:3px 9px;font-size:12.5px;font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.25);pointer-events:none}
+/* 🙋 舊版係封面右上角一粒細牌，William 話會走漏眼。而家：成張卡橙框 ＋ 封面頂一條橫額。 */
+.bkCard.teach{border:2px solid #e8590c;box-shadow:0 0 0 3px rgba(232,89,12,.18)}
+.bkCardTeach{position:absolute;left:8px;right:8px;top:8px;background:#e8590c;color:#fff;
+  border-radius:8px 8px 0 0;padding:6px 8px;font-size:14px;font-weight:800;text-align:center;
+  box-shadow:0 2px 6px rgba(0,0,0,.25);pointer-events:none}
 .bkCov{width:100%;aspect-ratio:3/4;border-radius:8px;border:1px solid var(--line);
   background:#f3f3f0 center/cover no-repeat;display:flex;align-items:center;
   justify-content:center;color:var(--muted);font-size:12px;overflow:hidden}
@@ -1093,6 +1103,17 @@ body.readonly #bkAdmin{display:none!important}
 #bkNow.paused{opacity:.45}
 .bkBusy{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   color:#e8eae7;font-size:15px;pointer-events:none}
+/* 🖼 存圖：揀邊一版。浮喺本書上面正中，唔遮工具列。 */
+.bkSave{position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:5;display:none;
+  flex-direction:column;gap:8px;min-width:230px;max-width:92%;padding:12px;border-radius:14px;
+  background:var(--card);border:1px solid var(--line);box-shadow:0 6px 24px rgba(0,0,0,.28)}
+.bkSave.show{display:flex}
+.bkSaveT{font-weight:800;font-size:15px;text-align:center}
+.bkSave button{padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel);
+  font-size:15px;cursor:pointer}
+.bkSave .bkSaveGo{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:700}
+.bkSave .bkSaveGo:disabled{opacity:.55;cursor:default}
+#bkSaveBtn[hidden]{display:none}
 .bkHint{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);
   background:rgba(20,22,20,.86);color:#fff;padding:8px 14px;border-radius:999px;
   font-size:13px;pointer-events:none;transition:opacity .5s;max-width:88%;text-align:center}
@@ -1620,6 +1641,7 @@ body.hubOpen{overflow:hidden}
   <button class="hbtn" id="btnTrash" title="搵返刪咗嘅時間表項目">🗑 執返刪咗嘅嘢</button>
   <button class="hbtn" id="btnHelp" title="唔識撳邊度？撳我問">❓ 我唔識撳</button>
   <button class="hbtn" id="btnList" title="執書包、功課清單">📋 清單</button>
+  <button class="hbtn" id="btnTeachAlert" type="button" hidden>🙋 Charlotte 想你教</button>
   <button class="hbtn" id="btnHub" title="爹哋放咗嘅學習連結">📚 學習角</button>
   <button class="hbtn" id="btnSearch">🔍 搜尋 (Ctrl+F)</button>
   <button class="hbtn" id="btnBulk">📅 批量計劃</button>
@@ -1978,6 +2000,7 @@ body.hubOpen{overflow:hidden}
     <button type="button" id="bkAskBtn" aria-label="問呢一版">💬 問</button>
     <button type="button" id="bkDoneBtn" aria-label="已經睇完">☐ 已經睇完</button>
     <button type="button" id="bkTeachBtn" aria-label="請爹哋教">🙋 請爹哋教</button>
+    <button type="button" id="bkSaveBtn" aria-label="將一版存做圖片">🖼 存圖</button>
     <span class="bkGap"></span>
     <button type="button" id="bkRotL" aria-label="向左轉">↺</button>
     <button type="button" id="bkRotR" aria-label="向右轉">↻</button>
@@ -1991,6 +2014,7 @@ body.hubOpen{overflow:hidden}
     <div id="bkNow" aria-hidden="true"></div>
     <div class="bkBusy" id="bkBusy" style="display:none">畫緊…</div>
     <div class="bkHint" id="bkHint" style="display:none"></div>
+    <div class="bkSave" id="bkSave" role="dialog" aria-label="存邊一版做圖片"></div>
     <div id="bkThumbs"><div class="bkThGrid" id="bkThGrid"></div></div>
     <div class="bkChat" id="bkChat">
       <div class="bkChatBar">
@@ -2593,7 +2617,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-19a";
+const BUILD = "2026-09-20a";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -21902,12 +21926,174 @@ async function bkTeachToggle(){
                : (kid ? '取消咗「請爹哋教」' : ('✓ 教咗，清走咗' + pg));
   if(st === 'slow') msg += '　（網絡慢緊，一陣自動傳上去）';
   bkHint(msg, 2400);
+  if(!kid) bkTeachPoll().catch(function(){});   /* 頂部嗰粒掣即刻跟住變 */
   try{
     kidLog('book', (kid ? '' : (on ? '🧑 爹哋試機 · ' : '🧑 爹哋 · ')) +
       (on ? '🙋 請爹哋教《' : (kid ? '取消「請爹哋教」《' : '✓ 教咗《')) +
       (b.title || '') + '》' + pg,
       {kind:'teach', bid:b.id, page:sp[0], pages:sp, on:on, by:(kid ? 'kid' : 'dad')});
   }catch(e){}
+}
+
+/* ---------- 🙋 爹哋嗰邊：頂部一粒大橙掣 ----------
+   舊版淨係喺書架封面角落有粒細牌，要揭開學習角先見到——William 話會走漏眼。
+   而家：爹哋模式頂部出一粒橙色掣（有舉手先出），寫明幾多版，撳就直接揭開本書、帶去嗰版。
+   ⚠ 資料由雲攞（佢喺 iPad 舉手，你喺電腦見到）：開機、返到呢個分頁、之後每 90 秒睇一次。
+     唔用 .on() 長駐監聽：登入登出要記得 off()，呢個 app 俾叠 listener 咬過。
+   ⚠ Charlotte 嗰邊唔出：CSS 同呢度兩度擋。 */
+const BK_TEACH_POLL_MS = 90000;
+function bkTeachSummary(m){
+  const out = [];
+  Object.keys(m || {}).forEach(function(id){
+    const pg = bkTeachPages(m[id]); if(!pg.length) return;
+    const b = (state.books || []).filter(function(x){ return x && x.id === id; })[0];
+    if(!b) return;                      /* 本書已經刪咗：唔好出一粒撳落去冇嘢嘅掣 */
+    let at = 0;
+    pg.forEach(function(p){ at = Math.max(at, Number(m[id][p]) || 0); });
+    out.push({b:b, pages:pg, at:at});
+  });
+  out.sort(function(a, b){ return b.at - a.at; });   /* 最新舉手嗰本行先 */
+  return out;
+}
+function bkTeachAlertSync(m){
+  const btn = el('btnTeachAlert'); if(!btn) return;
+  const list = isGuest() ? [] : bkTeachSummary(m);
+  btn.hidden = !list.length;
+  if(!list.length){ btn.onclick = null; return; }
+  const n = list.reduce(function(a, x){ return a + x.pages.length; }, 0);
+  btn.textContent = '🙋 Charlotte 想你教（' + n + ' 版）';
+  btn.title = list.map(function(x){ return '《' + (x.b.title || '') + '》第 ' + x.pages.join('、') + ' 版'; }).join('\n') +
+              '\n\n撳一下就揭開' + (list.length > 1 ? '最新舉手嗰本' : '本書') + '，帶你去嗰版';
+  btn.onclick = function(){ bkOpen(list[0].b); };
+}
+async function bkTeachPoll(){
+  if(isGuest() || !currentUser){ bkTeachAlertSync({}); return; }
+  bkTeachAll = (await BkTeach.all()) || {};
+  bkTeachAlertSync(bkTeachAll);
+}
+
+/* ---------- 🖼 存圖：一版存做 JPG ----------
+   · Charlotte：**作業唔俾存**（分類有「作業」兩個字就當係）；其餘照存。爹哋：乜都存得。
+   · iPad：行分享表，佢撳「儲存影像」就入「相片」；電腦：直接下載。
+   ⚠ 先畫好張圖、先至俾佢揀：iPad 個分享表一定要喺「撳落去嗰一下」即刻叫，
+     中間等畫圖（半秒一秒）Safari 就會當唔係佢撳嘅，彈唔出。
+   ⚠ 張圖淨係喺記憶體；唔會寫落 repo、唔會寫落 Firebase。 */
+const BK_SAVE_W = 2000, BK_SAVE_Q = 0.9;
+let bkSaveJob = null;
+function bkIsHomework(b){ return /作業/.test(String((b && b.cat) || '')); }
+function bkSaveAllowed(b){ return !!b && (!isGuest() || !bkIsHomework(b)); }
+function bkSaveSync(){ const btn = el('bkSaveBtn'); if(btn) btn.hidden = !bkSaveAllowed(RD.book); }
+/* 同 AI 嗰個 IIFE 入面嗰個判斷一樣（跨 IIFE 叫唔到；兩行嘢唔值得開一道門）。iPadOS 會扮 Mac。 */
+function bkIsIOS(){
+  const ua = String(navigator.userAgent || '');
+  return /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && (navigator.maxTouchPoints || 0) > 1);
+}
+function bkDataUrlBlob(d){
+  const s = String(d), i = s.indexOf(',');
+  const bin = atob(s.slice(i + 1));
+  const u = new Uint8Array(bin.length);
+  for(let k = 0; k < bin.length; k++) u[k] = bin.charCodeAt(k);
+  return new Blob([u], {type:'image/jpeg'});
+}
+function bkSaveName(b, p){
+  /* iPad／Windows 檔名唔收嘅字換做 _，頭尾嘅 _ 剪走（唔係「書名?」會變「書名__第3版」）。 */
+  const nm = String((b && b.title) || '').replace(/[\\/:*?"<>|\s]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || '書';
+  return nm + '_第' + p + '版.jpg';
+}
+/* 一個孖頁入面，邊版喺畫面邊一邊——跟打側之後嘅真位置講（轉咗 90 度就係上／下）。
+   次序：左／上嗰版行先。 */
+function bkSaveOrder(sp){
+  const q = RD.rects.filter(function(r){ return sp.indexOf(r.p) >= 0; });
+  const at = q.map(function(r){
+    const x = bkPageRect(r);
+    return {p:r.p, cx:x.left + x.width / 2, cy:x.top + x.height / 2};
+  });
+  if(at.length < 2) return sp.map(function(p){ return {p:p, side:''}; });
+  const flat = Math.abs(at[1].cx - at[0].cx) >= Math.abs(at[1].cy - at[0].cy);
+  at.sort(function(a, b){ return flat ? (a.cx - b.cx) : (a.cy - b.cy); });
+  return at.map(function(a, i){ return {p:a.p, side:flat ? (i ? '右邊' : '左邊') : (i ? '下面' : '上面')}; });
+}
+function bkSaveLabel(o, ready){
+  return (o.side ? o.side + ' · ' : '') + '第 ' + o.p + ' 版' + (ready ? '' : '（準備緊…）');
+}
+function bkSaveClose(){
+  bkSaveJob = null;
+  const box = el('bkSave');
+  if(box){ box.classList.remove('show'); box.innerHTML = ''; }
+}
+async function bkSaveOpen(){
+  const b = RD.book;
+  if(!b || !RD.doc) return;
+  if(!bkSaveAllowed(b)){ bkHint('作業唔可以存做圖片', 2000); return; }
+  const sp = (RD.spreads[RD.idx] || []).slice();
+  const box = el('bkSave');
+  if(!sp.length || !box) return;
+  const order = bkSaveOrder(sp), job = {id:b.id, items:{}};
+  bkSaveJob = job;
+  box.innerHTML = '';
+  const h = document.createElement('div');
+  h.className = 'bkSaveT'; h.textContent = '存邊一版做圖片？';
+  box.appendChild(h);
+  order.forEach(function(o){
+    const bt = document.createElement('button');
+    bt.type = 'button'; bt.className = 'bkSaveGo'; bt.dataset.p = o.p;
+    bt.disabled = true; bt.textContent = bkSaveLabel(o, false);
+    bt.onclick = function(){ bkSaveGo(o.p); };
+    box.appendChild(bt);
+  });
+  const x = document.createElement('button');
+  x.type = 'button'; x.className = 'bkSaveX'; x.textContent = '✕ 唔存';
+  x.onclick = bkSaveClose;
+  box.appendChild(x);
+  box.classList.add('show');
+  const deg = bkRotOf();
+  for(const o of order){
+    const bt = box.querySelector('.bkSaveGo[data-p="' + o.p + '"]');
+    try{
+      const d = await bkPageJpeg(RD.doc, o.p, deg, {w:BK_SAVE_W, q:BK_SAVE_Q});
+      if(bkSaveJob !== job) return;     /* 閂咗、揭咗版 */
+      job.items[o.p] = {blob:bkDataUrlBlob(d), name:bkSaveName(b, o.p)};
+      if(bt){ bt.disabled = false; bt.textContent = bkSaveLabel(o, true); }
+    }catch(e){
+      if(bkSaveJob !== job) return;
+      if(bt) bt.textContent = '第 ' + o.p + ' 版（畫唔到）';
+    }
+  }
+}
+function bkSaveDownload(it){
+  const u = URL.createObjectURL(it.blob);
+  const a = document.createElement('a');
+  a.href = u; a.download = it.name; a.style.display = 'none';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ try{ URL.revokeObjectURL(u); }catch(e){} }, 60000);
+}
+function bkSaveGo(p){
+  const job = bkSaveJob, b = RD.book;
+  if(!job || !b || job.id !== b.id) return;
+  if(!bkSaveAllowed(b)) return;        /* 再擋一次：唔信粒掣收埋咗就算 */
+  const it = job.items[p]; if(!it) return;
+  const kid = isGuest();
+  const log = function(how){
+    try{
+      kidLog('book', (kid ? '' : '🧑 爹哋 · ') + '🖼 存咗《' + (b.title || '') + '》第 ' + p + ' 版做圖片',
+             {kind:'save', bid:b.id, page:p, how:how, by:(kid ? 'kid' : 'dad')});
+    }catch(e){}
+  };
+  let f = null;
+  try{ f = new File([it.blob], it.name, {type:'image/jpeg'}); }catch(e){}
+  if(bkIsIOS() && f && navigator.share && navigator.canShare && navigator.canShare({files:[f]})){
+    navigator.share({files:[f]}).then(function(){
+      log('share'); bkSaveClose();
+      bkHint('🖼 存好喇（揀咗「儲存影像」就喺「相片」度）', 2800);
+    }, function(e){
+      if(e && e.name === 'AbortError'){ bkHint('冇存', 1400); return; }   /* 佢撳咗取消：個框留低俾佢再揀 */
+      bkSaveDownload(it); log('download'); bkSaveClose();
+      bkHint('🖼 下載咗：' + it.name, 2400);
+    });
+    return;
+  }
+  bkSaveDownload(it); log('download'); bkSaveClose();
+  bkHint('🖼 下載咗：' + it.name, 2400);
 }
 
 /* ---------- 逐字稿（字幕） ----------
@@ -22385,11 +22571,14 @@ async function bkShow(i){
     bkFit();
     bkSyncDone();
     bkSyncTeach();
+    bkSaveSync(); bkSaveClose();        /* 🖼 揭咗版：揀版框唔可以仲指住上一版 */
     /* 揭咗版，問答個 box 要跟住指向新嗰版，唔係佢問緊嘅嘢同畫面對唔上。 */
     if(el('bkChat').classList.contains('show')){
+      const pg0 = bkChatPage;
       bkChatPage = (RD.spreads[RD.idx] || [])[0] || bkChatPage;
       el('bkChatPg').textContent = '第 ' + bkChatPage + ' 版';
-      bkSeeSync();                      /* 👀 開住就跟住講「睇緊第幾版」 */
+      if(bkChatPage !== pg0) bkChatSee = false;   /* 👀 逐版自己撳：揭咗版就熄 */
+      bkSeeSync();
       bkInsetApply(); bkFitPage(bkChatPage);
     }
     /* 揭完順手偷偷畫下一版，揭下一次就即刻出到。 */
@@ -22880,6 +23069,8 @@ function bkClose(){
   try{ if(RD.doc && RD.doc.destroy) RD.doc.destroy(); }catch(e){}
   RD.doc = null; RD.book = null; RD.spreads = []; RD.natW = RD.natH = 0; RD.done = {};
   RD.teach = {}; RD.rot = 0; RD.rotTmp = {}; RD.rotMap = {};
+  bkSaveClose();
+  if(!isGuest()) bkTeachPoll().catch(function(){});   /* 你喺書入面清咗，頂部掣要跟 */
 }
 
 /* ---------- 縮圖跳頁 ---------- */
@@ -22945,7 +23136,7 @@ function bkBindTouch(){
     /* ⚠ 本來淨係排除 button。個 textarea 唔係 button，所以喺 iPad 上面
        撳落個輸入格會當咗「篤一下版面」＝ 播／停錄音；用手指想捲問答嗰段字，
        亦都會變咗拖緊本書。#bkChat 成橛要排除埋。 */
-    if(e.target.closest('button, input, textarea, #bkAu, #bkThumbs, #bkChat')) return;
+    if(e.target.closest('button, input, textarea, #bkAu, #bkThumbs, #bkChat, #bkSave')) return;
     const r = st.getBoundingClientRect();
     if(e.touches.length === 2){
       const m = tMid(e.touches, r);
@@ -23023,14 +23214,14 @@ function bkBindTouch(){
   let md = null;
   st.addEventListener('mousedown', function(e){
     if(Date.now() - TAPT < 800) return;
-    if(e.target.closest('button, input, textarea, #bkAu, #bkThumbs, #bkChat')) return;
+    if(e.target.closest('button, input, textarea, #bkAu, #bkThumbs, #bkChat, #bkSave')) return;
     md = {sx:e.clientX, sy:e.clientY, x0:VW.x, y0:VW.y, moved:false};
     e.preventDefault();
   });
   /* 爹哋喺電腦度試機：撳一下（冇拖過）一樣係播／停。 */
   st.addEventListener('click', function(e){
     if(Date.now() - TAPT < 800) return;          /* 手指嗰下已經處理咗 */
-    if(e.target.closest('button, input, textarea, #bkAu, #bkThumbs, #bkChat')) return;
+    if(e.target.closest('button, input, textarea, #bkAu, #bkThumbs, #bkChat, #bkSave')) return;
     if(md && md.moved) return;
     auTapAt(e.clientX, e.clientY);
   });
@@ -23044,7 +23235,7 @@ function bkBindTouch(){
   st.addEventListener('wheel', function(e){
     if(!el('bkReader').classList.contains('show')) return;
     /* 冇呢句，喺電腦度想碌問答嗰段字，會變咗放大本書（因為下面有 preventDefault）。 */
-    if(e.target.closest('#bkChat, #bkThumbs, #bkAu')) return;
+    if(e.target.closest('#bkChat, #bkThumbs, #bkAu, #bkSave')) return;
     const r = st.getBoundingClientRect();
     bkZoom(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX - r.left, e.clientY - r.top);
     e.preventDefault();
@@ -23121,11 +23312,15 @@ async function bkRenderShelf(){
     grid.querySelectorAll('.bkCard').forEach(function(card){
       const old = card.querySelector('.bkCardTeach');
       if(old) old.remove();
-      if(!bkTeachPages((m || {})[card.dataset.bid]).length) return;
+      const pg = bkTeachPages((m || {})[card.dataset.bid]);
+      card.classList.toggle('teach', !!pg.length);
+      if(!pg.length) return;
       const s = document.createElement('span');
-      s.className = 'bkCardTeach'; s.textContent = '🙋 等爹哋教';
+      s.className = 'bkCardTeach'; s.textContent = '🙋 等爹哋教 · ' + pg.length + ' 版';
       card.appendChild(s);
     });
+    bkTeachAll = m || {};
+    bkTeachAlertSync(bkTeachAll);       /* 順手更新頂部嗰粒 */
   }).catch(function(){});
 }
 
@@ -23473,7 +23668,8 @@ function bkExportMd(){
              '頁碼一律係 PDF 物理頁碼（第 1 版＝封面），唔係書上面印嗰個。',
              '錄音檔名：`audio/p02.mp3` —— 逐版一個，用同一套物理頁碼。',
              '至少兩位補零，多過兩位照寫：p02、p99、**p100**、p101。',
-             '（想要 p002 呢種三位補零都收，但一本書入面要一致。）', ''];
+             '（想要 p002 呢種三位補零都收，但一本書入面要一致。）',
+             '🎓 學霸版：同一套檔名放入 `audio-plus/`（例如 `audio-plus/p02.mp3`），字幕叫 `read-plus.txt`。', ''];
   BK_ST.forEach(function(st){
     const ord = bkOrdered(st.k);
     L.push('---', '', '## ' + st.name + '（' + st.note + '）　' + ord.length + ' 本', '');
@@ -23501,8 +23697,8 @@ function bkExportMd(){
     });
     L.push('');
   });
-  L.push('---', '', '## 未做嘅', '',
-         '- AI 睇孖頁答問題：第三期。要有 text.md，冇字嗰幾版要行睇相線補。', '');
+  /* ⚠ 本來呢度寫住「## 未做嘅：AI 睇孖頁答問題：第三期」——第三期 09-11a 已經做咗，
+     呢句一直喺匯出度講大話。刪走。 */
   return L.join('\n');
 }
 
@@ -23672,10 +23868,12 @@ function bkAskCtx(page){
      呢度另外畫一張闊 1200、q 0.75 嘅細版。
    ⚠ deg：嗰版打咗側就照轉埋先送——打側睇嘅通常係地圖、圖表，擺錯方向個模型好易睇錯。
    ⚠ 張圖淨係喺記憶體行一轉，唔會寫落 repo、唔會寫落 Firebase。 */
-async function bkPageJpeg(doc, p, deg){
+/* opt.w／opt.q：🖼 存圖要清啲（闊 2000、q 0.9）；唔傳就同以前一樣（睇相線用 1200、0.75）。 */
+async function bkPageJpeg(doc, p, deg, opt){
   const pg = await doc.getPage(p);
   const v1 = pg.getViewport({scale:1});
-  let c = await bkPageCanvas(doc, p, Math.max(0.2, 1200 / Math.max(1, v1.width)));
+  const W = (opt && opt.w) || 1200, Q = (opt && opt.q) || 0.75;
+  let c = await bkPageCanvas(doc, p, Math.max(0.2, W / Math.max(1, v1.width)));
   const d0 = ((deg | 0) % 360 + 360) % 360;
   if(d0){
     const r = document.createElement('canvas');
@@ -23688,7 +23886,7 @@ async function bkPageJpeg(doc, p, deg){
     c.width = c.height = 0;
     c = r;
   }
-  const d = c.toDataURL('image/jpeg', 0.75);
+  const d = c.toDataURL('image/jpeg', Q);
   c.width = c.height = 0;
   return d;
 }
@@ -23815,8 +24013,8 @@ async function bkDescPanel(b){
      做法：唔改 canvas、唔重畫，淨係將可視範圍縮細（RD.inset），
      再將佢問嗰一版 fit 落剩返嗰忽。孖頁變單版，嗰版反而大咗。 */
 let bkChatMsgs = [], bkChatPage = 0, bkChatBusy = false;
-/* 👀 睇埋幅圖：開住就每條問題都夾住佢望住嗰版（揭版就跟住轉去新嗰版）。
-   閂問答框就熄——下次再開要自己再撳，唔會靜靜雞一直燒睇相額度。 */
+/* 👀 睇埋幅圖：**逐版自己撳**。開住嘅時候，呢一版每條問題都夾住張圖；
+   揭去第二版、開／閂問答框，一律熄——唔會撳咗一次就版版都燒睇相額度（William 2026-09-20）。 */
 let bkChatSee = false;
 function bkSeeSync(){
   const b = el('bkChatSee'); if(!b) return;
@@ -23824,7 +24022,7 @@ function bkSeeSync(){
   b.setAttribute('aria-pressed', bkChatSee ? 'true' : 'false');
   b.textContent = bkChatSee ? ('👀 睇緊第 ' + bkChatPage + ' 版幅圖') : '👀 睇埋幅圖';
   b.title = bkChatSee ? '再撳一下就唔睇圖（淨係靠書入面啲字答）'
-                      : '撳一下，AI 會直接望埋呢一版幅圖先答（每問一次用一次睇相額度）';
+                      : '撳一下，AI 會直接望埋呢一版幅圖先答（淨係呢一版；每問一次用一次睇相額度）';
 }
 function bkChatOpen(page){
   if(!RD.book) return;
@@ -24136,6 +24334,15 @@ el('bkNext').onclick = function(){ bkGo(1); };
 el('bkClose').onclick = bkClose;
 el('bkThumbBtn').onclick = bkThumbsOpen;
 el('bkDoneBtn').onclick = bkDoneToggle;
+el('bkSaveBtn').onclick = bkSaveOpen;
+/* 🙋 頂部掣：開機睇一次（等登入）、返到呢個分頁睇一次、之後每 90 秒。 */
+setTimeout(function(){ bkTeachPoll().catch(function(){}); }, 4000);
+setInterval(function(){
+  if(document.visibilityState !== 'hidden') bkTeachPoll().catch(function(){});
+}, BK_TEACH_POLL_MS);
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'visible') bkTeachPoll().catch(function(){});
+});
 el('bkChatSee').onclick = function(){ bkChatSee = !bkChatSee; bkSeeSync(); };
 el('bkTeachBtn').onclick = bkTeachToggle;
 el('bkRotL').onclick = function(){ bkRotate(-90); };
