@@ -2617,7 +2617,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-21a";
+const BUILD = "2026-09-21b";
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -23866,14 +23866,19 @@ function bkSpineLine(txt){
   return lines[0].replace(/^[#*\->\s]+/, '').slice(0, 24);
 }
 /* 四層上下文。④「答唔到就指路」嗰條規矩住喺 SYS_BOOK_TALK，唔喺呢度。 */
-function bkAskCtx(page){
+/* seeing：今次條問題有冇夾住嗰版張圖（👀）。 */
+function bkAskCtx(page, seeing){
   const b = RD.book || {}, L = [];
   L.push('【今次揭開嘅書】《' + (b.title || '') + '》　共 ' + RD.pageCount + ' 版');
   const tx = bkTxtOf(page), ds = bkDescOf(page), rd = bkSubText(page);
   L.push('\n【佢而家望住嘅：第 ' + page + ' 版】');
   L.push(tx ? ('印住嘅字（正本）：\n' + tx) : '印住嘅字：（呢版抽唔到字）');
+  /* ⚠ 2026-09-21 真係出過事：撳咗 👀、張圖明明送咗去，但下面嗰句「完全睇唔到、唔准估」照出，
+       個 model 跟 context 答「字抽唔到，幅圖爹哋又未補俾我，我唔會扮睇到住」。
+       09-19a 加 👀 嗰陣漏咗改呢度。有張圖就講明有張圖。 */
   if(ds) L.push('幅圖：' + ds);
-  else if(!tx && !rd) L.push('幅圖：（爹哋未補過。即係話呢一版你係完全睇唔到嘅，唔准估。）');
+  if(seeing) L.push('幅圖：佢撳咗「👀 睇埋幅圖」，呢一版張相就夾喺佢條問題度，你睇得到——望住張相答佢。真係睇唔清嘅位先照直講。');
+  else if(!ds && !tx && !rd) L.push('幅圖：（爹哋未補過。即係話呢一版你係完全睇唔到嘅，唔准估。）');
   /* ⚠ read.txt 係爹哋寫嘅讀稿，唔係書上面印嘅字。加佢入嚟有三個好處：
      ① 佢啱啱**真係聽過**呢段。佢問「點解隻兔仔要走」，好多時問緊把聲講過嘅嘢，
         唔係問印住嘅字。個 AI 冇聽過，就會答到牛頭唔搭馬嘴。
@@ -23936,11 +23941,12 @@ async function bkPageJpeg(doc, p, deg, opt){
   c.width = c.height = 0;
   return d;
 }
-async function bkDescOne(b, p, doc){
+/* deg：嗰版打咗側就照轉埋先睇（👀 自動睇圖嗰陣用；管理表手動補圖照舊係 0）。 */
+async function bkDescOne(b, p, doc, deg){
   const own = !doc;
   if(own) doc = await bkOpenDoc(bkPdfUrl(b));
   try{
-    const d = await bkPageJpeg(doc, p, 0);
+    const d = await bkPageJpeg(doc, p, deg || 0);
     const out = await window.bookAI.desc(d, p, bkTxtOf(p));
     const r = BookCloud.ref();
     if(r) await r.child('doc/' + b.id + '/desc/' + p).set(out);
@@ -24084,7 +24090,8 @@ function bkChatOpen(page){
   bkFitPage(bkChatPage);
   bkDocLoad(RD.book.id).then(function(){
     const tx = bkTxtOf(bkChatPage), ds = bkDescOf(bkChatPage);
-    if(!tx && !ds) bkChatSay('ai', '呢一版我睇唔到喎。你可以講俾我聽你見到乜，我再同你傾。');
+    /* 有 👀 之後，冇字唔等於睇唔到——教佢撳，唔好一開口就放棄。 */
+    if(!tx && !ds) bkChatSay('ai', '呢一版我讀唔到啲字。你撳上面「👀 睇埋幅圖」再問我，我就會望住幅圖答你；或者講俾我聽你見到乜，我哋再傾。');
   });
 }
 function bkChatClose(){
@@ -24227,16 +24234,24 @@ async function bkChatSend(){
   bkChatBusy = true;
   const b = bkChatBubble('ai');
   const box = b && b.box;
-  let img = '';
+  let img = '', noted = false;
   try{
     await bkDocLoad(RD.book.id);
-    const ctx = bkAskCtx(bkChatPage);
     /* 👀：畫佢望住嗰版（打咗側就照轉埋）。畫唔到就照直講，唔好靜靜雞當冇圖咁答。 */
     if(see){
       if(!RD.doc) throw Object.assign(new Error('本書未開好'), {see:true});
+      /* 呢一版未有睇圖筆記：先用睇圖 model 睇一次、寫低、存落雲（同 🖼 補圖同一個位）。
+         下次冇撳 👀 都有筆記用——行文字線，唔再燒睇相額度；第二部機一樣用得到。
+         ⚠ 睇唔到都唔好唔答：筆記失敗就照用張相直接答，原因入 Data Log。 */
+      if(!bkDescOf(bkChatPage)){
+        if(box) box.textContent = '（我睇緊呢一版先…）';
+        try{ await bkDescOne(RD.book, bkChatPage, RD.doc, bkRotOf()); noted = true; }
+        catch(e4){ console.warn('bookSee note', e4); }
+      }
       try{ img = await bkPageJpeg(RD.doc, bkChatPage, bkRotOf()); }
       catch(e2){ throw Object.assign(new Error('畫唔到嗰版：' + ((e2 && e2.message) || e2)), {see:true}); }
     }
+    const ctx = bkAskCtx(bkChatPage, !!img);   /* 要喺筆記寫好之後先砌 */
     /* 個 host 交俾 bookAI，串流由 makeStreamView 負責畫。
        第五個參數就係「邊個喺度問」——爹哋同 Charlotte 兩套唔同嘅呈現。
        第六個係張圖：有就行睇相線。 */
@@ -24265,7 +24280,7 @@ async function bkChatSend(){
         (byKid ? '📕 睇書問 AI（第 ' + bkChatPage + ' 版' + (img ? '，👀 睇埋幅圖' : '') + '）：'
                : '🧑 主人對話記錄 · 睇書問 AI（第 ' + bkChatPage + ' 版' + (img ? '，👀 睇埋幅圖' : '') + '）：') +
         '\n我：' + q + '\n\nAI：' + (ans.length > 500 ? (ans.slice(0, 500) + '…') : ans),
-        Object.assign({kind:'ask', bid:RD.book.id, page:bkChatPage, img:!!img,
+        Object.assign({kind:'ask', bid:RD.book.id, page:bkChatPage, img:!!img, noted:noted,
                        q:q, a:ans, brief:'(睇書問 AI) ' + cut(q, 160),
                        by:(byKid ? 'kid' : 'dad')},
                       byKid ? {guest:true} : {owner:true}));
@@ -24279,6 +24294,18 @@ async function bkChatSend(){
                    : '👀 睇圖失敗：' + why + '\n（睇相線：⚙ API 設定嗰「睇相 Base URL／Key／Model」三格）')
       : '我而家答唔到喎，撳多次試下。';
     console.warn('bookAsk', e);
+    /* ⚠ 舊版淨係 console.warn——佢喺 iPad 撞到，爹哋永遠唔知點解。
+       而家照「傾偈出錯都要入記錄」嗰條規矩：q 同原因全文入 Data Log。 */
+    try{
+      const byKid = isGuest();
+      kidLog('book',
+        (byKid ? '📕 睇書問 AI' : '🧑 主人對話記錄 · 睇書問 AI') + '（第 ' + bkChatPage + ' 版' +
+        (see ? '，👀 睇埋幅圖' : '') + '）：出錯\n我：' + q + '\n\n原因：' + why,
+        Object.assign({kind:'ask', bid:RD.book.id, page:bkChatPage, img:!!see, err:true,
+                       q:q, a:'⚠ 出錯：' + why, brief:'(睇書問 AI·出錯) ' + cut(q, 160),
+                       by:(byKid ? 'kid' : 'dad')},
+                      byKid ? {guest:true} : {owner:true}));
+    }catch(e5){}
   }
   bkChatBusy = false;
 }
