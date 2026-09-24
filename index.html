@@ -2430,7 +2430,10 @@ body.hubOpen{overflow:hidden}
   <div class="aiRow" style="margin-top:12px"><div><label>供應商（揀完會自動填好下面兩格）</label><select id="aiProv"></select></div></div>
   <div class="aiRow"><div><label>Base URL（網址）</label><input type="text" id="aiBase" placeholder="https://api.openai.com/v1" spellcheck="false"></div></div>
   <div class="aiRow"><div><label>Model（型號名，要同官網一模一樣）</label><input type="text" id="aiModel" placeholder="gpt-4o-mini" spellcheck="false"></div></div>
-  <div class="aiRow"><div><label>睇相用嘅 Model（留空＝唔開睇相功能）</label><input type="text" id="aiVisionModel" placeholder="glm-4.6v-flash" spellcheck="false"><div class="subnote" style="margin-top:3px">傾偈嗰度上載相或者影相嗰陣，會改用呢個型號。上面嗰個 Model 多數係純文字，睇唔到相。<br>Z.ai 免費嗰個係 <code>glm-4.6v-flash</code>（夠用，但成日繁忙）；收費嗰個係 <code>glm-5v-turbo</code>（勁好多，但 Coding Plan 唔包）。<br>撞到「訪問量過大」會自動等陣再試三次。可以用逗號填兩個，例如 <code>glm-4.6v-flash, glm-5v-turbo</code>：免費嗰個試唔到先自動轉收費嗰個。</div></div></div>
+  <div class="aiRow"><div><label>睇相用嘅 Model（留空＝唔開睇相功能）</label><input type="text" id="aiVisionModel" placeholder="glm-4.6v-flash" spellcheck="false">
+    <div style="margin-top:6px"><button class="btn" type="button" id="aiVisTest">🔎 試下睇圖</button>
+      <span class="subnote">畫一張有數字嘅圖，叫睇相線讀返出嚟。用已經儲存咗嘅設定（改完先撳儲存）；會用一次睇相額度。</span></div>
+    <div class="subnote" id="aiVisTestOut" style="margin-top:4px"></div><div class="subnote" style="margin-top:3px">傾偈嗰度上載相或者影相嗰陣，會改用呢個型號。上面嗰個 Model 多數係純文字，睇唔到相。<br>Z.ai 免費嗰個係 <code>glm-4.6v-flash</code>（夠用，但成日繁忙）；收費嗰個係 <code>glm-5v-turbo</code>（勁好多，但 Coding Plan 唔包）。<br>撞到「訪問量過大」會自動等陣再試三次。可以用逗號填兩個，例如 <code>glm-4.6v-flash, glm-5v-turbo</code>：免費嗰個試唔到先自動轉收費嗰個。</div></div></div>
   <details style="margin-top:6px"><summary class="subnote" style="cursor:pointer">睇相要用另一條線？（例如 Coding Plan 唔包，要改用按量計嘅 API）</summary>
     <div class="aiRow" style="margin-top:6px"><div><label>睇相專用 Base URL（留空＝同上面一樣）</label><input type="text" id="aiVisionBase" placeholder="https://api.z.ai/api/paas/v4" spellcheck="false"></div></div>
     <div class="aiRow"><div><label>睇相專用 API Key（留空＝同上面一樣）</label><input type="password" id="aiVisionKey" placeholder="淨係喺睇相嗰陣用" spellcheck="false"></div></div>
@@ -2617,7 +2620,12 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-21b";
+const BUILD = "2026-09-24a";
+/* dataURL 字元上限。超咗會自動降質，再唔得就唔准送。
+   ⚠ 一定要擺頂層：睇相傾偈嗰個 IIFE 同 AI 嗰個 IIFE（bookAI.desc、bookSeeAsk）都用。
+     09-11a 到 09-21b 佢住喺前者，後者一用就 ReferenceError（Safari：Can't find variable）——
+     🖼 補圖同 👀 睇埋幅圖由第一日就冇行過，而測試個 sandbox 自己塞咗個 PIC_MAX_CH 入去，冇捉到。 */
+const PIC_MAX_CH = 700000;
 console.log("%c屋企行事曆 build " + BUILD, "background:#2e7d64;color:#fff;padding:2px 8px;border-radius:4px");
 /* =========================================================
    💡 避雷策略 3：借殼上市 (設定 Firebase)
@@ -11233,6 +11241,53 @@ $('ttsAzCheck').onclick = async ()=>{
     + '<br>⑤ 個 Speech service 有冇俾人停用或者刪咗；個 Azure 訂閱（Subscription）有冇過期／停用'
     + '<br>⑥ Portal 個 Location 唔喺上面試過嗰 ' + AZ_REGIONS.length + ' 個入面（例如 swedencentral），就自己填落 Region 格');
 };
+/* 🔎 試下睇圖：畫一張寫住三位數字嘅圖，行**真嘅**睇相線（callVision，
+   同 👀／影相問問題一模一樣嗰條：睇相 Base URL／Key／Model、每日上限），叫佢讀返個數字。
+   讀得返 ＝ 條線同個 model 都真係睇到圖；讀唔返 ＝ 個 model 收咗但冇望（或者唔係睇圖 model）；
+   出錯 ＝ 條線斷咗（CORS、Key、Model 名）。三樣分得開，唔使估。
+   call／mkImg 抽出嚟方便測試；正式用嗰陣係 callVision 同 canvas。 */
+async function visSelfTest(call, mkImg, n){
+  const img = mkImg(n);
+  const t0 = Date.now();
+  const ans = String(await call([{role:'user', content:[
+      {type:'text', text:'呢張圖入面寫咗一個三位數字。淨係答個數字，唔好講其他嘢。'},
+      {type:'image_url', image_url:{url:img}}]}]) || '');
+  const ms = Date.now() - t0;
+  const got = (ans.match(/\d{3}/) || [''])[0];
+  return {ok:got === String(n), ans:ans.trim().slice(0, 120), ms:ms};
+}
+function visTestImg(n){
+  const c = document.createElement('canvas');
+  c.width = 360; c.height = 180;
+  const x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, 360, 180);
+  x.fillStyle = '#111'; x.font = 'bold 110px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText(String(n), 180, 95);
+  return c.toDataURL('image/png');
+}
+if($('aiVisTest')) $('aiVisTest').onclick = async ()=>{
+  const out = $('aiVisTestOut');
+  const set = h => { if(out) out.innerHTML = h; };
+  const c = cfg();
+  const visM = String(c.visionModel || '').trim();
+  if(!visM){ set('❌ 未填「睇相用嘅 Model」。'); return; }
+  const list = visM.split(/[,，]/).map(function(s){ return s.trim(); }).filter(Boolean);
+  const n = 100 + Math.floor(Math.random() * 900);
+  const base = String(c.visionBase || '').trim(), key = String(c.visionKey || '').trim();
+  set('⏳ 試緊 ' + esc(list[0]) + '（行 ' + esc(base || '同傾偈一樣嗰條線') + '）…');
+  try{
+    const r = await visSelfTest(function(msgs){
+      return callVision(msgs, {json:false, temp:0, max:200, noThink:true, base:base, apiKey:key}, list, null);
+    }, visTestImg, n);
+    set(r.ok
+      ? ('✅ <b>睇到圖。</b>張圖寫住 ' + n + '，佢答「' + esc(r.ans) + '」（' + (r.ms / 1000).toFixed(1) + ' 秒）。條線同個 model 都冇問題。')
+      : ('❌ <b>收到但冇望到。</b>張圖寫住 ' + n + '，佢答「' + esc(r.ans) + '」。'
+         + '<br>即係條線通咗，但個 model 冇讀到張圖——多數係填咗個唔係睇圖嘅 model，或者經嘅中轉將張圖剷走咗。'));
+  }catch(e){
+    set('❌ <b>條線斷咗</b>：' + esc(String((e && e.message) || e)).slice(0, 400)
+      + '<br>睇下「睇相專用 Base URL／Key」：留空＝同傾偈一樣嗰條線；直連 api.z.ai 喺瀏覽器度會死喺 CORS。');
+  }
+};
 /* 「淨係試聽 Azure」：特登唔做 fallback。
    平時 ttsSpeak() 見到 Azure 出事會靜靜哋轉用瀏覽器內置語音，
    結果係「聽落有聲＝以為成功」，但其實把聲根本唔係曉曼。
@@ -14623,7 +14678,10 @@ function storyCloseRead(){
    就算爹哋自己撳入嚟試都應該見到同一個語氣）。 */
 /* ================= 📕 睇書：AI 嗰半邊 =================
    ⚠ 呢一橛特登住喺**呢個 IIFE**（AI 嗰個），唔係住喺睇書模組度。
-     原因：callAI、imgTranscribe、PERSONA_KID、PIC_MAX_CH、kidClean 全部喺呢度。
+     原因：callAI、imgTranscribe、PERSONA_KID 喺呢度。
+     ⚠ 舊版呢度寫埋「PIC_MAX_CH、kidClean 都喺呢度」——**兩個都唔係**：
+       PIC_MAX_CH 本來喺睇相 IIFE（而家搬咗去頂層）；kidClean 係 window.kidClean（全域 property，攞得返）。
+       PIC_MAX_CH 嗰個寫錯咗，所以冇人覺得要驗——🖼 補圖同 👀 一用就死。
      要喺睇書模組度用，就要將佢哋七樣逐個掛上 window——即係開七道永久嘅門，
      而呢個 app 已經俾跨 IIFE 嘅問題咬過兩次（交接檔 6.2、6.19）。
      所以改為：個腦寫喺呢度，**只開一道門 window.bookAI**。
@@ -14741,7 +14799,9 @@ Object.assign(window, {bookAI:{
       {role:'system', content: PERSONA_KID + '\n\n' + SYS_BOOK_TALK + '\n\n' + String(ctx || '')}
     ].concat(msgs, [{role:'user', content:String(question || '')}]),
       {json:false, temp:0.6, max:(cfg().maxTok || CHAT_MAX_DEFAULT), onDelta:view});
-    const clean = (typeof kidClean === 'function') ? kidClean(String(reply || '')) : String(reply || '');
+    /* 明寫 window.kidClean（同其他地方一樣）。舊版寫 bare `kidClean`，
+       經全域 property 都攞得返（window.kidClean 開機就掛咗），所以冇壞——只係唔好再靠隱性規則。 */
+    const clean = (typeof window.kidClean === 'function') ? window.kidClean(String(reply || '')) : String(reply || '');
     /* note 係爹哋先睇嘅（token／錢）；think 嘅字數兩邊都用得，但呈現方式唔同。 */
     return {text:clean, note:cacheNote(), think:String(AI_LAST_REASON || '')};
   },
@@ -20118,7 +20178,7 @@ const OUT_KEY     = 'diarycal_sos_outbox_v1';
      記憶體快取。安全規則唔使改——pics 已經喺 diary_calendar_sos/<uid> 下面。 */
 const PIC_PX      = 1000;      /* 長邊。呢啲相係俾人眼睇，唔使 OCR，唔使 1400 */
 const PIC_Q       = 0.72;
-const PIC_MAX_CH  = 700000;    /* dataURL 字元上限。超咗會自動降質，再唔得就唔准送 */
+/* PIC_MAX_CH 搬咗去頂層（const BUILD 隔籬）：AI 嗰個 IIFE 都要用。見嗰度嘅註解。 */
 const picCache    = {};        /* picId -> dataURL */
 const picBusy     = {};        /* picId -> true（攞緊，唔好重複攞） */
 const picBad      = {};        /* picId -> 錯誤原因 */
@@ -24068,6 +24128,44 @@ let bkChatMsgs = [], bkChatPage = 0, bkChatBusy = false;
 /* 👀 睇埋幅圖：**逐版自己撳**。開住嘅時候，呢一版每條問題都夾住張圖；
    揭去第二版、開／閂問答框，一律熄——唔會撳咗一次就版版都燒睇相額度（William 2026-09-20）。 */
 let bkChatSee = false;
+/* 同一版寫緊筆記：{key, p}。佢撳咗 👀 即刻問問題，問題要等埋呢個，唔好寫兩次。 */
+let bkNotePend = null;
+/* 確保某一版有睇圖筆記。有就即刻 false；冇就寫（寫咗 → true）。失敗會 throw。 */
+function bkNoteFor(page){
+  if(!RD.book || !RD.doc) return Promise.reject(new Error('本書未開好'));
+  if(bkDescOf(page)) return Promise.resolve(false);
+  const key = RD.book.id + ':' + page;
+  if(bkNotePend && bkNotePend.key === key) return bkNotePend.p;
+  const p = bkDescOne(RD.book, page, RD.doc, bkRotOf()).then(function(){ return true; });
+  bkNotePend = {key:key, p:p};
+  const done = function(){ if(bkNotePend && bkNotePend.key === key) bkNotePend = null; };
+  p.then(done, done);
+  return p;
+}
+/* 撳著 👀：唔使等佢問，即刻開始睇。William 2026-09-24：「撳咗但我 feel 到佢完全冇睇過」。 */
+async function bkSeePrime(){
+  if(!RD.book || !RD.doc) return;
+  const page = bkChatPage;
+  try{ await bkDocLoad(RD.book.id); }catch(e){}
+  if(bkDescOf(page)) return;                     /* 睇過喇，唔使再講 */
+  const b = bkChatBubble('ai');
+  const box = b && b.box;
+  if(box) box.textContent = '（我睇緊第 ' + page + ' 版…）';
+  const kid = isGuest();
+  try{
+    await bkNoteFor(page);
+    if(box) box.textContent = '睇完第 ' + page + ' 版喇。你想問呢一版乜嘢？';
+    try{ kidLog('book', (kid ? '' : '🧑 爹哋 · ') + '👀 AI 睇咗《' + (RD.book.title || '') + '》第 ' + page + ' 版，寫低咗筆記',
+                {kind:'note', bid:RD.book.id, page:page, by:(kid ? 'kid' : 'dad')}); }catch(e){}
+  }catch(e){
+    const why = String((e && e.message) || e || '');
+    if(box) box.textContent = kid
+      ? '我而家睇唔到幅圖喎（要爹哋喺設定度整返）。你照問我，我盡量答你。'
+      : '👀 睇圖失敗：' + why + '\n（⚙ API 設定度撳「🔎 試下睇圖」可以查吓條線）';
+    try{ kidLog('book', (kid ? '' : '🧑 爹哋 · ') + '👀 睇唔到《' + (RD.book.title || '') + '》第 ' + page + ' 版\n原因：' + why,
+                {kind:'note', bid:RD.book.id, page:page, err:true, why:why, by:(kid ? 'kid' : 'dad')}); }catch(e2){}
+  }
+}
 function bkSeeSync(){
   const b = el('bkChatSee'); if(!b) return;
   b.classList.toggle('on', bkChatSee);
@@ -24245,7 +24343,8 @@ async function bkChatSend(){
          ⚠ 睇唔到都唔好唔答：筆記失敗就照用張相直接答，原因入 Data Log。 */
       if(!bkDescOf(bkChatPage)){
         if(box) box.textContent = '（我睇緊呢一版先…）';
-        try{ await bkDescOne(RD.book, bkChatPage, RD.doc, bkRotOf()); noted = true; }
+        /* 撳 👀 嗰陣已經開始寫緊嘅話，等埋佢——唔好寫兩次 */
+        try{ noted = await bkNoteFor(bkChatPage); }
         catch(e4){ console.warn('bookSee note', e4); }
       }
       try{ img = await bkPageJpeg(RD.doc, bkChatPage, bkRotOf()); }
@@ -24416,7 +24515,10 @@ setInterval(function(){
 document.addEventListener('visibilitychange', function(){
   if(document.visibilityState === 'visible') bkTeachPoll().catch(function(){});
 });
-el('bkChatSee').onclick = function(){ bkChatSee = !bkChatSee; bkSeeSync(); };
+el('bkChatSee').onclick = function(){
+  bkChatSee = !bkChatSee; bkSeeSync();
+  if(bkChatSee) bkSeePrime();                    /* 一撳就睇，唔使等佢問 */
+};
 el('bkTeachBtn').onclick = bkTeachToggle;
 el('bkRotL').onclick = function(){ bkRotate(-90); };
 el('bkRotR').onclick = function(){ bkRotate(90); };
