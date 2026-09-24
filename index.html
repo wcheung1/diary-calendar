@@ -2522,6 +2522,13 @@ body.hubOpen{overflow:hidden}
   <label class="ttsChk"><input type="checkbox" id="aiJson"> 用嚴格 JSON 模式（OpenAI／DeepSeek／GLM 支援；供應商唔支援就會報錯，嗰陣先熄返佢）</label>
   <label class="ttsChk"><input type="checkbox" id="aiAutoFix" checked> JSON 讀唔到時自動修補＋重試（強烈建議開住）</label>
   <label class="ttsChk"><input type="checkbox" id="aiNoThink"> 關閉 AI 內部思考 reasoning（想 AI 答得快同慳 token 就開；但傾偈嘅深度會跌，建議留空唔剔）</label>
+  <div class="aiRow"><div><label>思考深淺（淨係識呢個設定嘅 model 先有用，例如 GLM-5.3；呢部機自己記）</label>
+    <select id="aiEffort" style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px">
+      <option value="">預設（唔講明——GLM-5.3 會當 max）</option>
+      <option value="low">low：諗得少、快、平</option>
+      <option value="high">high：諗得多</option>
+      <option value="max">max：諗到盡、最慢、最貴</option>
+    </select></div></div>
   <div class="aiRow" style="margin-top:6px">
     <div style="flex:0 0 210px"><label>回覆上限 max_tokens（留空＝自動）</label><input type="text" id="aiMaxTok" placeholder="自動（傾偈 32000）" spellcheck="false"></div>
     <div style="align-self:flex-end"><p class="ttsNote" style="margin:0 0 7px"><b>呢個唔係 context 上限</b>——context 係「你送幾多字入去」（GLM-5.2 有 1M，睇相嗰個 200K，用唔晒㗎）。呢個係「佢可以寫幾多字出嚟」，而推理模型嘅<b>內部思考都要喺呢個額度入面扣</b>。開住思考建議 32000–48000。上限唔係目標，用唔晒唔會扣。爆咗嘅話，個 app 而家會自動加大額度＋叫佢唔好諗咁耐，再試多一次。</p></div>
@@ -2620,7 +2627,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-24b";
+const BUILD = "2026-09-24c";
 /* dataURL 字元上限。超咗會自動降質，再唔得就唔准送。
    ⚠ 一定要擺頂層：睇相傾偈嗰個 IIFE 同 AI 嗰個 IIFE（bookAI.desc、bookSeeAsk）都用。
      09-11a 到 09-21b 佢住喺前者，後者一用就 ReferenceError（Safari：Can't find variable）——
@@ -6663,6 +6670,9 @@ async function callAI(messages, opt){
        係唔思考嘅，唔明文叫佢開，就永遠攞唔到 reasoning_content。唔識呢兩個欄位
        嘅供應商會直接無視，唔會出事。 */
     else if(isReasoning){ body.thinking = {type:'enabled'}; body.enable_thinking = true; }
+    /* 思考深淺：爹哋喺 ⚙ 揀。淨係「有思考」嗰陣送；熄思考嗰條路（aiThinkOff）自己揀 low。
+       ⚠ 留空＝唔送（同以前一樣）：有啲供應商唔識呢個欄位、或者唔收 max，會 400，唔好硬塞。 */
+    if(!(c.noThink || opt.noThink) && /^(low|high|max)$/.test(String(c.effort || ''))) body.reasoning_effort = c.effort;
     /* 串流：有 onDelta 就開，JSON 模式一樣開。
        ⚠️ 舊寫法係「JSON 就唔准串流」，理由係「逐粒字收返嚟冇好處」。
        但呢個理由淨係啱內容嗰半——推理嗰半（reasoning_content）先係人想睇嘅嘢，
@@ -10956,6 +10966,7 @@ $('aiMic').onclick = ()=>{
 function readTTSForm(c){
   c.autoFix   = $('aiAutoFix').checked;
   c.noThink   = $('aiNoThink').checked;
+  if($('aiEffort')) c.effort = $('aiEffort').value;
   if($('aiVisionModel')) c.visionModel = $('aiVisionModel').value.trim();
   if($('aiVisionBase'))  c.visionBase  = $('aiVisionBase').value.trim();
   if($('aiVisionKey'))   c.visionKey   = $('aiVisionKey').value.trim();
@@ -11033,6 +11044,7 @@ function openSet(){
   $('aiJson').checked = !!c.jsonMode;
   $('aiAutoFix').checked = (c.autoFix !== false);
   $('aiNoThink').checked = !!c.noThink;
+  if($('aiEffort')) $('aiEffort').value = c.effort || '';
   if($('aiVisionModel')) $('aiVisionModel').value = c.visionModel || '';
   if($('aiVisionBase'))  $('aiVisionBase').value  = c.visionBase  || '';
   if($('aiVisionKey'))   $('aiVisionKey').value   = c.visionKey   || '';
@@ -23936,14 +23948,20 @@ async function bkDocLoad(id){
 function bkDocOK(){
   return !!(RD.book && bkDoc && bkDocId === RD.book.id);
 }
-function bkTxtOf(p){ return (bkDocOK() && bkDoc.txt && bkDoc.txt[p]) ? String(bkDoc.txt[p]) : ''; }
-/* 爹哋改過嗰段蓋過 AI 嗰段。AI 寫錯咗要改得到，唔可以「錯咗但冇得郁」。 */
-function bkDescOf(p){
-  if(!bkDocOK()) return '';
+/* 指明係邊本書嘅版本。🖼 補圖面板喺管理表開，閱讀器冇開書（RD.book 係 null）——
+   用 bkTxtOf／bkDescOf 就永遠攞到 ''：卡顯示「仲未補」、補圖冇交已知嘅字、「補晒」會重做晒。
+   09-11a 起就係咁，只係個面板一直俾 PIC_MAX_CH 整死咗，冇人見過。
+   ⚠ 閱讀器照用 bkTxtOf／bkDescOf（要對 RD.book，防 6.30 嗰種攞錯另一本書）。 */
+function bkTxtIn(id, p){ return (bkDoc && bkDocId === id && bkDoc.txt && bkDoc.txt[p]) ? String(bkDoc.txt[p]) : ''; }
+function bkDescIn(id, p){
+  if(!bkDoc || bkDocId !== id) return '';
   const fix = bkDoc.descFix && bkDoc.descFix[p];
   if(fix) return String(fix);
   return (bkDoc.desc && bkDoc.desc[p]) ? String(bkDoc.desc[p]) : '';
 }
+function bkTxtOf(p){ return bkDocOK() ? bkTxtIn(RD.book.id, p) : ''; }
+/* 爹哋改過嗰段蓋過 AI 嗰段。AI 寫錯咗要改得到，唔可以「錯咗但冇得郁」。 */
+function bkDescOf(p){ return bkDocOK() ? bkDescIn(RD.book.id, p) : ''; }
 /* 骨幹：逐版壓成一句。有標題就攞標題，冇就攞第一行頭廿幾個字。
    佢**唔會知**第 8 版寫乜，但佢知第 8 版屬於邊一忽——答唔到嗰陣指得返路。 */
 function bkSpineLine(txt){
@@ -24038,7 +24056,7 @@ async function bkDescOne(b, p, doc, deg){
   if(own) doc = await bkOpenDoc(bkPdfUrl(b));
   try{
     const d = await bkPageJpeg(doc, p, deg || 0);
-    const out = await window.bookAI.desc(d, p, bkTxtOf(p));
+    const out = await window.bookAI.desc(d, p, bkTxtIn(b.id, p));   /* 面板冇開書都要交得到已知嘅字 */
     const r = BookCloud.ref();
     if(r) await r.child('doc/' + b.id + '/desc/' + p).set(out);
     if(!bkDoc || bkDocId !== b.id){ bkDoc = bkDoc || {}; bkDocId = b.id; }
@@ -24052,6 +24070,36 @@ async function bkDescOne(b, p, doc, deg){
 /* 抽唔到字嘅版逐版列出嚟，連縮圖——「md 度冇字」≠「嗰版係白紙」。
    第 21 版係跨頁大圖（第 20 版就係問緊嗰幅圖），第 39 版先係真白紙。
    邊版值得補，分得出嘅係爹哋，唔係個 app。 */
+/* 有筆記嘅版（AI 寫嘅或者爹哋改過嘅）。Firebase 連續數字 key 會變 array，所以用真假值濾。 */
+function bkNotePages(id){
+  if(!bkDoc || bkDocId !== id) return [];         /* 唔係呢本書嘅唔好攞（6.30） */
+  const d = bkDoc, a = d.desc || {}, f = d.descFix || {};
+  const ks = Object.keys(a).filter(function(k){ return a[k]; })
+                .concat(Object.keys(f).filter(function(k){ return f[k]; }));
+  return ks.map(Number).filter(function(n, i, s){ return n > 0 && s.indexOf(n) === i; })
+           .sort(function(x, y){ return x - y; });
+}
+/* ⬇ AI 睇圖筆記：👀 同 🖼 補圖寫低嘅嘢。爹哋改過就兩份都出（AI 用緊改過嗰份）。 */
+function bkNotesMd(b){
+  const ps = bkNotePages(b && b.id);
+  const d = (ps.length && bkDoc) || {}, a = d.desc || {}, f = d.descFix || {};
+  const L = ['# 《' + ((b && b.title) || '') + '》AI 睇圖筆記', '',
+             '| | |', '|---|---|',
+             '| 匯出時間 | ' + fmtDate(new Date()) + ' |',
+             '| 有筆記嘅版 | ' + (ps.length ? ps.join('、') : '冇') + ' |',
+             '| BUILD | ' + BUILD + ' |', ''];
+  if(!ps.length) L.push('（仲未有。喺睇書問答撳「👀 睇埋幅圖」，或者喺呢度撳「🖼 補」。）', '');
+  ps.forEach(function(p){
+    L.push('## 第 ' + p + ' 版', '');
+    if(f[p]){
+      L.push('**爹哋改過（AI 用緊呢份）：**', '', String(f[p]), '');
+      if(a[p]) L.push('**AI 原本寫嘅：**', '', String(a[p]), '');
+    }else{
+      L.push(String(a[p]), '');
+    }
+  });
+  return L.join('\n');
+}
 async function bkDescPanel(b){
   const box = el('bkDescBox'); if(!box) return;
   box.innerHTML = '';
@@ -24070,15 +24118,21 @@ async function bkDescPanel(b){
     w.className = 'bkNote bad'; w.textContent = '⚠ 開唔到本書：' + cut(String((e && e.message) || e), 80);
     box.appendChild(w); return;
   }
-  const list = empty.length ? empty : [];
+  /* 抽唔到字嘅版 ＋ 已經有筆記嘅版（👀 寫低嘅、之前補過嘅）。
+     舊版淨係列前者，👀 喺有字嗰版寫嘅筆記喺度睇唔到、改唔到。 */
+  const noted = bkNotePages(b.id);
+  const list = empty.concat(noted.filter(function(p){ return empty.indexOf(p) < 0; }))
+                    .sort(function(a, c){ return a - c; });
   const grid = document.createElement('div');
   grid.className = 'bkDescGrid';
   box.appendChild(grid);
   const bar = document.createElement('div');
   bar.className = 'aiBar';
   const all = document.createElement('button');
-  all.className = 'btn'; all.textContent = '🖼 一次過補晒上面嗰 ' + list.length + ' 版';
-  all.disabled = !list.length;
+  /* ⚠ list 而家連有筆記嘅版都有；「補晒」淨係補未有筆記嗰啲——唔好白燒額度、唔好蓋過 AI 原本嗰份。 */
+  const todoN = list.filter(function(p){ return !bkDescIn(b.id, p); }).length;
+  all.className = 'btn'; all.textContent = '🖼 一次過補晒未有筆記嗰 ' + todoN + ' 版';
+  all.disabled = !todoN;
   bar.appendChild(all);
   const pick = document.createElement('input');
   pick.type = 'number'; pick.min = '1'; pick.max = String(b.pages || 1);
@@ -24087,6 +24141,11 @@ async function bkDescPanel(b){
   const one = document.createElement('button');
   one.className = 'btn'; one.textContent = '🖼 補呢一版';
   bar.appendChild(one);
+  const ex = document.createElement('button');
+  ex.className = 'btn'; ex.textContent = '⬇ 匯出筆記（' + noted.length + ' 版）';
+  ex.title = '👀 同 🖼 補圖寫低嘅筆記，連你改過嘅一齊出';
+  ex.onclick = function(){ bkDownload('AI睇圖筆記_' + b.id + '_' + fmtDate(new Date()) + '.md', bkNotesMd(b)); };
+  bar.appendChild(ex);
   box.appendChild(bar);
   const cost = document.createElement('p');
   cost.className = 'subnote'; cost.textContent = '';
@@ -24103,7 +24162,7 @@ async function bkDescPanel(b){
     d.appendChild(lb);
     const tx = document.createElement('textarea');
     tx.rows = 3; tx.style.cssText = 'width:100%;font-size:12px';
-    tx.value = bkDescOf(p);
+    tx.value = bkDescIn(b.id, p);
     tx.placeholder = '（仲未補）';
     tx.onchange = async function(){
       const r = BookCloud.ref(); if(!r) return;
@@ -24134,10 +24193,11 @@ async function bkDescPanel(b){
   const cards = list.map(card);
   all.onclick = async function(){
     all.disabled = true;
-    for(let i = 0; i < cards.length; i++){
-      all.textContent = '⏳ 補緊 ' + (i + 1) + '/' + cards.length + '…';
-      try{ cards[i].tx.value = await bkDescOne(b, cards[i].p, doc); }
-      catch(e){ say('第 ' + cards[i].p + ' 版補唔到：' + cut(String((e && e.message) || e), 70)); break; }
+    const todo = cards.filter(function(c){ return !bkDescIn(b.id, c.p); });
+    for(let i = 0; i < todo.length; i++){
+      all.textContent = '⏳ 補緊 ' + (i + 1) + '/' + todo.length + '…';
+      try{ todo[i].tx.value = await bkDescOne(b, todo[i].p, doc); }
+      catch(e){ say('第 ' + todo[i].p + ' 版補唔到：' + cut(String((e && e.message) || e), 70)); break; }
     }
     const u = window.bookAI.lastUsage && window.bookAI.lastUsage();
     if(u) cost.textContent = '最近一次用咗：' + JSON.stringify(u);
@@ -24182,13 +24242,22 @@ async function bkSeePrime(){
   const b = bkChatBubble('ai');
   const box = b && b.box;
   if(box) box.textContent = '（我睇緊第 ' + page + ' 版…）';
+  /* 秒數會跳：佢見到個數喺度郁，就知仲做緊，唔會以為死咗。 */
+  const t0 = Date.now();
+  const tk = setInterval(function(){
+    if(box) box.textContent = '（我睇緊第 ' + page + ' 版… ' + Math.round((Date.now() - t0) / 1000) + ' 秒）';
+  }, 1000);
   const kid = isGuest();
   try{
     await bkNoteFor(page);
+    clearInterval(tk);
     if(box) box.textContent = '睇完第 ' + page + ' 版喇。你想問呢一版乜嘢？';
-    try{ kidLog('book', (kid ? '' : '🧑 爹哋 · ') + '👀 AI 睇咗《' + (RD.book.title || '') + '》第 ' + page + ' 版，寫低咗筆記',
+    const nt = String(bkDescOf(page) || '');
+    try{ kidLog('book', (kid ? '' : '🧑 爹哋 · ') + '👀 AI 睇咗《' + (RD.book.title || '') + '》第 ' + page + ' 版，寫低咗筆記' +
+                (nt ? '：\n' + cut(nt, 400) + (nt.length > 400 ? '\n（全文：管理睇書 → 🖼 補圖 → ⬇ 匯出筆記）' : '') : ''),
                 {kind:'note', bid:RD.book.id, page:page, by:(kid ? 'kid' : 'dad')}); }catch(e){}
   }catch(e){
+    clearInterval(tk);
     const why = String((e && e.message) || e || '');
     if(box) box.textContent = kid
       ? '我而家睇唔到幅圖喎（要爹哋喺設定度整返）。你照問我，我盡量答你。'
