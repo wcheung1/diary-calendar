@@ -1137,7 +1137,9 @@ body.readonly #bkAdmin{display:none!important}
   .bkChat{right:0;left:0;top:auto;bottom:0;width:auto;height:min(46%,320px);
     border-left:0;border-top:1px solid var(--line)}
 }
-.bkChatBar{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:7px 9px;
+.bkChatPickBtn{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:3px 8px;font-size:12px;cursor:pointer}
+.bkChatPickBtn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:700}
+.bkChatBar{flex:0 0 auto;display:flex;flex-wrap:wrap;row-gap:4px;align-items:center;gap:6px;padding:7px 9px;
   border-bottom:1px solid var(--line)}
 .bkChatPg{font-size:13px;font-weight:700}
 .bkChatSee{border:1px solid var(--line);background:var(--card);border-radius:9px;padding:4px 9px;
@@ -2019,6 +2021,7 @@ body.hubOpen{overflow:hidden}
     <div class="bkChat" id="bkChat">
       <div class="bkChatBar">
         <span class="bkChatPg" id="bkChatPg"></span>
+        <span class="bkChatPick" id="bkChatPick"></span>
         <button type="button" id="bkChatSee" class="bkChatSee" aria-pressed="false">👀 睇埋幅圖</button>
         <span style="flex:1"></span>
         <button type="button" id="bkChatSpk" aria-label="讀返" class="bkChatX">🔊</button>
@@ -2627,7 +2630,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-24c";
+const BUILD = "2026-09-24d";
 /* dataURL 字元上限。超咗會自動降質，再唔得就唔准送。
    ⚠ 一定要擺頂層：睇相傾偈嗰個 IIFE 同 AI 嗰個 IIFE（bookAI.desc、bookSeeAsk）都用。
      09-11a 到 09-21b 佢住喺前者，後者一用就 ReferenceError（Safari：Can't find variable）——
@@ -14733,21 +14736,27 @@ function storyCloseRead(){
 /* 第 17 個 prompt 常數。**特登唔改 VIS_TR_SYS**：嗰個係為功課紙寫嘅
    （有【題目】【空格】呢啲節），攞去抄故事書會出「總共 0 題」呢類廢話，
    而且嗰 16 個常數逐字比對係成套檢查嘅地基，唔可以為咗一個新場合去郁佢。 */
+/* ⚠ 09-24d 改：舊版淨係叫佢用兩三句講幅圖，假設本書一定有 text.md 俾啲字。
+   但好多書淨係得 PDF——筆記冇抄字，之後唔睇圖就答唔到版面上嘅問題（William 09-24）。
+   而家：冇俾字就逐字抄晒，再講圖。有俾字就同以前一樣淨係講圖。 */
 const VIS_BOOK_SYS = [
-'你係一個描述員。你面前係一本俾細路睇嘅書嘅其中一版。',
+'你係一個描述員。你面前係一本俾細路睇嘅書嘅其中一版。你寫低嘅嘢會存起，之後有人問呢版嘅問題就攞嚟答——到時冇人會再望張圖。',
 '',
 '【你要做嘅】',
-'用兩三句講呢一版嘅圖畫咗乜：有啲乜嘢、邊個喺度、佢哋喺度做緊乜、乜嘢顏色同位置。',
-'如果我下面俾咗「呢版嘅字」，嗰啲字已經確認係啱嘅——你唔使再抄一次，淨係講幅圖。',
+'一，如果我下面俾咗「呢版嘅字」，嗰啲字已經確認係啱嘅——你唔使再抄，直接做第二步。',
+'　　如果冇俾，就逐字照抄晒呢版印住嘅所有字：由上至下、由左至右，保留原本分行；要填嘅橫線寫「＿＿」，圈選題照抄晒啲選項。',
+'二，用兩三句講呢一版嘅圖畫咗乜：有啲乜嘢、邊個喺度、佢哋喺度做緊乜、乜嘢顏色同位置。',
 '',
 '【唔准做嘅】',
-'· 唔准解釋本書想教乜、唔准講道理、唔准俾答案。你係講你見到乜，唔係講佢意思。',
+'· 唔准解釋本書想教乜、唔准講道理、唔准俾答案，亦唔准代佢填橫線。你係講你見到乜，唔係講佢意思。',
 '· 唔准估。見唔到就寫【我睇唔清】加一句講明邊部分睇唔到。',
-'· 唔准輸出方括號標記（除咗【我睇唔清】）、唔准 markdown、唔准開場白。',
-'· 全部繁體中文，一個簡體字都唔准有。',
+'· 唔准輸出方括號標記（除咗下面兩個標題同【我睇唔清】）、唔准 markdown、唔准開場白。',
+'· 全部繁體中文（本書本身係英文就照抄英文），一個簡體字都唔准有。',
 '',
 '【格式】',
-'直接出嗰兩三句。冇圖（例如成版白紙）就淨係寫：【我睇唔清】呢版冇嘢睇得到。'
+'有抄字嗰陣：先寫【呢版嘅字】，下一行開始照抄；再寫【幅圖】，下一行寫嗰兩三句。',
+'我俾咗字嗰陣：直接出嗰兩三句。',
+'成版白紙就淨係寫：【我睇唔清】呢版冇嘢睇得到。'
 ].join('\n');
 
 /* 第 18 個。同 SYS_STORY_TALK 一樣唔行 personaBlock()——
@@ -14823,7 +14832,8 @@ Object.assign(window, {bookAI:{
     if(dataUrl.length > PIC_MAX_CH) throw new Error('張圖太大（' + dataUrl.length + ' 字元）');
     const ask = '呢一版係第 ' + pageNo + ' 版。'
       + (knownText ? ('\n\n【呢版嘅字（已經確認，唔使再抄）】\n' + String(knownText).slice(0, 1200)) : '');
-    const out = await imgTranscribe([dataUrl], '', {sys:VIS_BOOK_SYS, head:ask});
+    /* 冇字嗰版要逐字抄晒，輸出長得多：上限 6000（只係封頂，唔用唔收錢）。 */
+    const out = await imgTranscribe([dataUrl], '', {sys:VIS_BOOK_SYS, head:ask, max:6000});
     return String(out || '').trim();
   },
   /* 問答。ctx 係睇書模組砌好嘅四層上下文，呢度唔砌——
@@ -18564,13 +18574,22 @@ async function imgTranscribe(imgs, ask, opt){
     {role:'user', content:[{type:'text', text:head}].concat(
       imgs.map(function(u){ return {type:'image_url', image_url:{url:u}}; }))}
   ];
-  const r = await callVision(msgs, {json:false, temp:0, max:VIS_TR_MAX, noThink:true,
+  const r = await callVision(msgs, {json:false, temp:0, max:(opt.max || VIS_TR_MAX), noThink:true,
     base:String(cfg().visionBase||'').trim(), apiKey:String(cfg().visionKey||'').trim()}, list, null);
   let out = String(r||'').trim();
+  /* 真係截斷咗：callAI 會喺尾加「（⚠ 講到呢度就爆咗 token 上限，未講完…）」（傾偈用嘅講法）。 */
+  const cutoff = /爆咗 token 上限，未講完/.test(out);
+  if(cutoff) out = out.replace(/\s*（⚠ 講到呢度就爆咗 token 上限，未講完。[^）]*）\s*$/, '').trim();
+  /* 自己帶 prompt 嘅（例如 VIS_BOOK_SYS 睇書筆記）：嗰啲 prompt 冇要求寫【我睇唔清】，
+     唔可以用下面「冇【我睇唔清】＝斬咗」嗰條捷徑——09-24 真係出過事：每一份睇書筆記
+     都俾人加咗「爆咗字數上限」，但其實寫完咗。呢種淨係真截斷先講。 */
+  if(opt.sys){
+    if(out && cutoff) out += '\n【我睇唔清】呢份筆記寫到一半就爆咗字數上限，斬斷咗。未寫到嗰截當你完全冇望過，唔准靠估補返。';
+  }
   /* 爆咗 max_tokens 會喺句子中間斬斷，而且唔會有任何訊號。下游個模型
      見到一份睇落幾齊全嘅抄寫，就會以為自己乜都望到——正正係第 26、30、34 條
      想擋嗰種作嘢。所以：認唔到【我睇唔清】就當佢斬咗，明文寫返落去。 */
-  if(out && !ask && out.indexOf('【我睇唔清】') < 0){
+  else if(out && !ask && out.indexOf('【我睇唔清】') < 0){
     out += '\n【我睇唔清】呢份抄寫寫到一半就爆咗字數上限，斬斷咗。' +
            '未抄到嗰截當你完全冇望過，唔准靠估補返。';
   }
@@ -22728,6 +22747,7 @@ async function bkShow(i){
       el('bkChatPg').textContent = '第 ' + bkChatPage + ' 版';
       if(bkChatPage !== pg0) bkChatSee = false;   /* 👀 逐版自己撳：揭咗版就熄 */
       bkSeeSync();
+      bkChatPickSync();
       bkInsetApply(); bkFitPage(bkChatPage);
     }
     /* 揭完順手偷偷畫下一版，揭下一次就即刻出到。 */
@@ -24274,6 +24294,32 @@ function bkSeeSync(){
   b.title = bkChatSee ? '再撳一下就唔睇圖（淨係靠書入面啲字答）'
                       : '撳一下，AI 會直接望埋呢一版幅圖先答（淨係呢一版；每問一次用一次睇相額度）';
 }
+/* 孖頁嗰陣揀問邊一版。舊版淨係「播緊錄音嗰版，冇就左手邊」——
+   右手邊嗰版冇錄音就永遠揀唔到，👀 都淨係睇到左邊（William 09-24）。
+   紅框係「播緊錄音」嘅記號，唔係「揀咗」，所以唔借用佢。左右跟畫面真位置講（打側就上／下）。 */
+function bkChatPickSync(){
+  const box = el('bkChatPick'); if(!box) return;
+  box.innerHTML = '';
+  const sp = RD.spreads[RD.idx] || [];
+  if(sp.length < 2) return;
+  bkSaveOrder(sp).forEach(function(o){
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'bkChatPickBtn' + (o.p === bkChatPage ? ' on' : '');
+    b.textContent = (o.side ? o.side + ' ' : '') + '第 ' + o.p + ' 版';
+    b.onclick = function(){ bkChatGoPage(o.p); };
+    box.appendChild(b);
+  });
+}
+function bkChatGoPage(p){
+  if(!p || p === bkChatPage) return;
+  bkChatPage = p;
+  el('bkChatPg').textContent = '第 ' + p + ' 版';
+  bkChatSee = false; bkSeeSync();            /* 👀 逐版自己撳 */
+  bkChatPickSync();
+  bkFitPage(p);
+  bkChatSay('ai', '而家問緊第 ' + p + ' 版。');
+}
 function bkChatOpen(page){
   if(!RD.book) return;
   const panel = el('bkChat'); if(!panel) return;
@@ -24282,6 +24328,7 @@ function bkChatOpen(page){
   el('bkChatLog').innerHTML = '';
   el('bkChatPg').textContent = '第 ' + bkChatPage + ' 版';
   bkChatSee = false; bkSeeSync();
+  bkChatPickSync();
   panel.classList.add('show');
   auStop(false);
   bkInsetApply();
