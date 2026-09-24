@@ -2620,7 +2620,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-24a";
+const BUILD = "2026-09-24b";
 /* dataURL 字元上限。超咗會自動降質，再唔得就唔准送。
    ⚠ 一定要擺頂層：睇相傾偈嗰個 IIFE 同 AI 嗰個 IIFE（bookAI.desc、bookSeeAsk）都用。
      09-11a 到 09-21b 佢住喺前者，後者一用就 ReferenceError（Safari：Can't find variable）——
@@ -6581,6 +6581,31 @@ async function netProbe(apiUrl){
        + '　· 有啲網絡淨係擋非 GET 嘅請求，換個網絡再試\n'
        + '　· 呢一層同 API Key 冇關——key 錯會回 401，係有回應嘅';
 }
+/* ---------- 「熄思考」唔係個個 model 都准 ----------
+   GLM-5.3 起（連 5.3-flash）思考冇得熄：送 thinking:{type:'disabled'} 會 400
+   （code 1210：「This model always engages in thinking and cannot be disabled; please use low, high, or max」）。
+   Z.ai 講明「熄思考」嘅替代寫法係 thinking:{type:'enabled'} ＋ reasoning_effort:'low'。
+   ⚠ 唔可以乾脆唔送：完全冇思考參數＝照最貴嘅 max 計錢，仲慢。
+   ⚠ 叫嗰個 max_tokens 係當佢「唔思考」計嘅；而家佢會思考少少，要加位，唔係答案未出就爆額。
+   AI_NOOFF：撞過 1210 嘅 model 記低（將來新 model 名唔喺規則入面，都識自己轉）。
+   2026-09-24：William 撳「🔎 試下睇圖」撞正。 */
+const AI_NOOFF = new Set();
+function aiNoOff(model){
+  const m = String(model || '');
+  return /glm-5\.(?:[3-9]|\d{2,})|glm-[6-9]/i.test(m) || AI_NOOFF.has(m);
+}
+function aiThinkOff(body){
+  if(aiNoOff(body.model)){
+    body.thinking = {type:'enabled'};
+    body.reasoning_effort = 'low';
+    delete body.enable_thinking;
+    body.max_tokens = (body.max_tokens || 4000) + 2048;
+    return 'low';
+  }
+  body.thinking = {type:'disabled'};
+  body.enable_thinking = false;
+  return 'off';
+}
 async function callAI(messages, opt){
   AI_LAST_REASON = '';
   opt = opt || {};
@@ -6633,7 +6658,7 @@ async function callAI(messages, opt){
     if(opt.json && c.jsonMode) body.response_format = {type:'json_object'};
     /* 關閉推理模型嘅「內部思考」。唔識呢兩個欄位嘅供應商會直接無視，唔會出事。
        開咗嘅話，GLM 5.2 / Qwen3 就唔會將 max_tokens 燒晒喺 reasoning 度、答案未出就爆額。 */
-    if(c.noThink || opt.noThink){ body.thinking = {type:'disabled'}; body.enable_thinking = false; }
+    if(c.noThink || opt.noThink){ aiThinkOff(body); }   /* GLM-5.3 起冇得熄，改做 low（見 aiThinkOff） */
     /* 舊寫法淨係識「關」，從來冇「開」。但好多線路（例如 GLM coding plan）預設
        係唔思考嘅，唔明文叫佢開，就永遠攞唔到 reasoning_content。唔識呢兩個欄位
        嘅供應商會直接無視，唔會出事。 */
@@ -6703,6 +6728,12 @@ async function callAI(messages, opt){
        「权限 / not open / permission」＝ 幾多次都唔會得，唔好嘥時間重試。 */
     apiErr.busy = (res.status===429 || res.status>=500) &&
                   !/权限|權限|not open|permission|unauthor/i.test(String(msg||''));
+    /* 1210：呢個 model 唔准熄思考。記低佢，改用 low 即刻再試**一次**（_noOffRetry 擋住唔好兜圈）。 */
+    if(res.status === 400 && /cannot be disabled|always engages in thinking/i.test(String(msg||'')) &&
+       body && body.thinking && body.thinking.type === 'disabled' && !opt._noOffRetry){
+      AI_NOOFF.add(String(body.model || ''));
+      return callAI(messages, Object.assign({}, opt, {_noOffRetry:true}));
+    }
     throw apiErr;
   }
   let data = null, sm = null;
