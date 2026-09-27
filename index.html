@@ -1015,6 +1015,38 @@ body.readonly #hubManage{display:none!important}
 /* 爹哋嗰張管理表 */
 .hubRow{display:flex;gap:6px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .hubRow.off{opacity:.5}
+/* ---------- 管理表共用（26a）：搵字、科目 chip、一行摘要、摺埋 ----------
+   搵字列黐住頂：成張表碌落去都搵得返。 */
+.admBar{position:sticky;top:-40px;z-index:3;background:var(--panel);padding:8px 0 6px;margin:0 0 8px;border-bottom:1px solid var(--line)}
+.admBarRow{display:flex;gap:6px;align-items:center}
+.admQ{flex:1 1 auto;min-width:0;font-size:15px;padding:7px 10px;border:1px solid var(--line);border-radius:9px}
+.admChips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.admChip{--chip:var(--accent);border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:3px 10px;font-size:12.5px;cursor:pointer;color:var(--ink)}
+.admChip.on{background:var(--chip);border-color:var(--chip);color:#fff;font-weight:700}
+.admNote{margin:6px 0 0;font-size:12.5px;color:var(--q-amber)}
+.admNote:empty{display:none}
+.admFold{cursor:pointer;user-select:none;border-radius:6px}
+.admFold:hover{background:var(--accent-soft)}
+.admArr{display:inline-block;width:1.1em;color:var(--muted);font-size:12px}
+.admCnt{color:var(--muted);font-weight:400;font-size:12px;margin-left:2px}
+.admC{display:flex;align-items:center;gap:8px;padding:6px 2px;border-bottom:1px solid var(--line);cursor:pointer;flex-wrap:nowrap;min-height:34px}
+.admC:hover{background:var(--accent-soft)}
+/* 標題行先：灰色細字同 ⚠ 太長就佢哋自己剪，唔好剪標題 */
+.admT{flex:0 1 auto;min-width:3em;max-width:65%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+.admT.none{color:var(--muted);font-style:italic}
+.admS{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--muted)}
+.admS.bad{color:var(--overdue)}
+.admEd{flex:0 0 auto;padding:2px 9px}
+.admOpen{background:var(--accent-soft);border:1px solid var(--accent);border-radius:9px;padding:8px;margin:4px 0}
+.admShut{padding:2px 9px;font-size:12.5px;margin:0 4px 4px 0}
+/* 打開咗嗰條：科目掣唔好霸成行（全站 select 預設 100% 闊），同分類、標題擺埋一行 */
+.hubRow.admOpen select,.bkRow.admOpen .bkLine select{width:auto;flex:0 0 auto}
+.admMore{margin:8px 0 2px}
+/* 故事管理表嗰四段：summary 係 display:flex，瀏覽器自己個三角會唔見，要自己畫 */
+.stAdmSec > summary.stSecT{list-style:none;margin:2px 0 4px}
+.stAdmSec > summary.stSecT::-webkit-details-marker{display:none}
+.stAdmSec > summary.stSecT::before{content:'▸';color:var(--muted);font-size:13px;width:1em}
+.stAdmSec[open] > summary.stSecT::before{content:'▾'}
 .hubRow select,.hubRow input[type=text]{padding:4px 6px;font-size:13px}
 .hubRow .hrUrl{flex:1 1 260px;min-width:0}
 .hubRow .hrBad{color:var(--overdue);font-size:11.5px;flex:1 1 100%;margin:0}
@@ -2632,7 +2664,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-09-24e";
+const BUILD = "2026-09-26a";
 /* dataURL 字元上限。超咗會自動降質，再唔得就唔准送。
    ⚠ 一定要擺頂層：睇相傾偈嗰個 IIFE 同 AI 嗰個 IIFE（bookAI.desc、bookSeeAsk）都用。
      09-11a 到 09-21b 佢住喺前者，後者一用就 ReferenceError（Safari：Can't find variable）——
@@ -4892,6 +4924,161 @@ function enterHint(what){
 }
 function show(id){ document.getElementById(id).classList.add('show'); }
 function hide(id){ document.getElementById(id).classList.remove('show'); }
+
+/* ================= 管理表共用：一行摘要、搵字、摺埋（2026-09-26a） =================
+   學習連結、睇書、故事三張管理表用同一套，爹哋學一次就得。
+   William 09-26：「超過廿幾個就眼花繚亂」——成因係每一條都攤開晒成個編輯格
+   （25 條連結＝104 個輸入格），全部望落一模一樣，眼冇地方停。
+   ⚠ 一定要擺頂層：三張表住喺三個唔同嘅 IIFE（6.19）。 */
+/* 每張表一份（k：'hub'／'bk'／'story'）：搵緊乜字、揀咗邊科、打開緊邊條、故事每段睇到第幾篇。
+   淨係記喺記憶體：閂咗個 app 再開，由頭睇晒成張表，唔會留住上次搵嘅字嚇你一跳。 */
+function admState(k){
+  const all = admState.s || (admState.s = {});
+  return all[k] || (all[k] = {q:'', subj:'', open:'', more:{}});
+}
+function admFiltering(k){
+  const s = admState(k);
+  return !!(String(s.q || '').trim() || s.subj);
+}
+/* texts：拎嚟搵嘅字（標題、分類、網址、科目名……）。幾個字用空格分開＝全部都要有；唔理大細楷。 */
+function admMatch(k, subj, texts){
+  const s = admState(k);
+  if(s.subj && s.subj !== subj) return false;
+  const q = String(s.q || '').trim().toLowerCase();
+  if(!q) return true;
+  const hay = (texts || []).map(function(x){ return String(x == null ? '' : x); }).join('\n').toLowerCase();
+  return q.split(/\s+/).every(function(w){ return hay.indexOf(w) >= 0; });
+}
+/* 摺埋邊幾組：逐部機記（localStorage）。key 例：hub|live|math、hub|live|math|加減數、story|sec|out。
+   冇記錄就用 dflt（例如「封存」預設摺埋）。localStorage 用唔到（私人瀏覽）就照預設，唔會壞。 */
+function admFolded(key, dflt){
+  try{
+    const m = JSON.parse(localStorage.getItem('adm_fold') || '{}');
+    if(Object.prototype.hasOwnProperty.call(m, key)) return !!m[key];
+  }catch(e){}
+  return !!dflt;
+}
+function admSetFold(key, on){
+  try{
+    const m = JSON.parse(localStorage.getItem('adm_fold') || '{}');
+    m[key] = !!on;
+    localStorage.setItem('adm_fold', JSON.stringify(m));
+  }catch(e){}
+}
+/* 搵字格 ＋ 科目 chip，擺喺張表正上面。
+   ⚠ 個搵字格**只砌一次**：張表每改一個字都成張重畫，搵字格跟住重砌就會甩 focus，
+     打一個字就要再撳一下先打得第二個。chip 同提示就每次重畫都跟返。
+   subjs：[{k, name, color, n}]，淨係有嘢嘅科目；found：搵到幾多條；what：「連結」／「書」／「故事」。 */
+function admBar(k, box, subjs, redraw, what, found){
+  if(!box || !box.parentNode) return null;
+  const s = admState(k);
+  let bar = box.previousElementSibling;
+  if(!bar || !bar.classList || !bar.classList.contains('admBar')){
+    bar = document.createElement('div');
+    bar.className = 'admBar';
+    const row = document.createElement('div');
+    row.className = 'admBarRow';
+    const q = document.createElement('input');
+    q.type = 'search'; q.className = 'admQ';
+    q.placeholder = '🔎 搵' + what + '（' + (k === 'story' ? '標題、切入點、科目' : '標題、分類、網址') + '都得）';
+    q.setAttribute('aria-label', '搵' + what);
+    q.addEventListener('input', function(){ admState(k).q = q.value; redraw(); });
+    row.appendChild(q);
+    const clr = document.createElement('button');
+    clr.type = 'button'; clr.className = 'btn admClr'; clr.textContent = '✕ 清除';
+    clr.onclick = function(){ const t = admState(k); t.q = ''; t.subj = ''; q.value = ''; redraw(); };
+    row.appendChild(clr);
+    bar.appendChild(row);
+    const chips = document.createElement('div');
+    chips.className = 'admChips';
+    bar.appendChild(chips);
+    const note = document.createElement('p');
+    note.className = 'admNote';
+    bar.appendChild(note);
+    box.parentNode.insertBefore(bar, box);
+  }
+  const q = bar.querySelector('.admQ');
+  if(q && q.value !== s.q) q.value = s.q;
+  const on = admFiltering(k);
+  bar.querySelector('.admClr').style.display = on ? '' : 'none';
+  const chips = bar.querySelector('.admChips');
+  chips.innerHTML = '';
+  const total = (subjs || []).reduce(function(a, x){ return a + (x.n | 0); }, 0);
+  [{k:'', name:'全部', n:total}].concat(subjs || []).forEach(function(sj){
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'admChip' + ((s.subj || '') === sj.k ? ' on' : '');
+    if(sj.color) b.style.setProperty('--chip', sj.color);
+    b.textContent = sj.name + ' ' + (sj.n | 0);
+    /* 再撳一次已經揀咗嗰科＝返去全部（唔使搵「全部」喺邊） */
+    b.onclick = function(){ const t = admState(k); t.subj = (t.subj === sj.k) ? '' : sj.k; redraw(); };
+    chips.appendChild(b);
+  });
+  bar.querySelector('.admNote').textContent = on
+    ? ('篩選緊：搵到 ' + (found | 0) + ' 條。' + (k === 'story' ? '' :
+       '拖 ⠿ 同 ↑↓ 暫停——次序要望住成張表先調得啱，撳「✕ 清除」先排位。'))
+    : '';
+  return bar;
+}
+/* 科目／分類個標題變成撳得：摺埋、打開，逐部機記。
+   搵緊字嗰陣唔理摺埋——搵到嘅一定要見到，唔係佢以為搵唔到。回傳而家係咪摺埋。 */
+function admFoldHead(h, k, key, n, redraw){
+  const f = !admFiltering(k) && admFolded(key, false);
+  h.classList.add('admFold');
+  if(f) h.classList.add('folded');
+  h.setAttribute('role', 'button');
+  h.setAttribute('aria-expanded', f ? 'false' : 'true');
+  h.tabIndex = 0;
+  const a = document.createElement('span');
+  a.className = 'admArr'; a.textContent = f ? '▸' : '▾';
+  h.insertBefore(a, h.firstChild);
+  const c = document.createElement('span');
+  c.className = 'admCnt'; c.textContent = '（' + (n | 0) + '）';
+  h.appendChild(c);
+  const go = function(){ if(admFiltering(k)) return; admSetFold(key, !f); redraw(); };
+  h.onclick = go;
+  h.onkeydown = function(e){ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); go(); } };
+  return f;
+}
+/* 平時嗰一行：⠿（篩選緊就冇）＋ 標題 ＋ 灰色細字 ＋ ✎。撳成行（⠿ 除外）＝打開。
+   cls：沿用每張表自己嘅 row class（hubRow／bkRow），拖拉嗰套先認得。 */
+function admCompact(k, o, redraw){
+  const row = document.createElement('div');
+  row.className = o.cls + ' admC';
+  row.dataset.id = o.id;
+  if(o.grip && !admFiltering(k)){
+    const g = document.createElement('span');
+    g.className = o.grip; g.textContent = '⠿'; g.title = '拖我上下移動';
+    row.appendChild(g);
+  }
+  const t = document.createElement('span');
+  t.className = 'admT' + (o.title ? '' : ' none');
+  t.textContent = o.title || '（冇標題）';
+  row.appendChild(t);
+  const s = document.createElement('span');
+  s.className = 'admS' + (o.warn ? ' bad' : '');
+  s.textContent = (o.warn ? '⚠ ' + o.warn + (o.sub ? ' · ' : '') : '') + (o.sub || '');
+  row.appendChild(s);
+  const e = document.createElement('button');
+  e.type = 'button'; e.className = 'btn admEd'; e.textContent = '✎';
+  e.setAttribute('aria-label', '改「' + (o.title || '冇標題') + '」');
+  row.appendChild(e);
+  const open = function(){ admState(k).open = o.id; redraw(); };
+  row.onclick = function(ev){
+    if(ev && ev.target && ev.target.classList && ev.target.classList.contains('hrGrip')) return;
+    open();
+  };
+  return row;
+}
+/* 打開咗嗰條最頂加粒「▲ 收埋」。同一時間淨係開一條：開第二條，第一條自己收返。 */
+function admShut(k, row, redraw){
+  row.classList.add('admOpen');
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'btn admShut'; b.textContent = '▲ 收埋';
+  b.onclick = function(ev){ if(ev) ev.stopPropagation(); admState(k).open = ''; redraw(); };
+  row.insertBefore(b, row.firstChild);
+  return row;
+}
 function bindColorPick(elId){
   const el=document.getElementById(elId);
   el.querySelectorAll('.cpBtn').forEach(b=>b.onclick=()=>{
@@ -16680,24 +16867,66 @@ function storyAdminRender(){
       short(StoryCloud.lastError, 140), function(){ storyBoot(true); }));
     return;
   }
+  /* 26a：同學習連結、睇書一套。
+     ① 待審照舊成張卡攤開——嗰啲係你要做嘅嘢。
+     ②③④ 一篇一行，撳先打開（一次一篇）；**打開先至去雲攞正文**，唔再一開管理表就逐篇攞。
+     ③④ 預設摺埋，打開都淨係最近 10 篇（一年三百幾篇）。第三個欄位（true）＝預設摺埋。 */
+  const K = 'story', AS = admState(K), filt = admFiltering(K);
+  const hit = function(r){ return admMatch(K, r.topic, [r.title, r.gist, r.syl, stTopicName(r.topic)]); };
   const groups = [
-    ['draft', '① 待審（AI 寫咗，等你睇）'],
-    ['ready', '② 池入面（審咗，Charlotte 仲未見到）'],
-    ['out',   '③ 放咗出去'],
-    ['off',   '④ 收返咗']
+    ['draft', '① 待審（AI 寫咗，等你睇）', false],
+    ['ready', '② 池入面（審咗，Charlotte 仲未見到）', false],
+    ['out',   '③ 放咗出去', true],
+    ['off',   '④ 收返咗', true]
   ];
-  let any = false;
+  let any = false, found = 0;
+  const everyone = stAll();
   groups.forEach(function(g){
-    const list = stByStatus(g[0]);
-    if(!list.length) return;
+    const all = stByStatus(g[0]);
+    if(!all.length) return;
     any = true;
-    const h = document.createElement('div');
+    const list = all.filter(hit);
+    found += list.length;
+    const key = 'story|sec|' + g[0];
+    const sec = document.createElement('details');
+    sec.className = 'hubStSec stAdmSec'; sec.dataset.st = g[0];   /* ⚠ 唔好叫 stSec：嗰個 class 已經有人用緊 */
+    sec.open = filt ? list.length > 0 : !admFolded(key, g[2]);
+    const h = document.createElement('summary');
     h.className = 'stSecT';
-    h.textContent = g[1] + '（' + list.length + '）';
-    host.appendChild(h);
-    list.forEach(function(r){ host.appendChild(stCard(r)); });
+    h.textContent = g[1] + '（' + (filt ? '搵到 ' + list.length + ' / ' : '') + all.length + '）';
+    h.addEventListener('click', function(){ if(!admFiltering(K)) admSetFold(key, sec.open); });
+    sec.appendChild(h);
+    const pag = (g[0] === 'out' || g[0] === 'off');
+    /* 搵緊字就出晒搵到嘅：你搵緊一篇，唔好收埋喺「再睇多」後面 */
+    const lim = (pag && !filt) ? (AS.more[g[0]] || 10) : list.length;
+    list.slice(0, lim).forEach(function(r){
+      if(g[0] === 'draft'){ sec.appendChild(stCard(r)); return; }
+      if(AS.open === r.id){
+        const w = document.createElement('div');
+        w.className = 'stRow'; w.dataset.id = r.id;
+        w.appendChild(stCard(r));
+        sec.appendChild(admShut(K, w, storyAdminRender));
+        return;
+      }
+      sec.appendChild(admCompact(K, {cls:'stRow', id:r.id, title:r.title,
+        sub:stTopicName(r.topic) + ' · ' + String(fmtStamp(r.outAt || r.at)).slice(0, 10) +
+            (r.len ? ' · ' + r.len + ' 字' : '') + (r.edited ? ' · 改過' : ''),
+        warn:(r.dupT ? '同《' + r.dupT + '》似 ' + (r.dupP || 0) + '%' : '')}, storyAdminRender));
+    });
+    if(list.length > lim){
+      const m = document.createElement('button');
+      m.type = 'button'; m.className = 'btn admMore';
+      m.textContent = '再睇多 10 篇（仲有 ' + (list.length - lim) + ' 篇）';
+      m.onclick = function(){ AS.more[g[0]] = lim + 10; storyAdminRender(); };
+      sec.appendChild(m);
+    }
+    host.appendChild(sec);
   });
   if(!any) host.appendChild(stMsgBox('', '一篇都未有。撳上面「✍ 叫 AI 寫」開始。', '', null));
+  else if(filt && !found) host.appendChild(stMsgBox('', '搵唔到。撳上面「✕ 清除」睇返晒。', '', null));
+  if(any) admBar(K, host, ST_TOPICS.map(function(tp){
+    return {k:tp.k, name:tp.name, n:everyone.filter(function(r){ return r.topic === tp.k; }).length};
+  }).filter(function(tp){ return tp.n; }), storyAdminRender, '故事', found);
 }
 /* ---------- 匯出故事 ----------
    出 Markdown 唔出 JSON：你講明係想掟俾第二個 AI 睇「寫得好唔好」。
@@ -21174,6 +21403,9 @@ function renderHubRows(){
   if(!list.length){
     box.innerHTML = '<p class="subnote">一條都未有。撳下面「＋ 加一條」。</p>';
   }
+  /* 26a：平時一條一行，撳先打開（一次一條）；頂頭搵字 ＋ 科目 chip；科目／分類摺得埋。 */
+  const K = 'hub', AS = admState(K), filt = admFiltering(K);
+  const hit = function(x){ return admMatch(K, x.subj, [x.title, x.cat, x.url, subjOf(x.subj).name]); };
   /* ⚠ 呢張表以前係一條平鋪嘅清單，同 Charlotte 見到嗰個「科目 → 分類 → 卡」
      完全對唔上。粒 ↑↓ 郁嘅係全域 array，但爹哋喺呢張表上面睇唔出嗰下郁會令
      Charlotte 嗰邊變成點——所以佢話「↑↓ 對 visual 版面冇咩幫助」。
@@ -21184,10 +21416,13 @@ function renderHubRows(){
     row.className = 'hubRow' + (x.st !== 'live' ? ' off' : '');
     row.dataset.id = x.id;
 
-    const grip = document.createElement('span');
-    grip.className = 'hrGrip'; grip.textContent = '⠿';
-    grip.title = '拖我上下移動';
-    row.appendChild(grip);
+    /* 篩選緊冇得拖：淨係見到一部分，拖落去嗰個位喺成張表度未必係你以為嗰度。 */
+    if(!filt){
+      const grip = document.createElement('span');
+      grip.className = 'hrGrip'; grip.textContent = '⠿';
+      grip.title = '拖我上下移動';
+      row.appendChild(grip);
+    }
 
     const sel = document.createElement('select');
     sel.innerHTML = SUBJ.map(sj => '<option value="' + sj.k + '"' +
@@ -21227,12 +21462,12 @@ function renderHubRows(){
     });
     const up = document.createElement('button'); up.className = 'btn'; up.textContent = '↑';
     up.title = '同上面嗰條調位';
-    up.disabled = oi === 0;
+    up.disabled = filt || oi === 0;
     up.onclick = () => { hubMove(x.id, ord[oi-1].it.id, false); save(); renderHubRows(); };
     ops.appendChild(up);
     const dn = document.createElement('button'); dn.className = 'btn'; dn.textContent = '↓';
     dn.title = '同下面嗰條調位';
-    dn.disabled = oi === ord.length - 1;
+    dn.disabled = filt || oi === ord.length - 1;
     dn.onclick = () => { hubMove(x.id, ord[oi+1].it.id, true); save(); renderHubRows(); };
     ops.appendChild(dn);
     const del = document.createElement('button'); del.className = 'btn danger'; del.textContent = '✕';
@@ -21259,38 +21494,66 @@ function renderHubRows(){
     return row;
   };
 
+  let found = 0;
   HUB_ST.forEach(function(st){
-    const ord = hubOrdered(st.k);
+    const ord = hubOrdered(st.k);                 /* ↑↓ 要同成張表嘅隔籬換，所以用晒成段 */
+    const shown = ord.filter(function(o){ return hit(o.it); });
+    found += shown.length;
     const sec = document.createElement('details');
-    sec.className = 'hubStSec';
-    sec.open = (st.k === 'live') || ord.length > 0 && st.k === 'pool';
+    sec.className = 'hubStSec'; sec.dataset.st = st.k;
+    /* 打開收埋逐部機記住：舊版每次重畫（改一個字都係）都變返預設，打開咗「封存」改完嘢又閂返。
+       搵緊字：有嘢嗰段自己打開、冇嘢嗰段收埋，唔記落去。 */
+    const skey = 'hub|sec|' + st.k;
+    sec.open = filt ? shown.length > 0
+                    : !admFolded(skey, st.k === 'arch' || (st.k === 'pool' && !ord.length));
     const sm = document.createElement('summary');
     sm.innerHTML = '<b>' + st.name + '</b>　<span class="subnote">' + st.note +
-                   '　·　' + ord.length + ' 條</span>';
+                   '　·　' + (filt ? '搵到 ' + shown.length + ' / ' : '') + ord.length + ' 條</span>';
+    sm.addEventListener('click', function(){ if(!admFiltering(K)) admSetFold(skey, sec.open); });
     sec.appendChild(sm);
     if(!ord.length){
       const p = document.createElement('p'); p.className = 'subnote';
       p.textContent = '（呢度冇嘢）';
       sec.appendChild(p);
     }
-    let lastSubj = '', lastCat = null;
+    let lastSubj = '', lastCat = null, subjF = false, catF = false;
     ord.forEach(function(o, oi){
+      if(!hit(o.it)) return;
       /* 分組標題：同 Charlotte 見到嗰個一模一樣，佢先知拖完會變成點 */
       if(o.subj.k !== lastSubj){
         const h = document.createElement('div'); h.className = 'hubMgSubj';
         h.innerHTML = '<span class="hubDot" style="background:' + o.subj.color + '"></span>' +
                       '<span style="color:' + o.subj.color + '">' + o.subj.name + '</span>';
-        sec.appendChild(h); lastSubj = o.subj.k; lastCat = null;
+        subjF = admFoldHead(h, K, 'hub|' + st.k + '|' + o.subj.k,
+                            shown.filter(function(y){ return y.subj.k === o.subj.k; }).length, renderHubRows);
+        sec.appendChild(h); lastSubj = o.subj.k; lastCat = null; catF = false;
       }
+      if(subjF) return;
       if(o.cat !== lastCat){
         const c = document.createElement('div'); c.className = 'hubMgCat';
         c.textContent = o.cat || '（冇分類）';
+        catF = admFoldHead(c, K, 'hub|' + st.k + '|' + o.subj.k + '|' + o.cat,
+                           shown.filter(function(y){ return y.subj.k === o.subj.k && y.cat === o.cat; }).length, renderHubRows);
         sec.appendChild(c); lastCat = o.cat;
       }
-      sec.appendChild(mkRow(o.it, ord, oi));
+      if(catF) return;
+      const x = o.it;
+      if(AS.open === x.id){ sec.appendChild(admShut(K, mkRow(x, ord, oi), renderHubRows)); return; }
+      /* 摘要行：網址淨係出 homework-hub/ 之後嗰截，分得開邊條就夠 */
+      sec.appendChild(admCompact(K, {cls:'hubRow' + (x.st !== 'live' ? ' off' : ''), id:x.id, grip:'hrGrip',
+        title:x.title, sub:(String(x.url || '').replace(/^https?:\/\/[^\/]+\/[^\/]*\/?/, '') || x.url || '冇網址'),
+        warn:(urlProblem(x.url) ? '網址有問題' : '')}, renderHubRows));   /* 全句好長，打開先睇 */
     });
     box.appendChild(sec);
   });
+  if(filt && list.length && !found){
+    const p = document.createElement('p'); p.className = 'subnote';
+    p.textContent = '搵唔到。撳上面「✕ 清除」睇返晒。';
+    box.appendChild(p);
+  }
+  admBar(K, box, SUBJ.map(function(sj){
+    return {k:sj.k, name:sj.name, color:sj.color, n:list.filter(function(x){ return x.subj === sj.k; }).length};
+  }).filter(function(sj){ return sj.n; }), renderHubRows, '連結', found);
   hubBindDrag(box);
 }
 
@@ -21514,8 +21777,12 @@ if(el('hubExport')) el('hubExport').onclick = function(){
 };
 el('hubAdd').onclick = function(){
   ensureHub();
-  state.hub.items.push({id:uid(), subj:'math', cat:'', title:'', url:'', on:true});
+  const nx = {id:uid(), subj:'math', cat:'', title:'', url:'', on:true};
+  state.hub.items.push(nx);
+  /* 新嗰條冇標題：搵緊字就會俾搵字收埋——清咗佢，兼即刻打開俾你填 */
+  const s = admState('hub'); s.q = ''; s.subj = ''; s.open = nx.id;
   save(); renderHubRows();
+  try{ const r = document.querySelector('#hubRows .admOpen'); if(r && r.scrollIntoView) r.scrollIntoView({block:'center'}); }catch(e){}
 };
 el('hubEditDone').onclick = function(){
   hide('hubEditModal'); renderHubList();
@@ -23615,40 +23882,74 @@ function bkRenderRows(){
     bkItems(false).forEach(function(x){ if(x.cat && seen.indexOf(x.cat) < 0) seen.push(x.cat); });
     seen.forEach(function(c){ const o = document.createElement('option'); o.value = c; dl.appendChild(o); });
   }
+  /* 26a：同學習連結一套——平時一本一行，撳先打開（一次一本）；頂頭搵字 ＋ 科目 chip；科目／分類摺得埋。 */
+  const K = 'bk', AS = admState(K), filt = admFiltering(K);
+  const hit = function(x){ return admMatch(K, x.subj, [x.title, x.cat, x.url, bkSubjOf(x.subj).name]); };
+  const all = bkItems(false);
+  let found = 0;
   BK_ST.forEach(function(st){
     const ord = bkOrdered(st.k);
+    const shown = ord.filter(function(o){ return hit(o.it); });
+    found += shown.length;
     const sec = document.createElement('details');
-    sec.className = 'hubStSec';
-    sec.open = (st.k === 'live') || (st.k === 'pool' && ord.length > 0);
+    sec.className = 'hubStSec'; sec.dataset.st = st.k;
+    const skey = 'bk|sec|' + st.k;
+    sec.open = filt ? shown.length > 0
+                    : !admFolded(skey, st.k === 'arch' || (st.k === 'pool' && !ord.length));
     const sm = document.createElement('summary');
-    sm.textContent = st.name + '　' + ord.length + ' 本　（' + st.note + '）';
+    sm.textContent = st.name + '　' + (filt ? '搵到 ' + shown.length + ' / ' : '') + ord.length + ' 本　（' + st.note + '）';
+    sm.addEventListener('click', function(){ if(!admFiltering(K)) admSetFold(skey, sec.open); });
     sec.appendChild(sm);
     if(!ord.length){
       const p = document.createElement('p');
       p.className = 'subnote'; p.textContent = '（冇）';
       sec.appendChild(p);
     }
-    let ls = '', lc = null;
-    ord.forEach(function(o){
+    let ls = '', lc = null, subjF = false, catF = false;
+    shown.forEach(function(o){
       const x = o.it;
       if(o.subj.k !== ls){
         const h = document.createElement('div');
         h.className = 'hubMgSubj';
         h.innerHTML = '<span class="hubDot" style="background:' + o.subj.color + '"></span>' +
                       '<span style="color:' + o.subj.color + '">' + o.subj.name + '</span>';
-        sec.appendChild(h); ls = o.subj.k; lc = null;
+        subjF = admFoldHead(h, K, 'bk|' + st.k + '|' + o.subj.k,
+                            shown.filter(function(y){ return y.subj.k === o.subj.k; }).length, bkRenderRows);
+        sec.appendChild(h); ls = o.subj.k; lc = null; catF = false;
       }
+      if(subjF) return;
       if((o.cat || '') !== lc){
         lc = o.cat || '';
-        if(lc){ const c = document.createElement('div'); c.className = 'hubMgCat'; c.textContent = lc; sec.appendChild(c); }
+        catF = false;
+        if(lc){
+          const c = document.createElement('div'); c.className = 'hubMgCat'; c.textContent = lc;
+          catF = admFoldHead(c, K, 'bk|' + st.k + '|' + o.subj.k + '|' + lc,
+                             shown.filter(function(y){ return y.subj.k === o.subj.k && (y.cat || '') === lc; }).length, bkRenderRows);
+          sec.appendChild(c);
+        }
+      }
+      if(catF) return;
+      if(AS.open !== x.id){
+        const bad0 = bkUrlProblem(x.url);
+        const tp = bkTeachPages(bkTeachAll[x.id]);
+        sec.appendChild(admCompact(K, {cls:'bkRow', id:x.id, grip:'hrGrip bkGrip', title:x.title,
+          /* 🙋 係要你做嘢嘅，擺最前、講埋邊幾版（摺成一行都唔可以收埋佢） */
+          sub:(tp.length ? '🙋 Charlotte 想你教：第 ' + tp.join('、') + ' 版 · ' : '') +
+              (x.pages ? x.pages + ' 版' : '未檢查') +
+              ((x.aud && x.aud.length) ? ' · 🔊 ' + x.aud.length : '') +
+              (String(x.url || '').replace(/\/+$/, '').split('/').pop() ? ' · ' + String(x.url).replace(/\/+$/, '').split('/').pop() : ''),
+          warn:(bad0 ? '網址有問題' : '')}, bkRenderRows));
+        return;
       }
       const row = document.createElement('div');
       row.className = 'bkRow'; row.dataset.id = x.id;
 
       const l1 = document.createElement('div'); l1.className = 'bkLine';
-      const grip = document.createElement('span');
-      grip.className = 'hrGrip bkGrip'; grip.textContent = '⠿'; grip.title = '拖住換位';
-      l1.appendChild(grip);
+      if(!filt){
+        const grip = document.createElement('span');
+        grip.className = 'hrGrip bkGrip'; grip.textContent = '⠿'; grip.title = '拖住換位';
+        l1.appendChild(grip);
+      }
       const sel = document.createElement('select');
       BK_SUBJ.forEach(function(s){
         const op = document.createElement('option'); op.value = s.k; op.textContent = s.name;
@@ -23718,7 +24019,7 @@ function bkRenderRows(){
       [['▲', -1, '同上面嗰本調位'], ['▼', 1, '同下面嗰本調位']].forEach(function(o){
         const b = document.createElement('button');
         b.type = 'button'; b.className = 'btn'; b.textContent = o[0]; b.title = o[2];
-        b.disabled = !peers[pk + o[1]];
+        b.disabled = filt || !peers[pk + o[1]];
         b.onclick = function(){
           if(bkNudge(x, o[1])){ save(); bkRenderRows(); bkRenderShelf(); }
         };
@@ -23765,10 +24066,18 @@ function bkRenderRows(){
       note.className = 'bkNote' + (bad ? ' bad' : (x.pages ? ' ok' : ''));
       note.textContent = bad ? ('⚠ ' + bad) : bkNoteTxt(x);
       row.appendChild(note);
-      sec.appendChild(row);
+      sec.appendChild(admShut(K, row, bkRenderRows));
     });
     box.appendChild(sec);
   });
+  if(filt && all.length && !found){
+    const p = document.createElement('p'); p.className = 'subnote';
+    p.textContent = '搵唔到。撳上面「✕ 清除」睇返晒。';
+    box.appendChild(p);
+  }
+  admBar(K, box, BK_SUBJ.map(function(sj){
+    return {k:sj.k, name:sj.name, color:sj.color, n:all.filter(function(x){ return x.subj === sj.k; }).length};
+  }).filter(function(sj){ return sj.n; }), bkRenderRows, '書', found);
   bkBindDrag(box);
   const n = el('bkEditNote');
   if(n) n.textContent = '共 ' + bkItems(false).length + ' 本。Charlotte 個書架同呢度一模一樣：' +
@@ -24790,9 +25099,14 @@ function bkAdminOpen(){
 if(el('bkAdmin')) el('bkAdmin').onclick = bkAdminOpen;
 el('bkAdd').onclick = function(){
   ensureBooks();
-  state.books.push({id:uid(), subj:'other', cat:'', title:'', url:'',
-                    cover:true, rtl:false, st:'pool', pages:0});
+  const nx = {id:uid(), subj:'other', cat:'', title:'', url:'',
+              cover:true, rtl:false, st:'pool', pages:0};
+  state.books.push(nx);
+  /* 同學習連結一樣：清走搵字、即刻打開俾你填 */
+  const s = admState('bk'); s.q = ''; s.subj = ''; s.open = nx.id;
+  admSetFold('bk|sec|pool', false);
   save(); bkRenderRows();
+  try{ const r = document.querySelector('#bkRows .admOpen'); if(r && r.scrollIntoView) r.scrollIntoView({block:'center'}); }catch(e){}
 };
 el('bkEditDone').onclick = function(){ hide('bkAdminModal'); bkRenderShelf(); };
 el('bkExport').onclick = function(){
