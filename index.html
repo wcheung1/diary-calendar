@@ -1058,6 +1058,9 @@ body.readonly #hubManage{display:none!important}
 .plusChk li.bad{color:var(--overdue)}
 .plusChk li.warn{color:var(--q-amber)}
 .plusNext{font-weight:600;border-left:3px solid var(--accent, #1971c2);padding-left:8px}
+.plusLive{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--muted,#666);margin:2px 0}
+.plusLive:empty{display:none}
+.bkQuota .btn{margin-left:6px;padding:2px 8px;font-size:12px}
 .plusNormEd{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line, #ddd)}
 /* 故事管理表嗰四段：summary 係 display:flex，瀏覽器自己個三角會唔見，要自己畫 */
 .stAdmSec > summary.stSecT{list-style:none;margin:2px 0 4px}
@@ -2688,7 +2691,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-10-22a";
+const BUILD = "2026-10-22b";
 /* dataURL 字元上限。超咗會自動降質，再唔得就唔准送。
    ⚠ 一定要擺頂層：睇相傾偈嗰個 IIFE 同 AI 嗰個 IIFE（bookAI.desc、bookSeeAsk）都用。
      09-11a 到 09-21b 佢住喺前者，後者一用就 ReferenceError（Safari：Can't find variable）——
@@ -6990,6 +6993,10 @@ async function callAI(messages, opt){
   let out = '', reason = '', finish = '';
   if(sm){
     out = sm.out; reason = sm.reason; finish = sm.finish;
+    /* 10-22b：串流收唔到任何一粒字又冇 finish＝呢條線（或者中轉）唔識串流，成段 JSON 冇 data: 行。 */
+    if(!out && !reason && !finish && !sm.usage){
+      const e = new Error('呢條線收唔到串流（一粒字都冇）。'); e.noStream = true; throw e;
+    }
   }else if(c.kind==='anthropic'){
     out = (data.content||[]).filter(b=>b && b.type==='text').map(b=>b.text).join('\n');
     reason = (data.content||[]).filter(b=>b && (b.type==='thinking'||b.type==='redacted_thinking')).map(b=>b.thinking||'').join('\n');
@@ -11945,7 +11952,19 @@ $('camReset').onclick = async ()=>{
   try{ openSet(); }catch(e){}
   toast('相機額度歸零咗，今日可以重新影 ' + camDailyN() + ' 張');
 };
+/* ⚠ 10-22b：以前上限淨係撳最底「儲存」先存。William 填咗 0／200 之後撳「歸零」，openSet() 由舊設定重新填返個格，
+   佢填嗰個數就冇咗——跟住次次撞 20。而家一改即存，歸零之前都會先存。 */
+function visCapSaveField(){
+  const f = $('aiVisionCap'); if(!f) return;
+  const c = cfg();
+  c.visionCap = f.value.trim() === '' ? 20 : Math.max(0, parseInt(f.value, 10) || 0);
+  cfgSave(c);
+  if($('aiVisionUsed')){ const o = visCount(), cap = visCap();
+    $('aiVisionUsed').textContent = '今日用咗 ' + o.n + ' 次' + (cap ? '／上限 ' + cap : '（冇上限）') + '　✓ 已存'; }
+}
+if($('aiVisionCap')) $('aiVisionCap').onchange = visCapSaveField;
 $('visReset').onclick = async ()=>{
+  visCapSaveField();
   if(!(await confirmBox('將「每日最多睇幾多次相」嘅計數歸零？\n（呢個係每部機自己計嘅，只影響你而家部機）'))) return;
   try{ localStorage.removeItem(VIS_CAP_KEY); }catch(e){}
   try{ openSet(); }catch(e){}
@@ -16712,12 +16731,30 @@ function plusExport(n, plan, scripts, lang){
   }
   return {text:L.join('\n') + (L.length ? '\n' : ''), missing:missing};
 }
-async function plusAskJSON(msgs, want, vision){
-  if(!vision) return (await callAIJSON(msgs, {want:want, max:16000, temp:0.4})).json;
+/* 10-22b 走馬燈：有 onDelta 就串流——唔串流嘅話成段生成要喺 90 秒內完，GLM 諗耐啲就俾 timeout 斬
+   （William：付費 glm-5.3-flash 計劃第 1–8 版都係 90 秒冇覆）。串流之後 90 秒淨係守「接唔接到線」，
+   之後由 readAIStream 嘅 45 秒冇字 watchdog 守。線路唔識串流（noStream）就轉返唔串流再做一次。 */
+async function plusLiveTry(fn, onDelta){
+  if(typeof onDelta !== 'function') return fn(null);
+  let got = 0;
+  const od = function(d){ got++; try{ onDelta(d); }catch(e){} };
+  try{ return await fn(od); }
+  catch(e){
+    if(!(e && e.noStream) || got) throw e;
+    try{ onDelta({note:'呢條線唔識串流，轉返普通模式再試（睇唔到進度）'}); }catch(e2){}
+    return fn(null);
+  }
+}
+async function plusAskJSON(msgs, want, vision, onDelta){
+  if(!vision) return plusLiveTry(async function(od){ return (await callAIJSON(msgs, {want:want, max:16000, temp:0.4, onDelta:od || undefined})).json; }, onDelta);
+  return plusLiveTry(function(od){ return plusAskVisionJSON(msgs, want, od); }, onDelta);
+}
+async function plusAskVisionJSON(msgs, want, onDelta){
   const visM = String(cfg().visionModel || '').trim();
   if(!visM) throw new Error('未填睇相用嘅 Model（⚙ API 設定）');
   const list = visM.split(/[,，]/).map(function(x){ return x.trim(); }).filter(Boolean);
   const opt = {json:true, temp:0.4, max:16000, base:String(cfg().visionBase || '').trim(), apiKey:String(cfg().visionKey || '').trim()};
+  if(onDelta) opt.onDelta = onDelta;
   let raw = await callVision(msgs, opt, list, null);
   try{ return grabJSON(raw, want); }
   catch(e){
@@ -16730,12 +16767,15 @@ async function plusAskJSON(msgs, want, vision){
     return grabJSON(raw, want);
   }
 }
-async function plusAskText(msgs){
+async function plusAskText(msgs, onDelta){
   const visM = String(cfg().visionModel || '').trim();
   if(!visM) throw new Error('未填睇相用嘅 Model（⚙ API 設定）');
   const list = visM.split(/[,，]/).map(function(x){ return x.trim(); }).filter(Boolean);
-  const raw = await callVision(msgs, {json:false, temp:0.5, max:16000, base:String(cfg().visionBase || '').trim(),
-                                      apiKey:String(cfg().visionKey || '').trim()}, list, null);
+  const raw = await plusLiveTry(function(od){
+    const o = {json:false, temp:0.5, max:16000, base:String(cfg().visionBase || '').trim(), apiKey:String(cfg().visionKey || '').trim()};
+    if(od) o.onDelta = od;
+    return callVision(msgs, o, list, null);
+  }, onDelta);
   return plusSplitScript(raw);
 }
 /* 稿尾嘅「【卡修訂建議】」唔係稿：拆出嚟另外俾爹哋睇，唔准入 read-plus.txt（佢啲括號仲會令機檢 FAIL）。
@@ -16774,28 +16814,31 @@ function plusNormCard(o){
 Object.assign(window, {bookAI:{
   /* 今日用咗幾多次睇相、上限幾多（cap 0＝唔限）。🖼 補晒成本書開始之前要講明——睇書模組喺另一個 IIFE，只可以經呢道門攞。 */
   quota(){ return {used:visCount().n, cap:visCap()}; },
+  /* 10-22b：補圖／學霸面板一撳改上限（0＝唔限），唔使走去 ⚙。 */
+  setCap(n){ const c = cfg(); c.visionCap = Math.max(0, n | 0); cfgSave(c); return visCap(); },
   /* 🎓 學霸稿（27a）。睇書模組淨係經呢度叫；prompt、block、機檢全部喺上面「🎓 學霸稿」嗰段。 */
   plus:{
     gate:plusGate, marker:plusMarkerFor, skipLine:plusSkipLine, ledger:plusLedger, norm:plusNormCard, exportTxt:plusExport,
     check:function(t, c){ return plusCheck(t, Object.assign({chars:PLUS_CHARS}, c || {})); },
     /* 28a：分段計劃、收尾合單元、認書、普通版 */
-    plan:function(ctx){ return plusAskJSON(plusPlanMsgs(ctx), ['pages'], false); },
-    units:function(ctx){ return plusAskJSON(plusUnitsMsgs(ctx), ['units'], false); },
-    detect:function(ctx){ return plusAskJSON(plusDetectMsgs(ctx), ['lang', 'kind'], false); },
-    normal:function(ctx){ return plusAskText(plusNormMsgs(ctx)); },
+    plan:function(ctx){ return plusAskJSON(plusPlanMsgs(ctx), ['pages'], false, ctx.onDelta); },
+    units:function(ctx){ return plusAskJSON(plusUnitsMsgs(ctx), ['units'], false, ctx.onDelta); },
+    detect:function(ctx){ return plusAskJSON(plusDetectMsgs(ctx), ['lang', 'kind'], false, ctx.onDelta); },
+    normal:function(ctx){ return plusAskText(plusNormMsgs(ctx), ctx.onDelta); },
     normCheck:plusNormCheck,
-    card:function(ctx){ return plusAskJSON(plusCardMsgs(ctx), ['point', 'type', 'skip'], true); },
-    script:function(ctx){ return plusAskText(plusScriptMsgs(ctx)); }
+    card:function(ctx){ return plusAskJSON(plusCardMsgs(ctx), ['point', 'type', 'skip'], true, ctx.onDelta); },
+    script:function(ctx){ return plusAskText(plusScriptMsgs(ctx), ctx.onDelta); }
   },
   /* 由一張版面圖攞返一段描述。張圖係 app 自己由 PDF 畫出嚟嘅，
      喺記憶體行完就掉——唔會寫落 repo，唔會寫落 Firebase，冇任何圖片被儲存。 */
-  async desc(dataUrl, pageNo, knownText){
+  async desc(dataUrl, pageNo, knownText, onDelta){
     if(!dataUrl) throw new Error('冇圖');
     if(dataUrl.length > PIC_MAX_CH) throw new Error('張圖太大（' + dataUrl.length + ' 字元）');
     const ask = '呢一版係第 ' + pageNo + ' 版。'
       + (knownText ? ('\n\n【呢版嘅字（由 text.md 嚟；先同張圖對一對）】\n' + String(knownText).slice(0, 1200)) : '');
     /* 冇字嗰版要逐字抄晒，輸出長得多：上限 6000（只係封頂，唔用唔收錢）。 */
-    const out = await imgTranscribe([dataUrl], '', {sys:VIS_BOOK_SYS, head:ask, max:6000});
+    /* 10-22b：有 onDelta 就串流（面板走馬燈睇到佢諗緊）；條線唔識串流就轉返普通再試一次。 */
+    const out = await plusLiveTry(function(od){ return imgTranscribe([dataUrl], '', {sys:VIS_BOOK_SYS, head:ask, max:6000, onDelta:od}); }, onDelta);
     return String(out || '').trim();
   },
   /* 問答。ctx 係睇書模組砌好嘅四層上下文，呢度唔砌——
@@ -20578,7 +20621,7 @@ async function imgTranscribe(imgs, ask, opt){
     {role:'user', content:[{type:'text', text:head}].concat(
       imgs.map(function(u){ return {type:'image_url', image_url:{url:u}}; }))}
   ];
-  const r = await callVision(msgs, {json:false, temp:0, max:(opt.max || VIS_TR_MAX), noThink:true,
+  const r = await callVision(msgs, {json:false, temp:0, max:(opt.max || VIS_TR_MAX), noThink:true, onDelta:opt.onDelta,
     base:String(cfg().visionBase||'').trim(), apiKey:String(cfg().visionKey||'').trim()}, list, null);
   let out = String(r||'').trim();
   /* 真係截斷咗：callAI 會喺尾加「（⚠ 講到呢度就爆咗 token 上限，未講完…）」（傾偈用嘅講法）。 */
@@ -26126,7 +26169,7 @@ function bkNoteOld(id, p){
   if(bkDoc.descFix && bkDoc.descFix[p]) return false;
   const a = String((bkDoc.desc && bkDoc.desc[p]) || '').trim();
   if(!a) return false;
-  if(a.indexOf('【呢版嘅字】') >= 0 || a.indexOf('【我睇唔清】') === 0) return false;
+  if(bkNoteText(a) || a.indexOf('【我睇唔清】') === 0) return false;
   if(a.indexOf('【幅圖】') < 0) return true;                 /* 09-24d 之前嘅舊格式 */
   if(bkNoteBad(id, p)) return true;                          /* AI 話字唔對版，但冇抄到字 */
   /* 新格式淨係【幅圖】：可能係成版冇字（啱），亦可能係當時有俾 text.md（而家冇咗）——
@@ -26136,11 +26179,21 @@ function bkNoteOld(id, p){
 /* AI 話 text.md 嗰版同張圖對唔上（【字唔對版】）。呢版嘅字就要信筆記，唔信 text.md。 */
 function bkNoteBad(id, p){ return bkDescIn(id, p).indexOf('【字唔對版】') >= 0; }
 /* 筆記入面【呢版嘅字】嗰截（去到【幅圖】為止）。 */
+/* ⚠ 10-22b：William 匯出 text.md，第 4、14 版明明筆記有字都話冇字。AI 唔係次次都寫足「【呢版嘅字】」：
+   有時寫「【呢一版嘅字】」「【這頁的文字】」，有時冇標題直接抄字再寫【幅圖】。而家：
+   一，標題認埋呢幾個寫法；二，冇標題但【幅圖】前面有字（剝走【字唔對版】）就當係抄嘅字；
+   三，【我睇唔清】開頭（白紙）先當冇字。舊格式（冇【幅圖】、冇標題，淨係描述圖）照舊唔當字。 */
+const BK_TXT_HEAD = /【(?:呢|這|这|此)(?:一)?(?:版|頁|页)(?:嘅|的)?(?:文)?字】/;
 function bkNoteText(note){
   const s = String(note || '');
-  const i = s.indexOf('【呢版嘅字】');
-  if(i < 0) return '';
-  let t = s.slice(i + 6);
+  if(s.trim().indexOf('【我睇唔清】') === 0) return '';
+  const m = BK_TXT_HEAD.exec(s);
+  if(!m){
+    const k = s.indexOf('【幅圖】');
+    if(k <= 0) return '';
+    return s.slice(0, k).replace('【字唔對版】', '').trim();
+  }
+  let t = s.slice(m.index + m[0].length);
   const j = t.indexOf('【幅圖】');
   if(j >= 0) t = t.slice(0, j);
   return t.trim();
@@ -26262,14 +26315,74 @@ async function bkPageJpeg(doc, p, deg, opt){
   return d;
 }
 /* deg：嗰版打咗側就照轉埋先睇（👀 自動睇圖嗰陣用；管理表手動補圖照舊係 0）。 */
-async function bkDescOne(b, p, doc, deg){
+/* ---------- 10-22b 走馬燈 ----------
+   William：撳咗 ①／②／補圖之後成分鐘冇聲，唔知佢係諗緊定斷咗線。
+   而家 AI 一路串流，呢度每秒寫一次：等緊回應／思考緊幾多字／寫緊答案寫到第幾版／幾多秒冇新字，加最後幾十個字。
+   元素每次用 id 搵（面板會重畫）。maxP：答案入面見過最大嘅 "p":N（分段計劃斷咗用嚟決定縮到幾細）。 */
+function bkLive(id){
+  const S = {think:0, text:0, out:'', tail:'', at:0, t0:0, label:'', note:'', maxP:0, timer:null};
+  const line = function(){
+    const now = Date.now(), tot = Math.round((now - S.t0) / 1000), quiet = Math.round((now - (S.at || S.t0)) / 1000);
+    const L = [];
+    if(!S.at) L.push('⏳ ' + S.label + '：送咗出去，等緊 AI 回應（' + tot + ' 秒）');
+    else if(S.text) L.push('✍ ' + S.label + '：寫緊答案 ' + S.text + ' 字' + (S.maxP ? '，寫到第 ' + S.maxP + ' 版' : '') + '（' + tot + ' 秒）');
+    else L.push('🧠 ' + S.label + '：思考緊，諗咗 ' + S.think + ' 字（' + tot + ' 秒）');
+    if(S.at && quiet >= 8) L.push('⚠ ' + quiet + ' 秒冇新字（45 秒都冇就當斷線）');
+    if(S.note) L.push(S.note);
+    if(S.tail) L.push('…' + S.tail);
+    return L.join('\n');
+  };
+  const paint = function(){ const e = el(id); if(e) e.textContent = line(); };
+  let last = 0;
+  return {
+    start:function(label){
+      S.think = 0; S.text = 0; S.out = ''; S.tail = ''; S.at = 0; S.t0 = Date.now(); S.label = label; S.note = ''; S.maxP = 0; last = 0;
+      if(S.timer) clearInterval(S.timer);
+      S.timer = setInterval(paint, 1000); paint();
+    },
+    fn:function(d){
+      d = d || {};
+      S.at = Date.now();
+      if(d.think){ S.think += String(d.think).length; S.tail = (S.tail + d.think).replace(/\s+/g, ' ').slice(-70); }
+      if(d.text){
+        S.text += String(d.text).length; S.out = d.all || (S.out + d.text);
+        S.tail = S.out.replace(/\s+/g, ' ').slice(-70);
+        const re = /"p"\s*:\s*(\d+)/g; let m, up = false;
+        while((m = re.exec(S.out))) if((m[1] | 0) > S.maxP){ S.maxP = m[1] | 0; up = true; }
+        if(up){ last = S.at; paint(); }
+      }
+      if(d.note) S.note = String(d.note);
+      if(S.at - last > 300){ last = S.at; paint(); }
+    },
+    stop:function(){ if(S.timer) clearInterval(S.timer); S.timer = null; const e = el(id); if(e) e.textContent = ''; },
+    maxP:function(){ return S.maxP; },
+    got:function(){ return S.think + S.text; }
+  };
+}
+const PLUS_LIVE = bkLive('bkPlusLive');
+const DESC_LIVE = bkLive('bkDescLive');
+/* 今日睇咗幾多次相、上限幾多（⚙ 嗰格係逐部機）。有上限就俾粒掣一撳改唔限。 */
+function bkQuotaLine(host, after){
+  const q = (window.bookAI && typeof window.bookAI.quota === 'function') ? window.bookAI.quota() : null;
+  if(!q) return null;
+  const p = document.createElement('p'); p.className = 'subnote bkQuota';
+  p.textContent = '👁 呢部機今日睇咗 ' + (q.used | 0) + ' 次相 · 每日上限：' + (q.cap ? q.cap + ' 次　' : '唔限');
+  if(q.cap && typeof window.bookAI.setCap === 'function'){
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'btn'; b.textContent = '改做唔限';
+    b.onclick = function(){ window.bookAI.setCap(0); if(after) after(); };
+    p.appendChild(b);
+  }
+  host.appendChild(p);
+  return p;
+}
+async function bkDescOne(b, p, doc, deg, onDelta){
   const own = !doc;
   if(own) doc = await bkOpenDoc(bkPdfUrl(b));
   try{
     const d = await bkPageJpeg(doc, p, deg || 0);
     /* 面板冇開書都要交得到已知嘅字。之前 AI 話過字唔對版，就唔好再俾嗰份錯字。 */
     const known = bkNoteBad(b.id, p) ? '' : bkTxtIn(b.id, p);
-    const out = await window.bookAI.desc(d, p, known);
+    const out = await window.bookAI.desc(d, p, known, onDelta);
     const r = BookCloud.ref();
     if(r) await r.child('doc/' + b.id + '/desc/' + p).set(out);
     /* 記低寫嗰陣有冇俾 text.md（bkNoteOld 用：text.md 之後冇咗，就知呢份筆記冇抄字、要重做）。 */
@@ -26389,19 +26502,34 @@ async function bkDescPanel(b){
   ex.title = '👀 同 🖼 補圖寫低嘅筆記，連你改過嘅一齊出';
   ex.onclick = function(){ bkDownload('AI睇圖筆記_' + b.id + '_' + fmtDate(new Date()) + '.md', bkNotesMd(b)); };
   bar.appendChild(ex);
+  /* 10-22b：⬇ text.md 會話「第 N 版冇字」——呢粒掣即刻淨係重補嗰幾版（有筆記但冇抄到字、又冇 text.md 頂住嘅）。 */
+  const noTxt = function(){ return every.filter(function(p){
+    const n = bkDescIn(b.id, p);
+    return n && n.trim().indexOf('【我睇唔清】') !== 0 && !bkNoteText(n) && !(bkTxtIn(b.id, p) && !bkNoteBad(b.id, p));
+  }); };
+  const fill = document.createElement('button');
+  fill.className = 'btn';
+  fill.onclick = function(){ return run(noTxt(), '補返冇字嘅版', false); };
   const exT = document.createElement('button');
   exT.className = 'btn';
   exT.title = '淨係得 PDF 嘅書：由筆記抄嘅字砌一份 text.md，上載去本書個資料夾';
   exT.onclick = function(){
     const r = bkTextMd(b, N);
     bkDownload('text.md', r.text);
-    say('⬇ text.md：' + r.n + ' 版有字' + (r.miss.length ? '；冇字：第 ' + r.miss.join('、') + ' 版（先補圖／重做）' : ''));
+    say('⬇ text.md：' + r.n + ' 版有字' + (r.miss.length ? '；冇字：第 ' + r.miss.join('、') + ' 版（白紙就唔使理；唔係就撳「🖼 補返冇字嘅版」再匯出）' : ''));
   };
   bar.appendChild(exT);
+  bar.appendChild(fill);
   box.appendChild(bar);
   const warn = document.createElement('p');
   warn.className = 'bkNote bad';
   box.appendChild(warn);
+  const quota = document.createElement('div'); box.appendChild(quota);
+  const paintQuota = function(){ quota.innerHTML = ''; bkQuotaLine(quota, paintQuota); };
+  paintQuota();
+  const live = document.createElement('p');
+  live.id = 'bkDescLive'; live.className = 'subnote plusLive'; live.style.whiteSpace = 'pre-line';
+  box.appendChild(live);
   const stat = document.createElement('p');
   stat.className = 'bkNote'; stat.style.whiteSpace = 'pre-line';
   box.appendChild(stat);
@@ -26420,6 +26548,10 @@ async function bkDescPanel(b){
     again.disabled = running || !N;
     const bad = every.filter(function(p){ return bkNoteBad(b.id, p); });
     warn.textContent = bad.length ? ('⚠ 字唔對版：第 ' + bad.join('、') + ' 版——AI 話 text.md 同張圖對唔上，呢幾版用筆記抄嘅字。') : '';
+    const nt = noTxt();
+    fill.textContent = '🖼 補返冇字嘅 ' + nt.length + ' 版' + (nt.length ? '（第 ' + nt.join('、') + ' 版）' : '');
+    fill.style.display = nt.length ? '' : 'none';
+    fill.disabled = running;
     exT.textContent = '⬇ text.md（' + every.filter(function(p){ return bkNoteText(bkDescIn(b.id, p)) || (!bkNoteBad(b.id, p) && bkTxtIn(b.id, p)); }).length + '／' + N + ' 版有字）';
     stop.style.display = running ? '' : 'none';
     ex.textContent = '⬇ 匯出筆記（' + bkNotePages(b.id).length + ' 版）';
@@ -26458,9 +26590,11 @@ async function bkDescPanel(b){
     go.onclick = async function(){
       go.disabled = true; go.textContent = '⏳';
       try{
-        tx.value = await bkDescOne(b, p, doc, degOf(p));
+        DESC_LIVE.start('第 ' + p + ' 版');
+        tx.value = await bkDescOne(b, p, doc, degOf(p), DESC_LIVE.fn);
         showCost();
       }catch(e){ say('補唔到第 ' + p + ' 版：' + cut(String((e && e.message) || e), 80)); }
+      finally{ DESC_LIVE.stop(); paintQuota(); }
       go.disabled = false; go.textContent = '🖼 補';
       syncBtns();
     };
@@ -26501,20 +26635,23 @@ async function bkDescPanel(b){
         stat.textContent = '⏳ ' + what + '：第 ' + p + ' 版（' + (i + 1) + '/' + pages.length + '）…　撳「⏹ 停」可以停';
         if(fresh && await bkDescFresh(b.id, p)){ had.push(p); cardOf(p).tx.value = bkDescIn(b.id, p); continue; }
         try{
-          const out = await bkDescOne(b, p, doc, degOf(p));
+          DESC_LIVE.start('第 ' + p + ' 版');
+          const out = await bkDescOne(b, p, doc, degOf(p), DESC_LIVE.fn);
           cardOf(p).tx.value = bkDescIn(b.id, p) || out;
           okP.push(p); streak = 0;
         }catch(e){
           why = String((e && e.message) || e);
-          if(/今日已經睇咗/.test(why)){ halt = '今日睇相次數用晒（「⚙ API 設定」可以調高上限，或者聽日再撳）'; break; }
+          if(/今日已經睇咗/.test(why)){ halt = '今日睇相次數用晒（撳上面「改做唔限」，再撳一次會由未補嗰版接落去）'; break; }
           bad.push(p);
           if(++streak >= 3){ halt = '連續 3 版都失敗，多數係條線有問題（「⚙ API 設定」撳「🔎 試下睇圖」查下）'; break; }
         }
+        finally{ DESC_LIVE.stop(); }
         showCost();
       }
     }finally{
       try{ if(lock && lock.release) await lock.release(); }catch(e){}
       running = false;
+      paintQuota();
     }
     const L = ['✓ ' + what + '：補咗 ' + okP.length + ' 版' + (okP.length ? '（第 ' + okP.join('、') + ' 版）' : '')];
     if(had.length) L.push(had.length + ' 版已經有（第 ' + had.join('、') + ' 版，另一部機啱啱寫咗），冇再做。');
@@ -27015,7 +27152,7 @@ async function plusCtx(p, withImg){
   return {title:PLUS.book.title || '', pages:PLUS.n, profile:PLUS.pf, plan:plan, page:p,
           text:cur.text, src:cur.src, prev:String(prev.text || '').slice(0, 600), next:String(next.text || '').slice(0, 600),
           base:plusBase(p), unitBase:unitBase.trim(), cards:PLUS.cards,
-          sample:(g.ok && !g.builtIn) ? PLUS.samples[g.key] : null,
+          sample:(g.ok && !g.builtIn) ? PLUS.samples[g.key] : null, onDelta:PLUS_LIVE.fn,
           img:withImg ? await bkPageJpeg(PLUS.doc, p, deg) : ''};
 }
 /* 卡 ⇄ 審卡格：一行一條，用「｜」分欄；費曼用「→」。爹哋改完照原樣存返入卡。 */
@@ -27081,12 +27218,14 @@ async function plusRun(list, what, one){
     for(let i = 0; i < list.length; i++){
       if(PLUS.stop) break;
       plusMsg('⏳ ' + what + '：第 ' + list[i] + ' 版（' + (i + 1) + '/' + list.length + '）…　撳「⏹ 停」做完呢版就停');
+      PLUS_LIVE.start(what + '第 ' + list[i] + ' 版');
       try{ await one(list[i]); okP.push(list[i]); }
       catch(e){
         why = String((e && e.message) || e);
         bad.push(list[i]);
         if(/今日已經睇咗/.test(why)) break;
       }
+      finally{ PLUS_LIVE.stop(); }
     }
   }finally{
     try{ if(lock && lock.release) await lock.release(); }catch(e){}
@@ -27142,7 +27281,10 @@ async function plusDoPlan(){
       plusMsg('⏳ AI 認緊書…');
       const mid = Math.max(1, Math.floor(PLUS.n / 2));
       const pick = texts.filter(function(t){ return t.p <= 4 || t.p === mid || t.p === mid + 1; });
-      const g = await plusTwice(function(){ return window.bookAI.plus.detect({title:title, pages:PLUS.n, texts:pick}); });
+      PLUS_LIVE.start('認書');
+      let g;
+      try{ g = await plusTwice(function(){ return window.bookAI.plus.detect({title:title, pages:PLUS.n, texts:pick, onDelta:PLUS_LIVE.fn}); }); }
+      finally{ PLUS_LIVE.stop(); }
       const ai = {lang:String((g && g.lang) || ''), kind:String((g && g.kind) || ''), subj:String((g && g.subj) || ''), why:String((g && g.why) || '')};
       if(PLUS_LANGS.some(function(x){ return x[0] === ai.lang; })) PLUS.pf.lang = ai.lang;
       if(PLUS_KINDS.some(function(x){ return x[0] === ai.kind; })) PLUS.pf.kind = ai.kind;
@@ -27154,22 +27296,40 @@ async function plusDoPlan(){
     }
     const g0 = plusGateNow();
     const sample = (g0.ok && !g0.builtIn) ? PLUS.samples[g0.key] : null;
-    if(!PLUS.part || PLUS.part.n !== PLUS.n) PLUS.part = {n:PLUS.n, rows:{}, issues:[], needImg:[]};
+    if(!PLUS.part || PLUS.part.n !== PLUS.n) PLUS.part = {n:PLUS.n, rows:{}, issues:[], needImg:[], size:0, notes:[]};
     const part = PLUS.part;
-    const K = Math.ceil(PLUS.n / PLUS_CHUNK);
-    for(let a = 1, k = 1; a <= PLUS.n; a += PLUS_CHUNK, k++){
-      const z = Math.min(PLUS.n, a + PLUS_CHUNK - 1);
+    /* 10-22b：一段做唔到就自動縮細（寫到第幾版就斷，就做到嗰版之前；冇進度就減半），最細兩版。
+       縮咗之後後面嘅段都用細嗰個數（part.size 記住，再撳 ① 接落去都係）。 */
+    if(!part.size) part.size = PLUS_CHUNK;
+    let a = 1, segs = 0;
+    while(a <= PLUS.n){
+      const size = part.size;
+      const z = Math.min(PLUS.n, a + size - 1);
       let have = true; for(let p = a; p <= z; p++) if(!part.rows[p]) have = false;
-      if(have) continue;
+      if(have){ a = z + 1; continue; }
       if(PLUS.stop) throw new Error('你撳咗停（再撳 ① 會由第 ' + a + ' 版接落去）');
-      plusMsg('⏳ 出緊計劃：第 ' + a + '–' + z + ' 版（第 ' + k + '／' + K + ' 段）…');
+      segs++;
+      plusMsg('⏳ 出緊計劃：第 ' + a + '–' + z + ' 版（每段 ' + size + ' 版）…　下面會見到佢諗緊乜、寫到第幾版');
       const done = Object.keys(part.rows).map(Number).filter(function(p){ return p < a; }).sort(function(x, y){ return x - y; })
                          .map(function(p){ return part.rows[p]; });
       let raw;
+      PLUS_LIVE.start('計劃第 ' + a + '–' + z + ' 版');
       try{
-        raw = await plusTwice(function(){ return window.bookAI.plus.plan({title:title, pages:PLUS.n, profile:PLUS.pf, sample:sample,
-          texts:texts.slice(a - 1, z), from:a, to:z, done:done, cut:1500}); });
-      }catch(e){ throw new Error('第 ' + a + '–' + z + ' 版做唔到（再撳 ① 會由呢段接落去）：' + String((e && e.message) || e)); }
+        raw = await window.bookAI.plus.plan({title:title, pages:PLUS.n, profile:PLUS.pf, sample:sample,
+          texts:texts.slice(a - 1, z), from:a, to:z, done:done, cut:1500, onDelta:PLUS_LIVE.fn});
+      }catch(e){
+        const why = String((e && e.message) || e), seen = PLUS_LIVE.maxP();
+        PLUS_LIVE.stop();
+        /* ⚠ 串流斷咗嘅訊息係「串流中途斷咗（或者你撳咗停）」——唔可以靠「撳咗停」幾隻字分，要睇 PLUS.stop。 */
+        if(PLUS.stop || /今日已經睇咗|未填/.test(why) || /^你撳咗停/.test(why) || size <= 2)
+          throw new Error('第 ' + a + '–' + z + ' 版做唔到（再撳 ① 會由呢段接落去）：' + why);
+        const next = Math.max(2, (seen >= a && seen < z) ? (seen - a) : Math.floor(size / 2));
+        part.size = Math.min(next, size - 1);
+        part.notes.push('第 ' + a + '–' + z + ' 版做唔到' + (seen >= a ? '（寫到第 ' + seen + ' 版就斷）' : '') + '，縮細做每段 ' + part.size + ' 版');
+        plusMsg('⚠ ' + part.notes[part.notes.length - 1] + '：' + cut(why, 80));
+        continue;
+      }
+      PLUS_LIVE.stop();
       const got = {};
       ((raw && raw.pages) || []).forEach(function(x){ if(x && (x.p | 0) >= a && (x.p | 0) <= z) got[x.p | 0] = x; });
       for(let p = a; p <= z; p++){
@@ -27178,13 +27338,17 @@ async function plusDoPlan(){
       }
       ((raw && raw.issues) || []).forEach(function(s){ part.issues.push(String(s)); });
       ((raw && raw.needImg) || []).forEach(function(n){ if((n | 0) > 0) part.needImg.push(n | 0); });
+      a = z + 1;
     }
     plusMsg('⏳ 合緊單元、揀緊樣板頁…');
+    PLUS_LIVE.start('合單元');
     const rows = []; for(let p = 1; p <= PLUS.n; p++) rows.push(part.rows[p]);
     const keyRe = /Dear|Contents|目錄|學習重點|學習目標|Learning Outcome|Unit|單元/i;
     const keys = texts.filter(function(t){ return t.p <= 3 || (part.rows[t.p] || {}).type === 'B' || keyRe.test(String(t.text || '').slice(0, 400)); }).slice(0, 6);
-    const u = await plusTwice(function(){ return window.bookAI.plus.units({title:title, pages:PLUS.n, profile:PLUS.pf, sample:sample,
-      rows:rows, keys:keys, cut:1500}); });
+    let u;
+    try{ u = await plusTwice(function(){ return window.bookAI.plus.units({title:title, pages:PLUS.n, profile:PLUS.pf, sample:sample,
+      rows:rows, keys:keys, cut:1500, onDelta:PLUS_LIVE.fn}); }); }
+    finally{ PLUS_LIVE.stop(); }
     const units = ((u && u.units) || []).map(function(x){
       return {name:String(x.name || ''), from:x.from | 0, to:x.to | 0, core:String(x.core || ''), lift:String(x.lift || ''), lpage:x.lpage | 0}; })
       .filter(function(x){ return x.from > 0 && x.to >= x.from; });
@@ -27198,11 +27362,12 @@ async function plusDoPlan(){
                  needImg:part.needImg.filter(function(n, i, a){ return a.indexOf(n) === i; }),
                  sample:plusSamplePick(pages, u && u.sample), at:fmtDate(new Date())};
     await plusSave('plan', PLUS.plan);
+    const notes = part.notes || [];
     PLUS.part = null;
     PLUS.busy = false;
     plusRender();
     plusMsg('✓ 計劃出咗：' + units.length + ' 個單元、' + pages.filter(function(x){ return x.type && x.type !== 'A'; }).length +
-            ' 版有內容（分 ' + K + ' 段做）。睇下下面啱唔啱，唔啱就改。');
+            ' 版有內容（今次做咗 ' + segs + ' 段）。睇下下面啱唔啱，唔啱就改。' + (notes.length ? '\n' + notes.join('\n') : ''));
   }catch(e){
     PLUS.busy = false; plusRender();
     plusMsg('⚠ 出唔到計劃：' + cut(String((e && e.message) || e), 200));
@@ -27520,6 +27685,8 @@ function plusRender(){
   }
   if(!PLUS.plan) note('建議先做 ①：冇計劃都出到卡，但冇單元主線同頁型，升層會逐頁估。', 'subnote');
   const msg = document.createElement('p'); msg.id = 'bkPlusMsg'; msg.className = 'bkNote'; msg.style.whiteSpace = 'pre-line'; box.appendChild(msg);
+  const live = document.createElement('p'); live.id = 'bkPlusLive'; live.className = 'subnote plusLive'; live.style.whiteSpace = 'pre-line'; box.appendChild(live);
+  bkQuotaLine(box, plusRender);
   /* 總表：一版一行（有卡先出）；撳一行打開審卡（一次一版） */
   const ps = Object.keys(PLUS.cards).map(Number).sort(function(a, c2){ return a - c2; });
   const list = document.createElement('div'); list.className = 'plusList'; box.appendChild(list);
