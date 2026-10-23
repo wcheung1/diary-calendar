@@ -2691,7 +2691,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-10-22b";
+const BUILD = "2026-10-23a";
 /* dataURL 字元上限。超咗會自動降質，再唔得就唔准送。
    ⚠ 一定要擺頂層：睇相傾偈嗰個 IIFE 同 AI 嗰個 IIFE（bookAI.desc、bookSeeAsk）都用。
      09-11a 到 09-21b 佢住喺前者，後者一用就 ReferenceError（Safari：Can't find variable）——
@@ -15907,6 +15907,8 @@ const PLUS_B12 = [   /* 12_英文科補充規格.txt */
 "　停頓用三個英文句號（...），唔用中文句號；全形標點一律唔准。",
 "　唔准講文法術語名，例如 noun、pronoun、subject、verb，用例句示範代替。",
 "　淨係升層嗰一句先准出術語名，而且即刻用一句簡單英文拆開。",
+"　例外（v2.0.8b）：頁面本身印住、教緊嘅術語（例如 Nouns 頁嘅 noun），就係考點，可以講，",
+"　第一次講即刻用一句簡單英文拆開。呢個唔算升層。",
 "　滿分答案句標記用英文，由 app 指定、輪住用：",
 "　　In the test, write:",
 "　　In your workbook, write:",
@@ -16448,6 +16450,16 @@ const PLUS_NORM_APP = [
 '七，A 功能頁淨係出一句 skip 句。',
 '八，普通版冇滿分答案句標記，唔使寫「考試咁寫」嗰類句。'
 ].join('\n');
+/* 10-23a：普通版英文書用呢段，唔用 block 12——block 12 有升層、陰濕題、樣板卡，係學霸嘢；
+   帶咗入普通版，佢會喺「普通版要唔要升層」「術語講唔講得」之間諗到爆上限（第 14 版）。 */
+const PLUS_EN_NORM = [
+'【英文書（普通版）】',
+'稿全英文，一個中文字都唔准有，連標記、括號註解都係。句子極短，一句一個意思。停頓用三個英文句號（...），唔用中文句號。',
+'頁面本身印住、教緊嘅術語（例如 Nouns 頁嘅 noun）就係本頁核心，可以講，第一次講即刻用一句簡單英文拆開；頁面冇嘅術語唔好講。',
+'普通版係導讀：唔使升層、唔使陰濕題、唔使滿分答案句標記。',
+'固定講法用英文：Guess、Use your finger、Clap your hands、Nod your head、Stand up、Remember this、Why。',
+'字數：大約係頁型規格範圍嘅一半，係指引唔係指標，唔使逐句數。'
+].join('\n');
 const PLUS_ASK_NORM = [
 '【今次要做：寫本頁普通版逐字稿】',
 '照上面普通版規格寫：勾、核、延、用、問五件事齊，份量照頁型。練習題唔准講答案。',
@@ -16544,7 +16556,7 @@ function plusBookHead(ctx){
              '；書種：' + ({text:'課本', work:'作業', info:'知識書', story:'故事書'}[pf.kind] || '課本') +
              '；共 ' + (ctx.pages | 0) + ' 版；頁碼用 PDF 物理頁碼。', plusLangRule(pf.lang)];
   if(pf.kind === 'story') L.push(PLUS_STORY);
-  if(pf.lang === 'en') L.push(PLUS_B12);
+  if(pf.lang === 'en') L.push(ctx.norm ? PLUS_EN_NORM : PLUS_B12);
   if(ctx.sample && ctx.sample.card && ctx.sample.script){
     L.push('【本科合格對照（使用者拍板嘅樣板，第' + (ctx.sample.page | 0) + '頁；出卡、寫稿都要對住佢嘅水平）】\n卡：' +
            JSON.stringify(ctx.sample.card) + '\n稿：\n' + ctx.sample.script);
@@ -16588,7 +16600,7 @@ function plusNormMsgs(ctx){
   L.push('【本頁嘅字（' + ({md:'OCR', pdf:'PDF 文字', note:'睇圖抄', '':'冇'}[ctx.src || ''] || '') + '）】\n' + (ctx.text || '（冇字，睇圖）'));
   if(ctx.prev) L.push('【上一頁嘅字（淨係俾你接上文下理）】\n' + ctx.prev);
   if(ctx.next) L.push('【下一頁嘅字（淨係俾你接上文下理）】\n' + ctx.next);
-  const head = plusBookHead({title:ctx.title, pages:ctx.pages, profile:ctx.profile});   /* 普通版唔帶學霸樣板 */
+  const head = plusBookHead({title:ctx.title, pages:ctx.pages, profile:ctx.profile, norm:true});   /* 普通版唔帶學霸樣板、唔帶學霸嘅英文補充 */
   return [{role:'system', content:plusNormSys()},
           {role:'user', content:plusImgMsg(head + '\n\n' + L.join('\n\n') + '\n\n' + PLUS_ASK_NORM, ctx.img)}];
 }
@@ -16647,6 +16659,9 @@ const PLUS_EN_FAIL = [
   [/\bsweetie\b/i, '稱呼／讚美'], [/\bthe answer is\b/i, '洩答案'], [/\bthe correct answer\b/i, '洩答案'],
   [/\b(so|very|really) easy\b/i, '難度誠實'], [/\bso simple\b/i, '難度誠實'], [/\bin summary\b/i, '旁白入侵']
 ];
+/* 10-23a：AI 將思考過程當稿交（第 14 版成段「Let me work through this carefully」）——兩種稿都要捉。 */
+const PLUS_LEAK_RE = /爆咗 token 上限|(^|\n)\s*(Let me (work|think|count|check|draft|re-read|reconsider)|Hmm[,.]|Okay, so|Draft:|Final assembly)|\*\*/;
+function plusLeak(s, add){ if(PLUS_LEAK_RE.test(s)) add('FAIL', 'AI 將思考過程寫咗入稿（唔係稿，撳 ↻ 重寫）'); }
 function plusEnCheck(s, add){
   const cjk = s.match(/[\u3400-\u9fff\uff01-\uff5e\u3001-\u3011]/g);
   if(cjk) add('FAIL', '英文稿有中文字或者全形符號：' + cjk.filter(function(c, i, a){ return a.indexOf(c) === i; }).slice(0, 8).join(''));
@@ -16659,6 +16674,7 @@ function plusCheck(text, ctx){
   const s = String(text || ''), c = ctx || {}, out = [];
   const add = function(lv, why){ out.push({lv:lv, why:why}); };
   if(c.skip) return s.trim() === plusSkipLine(c.lang) ? out : [{lv:'FAIL', why:'功能頁淨係准一句 skip 句'}];
+  plusLeak(s, add);
   if(/[*#\[\]()（）【】<>]/.test(s)) add('FAIL', '符號入侵（星號、井號、括號）');
   if(c.lang === 'en') plusEnCheck(s, add);
   if(c.lang !== 'en' && /[A-Za-z]/.test(s)) add('FAIL', '英文字母（拼音或音標入侵）');
@@ -16700,6 +16716,7 @@ function plusNormCheck(text, ctx){
   const s = String(text || ''), c = ctx || {}, out = [];
   const add = function(lv, why){ out.push({lv:lv, why:why}); };
   if(c.skip) return s.trim() === plusSkipLine(c.lang) ? out : [{lv:'FAIL', why:'功能頁淨係准一句 skip 句'}];
+  plusLeak(s, add);
   if(/[*#\[\]()（）【】<>]/.test(s)) add('FAIL', '符號入侵（星號、井號、括號）');
   if(/——|──|－－|--/.test(s)) add('FAIL', '破折號（TTS 風險）');
   if(c.lang === 'en'){
@@ -16749,33 +16766,54 @@ async function plusAskJSON(msgs, want, vision, onDelta){
   if(!vision) return plusLiveTry(async function(od){ return (await callAIJSON(msgs, {want:want, max:16000, temp:0.4, onDelta:od || undefined})).json; }, onDelta);
   return plusLiveTry(function(od){ return plusAskVisionJSON(msgs, want, od); }, onDelta);
 }
+/* 喺最後一條 message 後面加一段話（有圖嗰種 content 係陣列，加喺文字嗰格）。 */
+function plusAddNote(msgs, note){
+  const m2 = msgs.slice(); const k = m2.length - 1;
+  const c = m2[k].content;
+  m2[k] = {role:m2[k].role, content:Array.isArray(c) ? [{type:'text', text:c[0].text + note}].concat(c.slice(1)) : c + note};
+  return m2;
+}
+/* ⚠ 10-23a：William《English-Unit 2》第 14 版（Nouns）：glm-5.3-flash 喺「唔准講術語名」同「本頁就係教 noun」之間諗咗五萬六千字，
+   爆咗 16000 token 上限；第一次仲將思考過程當咗稿存低、匯出咗入 read.txt。
+   而家：爆上限（retryable）或者稿尾有「爆咗 token 上限」記號 → 唔當稿，自動用「少啲思考」（noThink：GLM-5.3 變 low）再做一次。 */
+const PLUS_LOW_NOTE = '\n\n⚠ 你頭先諗得太耐，未做完就爆咗字數上限。今次唔好寫思考過程、唔好逐句數字數；規則有衝突，就揀最貼本頁內容嗰個做法，直接交貨。';
+const PLUS_CUT_RE = /爆咗 token 上限，未講完/;
+function plusIsCut(e){ return !!(e && (e.retryable || e.jsonFail)) && !/今日已經睇咗/.test(String(e.message || '')); }
 async function plusAskVisionJSON(msgs, want, onDelta){
   const visM = String(cfg().visionModel || '').trim();
   if(!visM) throw new Error('未填睇相用嘅 Model（⚙ API 設定）');
   const list = visM.split(/[,，]/).map(function(x){ return x.trim(); }).filter(Boolean);
   const opt = {json:true, temp:0.4, max:16000, base:String(cfg().visionBase || '').trim(), apiKey:String(cfg().visionKey || '').trim()};
   if(onDelta) opt.onDelta = onDelta;
-  let raw = await callVision(msgs, opt, list, null);
-  try{ return grabJSON(raw, want); }
-  catch(e){
-    /* 讀唔到 JSON 就再試一次，講明淨係出 JSON（同 callAIJSON 第二轉一樣）。 */
-    const m2 = msgs.slice(); const k = m2.length - 1;
-    const note = '\n\n⚠ 你頭先個回覆讀唔到。今次請淨係輸出一個完整嘅 JSON object，唔准開場白、唔准解釋、唔准 ``` 圍欄。';
-    const c = m2[k].content;
-    m2[k] = {role:m2[k].role, content:Array.isArray(c) ? [{type:'text', text:c[0].text + note}].concat(c.slice(1)) : c + note};
-    raw = await callVision(m2, opt, list, null);
-    return grabJSON(raw, want);
-  }
+  let raw = null, note = '\n\n⚠ 你頭先個回覆讀唔到。今次請淨係輸出一個完整嘅 JSON object，唔准開場白、唔准解釋、唔准 ``` 圍欄。';
+  try{ raw = await callVision(msgs, opt, list, null); }
+  catch(e){ if(!plusIsCut(e)) throw e; note = PLUS_LOW_NOTE + '淨係輸出一個完整嘅 JSON object。'; }
+  if(raw !== null){ try{ return grabJSON(raw, want); }catch(e){} }
+  /* 讀唔到 JSON／爆咗上限：再試一次，少啲思考，講明淨係出 JSON。 */
+  if(onDelta) try{ onDelta({note:'第一次做唔到（' + (raw === null ? '諗得太耐爆咗上限' : '讀唔到 JSON') + '），改用少啲思考再做一次'}); }catch(e){}
+  raw = await callVision(plusAddNote(msgs, note), Object.assign({}, opt, {noThink:true}), list, null);
+  return grabJSON(raw, want);
 }
 async function plusAskText(msgs, onDelta){
   const visM = String(cfg().visionModel || '').trim();
   if(!visM) throw new Error('未填睇相用嘅 Model（⚙ API 設定）');
   const list = visM.split(/[,，]/).map(function(x){ return x.trim(); }).filter(Boolean);
-  const raw = await plusLiveTry(function(od){
-    const o = {json:false, temp:0.5, max:16000, base:String(cfg().visionBase || '').trim(), apiKey:String(cfg().visionKey || '').trim()};
-    if(od) o.onDelta = od;
-    return callVision(msgs, o, list, null);
-  }, onDelta);
+  const once = function(m, low){
+    return plusLiveTry(function(od){
+      const o = {json:false, temp:0.5, max:16000, base:String(cfg().visionBase || '').trim(), apiKey:String(cfg().visionKey || '').trim()};
+      if(low) o.noThink = true;
+      if(od) o.onDelta = od;
+      return callVision(m, o, list, null);
+    }, onDelta);
+  };
+  let raw = null;
+  try{ raw = await once(msgs, false); }
+  catch(e){ if(!plusIsCut(e)) throw e; }
+  if(raw === null || PLUS_CUT_RE.test(raw)){
+    if(onDelta) try{ onDelta({note:'第一次諗得太耐、未寫完就爆咗上限；改用少啲思考再寫一次'}); }catch(e){}
+    raw = await once(plusAddNote(msgs, PLUS_LOW_NOTE), true);
+    if(PLUS_CUT_RE.test(raw)) throw new Error('AI 兩次都未寫完就爆咗字數上限（第二次已經叫佢少啲思考）。再撳一次 ↻；成日咁就話我知係邊版。');
+  }
   return plusSplitScript(raw);
 }
 /* 稿尾嘅「【卡修訂建議】」唔係稿：拆出嚟另外俾爹哋睇，唔准入 read-plus.txt（佢啲括號仲會令機檢 FAIL）。
@@ -27395,14 +27433,23 @@ async function plusDoNorm(list, force){
     await plusSave('norm/' + p, rec);
   });
 }
+/* ⚠ 10-23a：機檢有 FAIL 嘅版唔入檔——第 14 版成段思考過程匯出咗入 read.txt，整 MP3 就會照讀。
+   嗰幾版喺份檔度冇（同未寫一樣），訊息分開講：改好或者 ↻ 重寫之後再匯出。 */
+function plusNoFail(rec){
+  const out = {}, bad = [];
+  Object.keys(rec || {}).forEach(function(k){
+    if((rec[k].chk || []).some(function(x){ return x.lv === 'FAIL'; })) bad.push(k | 0); else out[k] = rec[k];
+  });
+  return {rec:out, bad:bad.sort(function(a, b){ return a - b; })};
+}
 function plusExportRead(){
-  const r = window.bookAI.plus.exportTxt(PLUS.n, PLUS.plan, PLUS.norm, PLUS.pf.lang);
+  const f = plusNoFail(PLUS.norm);
+  const r = window.bookAI.plus.exportTxt(PLUS.n, PLUS.plan, f.rec, PLUS.pf.lang);
   bkDownload('read.txt', r.text);
-  const bad = Object.keys(PLUS.norm).map(Number).filter(function(p){
-    return (PLUS.norm[p].chk || []).some(function(x){ return x.lv === 'FAIL'; }); }).sort(function(a, b){ return a - b; });
+  const miss = r.missing.filter(function(p){ return f.bad.indexOf(p) < 0; });
   plusMsg('⬇ read.txt：' + (PLUS.n - r.missing.length) + ' 版' +
-          (r.missing.length ? '；未寫、份檔入面冇：第 ' + plusRange(r.missing) + ' 版' : '') +
-          (bad.length ? '；⚠ 機檢有 FAIL：第 ' + bad.join('、') + ' 版' : ''));
+          (miss.length ? '；未寫、份檔入面冇：第 ' + plusRange(miss) + ' 版' : '') +
+          (f.bad.length ? '；⚠ 機檢有 FAIL、冇放入份檔：第 ' + f.bad.join('、') + ' 版（改好或者 ↻ 重寫普通稿之後再匯出）' : ''));
   return r;
 }
 /* ---- 一鍵批卡：冇紅旗嘅草稿卡先准一鍵批；有紅旗嘅要爹哋逐張睇 ---- */
@@ -27499,13 +27546,13 @@ async function plusDoScripts(list, force){
   });
 }
 function plusExportTxt(){
-  const r = window.bookAI.plus.exportTxt(PLUS.n, PLUS.plan, PLUS.scripts, PLUS.pf.lang);
+  const f = plusNoFail(PLUS.scripts);
+  const r = window.bookAI.plus.exportTxt(PLUS.n, PLUS.plan, f.rec, PLUS.pf.lang);
   bkDownload('read-plus.txt', r.text);
-  const bad = Object.keys(PLUS.scripts).map(Number).filter(function(p){
-    return (PLUS.scripts[p].chk || []).some(function(x){ return x.lv === 'FAIL'; }); });
+  const miss = r.missing.filter(function(p){ return f.bad.indexOf(p) < 0; });
   plusMsg('⬇ read-plus.txt：' + (PLUS.n - r.missing.length) + ' 版' +
-          (r.missing.length ? '；未寫稿、份檔入面冇：第 ' + plusRange(r.missing) + ' 版' : '') +
-          (bad.length ? '；⚠ 機檢有 FAIL：第 ' + bad.join('、') + ' 版' : ''));
+          (miss.length ? '；未寫稿、份檔入面冇：第 ' + plusRange(miss) + ' 版' : '') +
+          (f.bad.length ? '；⚠ 機檢有 FAIL、冇放入份檔：第 ' + f.bad.join('、') + ' 版（改好或者 ↻ 重寫之後再匯出）' : ''));
   return r;
 }
 /* [1,2,3,5] → 「1–3、5」 */
