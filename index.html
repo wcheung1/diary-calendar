@@ -2691,7 +2691,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-10-29a";
+const BUILD = "2026-10-29b";
 /* dataURL 字元上限。超咗會自動降質，再唔得就唔准送。
    ⚠ 一定要擺頂層：睇相傾偈嗰個 IIFE 同 AI 嗰個 IIFE（bookAI.desc、bookSeeAsk）都用。
      09-11a 到 09-21b 佢住喺前者，後者一用就 ReferenceError（Safari：Can't find variable）——
@@ -27554,13 +27554,15 @@ function plusNormChk(rec){ return window.bookAI.plus.normCheck(rec.t, {lang:PLUS
    三，思考過程漏入稿、短過底線：改都冇用，用返原本個寫法重寫一次。最多兩轉；兩轉都唔過先留紅字俾爹哋。
    WARN 唔會自己觸發（佢係提醒），但撳「🤖 叫 AI 改」會連 WARN 一齊交。 */
 const PLUS_AUTO_KEY = 'plus_autofix';
-function plusAuto(){ try{ return localStorage.getItem(PLUS_AUTO_KEY) !== '0'; }catch(e){ return true; } }
+function plusAuto(){ if(PLUS.yolo) return true; try{ return localStorage.getItem(PLUS_AUTO_KEY) !== '0'; }catch(e){ return true; } }
 function plusFails(rec){ return (rec && rec.chk || []).filter(function(x){ return x.lv === 'FAIL'; }); }
 async function plusRepair(kind, p, withWarn){
   const store = kind === 'norm' ? PLUS.norm : PLUS.scripts;
   let rec = store[p]; if(!rec || rec.skip) return rec;
   const lang = PLUS.pf.lang;
   const check = function(){ rec.chk = kind === 'norm' ? plusNormChk(rec) : plusCheckNow(p); };
+  /* 29b：第一次寫出嚟嗰份同佢嘅機檢留底（t0／chk0），審查包用——分得出係 AI 一寫就錯，定係修完先錯。 */
+  if(rec.t0 === undefined){ rec.t0 = rec.t; rec.chk0 = (rec.chk || []).slice(); }
   const t0 = window.bookAI.plus.tidy(rec.t, lang);
   if(t0 !== rec.t){ rec.t = t0; check(); }
   for(let round = 1; round <= 2; round++){
@@ -27594,6 +27596,232 @@ async function plusFixAll(){
   if(n.length) await plusRun(n, 'AI 修普通稿', function(p){ return plusRepair('norm', p); });
   if(s.length) await plusRun(s, 'AI 修學霸稿', function(p){ return plusRepair('script', p); });
 }
+/* ================= 29b 🚀 YOLO：一撳做晒 =================
+   William：「撳一粒掣，由頭到尾做晒所有嘢，唔使我判斷；end product 全部下載落嚟，交俾你做大審查。」
+   八步：補圖（抄字）→ 認書＋本書筆記（照 AI 估，唔問）→ 計劃 → 普通稿 → 出卡 → 批晒卡 → 學霸稿 → 審查包（.zip）。
+   ⚠ 每步都係「做未做嘅」：中途停咗、斷咗，再撳會由未做嗰度接落去。
+   ⚠ 樣板閘喺 YOLO 唔理（plusDoCards 睇 PLUS.yolo），但唔會寫全科樣板（plusSample）——YOLO 嘅結果係俾人審，唔應該變成之後其他書嘅標準。
+   ⚠ 自動修正一定開（plusAuto 睇 PLUS.yolo）；每版第一次寫嘅稿同機檢留底（t0／chk0）入審查包。 */
+const PLUS_YOLO_STEPS = ['補圖（抄字）', '認書＋本書筆記', '出成本書計劃', '寫普通稿', '出卡', '批晒卡', '寫學霸稿', '審查包'];
+function plusYoloSay(i, s){
+  PLUS.yoloStage = '🚀 YOLO 第 ' + (i + 1) + '／' + PLUS_YOLO_STEPS.length + ' 步：' + PLUS_YOLO_STEPS[i] + (s ? '　' + s : '');
+  const e = el('bkPlusYolo'); if(e) e.textContent = PLUS.yoloStage;
+}
+/* 要補圖嘅版：冇筆記；或者有筆記但冇抄到字、又冇 text.md 頂住（白紙唔計）。 */
+function plusYoloDescPages(){
+  const out = [];
+  for(let p = 1; p <= PLUS.n; p++){
+    const n = bkDescIn(PLUS.id, p), md = bkNoteBad(PLUS.id, p) ? '' : bkTxtIn(PLUS.id, p);
+    if(md.replace(/\s/g, '').length >= BK_EMPTY_CH) continue;
+    if(!n || (n.trim().indexOf('【我睇唔清】') !== 0 && !bkNoteText(n))) out.push(p);
+  }
+  return out;
+}
+async function plusYolo(){
+  if(PLUS.busy || PLUS.yolo) return;
+  const q = window.bookAI.quota ? window.bookAI.quota() : {used:0, cap:0};
+  const msg = '🚀 YOLO：由頭到尾做晒《' + (PLUS.book.title || '') + '》（' + PLUS.n + ' 版），唔會停低問你。\n\n' +
+    '補圖 → 認書（照 AI 估）→ 計劃 → 普通稿 → 出卡 → 批晒卡（連有紅旗嘅）→ 學霸稿 → 下載審查包（.zip）。\n' +
+    '做過嘅唔會重做；中途撳「⏹ 停」，再撳 YOLO 會接落去。\n' +
+    '大約要叫 AI ' + Math.round(PLUS.n * 4.5) + ' 次左右，要一段長時間，部機唔好瞓、唔好閂呢個面板。\n' +
+    (q.cap ? '⚠ 你部機每日睇相上限係 ' + q.cap + ' 次（今日用咗 ' + (q.used | 0) + ' 次），YOLO 會改做唔限。\n' : '') +
+    '樣板：今次唔理樣板閘，亦唔會存做全科樣板。';
+  if(!confirm(msg)) return;
+  if(q.cap && window.bookAI.setCap) window.bookAI.setCap(0);
+  PLUS.yolo = true; PLUS.yoloHalt = false;
+  const log = PLUS.yoloLog = {start:new Date().toISOString(), steps:[], quota0:(window.bookAI.quota ? window.bookAI.quota().used : 0)};
+  let lock = null;
+  try{ if(navigator.wakeLock && navigator.wakeLock.request) lock = await navigator.wakeLock.request('screen'); }catch(e){ lock = null; }
+  const step = async function(i, fn){
+    if(PLUS.yoloHalt) return false;
+    const t = Date.now();
+    plusYoloSay(i);
+    let err = '';
+    try{ await fn(); }catch(e){ err = String((e && e.message) || e); }
+    const m = el('bkPlusMsg');
+    log.steps.push({step:PLUS_YOLO_STEPS[i], sec:Math.round((Date.now() - t) / 1000), msg:(m ? m.textContent : ''), err:err});
+    if(PLUS.stop) PLUS.yoloHalt = true;
+    return !err;
+  };
+  try{
+    await step(0, async function(){
+      const ps = plusYoloDescPages();
+      if(!ps.length){ plusMsg('補圖：每版都有字，唔使補。'); return; }
+      await plusRun(ps, '補圖', async function(p){
+        const deg = (BkRot.cache[PLUS.id] || {})[p] | 0;
+        await bkDescOne(PLUS.book, p, PLUS.doc, deg, PLUS_LIVE.fn);
+      });
+      PLUS.texts = {};   /* 筆記變咗，讀字嘅快取要清 */
+    });
+    await step(1, async function(){
+      if(!PLUS.pf.ok){
+        await plusDoPlan();                 /* 未認書：plusDoPlan 會先認書 */
+        if(!PLUS.pf.ai) throw new Error('認唔到書');
+        PLUS.pf.ok = true; PLUS.pf.yolo = true;
+        await plusSave('profile', PLUS.pf);
+      }
+      if(!PLUS.pf.notes){ await plusNotesRedo(); }
+      plusMsg('認書：' + PLUS.pf.lang + ' · ' + PLUS.pf.kind + (PLUS.pf.notes ? '；本書筆記 ' + String(PLUS.pf.notes).split('\n').filter(Boolean).length + ' 行' : '；⚠ 冇本書筆記'));
+    });
+    if(!PLUS.yoloHalt && !PLUS.plan) await step(2, async function(){
+      await plusDoPlan();
+      if(!PLUS.plan) throw new Error('出唔到計劃（' + ((el('bkPlusMsg') || {}).textContent || '') + '）');
+    });
+    if(!PLUS.plan){ PLUS.yoloHalt = true; }
+    await step(3, async function(){
+      await plusDoNorm(null, false);
+      /* 以前寫低、仲有 FAIL 嘅版（例如自動修正未有之前寫嘅）都修埋 */
+      const f = plusFailPages('norm');
+      if(f.length && !PLUS.stop) await plusRun(f, 'AI 修普通稿', function(p){ return plusRepair('norm', p); });
+    });
+    await step(4, async function(){
+      const ps = plusContent().filter(function(p){ return !PLUS.cards[p]; });
+      if(ps.length) await plusDoCards(ps, false);
+    });
+    await step(5, async function(){
+      const ps = Object.keys(PLUS.cards).map(Number).filter(function(p){ return PLUS.cards[p].st !== 'ok'; });
+      for(let i = 0; i < ps.length; i++){
+        const k = PLUS.cards[ps[i]];
+        k.st = 'ok'; k.okBy = 'yolo'; k.flags = plusCardFlags(ps[i]);
+        try{ await plusSave('card/' + ps[i], k); }catch(e){}
+      }
+      plusMsg('批咗 ' + ps.length + ' 張卡（YOLO，連有紅旗嘅）。');
+    });
+    await step(6, async function(){
+      const ps = Object.keys(PLUS.cards).map(Number).filter(function(p){ return PLUS.cards[p].st === 'ok' && !PLUS.scripts[p]; });
+      if(ps.length) await plusDoScripts(ps, false);
+      const f = plusFailPages('script');
+      if(f.length && !PLUS.stop) await plusRun(f, 'AI 修學霸稿', function(p){ return plusRepair('script', p); });
+    });
+  }finally{
+    try{ if(lock && lock.release) await lock.release(); }catch(e){}
+    log.end = new Date().toISOString();
+    log.quota1 = window.bookAI.quota ? window.bookAI.quota().used : 0;
+    log.halted = !!PLUS.yoloHalt;
+    PLUS.yolo = false;
+  }
+  if(!PLUS.yoloHalt){
+    plusYoloSay(7);
+    plusBundle();
+    PLUS.yoloStage = '🚀 YOLO 做完：審查包已經下載（' + plusYoloFile() + '）。';
+  }else{
+    PLUS.yoloStage = '🚀 YOLO 停咗（' + ((log.steps[log.steps.length - 1] || {}).step || '') + '）。再撳 YOLO 會接落去；想睇住先，撳「⬇ 審查包」。';
+  }
+  plusRender();
+  try{ kidLog('book', '🧑 爹哋 · 🚀 YOLO《' + (PLUS.book.title || '') + '》\n' + PLUS.yoloStage, {kind:'plus', bid:PLUS.id, by:'dad', yolo:log}); }catch(e){}
+}
+function plusYoloFile(){ return 'YOLO_' + PLUS.id + '_' + fmtDate(new Date()) + '.zip'; }
+/* ---- 審查包：一個 zip，入面係所有 end product ＋ 審查報告 ＋ 原始資料 ---- */
+function plusFailCount(store, key){
+  const c = {};
+  Object.keys(store || {}).forEach(function(p){
+    ((store[p] || {})[key] || []).forEach(function(x){ const w = x.lv + '：' + String(x.why).replace(/：「.*」$/, ''); c[w] = (c[w] | 0) + 1; });
+  });
+  return Object.keys(c).sort(function(a, b){ return c[b] - c[a]; }).map(function(k){ return '| ' + k + ' | ' + c[k] + ' |'; });
+}
+function plusReportMd(){
+  const pf = PLUS.pf || {}, plan = PLUS.plan || {pages:[], units:[]}, log = PLUS.yoloLog || null, c0 = cfg0();
+  const L = ['# 《' + (PLUS.book.title || '') + '》審查報告', '',
+    '| | |', '|---|---|', '| 匯出時間 | ' + new Date().toISOString() + ' |', '| BUILD | ' + BUILD + ' |', '| 版數 | ' + PLUS.n + ' |',
+    '| 睇相 model | ' + (c0.visionModel || '') + ' |', '| 文字 model | ' + (c0.model || '') + ' |', '| 思考深淺 | ' + (c0.effort || '（預設）') + ' |',
+    '| 語言／書種 | ' + (pf.lang || '') + ' · ' + (pf.kind || '') + (pf.ai ? '（AI 估：' + (pf.ai.lang || '') + ' · ' + (pf.ai.kind || '') + '；' + (pf.ai.why || '') + '）' : '') + ' |',
+    '| 樣板 | ' + (function(){ const g = plusGateNow(); return g.ok ? (g.builtIn ? '內置科學樣板' : '已拍板（第 ' + ((PLUS.samples[g.key] || {}).page || '') + ' 版）') : '冇（YOLO 唔理樣板閘）'; })() + ' |', ''];
+  if(log){
+    L.push('## YOLO 過程', '', '| 步 | 秒 | 結果 |', '|---|---|---|');
+    log.steps.forEach(function(s){ L.push('| ' + s.step + ' | ' + s.sec + ' | ' + String(s.err ? '⚠ ' + s.err : s.msg).replace(/\n/g, ' ／ ').replace(/\|/g, '｜').slice(0, 300) + ' |'); });
+    L.push('', '睇相次數：' + ((log.quota1 | 0) - (log.quota0 | 0)) + ' 次。' + (log.halted ? '⚠ 中途停咗。' : ''), '');
+  }
+  L.push('## 本書筆記', '', '```', pf.notes || '（冇）', '```', '');
+  L.push('## 計劃', '');
+  (plan.units || []).forEach(function(u){ L.push('- ' + u.name + '（第' + u.from + '–' + u.to + '頁）：' + u.core + '　升層主線：' + u.lift + '　收網：第' + u.lpage + '頁'); });
+  if((plan.issues || []).length) L.push('', 'OCR／重複頁：' + plan.issues.join('；'));
+  L.push('', '## 逐版', '', '| 版 | 頁型 | 字數 | 普通稿 | 卡 | 學霸稿 |', '|---|---|---|---|---|---|');
+  const st = function(r){
+    if(!r) return '—';
+    if(r.skip) return 'skip';
+    const f0 = (r.chk0 || r.chk || []).filter(function(x){ return x.lv === 'FAIL'; }).length;
+    const f1 = (r.chk || []).filter(function(x){ return x.lv === 'FAIL'; }).length;
+    return (r.chk0 ? 'FAIL ' + f0 + '→' + f1 + '（修 ' + (r.fixed | 0) + ' 轉）' : (f1 ? 'FAIL ' + f1 : '✓'));
+  };
+  (plan.pages || []).forEach(function(x){
+    const k = PLUS.cards[x.p];
+    const cd = k ? ((k.c && k.c.skip) ? 'skip' : (k.c && k.c.type || '?') + (k.fixed ? ' 補欄' : '') + ((k.flags || []).length ? ' 🚩' + k.flags.join('、') : '')) : '—';
+    L.push('| ' + x.p + ' | ' + (x.type || '') + (x.by === 'card' ? '（本來 ' + (x.was || '') + '）' : '') + (x.type === 'A' && x.why ? '：' + x.why : '') +
+           ' | ' + (x.n | 0) + ' | ' + st(PLUS.norm[x.p]) + ' | ' + cd + ' | ' + st(PLUS.scripts[x.p]) + ' |');
+  });
+  L.push('', '## 機檢：第一次寫出嚟（修之前）', '', '### 普通稿', '', '| 問題 | 版數 |', '|---|---|');
+  L.push.apply(L, plusFailCount(PLUS.norm, 'chk0').concat(plusFailCount(PLUS.norm, 'chk0').length ? [] : ['| （冇） | 0 |']));
+  L.push('', '### 學霸稿', '', '| 問題 | 版數 |', '|---|---|');
+  L.push.apply(L, plusFailCount(PLUS.scripts, 'chk0').concat(plusFailCount(PLUS.scripts, 'chk0').length ? [] : ['| （冇） | 0 |']));
+  L.push('', '## 機檢：而家（修完）', '', '### 普通稿', '', '| 問題 | 版數 |', '|---|---|');
+  L.push.apply(L, plusFailCount(PLUS.norm, 'chk').concat(plusFailCount(PLUS.norm, 'chk').length ? [] : ['| （冇） | 0 |']));
+  L.push('', '### 學霸稿', '', '| 問題 | 版數 |', '|---|---|');
+  L.push.apply(L, plusFailCount(PLUS.scripts, 'chk').concat(plusFailCount(PLUS.scripts, 'chk').length ? [] : ['| （冇） | 0 |']));
+  L.push('', '（逐版全文、第一次寫嘅稿、卡，喺 data.json；read.txt／read-plus.txt 唔包機檢 FAIL 嘅版。）');
+  return L.join('\n');
+}
+function cfg0(){ try{ return JSON.parse(localStorage.getItem('diarycal_ai_cfg_v1')) || {}; }catch(e){ return {}; } }
+function plusBundleFiles(){
+  const rd = window.bookAI.plus.exportTxt(PLUS.n, PLUS.plan, plusNoFail(PLUS.norm).rec, PLUS.pf.lang);
+  const rp = window.bookAI.plus.exportTxt(PLUS.n, PLUS.plan, plusNoFail(PLUS.scripts).rec, PLUS.pf.lang);
+  const c0 = cfg0();
+  const data = {book:{id:PLUS.id, title:PLUS.book.title || '', url:PLUS.book.url || '', pages:PLUS.n}, build:BUILD,
+    models:{vision:c0.visionModel || '', text:c0.model || '', effort:c0.effort || ''},
+    profile:PLUS.pf, plan:PLUS.plan, cards:PLUS.cards, norm:PLUS.norm, scripts:PLUS.scripts, yolo:PLUS.yoloLog || null};
+  return [
+    {name:'審查報告.md', text:plusReportMd()},
+    {name:'text.md', text:bkTextMd(PLUS.book, PLUS.n).text},
+    {name:'read.txt', text:rd.text},
+    {name:'read-plus.txt', text:rp.text},
+    {name:'卡同稿.md', text:plusCardsMd()},
+    {name:'AI睇圖筆記.md', text:bkNotesMd(PLUS.book)},
+    {name:'data.json', text:JSON.stringify(data, null, 1)}
+  ];
+}
+function plusBundle(){
+  const blob = bkZip(plusBundleFiles());
+  const u = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = u; a.download = plusYoloFile();
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ try{ a.remove(); URL.revokeObjectURL(u); }catch(e){} }, 4000);
+  return blob;
+}
+/* 最細嘅 zip（唔壓縮，store）：一個檔下載晒，唔使瀏覽器問「准唔准下載多個檔」。檔名 UTF-8（flag bit 11）。 */
+const BK_CRC = (function(){ const t = []; for(let n = 0; n < 256; n++){ let c = n; for(let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); t.push(c >>> 0); } return t; })();
+function bkCrc32(u8){ let c = 0xFFFFFFFF; for(let i = 0; i < u8.length; i++) c = BK_CRC[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function bkZipBytes(files){
+  const enc = new TextEncoder(), parts = [], cen = [];
+  const d = new Date(), dt = ((d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1)) & 0xFFFF,
+        dd = (((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate()) & 0xFFFF;
+  let off = 0;
+  const hdr = function(n){ return new DataView(new ArrayBuffer(n)); };
+  files.forEach(function(f){
+    const name = enc.encode(f.name), body = enc.encode(String(f.text || '')), crc = bkCrc32(body);
+    const h = hdr(30);
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(8, 0, true);
+    h.setUint16(10, dt, true); h.setUint16(12, dd, true); h.setUint32(14, crc, true); h.setUint32(18, body.length, true);
+    h.setUint32(22, body.length, true); h.setUint16(26, name.length, true); h.setUint16(28, 0, true);
+    parts.push(new Uint8Array(h.buffer), name, body);
+    const c = hdr(46);
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint16(10, 0, true);
+    c.setUint16(12, dt, true); c.setUint16(14, dd, true); c.setUint32(16, crc, true); c.setUint32(20, body.length, true); c.setUint32(24, body.length, true);
+    c.setUint16(28, name.length, true); c.setUint16(30, 0, true); c.setUint16(32, 0, true); c.setUint16(34, 0, true); c.setUint16(36, 0, true);
+    c.setUint32(38, 0, true); c.setUint32(42, off, true);
+    cen.push(new Uint8Array(c.buffer), name);
+    off += 30 + name.length + body.length;
+  });
+  let size = 0; cen.forEach(function(x){ size += x.length; });
+  const e = hdr(22);
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true);
+  e.setUint32(12, size, true); e.setUint32(16, off, true); e.setUint16(20, 0, true);
+  const all = parts.concat(cen, [new Uint8Array(e.buffer)]);
+  let n = 0; all.forEach(function(x){ n += x.length; });
+  const out = new Uint8Array(n); let at = 0;
+  all.forEach(function(x){ out.set(x, at); at += x.length; });
+  return out;
+}
+function bkZip(files){ return new Blob([bkZipBytes(files)], {type:'application/zip'}); }
 /* 本書筆記：AI 重寫（淨係改筆記，唔郁已確認嘅語言、書種）。 */
 async function plusNotesRedo(){
   if(PLUS.busy) return;
@@ -27727,7 +27955,7 @@ async function plusDoCards(list, force){
   let gw = '';
   if(!force) list = list.filter(function(p){ return !PLUS.cards[p]; });
   if(!g.ok && !list.length && PLUS.plan && PLUS.plan.sample) list = [PLUS.plan.sample | 0];
-  if(!g.ok && list.length > 1){ list = list.slice(0, 1); gw = g.why; }
+  if(!g.ok && list.length > 1 && !PLUS.yolo){ list = list.slice(0, 1); gw = g.why; }
   await plusRun(list, force ? '重出卡' : '出卡', async function(p){
     const raw = await window.bookAI.plus.card(await plusCtx(p, true));
     const c = window.bookAI.plus.norm(raw);
@@ -27849,6 +28077,14 @@ function plusRender(){
   const btn = function(host, lab, fn, cls){ const x = document.createElement('button'); x.type = 'button';
     x.className = 'btn' + (cls ? ' ' + cls : ''); x.textContent = lab; x.onclick = fn; x.disabled = PLUS.busy; host.appendChild(x); return x; };
   const note = function(s, cls){ const p = document.createElement('p'); p.className = cls || 'subnote'; p.textContent = s; box.appendChild(p); return p; };
+  /* 29b 🚀 YOLO：一撳做晒 ＋ 審查包 */
+  const ly = line();
+  const yb = btn(ly, PLUS.yolo ? '🚀 YOLO 做緊…' : '🚀 YOLO：一撳做晒', plusYolo, 'primary');
+  yb.disabled = PLUS.busy || !!PLUS.yolo;
+  yb.title = '補圖 → 認書 → 計劃 → 普通稿 → 出卡 → 批晒卡 → 學霸稿 → 下載審查包；唔使你判斷';
+  if(PLUS.yolo){ const ys = btn(ly, '⏹ 停 YOLO', function(){ PLUS.stop = true; PLUS.yoloHalt = true; ys.disabled = true; }); ys.disabled = false; }
+  btn(ly, '⬇ 審查包（.zip）', plusBundle).disabled = PLUS.busy || !!PLUS.yolo;
+  const yl = document.createElement('p'); yl.id = 'bkPlusYolo'; yl.className = 'bkNote'; yl.textContent = PLUS.yoloStage || ''; box.appendChild(yl);
   /* 書本檔案：科目跟書架；語言、書種 app 估，爹哋改得 */
   const l1 = line();
   const t = document.createElement('b'); t.textContent = '《' + (b.title || '') + '》' + PLUS.n + ' 版 · ' + pf.subjName + '　'; l1.appendChild(t);
@@ -27973,7 +28209,7 @@ function plusRender(){
     btn(l3, '② 出樣板版（第 ' + PLUS.plan.sample + ' 版）', function(){ return plusDoCards([PLUS.plan.sample | 0], false); });
   btn(l3, '② 出卡', function(){ return plusDoCards(plusPages(pick.value, PLUS.n), false); });
   btn(l3, '③ 寫稿（已批嘅卡）', function(){ return plusDoScripts(plusPages(pick.value, PLUS.n), false); });
-  const st = btn(l3, '⏹ 停', function(){ PLUS.stop = true; st.disabled = true; });
+  const st = btn(l3, '⏹ 停', function(){ PLUS.stop = true; if(PLUS.yolo) PLUS.yoloHalt = true; st.disabled = true; });
   st.disabled = !PLUS.busy; st.style.display = PLUS.busy ? '' : 'none';
   if(g.ok && PLUS.plan){
     const l3b = line();
