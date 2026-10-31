@@ -2691,7 +2691,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-10-30a";
+const BUILD = "2026-10-31a";
 /* dataURL 字元上限。超咗會自動降質，再唔得就唔准送。
    ⚠ 一定要擺頂層：睇相傾偈嗰個 IIFE 同 AI 嗰個 IIFE（bookAI.desc、bookSeeAsk）都用。
      09-11a 到 09-21b 佢住喺前者，後者一用就 ReferenceError（Safari：Can't find variable）——
@@ -15079,15 +15079,13 @@ async function bookSeeAsk(question, ctx, msgs, view, img){
 const PLUS_B01 = [   /* 01_學生檔案.txt */
 "■ 學生檔案",
 "",
-"六歲女孩，香港，小學一年級。",
-"母語係廣東話。學校中文科用普通話教學，英文科用英文教學。",
-"反應快，理解力強，語言能力高。",
-"坐不定，注意力大約二十秒就要換一次刺激。",
-"職業治療評估顯示：手部功能、握筆、姿勢控制較弱，寫字吃力、寫得慢；",
-"前庭及本體感覺屬尋求型，需要郁動，長時間坐定會好辛苦。",
-"好勝，怕答錯，一旦覺得自己做唔到，會用「唔緊要啦」提早放棄。",
-"極度熱愛音樂，對節奏、押韻、旋律反應非常強。",
-"有一個兩歲妹妹。"
+"（v2.0.8g 改，William 2026-10-30 拍板：學生嘅個人資料唔再寫喺呢份——呢份會隨 app 擺上 GitHub。",
+"　app 每次由爹哋喺 App 入面寫嘅資料（General Rules 抽出嚟、爹哋喺「👧 讀者」確認過）",
+"　砌出【讀者】【屋企】【學生檔案】三段，擺喺本書資料度，以佢為準。",
+"　其他 block 講「六歲」「小一」「妹妹」、或者引用學生特質嘅地方，一律以呢三段為準。",
+"　預設讀者係家姐；爹哋揀咗妹妹先係妹妹。）",
+"",
+"冇呢三段嘅時候：當係一個香港小學生，母語廣東話，用一般做法；唔好估佢有乜特質。"
 ].join('\n');
 const PLUS_B02 = [   /* 02_教學目標.txt */
 "■ 02_教學目標（v2.0：考官視角產品定義）",
@@ -15157,7 +15155,7 @@ const PLUS_B02 = [   /* 02_教學目標.txt */
 "　　寫卡嗰陣要喺考點欄或者陰濕題欄註明。",
 "　　為咗換刺激、為咗夠數而加嘅郁動，照樣唔准。",
 "　手部弱、寫字慢：第五條底線。",
-"　兩歲妹妹：可以做費曼實物，但一定要帶住考點。"
+"　屋企人（見【屋企】）：可以做費曼實物，但一定要帶住考點，而且要係佢嗰個年紀做得到嘅。"
 ].join('\n');
 const PLUS_B03 = [   /* 03_考點卡規格.txt */
 "■ 03_考點卡規格（v2.0 核心物件）",
@@ -16054,7 +16052,7 @@ const PLUS_N03 = [   /* n03_教學深度規格_v17.txt */
 "四，用。",
 "　　將個核搬去另一個情境，做到舉一反三。至少一個生活場景。",
 "　　可以用嘅材料：屋企、食飯、超市、坐車、玩具、音樂、節奏、",
-"　　　　　　　　　天氣、動物、兩歲妹妹。",
+"　　　　　　　　　天氣、動物、屋企人（見【屋企】，要係佢嗰個年紀做得到嘅）。",
 "　　必須係同一個核，換個外殼，唔可以係另一個新概念。",
 "",
 "五，問。",
@@ -16564,8 +16562,92 @@ function plusLedger(cards, p){
 }
 /* 固定前綴：十一個 block ＋ app 程序修訂。每次 call 一模一樣（prompt caching）。
    次序照佢 build_prompt.py 嘅 block 次序（學生檔案、教學目標、考點卡、TTS、頁型、提問框、頁型規則、緩存、用字、去答案化、輸出格式）。 */
+/* 30b：規則打交唔好諗到爆——照次序揀、寫低揀咗乜（William：「YOLO 唔使我介入，但事後話返俾我聽；規則之間要有 priority」）。
+   爹哋喺面板「📏 規則優先」寫低嘅，排喺頁面事實之後、其他之前（每個 call 嘅本書資料都帶）。 */
+const PLUS_PRIORITY = [
+'【規則打交點算（app 程序修訂）】',
+'規則有衝突，唔好反覆諗：照下面次序，排前嘅贏；揀咗就照做，唔使再諗。',
+'一，頁面事實、唔准洩答案（TTS 硬規格第十條、練習頁去答案化）。',
+'二，【爹哋定嘅規則優先】入面寫咗嘅（如果有）。',
+'三，學生做唔做到、安全（學生檔案）。',
+'四，TTS 硬規格：讀得出、冇符號、冇頁碼。',
+'五，語言：全英文、普通話書面語、廣東話口語（語言規則、科目補充、用字規範）。',
+'六，本頁考點同滿分答案句（考點卡欄一至三）。',
+'七，科目補充規格（例如英文科補充）：佢同一般 block 打交照佢，但唔可以壓過一至五。',
+'八，加分欄：升層、費曼、人生觀、回指（考點卡欄四至七）。冇自然位就寫「本頁唔加」。',
+'九，篇幅、句長、口頭禪次數呢類指引。',
+'寫稿：真係遇到衝突，寫完喺最尾加一段「【規則衝突】」，一行一條：邊兩條打交、你跟咗邊條、點解。冇衝突就唔好寫呢段。',
+'出卡：真係遇到衝突，寫入 note 欄，開頭寫「規則衝突：」。'
+].join('\n');
 function plusSys(){
-  return [PLUS_B01, PLUS_B02, PLUS_B03, PLUS_B04, PLUS_B06, PLUS_B07, PLUS_B09, PLUS_B08, PLUS_B10, PLUS_B11, PLUS_B05, PLUS_APP].join('\n\n');
+  return [PLUS_B01, PLUS_B02, PLUS_B03, PLUS_B04, PLUS_B06, PLUS_B07, PLUS_B09, PLUS_B08, PLUS_B10, PLUS_B11, PLUS_B05, PLUS_APP, PLUS_PRIORITY].join('\n\n');
+}
+/* 30c William：「妹妹同家姐一路大，可唔可以寫出世年月，等系統按當時日期計？讀者預設家姐，我揀妹妹先係妹妹。」
+   學年九月開始；香港入學：嗰個學年減出世年份 = 6 就係小一，3 至 5 係 K1 至 K3，12 以上係中學。 */
+/* 30d：出世年月、特質唔寫喺 code（index.html 擺上 GitHub，人人睇到）。由 General Rules 讀、存雲端 plusKids。 */
+const PLUS_KIDS_DEF = {};
+const PLUS_KID_NAME = {big:'家姐', small:'妹妹'};
+function plusCn(n){ const d = '零一二三四五六七八九'; n = n | 0; return n <= 10 ? (n === 10 ? '十' : d.charAt(n)) : n < 20 ? '十' + d.charAt(n - 10) : d.charAt(Math.floor(n / 10)) + '十' + (n % 10 ? d.charAt(n % 10) : ''); }
+function plusAge(born, now){
+  const m = /^(\d{4})-(\d{1,2})/.exec(String(born || '')); if(!m) return null;
+  const by = +m[1], bm = +m[2], ny = now.getFullYear(), nm = now.getMonth() + 1;
+  const months = Math.max(0, (ny - by) * 12 + (nm - bm)), sy = nm >= 9 ? ny : ny - 1, k = sy - by;
+  const grade = k >= 12 ? '中' + plusCn(k - 11) : k >= 6 ? '小' + plusCn(k - 5) : k >= 3 ? 'K' + (k - 2) : '未返幼稚園';
+  const y = Math.floor(months / 12), mo = months % 12;
+  const say = (y === 2 ? '兩' : plusCn(y)) + '歲' + (mo ? (mo === 2 ? '兩' : plusCn(mo)) + '個月' : '');
+  return {months:months, grade:grade, sy:sy, say:say};
+}
+function plusCanDo(months){
+  if(months < 36) return '未識讀書寫字、未識講完整句；屋企活動佢只可以做觀眾、一齊拍手、一齊郁';
+  if(months < 72) return '識講說話、未識讀書寫字；可以一齊講、一齊唱、答簡單問題';
+  return '識讀簡單字、識寫字；可以一齊讀、互相問答、做小老師';
+}
+function plusReaderText(who, kids, now){
+  kids = kids || PLUS_KIDS_DEF; now = now || new Date();
+  const me = who === 'small' ? 'small' : 'big', ot = me === 'big' ? 'small' : 'big';
+  const a = plusAge((kids[me] || {}).born, now), b = plusAge((kids[ot] || {}).born, now);
+  const L = ['【讀者】' + PLUS_KID_NAME[me] + (a ? '（' + a.say + '，' + a.grade + (/^[小中K]/.test(a.grade) ? '，' + a.sy + '–' + (a.sy + 1) + ' 學年' : '') + '）' : '（爹哋未寫出世年月）') +
+             '。學生檔案講「' + PLUS_KID_NAME[me] + '」嗰段就係佢；其他規則講「六歲」「小一」嘅地方，一律以呢度為準。'];
+  if(b) L.push('【屋企】' + PLUS_KID_NAME[ot] + b.say + '，' + b.grade + '：' + plusCanDo(b.months) + '。冇其他兄弟姊妹。稿入面叫讀者同屋企人一齊做嘅嘢，要係嗰個人做得到嘅。');
+  const tr = String((kids[me] || {}).traits || '').trim();
+  if(tr) L.push('【學生檔案（' + PLUS_KID_NAME[me] + '，爹哋寫嘅）】\n' + tr.slice(0, 1200));
+  return L.join('\n');
+}
+/* 30d：General Rules 入面嘅出世日期（自由文字）。淨係認日期前後十五個字有「出世／出生／生日／born／birth」嘅，
+   唔係就可能係開學、考試日期（要同一句）；十八年內先算小朋友。兩個：大嘅係家姐、細嘅係妹妹。 */
+function plusRulesBirths(text, now){
+  now = now || new Date();
+  const s = String(text || ''), out = [];
+  const re = /((?:19|20)\d{2})\s*[年\-\/.]\s*(\d{1,2})(?:\s*月)?/g; let m;
+  while((m = re.exec(s))){
+    const y = +m[1], mo = +m[2];
+    if(mo < 1 || mo > 12 || y > now.getFullYear() || y < now.getFullYear() - 18) continue;
+    /* 淨係睇同一句（句號、換行、分號之間）：「2026年9月開學」下一行係「妹妹生日」唔算。 */
+    const a0 = Math.max(s.lastIndexOf('\n', m.index), s.lastIndexOf('。', m.index), s.lastIndexOf('；', m.index), s.lastIndexOf(';', m.index)) + 1;
+    const ends = ['\n', '。', '；', ';'].map(function(c){ const i = s.indexOf(c, m.index + m[0].length); return i < 0 ? s.length : i; });
+    const win = s.slice(a0, Math.min.apply(null, ends));
+    if(!/出世|出生|生日|born|birth/i.test(win)) continue;
+    const v = y + '-' + String(mo).padStart(2, '0');
+    if(out.indexOf(v) < 0) out.push(v);
+  }
+  out.sort();
+  const r = {};
+  if(out.length >= 1) r.big = {born:out[0]};
+  if(out.length >= 2) r.small = {born:out[out.length - 1]};
+  return r;
+}
+/* 30d：一次過由 General Rules 抽兩姊妹同睇書學習有關嘅資料（文字 model）；爹哋喺「👧 讀者」睇過、改過先用。 */
+const PLUS_ASK_KIDS = [
+'【今次要做：由家長寫嘅家庭規則，抽出兩姊妹同睇書、學習有關嘅資料】',
+'下面係家長寫嘅家庭規則（入面好多係排時間表嘅嘢，唔使理）。',
+'淨係輸出 JSON：{"big":{"born":"YYYY-MM","traits":"…"},"small":{"born":"YYYY-MM","traits":"…"}}',
+'big 係家姐，small 係妹妹。born 搵唔到就寫空字串。',
+'traits：五至十行中文，每行一句，用「\n」分行。淨係寫同聽書學習有關嘅：母語、學校用乜語言教、專注力、寫字同手部、身體需要（例如要郁動）、性格（例如怕輸）、興趣（例如音樂）、要遷就嘅地方。',
+'唔好寫時間表、地點、學校名、全名、聯絡資料；家長冇寫嘅唔准估。搵唔到就寫空字串。'
+].join('\n');
+function plusKidsMsgs(ctx){
+  return [{role:'system', content:'你幫家長由一份家庭規則入面，抽出同小朋友睇書學習有關嘅資料，唔加唔估。'},
+          {role:'user', content:PLUS_ASK_KIDS + '\n\n【家庭規則】\n' + String(ctx.rules || '').slice(0, 12000)}];
 }
 /* 本書資料 ＋ 語言 ＋ 書種補充 ＋ 樣板（非科學科）——每本書唔同，擺 user。 */
 function plusBookHead(ctx){
@@ -16577,6 +16659,8 @@ function plusBookHead(ctx){
   if(pf.lang === 'en') L.push(ctx.norm ? PLUS_EN_NORM : PLUS_B12);
   /* 29a：認書嗰陣 AI 寫嘅本書筆記（爹哋改得）：每本書嘅結構、考點喺邊、特別頁型、要小心乜——適應唔同書種。 */
   if(pf.notes) L.push('【本書筆記（認書時寫，爹哋改過以佢為準）】\n' + String(pf.notes).slice(0, 1500));
+  if(ctx.reader) L.push(ctx.reader);
+  if(ctx.prefs) L.push('【爹哋定嘅規則優先（排喺頁面事實之後、其他規則之前）】\n' + String(ctx.prefs).slice(0, 1500));
   if(ctx.map) L.push(ctx.map);
   if(ctx.sample && ctx.sample.card && ctx.sample.script){
     /* 29d：Unit 3 嘅卡以為樣板「第 18 頁」係本書第 18 版，仲跟住樣板嘅升層（object pronoun）做成本書主線。 */
@@ -16613,7 +16697,7 @@ function plusDetectMsgs(ctx){
 }
 /* 普通版 system：同學霸一樣，次次一樣（食 caching），本書嘅嘢擺 user。 */
 function plusNormSys(){
-  return [PLUS_B01, PLUS_N00, PLUS_B04, PLUS_N03, PLUS_N09, PLUS_NORM_APP].join('\n\n');
+  return [PLUS_B01, PLUS_N00, PLUS_B04, PLUS_N03, PLUS_N09, PLUS_NORM_APP, PLUS_PRIORITY].join('\n\n');
 }
 function plusNormMsgs(ctx){
   const plan = ctx.plan || {}, p = ctx.page | 0;
@@ -16623,12 +16707,14 @@ function plusNormMsgs(ctx){
   if(plusAskA(row, (ctx.profile || {}).lang)) L.push(plusACheck(row, (ctx.profile || {}).lang));
   if(unit) L.push('【本單元】' + unit.name + '（第' + unit.from + '至' + unit.to + '頁）；核心觀念：' + (unit.core || ''));
   L.push('【本頁嘅字（' + ({md:'OCR', pdf:'PDF 文字', note:'睇圖抄', '':'冇'}[ctx.src || ''] || '') + '）】\n' + (ctx.text || '（冇字，睇圖）'));
+  if(ctx.pair) L.push(plusPairNote(ctx));
+  if(ctx.prevMore) L.push(ctx.prevMore);
   if(ctx.prev) L.push('【上一頁嘅字（淨係俾你接上文下理）】\n' + ctx.prev);
   if(ctx.next) L.push('【下一頁嘅字（淨係俾你接上文下理）】\n' + ctx.next);
   if(ctx.seeAlso) L.push(ctx.seeAlso);
-  const head = plusBookHead({title:ctx.title, pages:ctx.pages, profile:ctx.profile, norm:true, map:ctx.map});   /* 普通版唔帶學霸樣板、唔帶學霸嘅英文補充 */
+  const head = plusBookHead({title:ctx.title, pages:ctx.pages, profile:ctx.profile, norm:true, map:ctx.map, prefs:ctx.prefs, reader:ctx.reader});   /* 普通版唔帶學霸樣板、唔帶學霸嘅英文補充 */
   return [{role:'system', content:plusNormSys()},
-          {role:'user', content:plusImgMsg(head + '\n\n' + L.join('\n\n') + '\n\n' + PLUS_ASK_NORM + '\n\n' + plusTail('norm', (ctx.profile || {}).lang), ctx.img)}];
+          {role:'user', content:plusImgMsg(head + '\n\n' + L.join('\n\n') + '\n\n' + PLUS_ASK_NORM + '\n\n' + plusTail('norm', (ctx.profile || {}).lang), ctx.img, ctx.img2)}];
 }
 /* 出卡同寫稿共用嘅本頁材料。 */
 function plusPageCtx(ctx){
@@ -16642,6 +16728,8 @@ function plusPageCtx(ctx){
   if(unit) L.push('【本單元（表一、表三）】' + unit.name + '（第' + unit.from + '至' + unit.to + '頁）；核心觀念：' + (unit.core || '') +
                   '；升層主線：' + (unit.lift || '') + '；收網頁：第' + (unit.lpage || '') + '頁');
   L.push('【本頁嘅字（' + ({md:'OCR', pdf:'PDF 文字', note:'睇圖抄', '':'冇'}[ctx.src || ''] || '') + '）】\n' + (ctx.text || '（冇字，睇圖）'));
+  if(ctx.pair) L.push(plusPairNote(ctx));
+  if(ctx.prevMore) L.push(ctx.prevMore);
   if(ctx.prev) L.push('【上一頁嘅字（淨係俾你接上文下理）】\n' + ctx.prev);
   if(ctx.next) L.push('【下一頁嘅字（淨係俾你接上文下理）】\n' + ctx.next);
   if(ctx.seeAlso) L.push(ctx.seeAlso);
@@ -16653,8 +16741,28 @@ function plusPageCtx(ctx){
   L.push('【本頁滿分答案句標記】' + plusMarkerFor(plan, p, (ctx.profile || {}).lang) + '（相鄰兩頁唔同，app 已經定好，照用）');
   return L.join('\n\n');
 }
-function plusImgMsg(text, img){
-  return img ? [{type:'text', text:text}, {type:'image_url', image_url:{url:img}}] : text;
+function plusImgMsg(text, img, img2){
+  if(!img) return text;
+  const a = [{type:'text', text:text}, {type:'image_url', image_url:{url:img}}];
+  if(img2) a.push({type:'image_url', image_url:{url:img2}});
+  return a;
+}
+/* 30b 孖頁：打開本書左右兩版係同一幅圖、同一個場景（繪本、故事書）→ 兩張圖一齊睇，寫一份稿，右版唔另外寫。 */
+function plusPairNote(ctx){
+  const p = ctx.page | 0, q = (ctx.pair || [])[1] | 0;
+  return '【孖頁】本版（第 ' + p + ' 版）同第 ' + q + ' 版係打開本書左右兩版、同一幅圖或者同一個場景。兩張圖一齊睇（第一張係第 ' + p + ' 版，第二張係第 ' + q +
+         ' 版），寫一份稿講晒兩版；第 ' + q + ' 版唔會另外有稿，唔好講「下一版」。\n【第 ' + q + ' 版嘅字】\n' + (ctx.text2 || '（冇字，睇圖）');
+}
+const PLUS_ASK_PAIR = [
+'【今次要做：判斷孖頁】',
+'下面兩張圖係打開本書嗰陣左右兩版。判斷佢哋係咪同一幅圖跨咗兩版、同一個場景，或者一句說話由左版寫到右版。',
+'兩版各自一幅圖、各講各嘅，就係 false。拿唔定就 false。',
+'淨係輸出 JSON：{"join":true 或者 false,"why":"一句中文講根據"}'
+].join('\n');
+function plusPairMsgs(ctx){
+  return [{role:'system', content:'你係繪本編輯，睇得出一本書邊兩版係一幅過嘅跨頁圖。'},
+          {role:'user', content:plusImgMsg('【第 ' + (ctx.page | 0) + ' 版嘅字】\n' + (ctx.text || '（冇）') + '\n\n【第 ' + (ctx.page2 | 0) + ' 版嘅字】\n' + (ctx.text2 || '（冇）') +
+                                           '\n\n' + PLUS_ASK_PAIR, ctx.img, ctx.img2)}];
 }
 /* 29a：計劃判咗 A（功能頁）但本版有唔少字：唔好盲 skip，叫睇圖嗰個確認。 */
 /* 29d／30a：Unit 3 第 4 版（默書表＋Phonics 表）得 118 個字，差兩個就冇人覆核，成版 skip 咗。
@@ -16680,7 +16788,7 @@ function plusTail(kind, lang, marker){
       a.push('冇括號、星號、井號、破折號、英文字母、阿拉伯數字（數字寫中文字）。', '唔准講第幾頁。',
              '唔准「叻、聰明、乖女、靚女、寶貝、答案係、應該填、正確答案、好簡單、好容易、一定識、首先、以下、總結、本頁」。');
     }
-    a.push('屋企人照學生檔案：淨係有一個兩歲妹妹（未識讀書寫字，只可以做觀眾、一齊拍手、一齊郁），冇哥哥、姐姐、弟弟。');
+    a.push('屋企人照【讀者】【屋企】：做得到先叫佢做；冇嘅屋企人（例如哥哥、弟弟）唔准作。');
     if(kind === 'script'){
       a.push('滿分答案句前面一定要有「' + (marker || '') + '」，句子寫喺標記同一行，用句號收尾。');
       if(!en) a.push('唔准「你估、記住呢句、冇所謂」（學霸版唔用普通版嘅口頭禪）。');
@@ -16692,13 +16800,13 @@ function plusTail(kind, lang, marker){
 }
 function plusCardMsgs(ctx){
   return [{role:'system', content:plusSys()},
-          {role:'user', content:plusImgMsg(plusBookHead(ctx) + '\n\n' + plusPageCtx(ctx) + '\n\n' + PLUS_ASK_CARD + '\n\n' + plusTail('card', (ctx.profile || {}).lang), ctx.img)}];
+          {role:'user', content:plusImgMsg(plusBookHead(ctx) + '\n\n' + plusPageCtx(ctx) + '\n\n' + PLUS_ASK_CARD + '\n\n' + plusTail('card', (ctx.profile || {}).lang), ctx.img, ctx.img2)}];
 }
 function plusScriptMsgs(ctx){
   return [{role:'system', content:plusSys()},
           {role:'user', content:plusImgMsg(plusBookHead(ctx) + '\n\n' + plusPageCtx(ctx) + '\n\n【已批嘅卡（照佢寫）】\n' +
                                           JSON.stringify(ctx.card || {}) + '\n\n' + PLUS_ASK_SCRIPT + '\n\n' +
-                                          plusTail('script', (ctx.profile || {}).lang, plusMarkerFor(ctx.plan, ctx.page, (ctx.profile || {}).lang)), ctx.img)}];
+                                          plusTail('script', (ctx.profile || {}).lang, plusMarkerFor(ctx.plan, ctx.page, (ctx.profile || {}).lang)), ctx.img, ctx.img2)}];
 }
 /* 機檢（佢 MetaPrompt 第五節收貨檢查表，淨係機器查得到嘅；質素由爹哋審）。
    回傳 [{lv:'FAIL'|'WARN', why}]。ctx：{lang, marker, prevMarker, page, refs, secret, skip} */
@@ -16723,10 +16831,12 @@ function plusCount(s, w){ let n = 0, i = -1; while((i = s.indexOf(w, i + 1)) >= 
 const PLUS_EN_NUM = 'one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty';
 const PLUS_PAGE_EN_RE = new RegExp('\\bpages? (\\d+|(' + PLUS_EN_NUM + ')([- ](' + PLUS_EN_NUM + '))?)\\b', 'i');
 const PLUS_FAMILY_RE = /\byour (big |little |older |younger |baby )?brothers?\b|\byour (big |older )sisters?\b|你(個|嘅|的)?(哥哥|弟弟|家姐|姐姐)/i;
+/* 30c：妹妹做讀者，佢有家姐、冇妹妹。 */
+const PLUS_FAMILY_RE_SMALL = /\byour (big |little |older |younger |baby )?brothers?\b|\byour (little |younger |baby )sisters?\b|你(個|嘅|的)?(哥哥|弟弟|妹妹|細妹)/i;
 function plusCommonCheck(s, c, add){
   if(/^\s*===/m.test(s)) add('FAIL', '分隔線（===）漏咗入稿');
   if(c.lang === 'en'){ const m = PLUS_PAGE_EN_RE.exec(s); if(m) add('FAIL', '講咗頁碼：「' + m[0] + '」'); }
-  const f = PLUS_FAMILY_RE.exec(s); if(f) add('FAIL', '作咗屋企人（學生淨係有一個兩歲妹妹）：「' + f[0] + '」');
+  const f = (c.reader === 'small' ? PLUS_FAMILY_RE_SMALL : PLUS_FAMILY_RE).exec(s); if(f) add('FAIL', '作咗屋企人（照【屋企】冇呢個人）：「' + f[0] + '」');
   /* 30a：中文稿嘅停頓係「。。。」，一樣唔好句句都用（block 04 第五條）。 */
   const L = s.split('\n').filter(function(x){ return x.trim(); });
   const d = L.filter(function(x){ return /(\.\.\.|。。。|…)\s*$/.test(x); }).length;
@@ -16848,7 +16958,7 @@ function plusTidy(s, lang){
 /* 29a AI 修稿：機檢唔過（自動整理之後仲有 FAIL），交返俾 AI 淨係改嗰幾點。
    ⚠ 唔帶成萬字 block（修稿唔使知成套規格，帶咗反而易亂改）；唔夾圖（改字唔使睇圖）；少啲思考（簡單任務，唔好諗爆）。 */
 const PLUS_FIX_SYS = [
-'你係逐字稿校對員。下面係一份俾六歲小朋友聽嘅逐字稿，會用 TTS 讀出嚟。機器檢查捉到幾個問題。',
+'你係逐字稿校對員。下面係一份俾小朋友聽嘅逐字稿（佢幾大見【讀者】），會用 TTS 讀出嚟。機器檢查捉到幾個問題。',
 '【你要做嘅】淨係改機器列出嘅問題；其他句子、內容、次序、語氣一律唔郁。',
 '【點改】',
 '符號、括號、星號、井號、破折號：刪走，或者改做逗號、句號。',
@@ -16857,7 +16967,7 @@ const PLUS_FIX_SYS = [
 '讚能力、讚天分嘅字（clever、smart、叻、聰明之類）：改做讚佢做咗嘅嘢，例如 You checked every word.',
 '「答案係」「the answer is」之類：改做講點樣搵答案，唔講答案。講咗禁洩答案：刪走嗰個答案，改做講方法。',
 '講咗頁碼：刪走，或者改講 this page、the next page。中文稿阿拉伯數字：改中文字。',
-'作咗屋企人：學生淨係有一個兩歲妹妹，改做 your little sister（佢只可以做觀眾、一齊拍手），或者改做 your friend。',
+'作咗屋企人：照【讀者】【屋企】改做真係有嘅人（佢做得到嘅嘢），或者改做 your friend、你個朋友。',
 '標記後面冇滿分答案句：將滿分答案句寫返喺標記同一行，用句號收尾。',
 '內容錯（審稿員捉到，有「改法」）：照改法改嗰一句，意思要啱；其他句子唔郁。',
 '冇滿分答案句標記：喺滿分答案句前面加返指定標記，一字唔改。標記用錯：換做指定嗰個。',
@@ -16869,7 +16979,7 @@ const PLUS_FIX_SYS = [
    「You learned this on the last page」其實上一版冇教）。用文字 model、唔夾圖、短 system，逐版睇一次。
    淨係捉肯定係錯嘅；佢引用嘅句一定要真係喺稿入面（app 會核對，對唔到就當佢亂講，唔理）。 */
 const PLUS_REVIEW_SYS = [
-'你係香港小學教材審稿員。下面係一份俾六歲小朋友聽嘅逐字稿（會用 TTS 讀出嚟），同埋佢講緊嗰一版書嘅字。',
+'你係香港小學教材審稿員。下面係一份俾小朋友聽嘅逐字稿（會用 TTS 讀出嚟；佢幾大、屋企有乜人見【讀者】【屋企】），同埋佢講緊嗰一版書嘅字。',
 '你淨係捉「肯定係錯」嘅嘢，唔理風格、唔理長短、唔好提議加內容：',
 '一，事實錯：科學、常識、數學、歷史、語文知識講錯（例如講錯一個字嘅意思、講錯文法、Grandma is a girl）。',
 '二，講錯本書：話書上有、但本版嘅字冇嘅嘢；講錯上一版教過乜（上一版嘅字喺下面）；講咗頁碼。',
@@ -16882,7 +16992,7 @@ const PLUS_REVIEW_SYS = [
 '淨係輸出 JSON：{"issues":[{"quote":"稿入面錯嗰句，逐字抄","why":"錯喺邊，一句","fix":"改做乜，一句"}]}'
 ].join('\n');
 function plusReviewMsgs(ctx){
-  const c = ctx.card || null, L = ['【學生檔案】\n' + PLUS_B01, plusLangRule(ctx.lang),
+  const c = ctx.card || null, L = ['【學生檔案】\n' + PLUS_B01 + (ctx.reader ? '\n' + ctx.reader : ''), plusLangRule(ctx.lang),
     '【本版嘅字（第 ' + (ctx.page | 0) + ' 版）】\n' + String(ctx.text || '（冇字）').slice(0, 1500)];
   if(ctx.prev) L.push('【上一版嘅字】\n' + String(ctx.prev).slice(0, 600));
   if(ctx.seeAlso) L.push(ctx.seeAlso);
@@ -16892,6 +17002,7 @@ function plusReviewMsgs(ctx){
 }
 function plusFixMsgs(ctx){
   const L = [plusLangRule(ctx.lang)];
+  if(ctx.reader) L.push(ctx.reader);
   if(ctx.marker) L.push('【本頁指定標記】' + ctx.marker);
   if((ctx.secret || []).length) L.push('【禁洩答案（唔准喺稿入面出現）】' + ctx.secret.join('、'));
   L.push('【機器捉到嘅問題】\n' + (ctx.problems || []).map(function(x){ return '－' + x; }).join('\n'));
@@ -16925,10 +17036,11 @@ function plusCardFixMsgs(ctx){
 }
 /* 匯出 read-plus.txt（block 05 格式）。寫咗稿嘅出稿；計劃判 A 類嘅出 skip 句；其餘唔出，報返邊幾版未做。 */
 function plusExport(n, plan, scripts, lang){
-  const type = {};
-  ((plan && plan.pages) || []).forEach(function(x){ type[x.p | 0] = x.type; });
+  const type = {}, joined = {};
+  ((plan && plan.pages) || []).forEach(function(x){ type[x.p | 0] = x.type; if(x.joinOf) joined[x.p | 0] = true; });
   const L = [], missing = [];
   for(let p = 1; p <= (n | 0); p++){
+    if(joined[p]) continue;   /* 30b 孖頁：右版嘅稿寫咗喺左版，冇自己一段（播放器淨係播左版個錄音） */
     const r = scripts && scripts[p];
     const t = r && String(r.t || '').trim();
     let body = '';
@@ -16953,19 +17065,37 @@ async function plusLiveTry(fn, onDelta){
     return fn(null);
   }
 }
-async function plusAskJSON(msgs, want, vision, onDelta, low){
+async function plusAskJSON(msgs, want, vision, onDelta, low, once){
   if(!vision) return plusLiveTry(async function(od){ return (await callAIJSON(msgs, {want:want, max:16000, temp:0.4, onDelta:od || undefined})).json; }, onDelta);
-  return plusLiveTry(function(od){ return plusAskVisionJSON(msgs, want, od, low); }, onDelta);
+  return plusLiveTry(function(od){ return plusAskVisionJSON(msgs, want, od, low, once); }, onDelta);
+}
+/* 30b William：「因為 refer 咗隔離嗰頁、前幾頁而爆，我寧願保留返單頁繼續去馬，唔好特登減少思考。」
+   所以有額外材料（孖頁第二張圖、故事前文、跨版參考）嘅 call：第一次爆 → 淨係攞走額外材料、思考照舊再做；
+   再爆先行返舊路（少啲思考 → 精簡卡）。冇額外材料就同以前一樣。 */
+function plusHasExtra(ctx){ return !!(ctx && (ctx.img2 || ctx.seeAlso || ctx.prevMore)); }
+function plusLite(ctx){ return Object.assign({}, ctx, {img2:'', text2:'', pair:null, seeAlso:'', prevMore:''}); }
+function plusIsCtxErr(e){ return !!(e && e.status === 400 && /context|maximum.{0,20}(token|length)|too long|exceed|超出|超過|长度|長度/i.test(String((e.raw || '') + ' ' + (e.message || '')))); }
+function plusTooBig(e){ return plusIsCut(e) || plusIsCtxErr(e) || /JSON/.test(String((e && e.message) || '')); }
+async function plusLiteFirst(ctx, run){
+  if(!plusHasExtra(ctx)) return run(ctx, false);
+  try{ return await run(ctx, true); }
+  catch(e){
+    if(!plusTooBig(e)) throw e;
+    if(ctx.onDelta) try{ ctx.onDelta({note:'帶埋隔離版／前文太長，改返淨係睇本版（思考照舊）再做'}); }catch(e2){}
+    const r = await run(plusLite(ctx), false);
+    if(r && typeof r === 'object') r._lite = true;
+    return r;
+  }
 }
 /* 30a：Unit 3 第 10 版張卡兩次都太長、出唔完（第二次已經少啲思考）。第三次淨係要核心欄位，其餘留空，補欄嗰步會補返核心。 */
 const PLUS_CARD_MINI = '\n\n⚠ 頭先兩次張卡太長，未出完就爆咗上限。今次淨係出精簡卡：type、skip、point、answer、traps（最多兩條）、secret、refs、note 呢幾欄，其他欄位唔好寫；唔好寫思考過程，直接出 JSON。';
 async function plusAskCard(ctx){
-  try{ return await plusAskJSON(plusCardMsgs(ctx), ['point', 'type', 'skip'], true, ctx.onDelta); }
+  try{ return await plusLiteFirst(ctx, function(c, once){ return plusAskJSON(plusCardMsgs(c), ['point', 'type', 'skip'], true, c.onDelta, false, once); }); }
   catch(e){
     if(!plusIsCut(e) && !/JSON/.test(String((e && e.message) || ''))) throw e;
     if(ctx.onDelta) try{ ctx.onDelta({note:'兩次都出唔到成張卡（太長），改出淨係核心欄位嘅精簡卡'}); }catch(e2){}
-    const r = await plusAskJSON(plusAddNote(plusCardMsgs(ctx), PLUS_CARD_MINI), ['point', 'type', 'skip'], true, ctx.onDelta, true);
-    if(r && typeof r === 'object') r._mini = true;
+    const r = await plusAskJSON(plusAddNote(plusCardMsgs(plusLite(ctx)), PLUS_CARD_MINI), ['point', 'type', 'skip'], true, ctx.onDelta, true);
+    if(r && typeof r === 'object'){ r._mini = true; if(plusHasExtra(ctx)) r._lite = true; }
     return r;
   }
 }
@@ -16982,7 +17112,7 @@ function plusAddNote(msgs, note){
 const PLUS_LOW_NOTE = '\n\n⚠ 你頭先諗得太耐，未做完就爆咗字數上限。今次唔好寫思考過程、唔好逐句數字數；規則有衝突，就揀最貼本頁內容嗰個做法，直接交貨。';
 const PLUS_CUT_RE = /爆咗 token 上限，未講完/;
 function plusIsCut(e){ return !!(e && (e.retryable || e.jsonFail)) && !/今日已經睇咗/.test(String(e.message || '')); }
-async function plusAskVisionJSON(msgs, want, onDelta, low){
+async function plusAskVisionJSON(msgs, want, onDelta, low, once){
   const visM = String(cfg().visionModel || '').trim();
   if(!visM) throw new Error('未填睇相用嘅 Model（⚙ API 設定）');
   const list = visM.split(/[,，]/).map(function(x){ return x.trim(); }).filter(Boolean);
@@ -16991,18 +17121,19 @@ async function plusAskVisionJSON(msgs, want, onDelta, low){
   if(low) return grabJSON(await callVision(msgs, Object.assign({}, opt, {noThink:true}), list, null), want);
   let raw = null, note = '\n\n⚠ 你頭先個回覆讀唔到。今次請淨係輸出一個完整嘅 JSON object，唔准開場白、唔准解釋、唔准 ``` 圍欄。';
   try{ raw = await callVision(msgs, opt, list, null); }
-  catch(e){ if(!plusIsCut(e)) throw e; note = PLUS_LOW_NOTE + '淨係輸出一個完整嘅 JSON object。'; }
-  if(raw !== null){ try{ return grabJSON(raw, want); }catch(e){} }
+  catch(e){ if(!plusIsCut(e) || once) throw e; note = PLUS_LOW_NOTE + '淨係輸出一個完整嘅 JSON object。'; }
+  if(raw !== null){ try{ return grabJSON(raw, want); }catch(e){ if(once) throw e; } }
   /* 讀唔到 JSON／爆咗上限：再試一次，少啲思考，講明淨係出 JSON。 */
   if(onDelta) try{ onDelta({note:'第一次做唔到（' + (raw === null ? '諗得太耐爆咗上限' : '讀唔到 JSON') + '），改用少啲思考再做一次'}); }catch(e){}
   raw = await callVision(plusAddNote(msgs, note), Object.assign({}, opt, {noThink:true}), list, null);
   return grabJSON(raw, want);
 }
-async function plusAskText(msgs, onDelta){
+async function plusAskText(msgs, onDelta, once){
   const visM = String(cfg().visionModel || '').trim();
   if(!visM) throw new Error('未填睇相用嘅 Model（⚙ API 設定）');
   const list = visM.split(/[,，]/).map(function(x){ return x.trim(); }).filter(Boolean);
-  const once = function(m, low){
+  const first = once;
+  const one = function(m, low){
     return plusLiveTry(function(od){
       const o = {json:false, temp:0.5, max:16000, base:String(cfg().visionBase || '').trim(), apiKey:String(cfg().visionKey || '').trim()};
       if(low) o.noThink = true;
@@ -17011,11 +17142,12 @@ async function plusAskText(msgs, onDelta){
     }, onDelta);
   };
   let raw = null;
-  try{ raw = await once(msgs, false); }
-  catch(e){ if(!plusIsCut(e)) throw e; }
+  try{ raw = await one(msgs, false); }
+  catch(e){ if(!plusIsCut(e) || first) throw e; }
+  if(first && (raw === null || PLUS_CUT_RE.test(raw))){ const e = new Error('第一次爆咗字數上限'); e.retryable = true; throw e; }
   if(raw === null || PLUS_CUT_RE.test(raw)){
     if(onDelta) try{ onDelta({note:'第一次諗得太耐、未寫完就爆咗上限；改用少啲思考再寫一次'}); }catch(e){}
-    raw = await once(plusAddNote(msgs, PLUS_LOW_NOTE), true);
+    raw = await one(plusAddNote(msgs, PLUS_LOW_NOTE), true);
     if(PLUS_CUT_RE.test(raw)) throw new Error('AI 兩次都未寫完就爆咗字數上限（第二次已經叫佢少啲思考）。再撳一次 ↻；成日咁就話我知係邊版。');
   }
   return plusSplitScript(raw);
@@ -17024,10 +17156,12 @@ async function plusAskText(msgs, onDelta){
    順手剝走 model 自己加嘅 ===PAGE=== ／ ===END===。 */
 function plusSplitScript(raw){
   let s = String(raw || '').replace(/^\s*===PAGE \d+===\s*/, '').replace(/\s*===END===\s*$/, '');
-  let fix = '';
-  const i = s.indexOf('【卡修訂建議】');
-  if(i >= 0){ fix = s.slice(i + 7).trim(); s = s.slice(0, i); }
-  return {t:s.trim(), fix:fix};
+  /* 30b：稿尾兩段唔係稿：【卡修訂建議】、【規則衝突】（邊段先都得）。 */
+  const tags = ['【卡修訂建議】', '【規則衝突】'], got = {};
+  const at = tags.map(function(t){ return {t:t, i:s.indexOf(t)}; }).filter(function(x){ return x.i >= 0; }).sort(function(a, b){ return a.i - b.i; });
+  at.forEach(function(x, k){ got[x.t] = s.slice(x.i + x.t.length, k + 1 < at.length ? at[k + 1].i : s.length).trim(); });
+  if(at.length) s = s.slice(0, at[0].i);
+  return {t:s.trim(), fix:got['【卡修訂建議】'] || '', conflict:(got['【規則衝突】'] || '').slice(0, 600)};
 }
 /* model 交返嚟嘅卡：欄位唔齊、型別唔啱都執返好，唔好令審卡畫面一撳就爆。 */
 function plusNormCard(o){
@@ -17066,15 +17200,17 @@ Object.assign(window, {bookAI:{
     plan:function(ctx){ return plusAskJSON(plusPlanMsgs(ctx), ['pages'], false, ctx.onDelta); },
     units:function(ctx){ return plusAskJSON(plusUnitsMsgs(ctx), ['units'], false, ctx.onDelta); },
     detect:function(ctx){ return plusAskJSON(plusDetectMsgs(ctx), ['lang', 'kind'], false, ctx.onDelta); },
-    normal:function(ctx){ return plusAskText(plusNormMsgs(ctx), ctx.onDelta); },
-    normCheck:plusNormCheck,
+    normal:function(ctx){ return plusLiteFirst(ctx, function(c, once){ return plusAskText(plusNormMsgs(c), c.onDelta, once); }); },
+    pair:function(ctx){ return plusAskJSON(plusPairMsgs(ctx), ['join'], true, ctx.onDelta, true); },
+    normCheck:plusNormCheck, readerText:plusReaderText, rulesBirths:plusRulesBirths,
+    kids:function(ctx){ return plusAskJSON(plusKidsMsgs(ctx), ['big'], false, ctx.onDelta); },
     /* 29a：自動整理、AI 修稿、補卡 */
     tidy:plusTidy, askA:plusAskA,
     fix:function(ctx){ return plusAskFix(ctx); },
     cardFix:function(ctx){ return plusAskJSON(plusCardFixMsgs(ctx), ['point', 'type', 'skip'], true, ctx.onDelta); },
     card:plusAskCard,
     review:function(ctx){ return plusAskJSON(plusReviewMsgs(ctx), ['issues'], false, ctx.onDelta); },
-    script:function(ctx){ return plusAskText(plusScriptMsgs(ctx), ctx.onDelta); }
+    script:function(ctx){ return plusLiteFirst(ctx, function(c, once){ return plusAskText(plusScriptMsgs(c), c.onDelta, once); }); }
   },
   /* 由一張版面圖攞返一段描述。張圖係 app 自己由 PDF 畫出嚟嘅，
      喺記憶體行完就掉——唔會寫落 repo，唔會寫落 Firebase，冇任何圖片被儲存。 */
@@ -24067,6 +24203,9 @@ const BK_PLUS_DIR = 'audio-plus/';
 function bkHasAu2(b, p){ return !!(b && Array.isArray(b.aud2) && b.aud2.indexOf(p) >= 0); }
 function bkHasAny(b, p){ return bkHasAu(b, p) || bkHasAu2(b, p); }
 function bkHasPlus(b){ return !!(b && Array.isArray(b.aud2) && b.aud2.length); }
+/* 10-31a William：「新書冇 read.txt、冇 audio/，淨係得 read-plus.txt 同 audio-plus/，可唔可以直接睇學霸版？」
+   淨係得學霸版：開書直接用學霸模式、唔出「普通｜學霸」切換、標籤唔講「淨係有學霸版」。 */
+function bkPlusOnly(b){ return bkHasPlus(b) && !(b && Array.isArray(b.aud) && b.aud.length); }
 function bkAuUrl2(b, p){ return bkFolder(b.url) + BK_PLUS_DIR + 'p' + bkPad(p, (b && b.audW2) || 2) + '.mp3'; }
 /* 呢一版實際會播邊個：'p'＝學霸、'n'＝普通、''＝冇錄音。 */
 function bkVerFor(p){
@@ -25281,12 +25420,13 @@ let bkSubOff = false;
 function bkSubVer(p){ return (AU.page === p && AU.ver) ? AU.ver : bkVerFor(p); }
 function bkVerTag(){
   if(!bkHasPlus(RD.book) || !AU.page) return '';
+  if(bkPlusOnly(RD.book)) return ' · 🎓 學霸';
   if(AU.ver === 'p') return ' · 🎓 學霸' + (RD.mode !== 'p' ? '（淨係有學霸版）' : '');
   return ' · 普通' + (RD.mode === 'p' ? '（冇學霸版）' : '');
 }
 function bkModeSync(){
   const box = el('bkAuMode'); if(!box) return;
-  box.classList.toggle('show', bkHasPlus(RD.book));
+  box.classList.toggle('show', bkHasPlus(RD.book) && !bkPlusOnly(RD.book));
   const n = el('bkAuModeN'), p = el('bkAuModeP'), on = (RD.mode === 'p');
   if(n){ n.classList.toggle('on', !on); n.setAttribute('aria-pressed', on ? 'false' : 'true'); }
   if(p){ p.classList.toggle('on', on);  p.setAttribute('aria-pressed', on ? 'true' : 'false'); }
@@ -25512,6 +25652,7 @@ async function bkOpen(b){
     /* 🎓 佢上次喺呢部機揀咗邊個版本。冇揀過＝普通。 */
     RD.mode = 'n';
     try{ if(localStorage.getItem('bk_mode_' + b.id) === 'p') RD.mode = 'p'; }catch(e){}
+    if(bkPlusOnly(b)) RD.mode = 'p';
     bkModeSync();
     const last = bkLoadPos(b.id, RD.spreads.length);
     const undone = bkFirstUndone();
@@ -25919,7 +26060,8 @@ function bkNoteTxt(b){
   L.push((b.aud && b.aud.length)
     ? ('🔊 錄音 ' + b.aud.length + ' 段（檔名 p' + bkPad(2, b.audW || 2) + '.mp3 呢套）：第 ' +
        b.aud.join('、') + ' 版')
-    : '🔊 一段錄音都冇（放 audio/p02.mp3 呢種檔名落本書個資料夾，再撳一次檢查）');
+    : (bkHasPlus(b) ? '🔊 冇普通版錄音：本書淨係有學霸版（開書直接播學霸版，唔使先有普通版）'
+                    : '🔊 一段錄音都冇（放 audio/p02.mp3 呢種檔名落本書個資料夾，再撳一次檢查）'));
   if(bkHasPlus(b)){
     L.push('🎓 學霸版 ' + b.aud2.length + ' 段（audio-plus/，檔名 p' + bkPad(2, b.audW2 || 2) + '.mp3 呢套）：第 ' +
            b.aud2.join('、') + ' 版');
@@ -27442,6 +27584,37 @@ async function plusPageMap(){
   PLUS.pageMap = plusPageMapFrom(texts); PLUS.pageRows = plusPageRows(texts); PLUS.pageMapN = Object.keys(PLUS.texts).length; PLUS.pageMapFor = PLUS.texts;
   return PLUS.pageMap;
 }
+/* 30c：讀者（本書 profile.reader，預設家姐）同兩姊妹出世年月（雲端 plusKids，全部書共用）。 */
+/* 30d：雲端 plusKids（爹哋確認過）先；出世年月冇就由 General Rules 認日期；特質淨係用雲端（由 General Rules 抽、爹哋睇過）。 */
+const PLUS_KIDS_DEF_APP = {};
+function plusRulesText(){ try{ return (typeof state !== 'undefined' && state && state.ai && typeof state.ai.rules === 'string') ? state.ai.rules : ''; }catch(e){ return ''; } }
+function plusKidsNow(){
+  const c = PLUS.kids || {}, g = window.bookAI.plus.rulesBirths(plusRulesText()), o = {};
+  ['big', 'small'].forEach(function(k){
+    const born = (c[k] && c[k].born) || (g[k] && g[k].born) || '';
+    o[k] = {born:born, traits:(c[k] && c[k].traits) || '', from:(c[k] && c[k].born) ? 'cloud' : (born ? 'rules' : '')};
+  });
+  return o;
+}
+function plusReaderNow(){ return window.bookAI.plus.readerText(PLUS.pf.reader === 'small' ? 'small' : 'big', plusKidsNow()); }
+async function plusKidsFromRules(auto){
+  const rules = plusRulesText().trim();
+  if(!rules){ if(!auto) plusMsg('General Rules 係空嘅：喺「AI 排程助手 → 🧠 General Rules」寫低兩姊妹嘅出世年月同偏好先。'); return false; }
+  let r = null;
+  try{ r = await window.bookAI.plus.kids({rules:rules, onDelta:PLUS_LIVE.fn}); }
+  catch(e){ if(!auto) plusMsg('⚠ 讀唔到 General Rules：' + cut(String((e && e.message) || e), 80)); return false; }
+  const k0 = Object.assign({}, PLUS.kids || {});
+  ['big', 'small'].forEach(function(k){
+    const x = (r && r[k]) || {}, old = k0[k] || {};
+    const born = /^\d{4}-\d{2}$/.test(String(x.born || '')) ? String(x.born) : '';
+    k0[k] = {born:(auto && old.born) ? old.born : (born || old.born || ''), traits:(auto && old.traits) ? old.traits : (String(x.traits || '').replace(/\\n/g, '\n').trim().slice(0, 1200) || old.traits || '')};
+  });
+  PLUS.kids = k0;
+  const ref = BookCloud.ref(); if(ref) try{ await ref.child('plusKids').set(PLUS.kids); }catch(e){}
+  if(!auto) plusRender();
+  plusMsg('📥 由 General Rules 讀咗兩姊妹嘅資料，喺「👧 讀者」睇下啱唔啱。');
+  return true;
+}
 async function plusCtx(p, withImg){
   const cur = await plusText(p);
   const prev = p > 1 ? await plusText(p - 1) : {text:''};
@@ -27455,8 +27628,21 @@ async function plusCtx(p, withImg){
   }
   const g = plusGateNow();
   const deg = (BkRot.cache[PLUS.id] || {})[p] | 0;
+  /* 30b 孖頁：計劃標咗本版同下一版係一幅圖 → 兩張圖、兩版字一齊送；「下一版」變成孖頁之後嗰版。 */
+  const q = (row.join | 0) === p + 1 ? p + 1 : 0;
+  const t2 = q ? await plusText(q) : null;
+  const nx = q ? (q < PLUS.n ? await plusText(q + 1) : {text:''}) : next;
+  /* 30b 故事書：上一版之前再多帶兩版（每版 400 字），故事唔會斷。 */
+  let prevMore = '';
+  if(PLUS.pf.kind === 'story' && p > 2){
+    const M = [];
+    for(let k = Math.max(1, p - 3); k <= p - 2; k++){ const t = await plusText(k); if(String(t.text || '').trim()) M.push('第' + k + '版：' + String(t.text).replace(/【幅圖】[\s\S]*$/, '').trim().slice(0, 400)); }
+    if(M.length) prevMore = '【故事前文（上一版之前嘅幾版，淨係俾你接故事）】\n' + M.join('\n');
+  }
   return {title:PLUS.book.title || '', pages:PLUS.n, profile:PLUS.pf, plan:plan, page:p, map:await plusPageMap(), seeAlso:await plusSeeAlso(p, cur.text),
-          text:cur.text, src:cur.src, prev:String(prev.text || '').slice(0, 600), next:String(next.text || '').slice(0, 600),
+          prefs:PLUS.prefs || '', reader:plusReaderNow(), prevMore:prevMore, pair:q ? [p, q] : null, text2:t2 ? t2.text : '',
+          img2:(q && withImg) ? await bkPageJpeg(PLUS.doc, q, (BkRot.cache[PLUS.id] || {})[q] | 0) : '',
+          text:cur.text, src:cur.src, prev:String(prev.text || '').slice(0, 600), next:String(nx.text || '').slice(0, 600),
           base:plusBase(p), unitBase:unitBase.trim(), cards:PLUS.cards,
           sample:(g.ok && !g.builtIn) ? PLUS.samples[g.key] : null, onDelta:PLUS_LIVE.fn,
           img:withImg ? await bkPageJpeg(PLUS.doc, p, deg) : ''};
@@ -27511,7 +27697,7 @@ function plusCheckNow(p){
     if(k && k.st === 'ok' && k.c) (k.c.secret || []).forEach(function(w){ secret.push(w); });
   });
   const prev = plusPrevContent(p);
-  return window.bookAI.plus.check(r.t, {lang:PLUS.pf.lang, page:p, skip:!!card.skip, refs:card.refs || [], secret:secret,
+  return window.bookAI.plus.check(r.t, {lang:PLUS.pf.lang, reader:PLUS.pf.reader, page:p, skip:!!card.skip, refs:card.refs || [], secret:secret,
     marker:window.bookAI.plus.marker(PLUS.plan, p, PLUS.pf.lang), prevMarker:prev ? window.bookAI.plus.marker(PLUS.plan, prev, PLUS.pf.lang) : ''});
 }
 /* ================= 29c 等額度／斷網 =================
@@ -27810,6 +27996,29 @@ function plusLangAsk(ai, guess){
     return 'AI 唔肯定本書用普通話定廣東話（佢估' + nm(ai.lang) + '）。' + (ai.why ? 'AI 嘅根據：' + ai.why : '');
   return '';
 }
+/* 30b 孖頁檢查（淨係故事書）：打開本書左右兩版（睇書模式嘅孖頁，有封面就封面自己一版），兩版都有內容先問；
+   一對問一次睇相（少啲思考），答 join 就喺計劃標低：左版 join＝右版，右版 joinOf＝左版。 */
+async function plusPairCheck(){
+  if(!PLUS.plan || PLUS.pf.kind !== 'story') return;
+  const rows = PLUS.plan.pages || [];
+  const get = function(p){ return rows.filter(function(x){ return (x.p | 0) === p; })[0]; };
+  const cands = bkBuildSpreads(PLUS.n, !!PLUS.book.cover).filter(function(s){
+    const a = get(s[0]), b = get(s[1]);
+    return s.length === 2 && a && b && a.type !== 'A' && b.type !== 'A' && !a.pairChecked && !a.unpaired;
+  }).map(function(s){ return s[0]; });
+  if(cands.length) await plusRun(cands, '孖頁檢查', async function(p){
+    const q = p + 1, rot = BkRot.cache[PLUS.id] || {};
+    const r = await window.bookAI.plus.pair({page:p, page2:q, text:(await plusText(p)).text, text2:(await plusText(q)).text,
+      img:await bkPageJpeg(PLUS.doc, p, rot[p] | 0), img2:await bkPageJpeg(PLUS.doc, q, rot[q] | 0), onDelta:PLUS_LIVE.fn});
+    const a = get(p), b = get(q);
+    a.pairChecked = true;
+    if(r && (r.join === true || r.join === 'true')){ a.join = q; b.joinOf = p; a.joinWhy = String(r.why || '').slice(0, 100); }
+    try{ await plusSave('plan', PLUS.plan); }catch(e){}
+  });
+  PLUS.plan.pairsAt = fmtDate(new Date());
+  try{ await plusSave('plan', PLUS.plan); }catch(e){}
+  plusRender();
+}
 async function plusConfirmPf(){
   PLUS.pf.ok = true; PLUS.pf.langAsk = '';
   try{ await plusSave('profile', PLUS.pf); }catch(e){}
@@ -27818,7 +28027,7 @@ async function plusConfirmPf(){
 /* ---- 📝 普通稿（read.txt）：計劃判唔係 A 嘅版，逐版睇圖寫；A 版匯出嗰陣自動出 skip 句，唔使燒 call ---- */
 /* 29a：計劃判 A 但有唔少字嘅版（plusAskA）都當內容頁——寫稿嗰個睇圖確認係咪真係功能頁，係就出 skip 句。 */
 function plusContent(){ return ((PLUS.plan && PLUS.plan.pages) || []).filter(function(x){
-  return x.type && (x.type !== 'A' || window.bookAI.plus.askA(x, PLUS.pf.lang)); }).map(function(x){ return x.p | 0; }); }
+  return x.type && !x.joinOf && (x.type !== 'A' || window.bookAI.plus.askA(x, PLUS.pf.lang)); }).map(function(x){ return x.p | 0; }); }
 async function plusDoNorm(list, force){
   if(!PLUS.plan){ plusMsg('先做 ①：普通稿要知每版係乜頁型。'); return; }
   const want = plusContent();
@@ -27830,10 +28039,28 @@ async function plusDoNorm(list, force){
     if(plusAuto()) await plusRepair('norm', p);
   });
 }
+/* 30b：孖頁嗰次太長、改咗單頁做 → 拆返孖頁（右版之後自己寫）；之前當孖頁寫咗嘅卡同稿要重做。 */
+async function plusUnpair(p){
+  const rows = (PLUS.plan && PLUS.plan.pages) || [];
+  const a = rows.filter(function(x){ return (x.p | 0) === p; })[0], b = rows.filter(function(x){ return (x.p | 0) === p + 1; })[0];
+  if(!a || !a.join) return;
+  a.join = 0; a.unpaired = true; if(b){ b.joinOf = 0; }
+  try{ await plusSave('plan', PLUS.plan); }catch(e){}
+  for(const k of [['norm', PLUS.norm], ['script', PLUS.scripts], ['card', PLUS.cards]]){
+    const r = k[1][p];
+    if(r && r.pair){ delete k[1][p]; try{ await plusSave(k[0] + '/' + p, null); }catch(e){} }
+  }
+}
+async function plusAfterAsk(p, ctx, r, rec){
+  if(r && r._lite){ rec.lite = true; if(ctx.pair) await plusUnpair(p); }
+  else if(ctx.pair) rec.pair = ctx.pair.slice();
+  if(r && r.conflict) rec.conflict = r.conflict;
+}
 async function plusNormOne(p){
   const ctx = await plusCtx(p, true);
   const r = await window.bookAI.plus.normal(ctx);
   const rec = {t:window.bookAI.plus.tidy(r.t, PLUS.pf.lang), at:fmtDate(new Date())};
+  await plusAfterAsk(p, ctx, r, rec);
   /* 有字嘅 A 版：睇圖嗰個話真係功能頁，就淨係出 skip 句——記低，機檢當 skip 查。 */
   if(rec.t.trim() === window.bookAI.plus.skipLine(PLUS.pf.lang)) rec.skip = true;
   rec.chk = plusNormChk(rec);
@@ -27841,7 +28068,7 @@ async function plusNormOne(p){
   await plusSave('norm/' + p, rec);
   return rec;
 }
-function plusNormChk(rec){ return window.bookAI.plus.normCheck(rec.t, {lang:PLUS.pf.lang, skip:!!rec.skip}); }
+function plusNormChk(rec){ return window.bookAI.plus.normCheck(rec.t, {lang:PLUS.pf.lang, skip:!!rec.skip, reader:PLUS.pf.reader}); }
 /* ---- 29a 自動修正：機檢唔過，唔使爹哋人手改 ----
    一，app 自己執純格式（tidy）；二，仲有 FAIL 就交返 AI 淨係改嗰幾點（fix，冇圖、少啲思考）；
    三，思考過程漏入稿、短過底線：改都冇用，用返原本個寫法重寫一次。最多兩轉；兩轉都唔過先留紅字俾爹哋。
@@ -27867,7 +28094,7 @@ async function plusRepair(kind, p, withWarn){
       continue;
     }
     const card = kind === 'norm' ? {} : ((PLUS.cards[p] || {}).c || {});
-    const r = await window.bookAI.plus.fix({text:rec.t, lang:lang, kind:kind, onDelta:PLUS_LIVE.fn,
+    const r = await window.bookAI.plus.fix({text:rec.t, lang:lang, kind:kind, onDelta:PLUS_LIVE.fn, reader:plusReaderNow(),
       problems:want.map(function(x){ return x.lv + '：' + x.why; }),
       marker:kind === 'norm' ? '' : window.bookAI.plus.marker(PLUS.plan, p, lang),
       secret:kind === 'norm' ? [] : (card.secret || [])});
@@ -27885,7 +28112,7 @@ async function plusReviewOne(kind, p){
   const lang = PLUS.pf.lang;
   const cur = await plusText(p), prev = p > 1 ? await plusText(p - 1) : {text:''};
   const card = kind === 'norm' ? null : ((PLUS.cards[p] || {}).c || {});
-  const r = await window.bookAI.plus.review({kind:kind, lang:lang, page:p, text:cur.text, prev:prev.text, card:card, script:rec.t,
+  const r = await window.bookAI.plus.review({kind:kind, lang:lang, page:p, text:cur.text, prev:prev.text, card:card, script:rec.t, reader:plusReaderNow(),
                                             seeAlso:await plusSeeAlso(p, cur.text), onDelta:PLUS_LIVE.fn});
   const sq = function(s){ return String(s || '').replace(/\s+/g, ' ').replace(/^[「"“]|[」"”]$/g, '').replace(/(\.\.\.|。。。|…)$/, '').trim(); };
   const body = sq(rec.t);
@@ -27894,7 +28121,7 @@ async function plusReviewOne(kind, p){
   rec.rev = {at:fmtDate(new Date()), issues:issues, fixed:false};
   if(issues.length){
     const before = rec.t, chkB = (rec.chk || []).slice(), nB = plusFails(rec).length;
-    const fx = await window.bookAI.plus.fix({text:rec.t, lang:lang, kind:kind, onDelta:PLUS_LIVE.fn,
+    const fx = await window.bookAI.plus.fix({text:rec.t, lang:lang, kind:kind, onDelta:PLUS_LIVE.fn, reader:plusReaderNow(),
       problems:issues.map(function(x){ return '內容：「' + x.quote + '」' + x.why + (x.fix ? '；改法：' + x.fix : ''); }),
       marker:kind === 'norm' ? '' : window.bookAI.plus.marker(PLUS.plan, p, lang), secret:kind === 'norm' ? [] : (card.secret || [])});
     rec.t = window.bookAI.plus.tidy(fx.t, lang);
@@ -27994,6 +28221,8 @@ async function plusYolo(resume){
         await plusSave('profile', PLUS.pf);
       }
       if(!PLUS.pf.notes){ await plusNotesRedo(); }
+      const rk = PLUS.pf.reader === 'small' ? 'small' : 'big';
+      if(!((PLUS.kids || {})[rk] || {}).traits && plusRulesText().trim()) await plusKidsFromRules(true);
       plusMsg('認書：' + PLUS.pf.lang + ' · ' + PLUS.pf.kind + (PLUS.pf.notes ? '；本書筆記 ' + String(PLUS.pf.notes).split('\n').filter(Boolean).length + ' 行' : '；⚠ 冇本書筆記'));
     });
     if(!PLUS.yoloHalt && !PLUS.plan) await step(2, async function(){
@@ -28001,6 +28230,7 @@ async function plusYolo(resume){
       if(!PLUS.plan) throw new Error('出唔到計劃（' + ((el('bkPlusMsg') || {}).textContent || '') + '）');
     });
     if(!PLUS.plan){ PLUS.yoloHalt = true; }
+    if(!PLUS.yoloHalt && PLUS.pf.kind === 'story' && !PLUS.plan.pairsAt) await step(2, plusPairCheck);
     await step(3, async function(){
       await plusDoNorm(null, false);
       const miss = plusContent().filter(function(p){ return !PLUS.norm[p]; });
@@ -28065,6 +28295,74 @@ async function plusYoloFresh(){
   PLUS.yoloStage = '';
   return plusYolo(true);
 }
+/* ================= 30e 🧹 清走 Firebase 學霸草稿 =================
+   William：「驚佔太多 Firebase 空間。一定要真係檢查咗 GitHub 已經有相關嘅檔案，評估過覺得可以 delete 先好建議；
+   我要有權刪晒（卡都得），但唔想 delete 錯有用嘅嘢。」
+   做法：撳掣 → 即刻由 GitHub 攞 read.txt、read-plus.txt（唔用雲端副本）→ 逐樣評估 → 建議嘅預先剔、唔建議嘅講原因（照樣剔得）
+   → 撳刪除 → confirm → 先自動下載審查包做備份 → 先刪。
+   ⚠ 唔郁：睇圖筆記（睇書嗰陣 AI 問答要用）、text.md／read.txt／read-plus.txt 嘅雲端副本（睇書、字幕要用；🔍 檢查會由 GitHub 更新）。 */
+async function plusCleanFetch(name){
+  try{
+    const r = await fetch(bkFolder(PLUS.book.url) + name, {cache:'no-store'});
+    if(!r.ok) return {ok:false, why:r.status === 404 ? 'GitHub 冇 ' + name : '攞唔到 ' + name + '（' + r.status + '）'};
+    return {ok:true, pages:bkParseRead(await r.text()).pages};
+  }catch(e){ return {ok:false, why:'連唔到 GitHub（' + cut(String((e && e.message) || e), 40) + '）'}; }
+}
+function plusSizeKB(o){ try{ return Math.max(1, Math.round(JSON.stringify(o || {}).length / 1024)); }catch(e){ return 0; } }
+async function plusCleanAssess(){
+  const rd = await plusCleanFetch('read.txt'), rp = await plusCleanFetch('read-plus.txt');
+  const sq = function(s){ return String(s || '').replace(/\s+/g, ' ').trim(); };
+  const cover = function(store, gh, file){
+    const ps = Object.keys(store || {}).map(Number).filter(function(p){ return store[p]; }).sort(function(a, b){ return a - b; });
+    if(!ps.length) return null;
+    if(!gh.ok) return {ps:ps, ok:false, why:gh.why + '，唔建議刪'};
+    const miss = ps.filter(function(p){ return !gh.pages[p]; });
+    const diff = ps.filter(function(p){ return gh.pages[p] && sq(gh.pages[p]) !== sq(store[p].t); });
+    if(miss.length) return {ps:ps, ok:false, why:'GitHub 嘅 ' + file + ' 冇第 ' + miss.join('、') + ' 版（可能未上載、或者機檢 FAIL 未入檔），刪咗就冇咗，唔建議'};
+    return {ps:ps, ok:true, why:'GitHub 嘅 ' + file + ' 全部 ' + ps.length + ' 版都有' + (diff.length ? '（第 ' + diff.join('、') + ' 版 GitHub 嗰份同雲端唔同，睇書用嘅係 GitHub 嗰份）' : '，內容一樣')};
+  };
+  const items = [];
+  const n = cover(PLUS.norm, rd, 'read.txt'), s = cover(PLUS.scripts, rp, 'read-plus.txt');
+  if(n) items.push({k:'norm', label:'普通稿草稿（' + n.ps.length + ' 版，連修改前版本）', kb:plusSizeKB(PLUS.norm), rec:n.ok, why:n.why});
+  if(s) items.push({k:'script', label:'學霸稿草稿（' + s.ps.length + ' 版，連修改前版本）', kb:plusSizeKB(PLUS.scripts), rec:s.ok, why:s.why});
+  const cp = Object.keys(PLUS.cards).map(Number).filter(function(p){ return PLUS.cards[p] && !((PLUS.cards[p].c || {}).skip); });
+  if(Object.keys(PLUS.cards).length){
+    const cmiss = rp.ok ? cp.filter(function(p){ return !rp.pages[p]; }) : cp;
+    const ok = rp.ok && !cmiss.length;
+    items.push({k:'card', label:'學霸卡（' + Object.keys(PLUS.cards).length + ' 張）', kb:plusSizeKB(PLUS.cards), rec:ok,
+      why:ok ? 'read-plus.txt 已經有晒佢哋寫出嚟嘅稿；刪咗之後想改學霸稿，要重新出卡'
+             : (rp.ok ? '第 ' + cmiss.join('、') + ' 版有卡但 GitHub 冇學霸稿，張卡仲有用，唔建議' : rp.why + '，唔建議刪')});
+  }
+  const runs = PLUS.yoloRuns || [];
+  if(runs.length) items.push({k:'yolo', label:'YOLO 過程紀錄（' + runs.length + ' 次）', kb:plusSizeKB(runs), rec:true, why:'淨係審查報告用，唔影響睇書'});
+  if(PLUS.part) items.push({k:'part', label:'計劃做到一半嘅分段', kb:plusSizeKB(PLUS.part), rec:!!PLUS.plan, why:PLUS.plan ? '計劃已經出咗，用唔著' : '計劃未出完，刪咗要由頭出，唔建議'});
+  if(PLUS.plan) items.push({k:'plan', label:'成本書計劃', kb:plusSizeKB(PLUS.plan), rec:false, why:'好細；刪咗下次要重出計劃（孖頁、頁型都要再判），唔建議'});
+  if(PLUS.pf && PLUS.pf.ok) items.push({k:'profile', label:'認書結果、本書筆記、讀者', kb:plusSizeKB(PLUS.pf), rec:false, why:'好細；刪咗下次要重新認書、重寫本書筆記，唔建議'});
+  return {items:items, rd:rd, rp:rp};
+}
+async function plusCleanOpen(){
+  if(PLUS.busy) return;
+  PLUS.busy = true; plusRender(); plusMsg('🧹 檢查緊 GitHub 有冇 read.txt、read-plus.txt…');
+  let a;
+  try{ a = await plusCleanAssess(); } finally { PLUS.busy = false; }
+  PLUS.clean = a; plusRender();
+  plusMsg(a.items.length ? '🧹 評估完：建議刪嘅已經剔咗；唔建議嘅有寫原因（你照樣剔得）。撳「🗑 刪除剔咗嘅」先會刪。' : '🧹 Firebase 入面冇呢本書嘅學霸草稿。');
+}
+const PLUS_CLEAN_PATH = {norm:'norm', script:'script', card:'card', yolo:'yolo', part:'part', plan:'plan', profile:'profile'};
+async function plusCleanDo(keys){
+  if(!keys.length){ plusMsg('冇剔任何嘢。'); return; }
+  const lab = (PLUS.clean.items || []).filter(function(x){ return keys.indexOf(x.k) >= 0; }).map(function(x){ return '－' + x.label + (x.rec ? '' : '（唔建議）'); });
+  if(!confirm('🧹 喺 Firebase 刪走《' + (PLUS.book.title || '') + '》呢幾樣：\n' + lab.join('\n') + '\n\n刪之前會自動下載一個審查包（.zip）做備份。刪咗冇得喺 app 入面救返。確定？')) return;
+  try{ plusBundle(); }catch(e){ plusMsg('⚠ 下載唔到備份，冇刪任何嘢：' + cut(String((e && e.message) || e), 60)); return; }
+  for(const k of keys){
+    try{ await plusSave(PLUS_CLEAN_PATH[k], null); }catch(e){ plusMsg('⚠ 刪唔到 ' + k + '：' + cut(String((e && e.message) || e), 60)); return; }
+    if(k === 'norm') PLUS.norm = {}; else if(k === 'script') PLUS.scripts = {}; else if(k === 'card') PLUS.cards = {};
+    else if(k === 'yolo') PLUS.yoloRuns = []; else if(k === 'part') PLUS.part = null; else if(k === 'plan') PLUS.plan = null;
+    else if(k === 'profile') PLUS.pf = plusGuess(PLUS.book);
+  }
+  PLUS.clean = null; plusRender();
+  plusMsg('🧹 刪咗：' + lab.join('、') + '。備份（.zip）已經下載咗。');
+}
 function plusYoloFile(){ return 'YOLO_' + PLUS.id + '_' + fmtDate(new Date()) + '.zip'; }
 /* ---- 審查包：一個 zip，入面係所有 end product ＋ 審查報告 ＋ 原始資料 ---- */
 function plusFailCount(store, key){
@@ -28075,6 +28373,16 @@ function plusFailCount(store, key){
   return Object.keys(c).sort(function(a, b){ return c[b] - c[a]; }).map(function(k){ return '| ' + k + ' | ' + c[k] + ' |'; });
 }
 /* 29d：報告頂頭一段「要你睇」——做漏咗、唔入檔、AI 要你裁定、唔聽嘅版，唔使喺逐版表度搵。 */
+/* 30b：規則打交 AI 自己揀咗乜（稿尾【規則衝突】、卡 note「規則衝突：」）。想改就寫入面板「📏 規則優先」。 */
+function plusConflictMd(){
+  const L = [];
+  [['cards', '卡'], ['norm', '普通稿'], ['scripts', '學霸稿']].forEach(function(k){
+    Object.keys(PLUS[k[0]]).map(Number).sort(function(a, b){ return a - b; }).forEach(function(p){
+      const r = PLUS[k[0]][p]; if(r && r.conflict) L.push('- 第 ' + p + ' 版' + k[1] + '：' + String(r.conflict).replace(/\n+/g, '；'));
+    });
+  });
+  return ['', '## 規則衝突（AI 照優先次序自己揀咗；想改，寫入面板「📏 規則優先」）', ''].concat(L.length ? L : ['（冇）']);
+}
 function plusRevCell(p){
   const f = function(r, lab){ if(!r || !r.rev) return ''; const n = (r.rev.issues || []).length; return lab + (n ? (r.rev.fixed ? '改咗 ' : '冇改到 ') + n + ' 處' : '✓'); };
   return [f(PLUS.norm[p], '普通'), f(PLUS.scripts[p], '學霸')].filter(Boolean).join('；') || '—';
@@ -28140,6 +28448,7 @@ function plusReportMd(){
   const st = function(r){
     if(!r) return '—';
     if(r.skip) return 'skip';
+    if(r.lite) return (function(){ const f = (r.chk || []).filter(function(x){ return x.lv === 'FAIL'; }).length; return (f ? 'FAIL ' + f : '✓') + '（太長，淨係睇本版）'; })();
     const f0 = (r.chk0 || r.chk || []).filter(function(x){ return x.lv === 'FAIL'; }).length;
     const f1 = (r.chk || []).filter(function(x){ return x.lv === 'FAIL'; }).length;
     if(!f0 && !f1) return '✓';
@@ -28148,10 +28457,12 @@ function plusReportMd(){
   (plan.pages || []).forEach(function(x){
     const k = PLUS.cards[x.p];
     const cd = k ? ((k.c && k.c.skip) ? 'skip' : (k.c && k.c.type || '?') + (k.mini ? ' 精簡卡' : '') + (k.fixed ? ' 補欄' : '') + ((k.flags || []).length ? ' 🚩' + k.flags.join('、') : '')) : '—';
-    L.push('| ' + x.p + ' | ' + (x.type || '') + (x.by === 'card' ? '（本來 ' + (x.was || '') + '）' : '') + (x.type === 'A' && x.why ? '：' + x.why : '') +
+    if(x.joinOf){ L.push('| ' + x.p + ' | 併入第 ' + x.joinOf + ' 版（孖頁） | ' + (x.n | 0) + ' | — | — | — | — |'); return; }
+    L.push('| ' + x.p + ' | ' + (x.type || '') + (x.join ? '（孖頁：連第 ' + x.join + ' 版）' : '') + (x.by === 'card' ? '（本來 ' + (x.was || '') + '）' : '') + (x.type === 'A' && x.why ? '：' + x.why : '') +
            ' | ' + (x.n | 0) + ' | ' + st(PLUS.norm[x.p]) + ' | ' + cd + ' | ' + st(PLUS.scripts[x.p]) + ' | ' + plusRevCell(x.p) + ' |');
   });
   L.push.apply(L, plusRevMd());
+  L.push.apply(L, plusConflictMd());
   L.push('', '## 機檢：第一次寫出嚟（修之前）', '', '### 普通稿', '', '| 問題 | 版數 |', '|---|---|');
   L.push.apply(L, plusFailCount(PLUS.norm, 'chk0').concat(plusFailCount(PLUS.norm, 'chk0').length ? [] : ['| （冇） | 0 |']));
   L.push('', '### 學霸稿', '', '| 問題 | 版數 |', '|---|---|');
@@ -28376,11 +28687,14 @@ async function plusDoCards(list, force){
   if(!g.ok && !list.length && PLUS.plan && PLUS.plan.sample) list = [PLUS.plan.sample | 0];
   if(!g.ok && list.length > 1 && !PLUS.yolo){ list = list.slice(0, 1); gw = g.why; }
   await plusRun(list, force ? '重出卡' : '出卡', async function(p){
-    const raw = await window.bookAI.plus.card(await plusCtx(p, true));
+    const cx = await plusCtx(p, true);
+    const raw = await window.bookAI.plus.card(cx);
     const c = window.bookAI.plus.norm(raw);
     /* 29d：YOLO 出一張批一張。以前出晒先批，出卡嗰陣總帳（已批嘅卡）永遠係空：Unit 3 proper noun 升咗五次、object pronoun 六次，回指頁碼靠估。 */
     const rec = PLUS.yolo ? {c:c, st:'ok', okBy:'yolo', by:'ai', at:fmtDate(new Date())} : {c:c, st:'draft', by:'ai', at:fmtDate(new Date())};
     if(raw && raw._mini) rec.mini = true;
+    await plusAfterAsk(p, cx, raw, rec);
+    if(c.note && /規則衝突/.test(c.note)) rec.conflict = String(c.note).slice(0, 600);
     await plusSave('card/' + p, rec);
     PLUS.cards[p] = rec;
     if(plusAuto()) await plusCardAfter(p);
@@ -28400,13 +28714,15 @@ async function plusScriptOne(p){
   const card = PLUS.cards[p].c;
   let r;
   /* 功能頁唔使燒一次 call：block 05 規定淨係一句 skip 句。 */
+  let ctx = null;
   if(card.skip) r = {t:window.bookAI.plus.skipLine(PLUS.pf.lang), fix:''};
   else{
-    const ctx = await plusCtx(p, true);
+    ctx = await plusCtx(p, true);
     ctx.card = card;
     r = await window.bookAI.plus.script(ctx);
   }
   const rec = {t:card.skip ? r.t : window.bookAI.plus.tidy(r.t, PLUS.pf.lang), fix:r.fix || '', at:fmtDate(new Date())};
+  if(ctx) await plusAfterAsk(p, ctx, r, rec);
   if(card.skip) rec.skip = true;
   PLUS.scripts[p] = rec;
   rec.chk = plusCheckNow(p);
@@ -28458,7 +28774,7 @@ function plusCardsMd(){
 async function bkPlusOpen(b){
   const box = el('bkPlusBox'); if(!box) return;
   box.innerHTML = '<p class="subnote">載入緊…</p>';
-  PLUS.id = b.id; PLUS.book = b; PLUS.texts = {}; PLUS.cards = {}; PLUS.scripts = {}; PLUS.plan = null; PLUS.samples = {};
+  PLUS.id = b.id; PLUS.book = b; PLUS.texts = {}; PLUS.cards = {}; PLUS.scripts = {}; PLUS.plan = null; PLUS.samples = {}; PLUS.clean = null;
   admState('plus').open = 0;
   await bkDocLoad(b.id, true);
   try{ PLUS.doc = await bkOpenDoc(bkPdfUrl(b)); }catch(e){
@@ -28472,6 +28788,8 @@ async function bkPlusOpen(b){
   if(r){
     try{ v = (await r.child('plus/' + b.id).once('value')).val() || {}; }catch(e){}
     try{ sm = (await r.child('plusSample').once('value')).val() || {}; }catch(e){}
+    try{ PLUS.prefs = (await r.child('plusPrefs').once('value')).val() || ''; }catch(e){ PLUS.prefs = ''; }
+    try{ PLUS.kids = Object.assign({}, PLUS_KIDS_DEF_APP, (await r.child('plusKids').once('value')).val() || {}); }catch(e){ PLUS.kids = {}; }
   }
   PLUS.pf = Object.assign(plusGuess(b), v.profile || {});
   /* 27a 存過嘅 profile 係爹哋揀過嘅兩格：當確認咗。新書要先認書（28a）。 */
@@ -28508,6 +28826,22 @@ function plusRender(){
   if(PLUS.yolo){ const ys = btn(ly, '⏹ 停 YOLO', function(){ PLUS.stop = true; PLUS.yoloHalt = true; ys.disabled = true; }); ys.disabled = false; }
   if(PLUS.plan || Object.keys(PLUS.cards).length) btn(ly, '↻ YOLO 重做（留低抄字）', plusYoloFresh).disabled = PLUS.busy || !!PLUS.yolo;
   btn(ly, '⬇ 審查包（.zip）', plusBundle).disabled = PLUS.busy || !!PLUS.yolo;
+  btn(ly, '🧹 清走 Firebase 學霸草稿', plusCleanOpen).disabled = PLUS.busy || !!PLUS.yolo;
+  if(PLUS.clean && PLUS.clean.items.length){
+    const cb = document.createElement('div'); cb.className = 'bkNote plusClean'; box.appendChild(cb);
+    const h = document.createElement('b'); h.textContent = '🧹 呢本書喺 Firebase 嘅學霸草稿（已經同 GitHub 對過）'; cb.appendChild(h);
+    const boxes = [];
+    PLUS.clean.items.forEach(function(x){
+      const row = document.createElement('label'); row.style.display = 'block';
+      const c = document.createElement('input'); c.type = 'checkbox'; c.checked = !!x.rec; c.value = x.k; boxes.push(c);
+      row.appendChild(c);
+      row.appendChild(document.createTextNode(' ' + (x.rec ? '✅ 建議刪：' : '⚠ 唔建議：') + x.label + '（約 ' + x.kb + ' KB）— ' + x.why));
+      cb.appendChild(row);
+    });
+    const cl = document.createElement('div'); cl.className = 'bkLine'; cb.appendChild(cl);
+    btn(cl, '🗑 刪除剔咗嘅（會先下載備份）', function(){ return plusCleanDo(boxes.filter(function(c){ return c.checked; }).map(function(c){ return c.value; })); }, 'danger');
+    btn(cl, '取消', function(){ PLUS.clean = null; plusRender(); });
+  }
   const yl = document.createElement('p'); yl.id = 'bkPlusYolo'; yl.className = 'bkNote'; yl.textContent = PLUS.yoloStage || ''; box.appendChild(yl);
   yl.style.whiteSpace = 'pre-line';
   if(pf.langAsk && !pf.ok && !PLUS.yolo){
@@ -28560,6 +28894,65 @@ function plusRender(){
     btn(nl, pf.notes ? '🤖 AI 重寫本書筆記' : '🤖 AI 寫本書筆記', plusNotesRedo);
     box.appendChild(nd);
   }
+  /* 30c 👧 讀者：每本書揀（預設家姐）；兩姊妹出世年月全部書共用（雲端 plusKids），年齡、年級每次按今日計。 */
+  {
+    const kd = document.createElement('details'); kd.className = 'plusKids';
+    const ks = document.createElement('summary');
+    ks.textContent = '👧 讀者：' + (pf.reader === 'small' ? '妹妹' : '家姐') + '　撳開改';
+    kd.appendChild(ks);
+    const kl = document.createElement('div'); kl.className = 'bkLine'; kd.appendChild(kl);
+    const sel = document.createElement('select');
+    [['big', '家姐'], ['small', '妹妹']].forEach(function(x){ const o = document.createElement('option'); o.value = x[0]; o.textContent = '本書讀者：' + x[1]; sel.appendChild(o); });
+    sel.value = pf.reader === 'small' ? 'small' : 'big';
+    sel.onchange = async function(){ pf.reader = sel.value; try{ await plusSave('profile', pf); }catch(e){} plusRender(); };
+    kl.appendChild(sel);
+    const kn = plusKidsNow();
+    const saveKids = async function(){ const r = BookCloud.ref(); if(r) try{ await r.child('plusKids').set(PLUS.kids); }catch(e){} };
+    ['big', 'small'].forEach(function(k){
+      const lb = document.createElement('label'); lb.className = 'subnote'; lb.appendChild(document.createTextNode('　' + (k === 'big' ? '家姐' : '妹妹') + '出世：'));
+      const inp = document.createElement('input'); inp.type = 'month'; inp.value = kn[k].born || '';
+      inp.onchange = async function(){
+        PLUS.kids = Object.assign({}, PLUS.kids || {}); PLUS.kids[k] = Object.assign({}, PLUS.kids[k] || {}, {born:inp.value});
+        await saveKids(); plusRender();
+      };
+      lb.appendChild(inp);
+      if(kn[k].from === 'rules') lb.appendChild(document.createTextNode('（由 General Rules 讀到）'));
+      kl.appendChild(lb);
+    });
+    btn(kl, '📥 由 General Rules 讀返兩姊妹資料', function(){ return plusKidsFromRules(false); });
+    ['big', 'small'].forEach(function(k){
+      const tl = document.createElement('p'); tl.className = 'subnote'; tl.textContent = (k === 'big' ? '家姐' : '妹妹') + '：同睇書學習有關嘅特質（淨係存喺雲端，唔會上 GitHub）';
+      kd.appendChild(tl);
+      const ta = document.createElement('textarea'); ta.className = 'plusTa plusKidTa'; ta.rows = 4; ta.value = kn[k].traits || '';
+      ta.placeholder = '例：母語廣東話；坐唔定；寫字慢；熱愛音樂';
+      ta.onchange = async function(){
+        PLUS.kids = Object.assign({}, PLUS.kids || {}); PLUS.kids[k] = Object.assign({}, PLUS.kids[k] || {}, {traits:ta.value.trim().slice(0, 1200)});
+        await saveKids(); plusRender();
+      };
+      kd.appendChild(ta);
+    });
+    const kp = document.createElement('p'); kp.className = 'subnote plusKidsNow'; kp.style.whiteSpace = 'pre-line'; kp.textContent = plusReaderNow();
+    kd.appendChild(kp);
+    box.appendChild(kd);
+  }
+  /* 30b 📏 規則優先：全部書都用（雲端 plusPrefs）。AI 撞到規則打交照呢度揀，之後報告話你知佢揀咗乜。 */
+  {
+    const rd = document.createElement('details'); rd.className = 'plusPrefs';
+    const rs = document.createElement('summary');
+    rs.textContent = '📏 規則優先（全部書都用）' + (PLUS.prefs ? '：' + String(PLUS.prefs).split('\n').filter(Boolean).length + ' 條' : '：未寫') + '　撳開睇／改';
+    rd.appendChild(rs);
+    const rp = document.createElement('p'); rp.className = 'subnote';
+    rp.textContent = '規則打交嗰陣，AI 照呢個次序揀：頁面事實唔洩答案 → 你寫喺下面嘅 → 學生做唔做到 → TTS → 語言 → 本頁考點 → 科目補充 → 升層費曼人生觀 → 篇幅。揀咗乜會寫入審查報告「規則衝突」。';
+    rd.appendChild(rp);
+    const rt = document.createElement('textarea'); rt.className = 'plusTa'; rt.rows = 4; rt.value = PLUS.prefs || '';
+    rt.placeholder = '例：本頁印住、教緊嘅術語（Nouns 頁嘅 noun）可以講，唔使避；故事書唔使出升層';
+    rt.onchange = async function(){
+      PLUS.prefs = rt.value.trim().slice(0, 1500);
+      const r = BookCloud.ref(); if(r) try{ await r.child('plusPrefs').set(PLUS.prefs || null); }catch(e){}
+    };
+    rd.appendChild(rt);
+    box.appendChild(rd);
+  }
   const nMd = Object.keys((bkDoc && bkDoc.txt) || {}).filter(function(k){ return String(bkDoc.txt[k]).replace(/\s/g, '').length >= BK_EMPTY_CH; }).length;
   const nBase = Object.keys((bkDoc && bkDoc.sub) || {}).filter(function(k){ return bkDoc.sub[k]; }).length;
   const nOld = Object.keys((bkDoc && bkDoc.sub2) || {}).filter(function(k){ return bkDoc.sub2[k]; }).length;
@@ -28576,6 +28969,10 @@ function plusRender(){
   /* 分段做到一半斷咗（PLUS.part）：再撳就由未做嗰段接落去（29c 起存咗雲端，閂咗分頁都得）。 */
   btn(l2, PLUS.part ? '① 接住出計劃（由第 ' + (Object.keys(PLUS.part.rows).length + 1) + ' 版）'
                     : PLUS.plan ? '↻ 重出成本書計劃' : (pf.ok ? '① 出成本書計劃' : '① 認書＋出成本書計劃'), plusDoPlan);
+  if(PLUS.plan && pf.kind === 'story'){
+    const nj = (PLUS.plan.pages || []).filter(function(x){ return x.join; }).length;
+    btn(l2, '📖 孖頁檢查' + (PLUS.plan.pairsAt ? '（' + nj + ' 對）' : ''), plusPairCheck);
+  }
   if(PLUS.plan){
     const d = document.createElement('details'); d.className = 'plusPlan';
     const sm = document.createElement('summary');
