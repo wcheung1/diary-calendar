@@ -2691,7 +2691,7 @@ body.hubOpen{overflow:hidden}
 
 <script>
 /* ★ 版本印記。撞到「明明改咗但係一模一樣」嗰陣，第一件事就係睇呢個號碼。 */
-const BUILD = "2026-10-31a";
+const BUILD = "2026-11-01a";
 /* dataURL 字元上限。超咗會自動降質，再唔得就唔准送。
    ⚠ 一定要擺頂層：睇相傾偈嗰個 IIFE 同 AI 嗰個 IIFE（bookAI.desc、bookSeeAsk）都用。
      09-11a 到 09-21b 佢住喺前者，後者一用就 ReferenceError（Safari：Can't find variable）——
@@ -16714,7 +16714,7 @@ function plusNormMsgs(ctx){
   if(ctx.seeAlso) L.push(ctx.seeAlso);
   const head = plusBookHead({title:ctx.title, pages:ctx.pages, profile:ctx.profile, norm:true, map:ctx.map, prefs:ctx.prefs, reader:ctx.reader});   /* 普通版唔帶學霸樣板、唔帶學霸嘅英文補充 */
   return [{role:'system', content:plusNormSys()},
-          {role:'user', content:plusImgMsg(head + '\n\n' + L.join('\n\n') + '\n\n' + PLUS_ASK_NORM + '\n\n' + plusTail('norm', (ctx.profile || {}).lang), ctx.img, ctx.img2)}];
+          {role:'user', content:plusImgMsg(head + '\n\n' + L.join('\n\n') + '\n\n' + PLUS_ASK_NORM + '\n\n' + plusTail('norm', (ctx.profile || {}).lang) + plusMemPart(ctx), ctx.img, ctx.img2)}];
 }
 /* 出卡同寫稿共用嘅本頁材料。 */
 function plusPageCtx(ctx){
@@ -16798,6 +16798,15 @@ function plusTail(kind, lang, marker){
   const N = '一二三四五六七八九十';
   return ['【交貨前自查（機器會逐條查，唔過會退返俾你改）】'].concat(a.map(function(x, i){ return N.charAt(i) + '，' + x; })).join('\n');
 }
+/* 11-01a 犯過清單（疊加）：ctx.mem＝呢版之前幾稿機器捉到嘅；ctx.memBook＝本書其他版第一稿最常犯嘅。
+   William：改完又 FAIL、FAIL 另一樣，之前犯過嘅一定要一齊記住，最後嗰版唔可以再犯任何一樣；最好一次過就過。 */
+function plusMemPart(ctx){
+  const pg = ((ctx && ctx.mem) || []).filter(Boolean).slice(-12), bk = ((ctx && ctx.memBook) || []).filter(Boolean).slice(0, 6);
+  const L = [];
+  if(pg.length) L.push('【呢版之前幾稿犯過（機器捉到；今次一樣都唔准再犯）】\n' + pg.map(function(x){ return '－' + x; }).join('\n'));
+  if(bk.length) L.push('【本書其他版第一稿最常犯（今次一開始就要避開）】\n' + bk.map(function(x){ return '－' + x; }).join('\n'));
+  return L.length ? '\n\n' + L.join('\n\n') : '';
+}
 function plusCardMsgs(ctx){
   return [{role:'system', content:plusSys()},
           {role:'user', content:plusImgMsg(plusBookHead(ctx) + '\n\n' + plusPageCtx(ctx) + '\n\n' + PLUS_ASK_CARD + '\n\n' + plusTail('card', (ctx.profile || {}).lang), ctx.img, ctx.img2)}];
@@ -16806,7 +16815,7 @@ function plusScriptMsgs(ctx){
   return [{role:'system', content:plusSys()},
           {role:'user', content:plusImgMsg(plusBookHead(ctx) + '\n\n' + plusPageCtx(ctx) + '\n\n【已批嘅卡（照佢寫）】\n' +
                                           JSON.stringify(ctx.card || {}) + '\n\n' + PLUS_ASK_SCRIPT + '\n\n' +
-                                          plusTail('script', (ctx.profile || {}).lang, plusMarkerFor(ctx.plan, ctx.page, (ctx.profile || {}).lang)), ctx.img, ctx.img2)}];
+                                          plusTail('script', (ctx.profile || {}).lang, plusMarkerFor(ctx.plan, ctx.page, (ctx.profile || {}).lang)) + plusMemPart(ctx), ctx.img, ctx.img2)}];
 }
 /* 機檢（佢 MetaPrompt 第五節收貨檢查表，淨係機器查得到嘅；質素由爹哋審）。
    回傳 [{lv:'FAIL'|'WARN', why}]。ctx：{lang, marker, prevMarker, page, refs, secret, skip} */
@@ -16972,6 +16981,7 @@ const PLUS_FIX_SYS = [
 '內容錯（審稿員捉到，有「改法」）：照改法改嗰一句，意思要啱；其他句子唔郁。',
 '冇滿分答案句標記：喺滿分答案句前面加返指定標記，一字唔改。標記用錯：換做指定嗰個。',
 '句子太長：拆做幾句短句。常用字表以外嘅字：換做常用字。',
+'【唔好整出新問題】改嗰陣「交貨前自查」每一條都要守住；「之前幾轉犯過」嗰啲已經改好咗嘅，唔准改返轉頭；仲喺度嘅，今次一齊改。',
 '【唔准】唔准加新內容；唔准刪走整段教學；唔准寫解釋、標題、思考過程；唔准用 markdown。',
 '淨係輸出改好嘅成份逐字稿正文。'
 ].join('\n');
@@ -17005,7 +17015,11 @@ function plusFixMsgs(ctx){
   if(ctx.reader) L.push(ctx.reader);
   if(ctx.marker) L.push('【本頁指定標記】' + ctx.marker);
   if((ctx.secret || []).length) L.push('【禁洩答案（唔准喺稿入面出現）】' + ctx.secret.join('、'));
-  L.push('【機器捉到嘅問題】\n' + (ctx.problems || []).map(function(x){ return '－' + x; }).join('\n'));
+  /* 11-01a：成張自查清單（機器會查嘅全部規則）＋之前幾轉犯過嘅，唔係淨係今轉嗰幾點——改甲唔准壞乙。 */
+  L.push(plusTail(ctx.kind === 'norm' ? 'norm' : 'script', ctx.lang, ctx.marker));
+  const cur = ctx.problems || [], old = (ctx.mem || []).filter(function(x){ return x && cur.indexOf(x) < 0; }).slice(-12);
+  if(old.length) L.push('【之前幾轉犯過（改好咗嘅唔准改返轉頭）】\n' + old.map(function(x){ return '－' + x; }).join('\n'));
+  L.push('【機器捉到嘅問題】\n' + cur.map(function(x){ return '－' + x; }).join('\n'));
   L.push('【原稿】\n' + String(ctx.text || ''));
   return [{role:'system', content:PLUS_FIX_SYS}, {role:'user', content:L.join('\n\n')}];
 }
@@ -17030,7 +17044,8 @@ const PLUS_ASK_CARDFIX = [
 function plusCardFixMsgs(ctx){
   const m = plusCardMsgs(ctx);
   const k = m.length - 1, c = m[k].content;
-  const add = '\n\n' + PLUS_ASK_CARDFIX + '\n【要補】' + (ctx.missing || []).join('、') + '\n【頭先張卡】\n' + JSON.stringify(ctx.card || {});
+  const add = '\n\n' + PLUS_ASK_CARDFIX + '\n【要補】' + (ctx.missing || []).join('、') +
+              (ctx.again ? '\n（上一次補完呢幾欄仲係空：今次一定要寫返，唔准留空）' : '') + '\n【頭先張卡】\n' + JSON.stringify(ctx.card || {});
   m[k] = {role:m[k].role, content:Array.isArray(c) ? [{type:'text', text:c[0].text + add}].concat(c.slice(1)) : c + add};
   return m;
 }
@@ -28058,8 +28073,11 @@ async function plusAfterAsk(p, ctx, r, rec){
 }
 async function plusNormOne(p){
   const ctx = await plusCtx(p, true);
+  const old = PLUS.norm[p];
+  ctx.mem = (old && old.mem) || null; ctx.memBook = plusBookMem('norm', p);
   const r = await window.bookAI.plus.normal(ctx);
   const rec = {t:window.bookAI.plus.tidy(r.t, PLUS.pf.lang), at:fmtDate(new Date())};
+  if(ctx.mem) rec.mem = ctx.mem.slice();
   await plusAfterAsk(p, ctx, r, rec);
   /* 有字嘅 A 版：睇圖嗰個話真係功能頁，就淨係出 skip 句——記低，機檢當 skip 查。 */
   if(rec.t.trim() === window.bookAI.plus.skipLine(PLUS.pf.lang)) rec.skip = true;
@@ -28076,32 +28094,80 @@ function plusNormChk(rec){ return window.bookAI.plus.normCheck(rec.t, {lang:PLUS
 const PLUS_AUTO_KEY = 'plus_autofix';
 function plusAuto(){ if(PLUS.yolo) return true; try{ return localStorage.getItem(PLUS_AUTO_KEY) !== '0'; }catch(e){ return true; } }
 function plusFails(rec){ return (rec && rec.chk || []).filter(function(x){ return x.lv === 'FAIL'; }); }
-async function plusRepair(kind, p, withWarn){
+/* 11-01a 疊加式改稿。William：改完又 FAIL（同一樣或者另一樣），AI 應該記住之前犯過嘅，最後嗰版一樣都唔准有。
+   一，rec.mem：呢版每一稿機器捉到嘅問題（疊加、唔重複、存雲端），每轉連同成張自查清單一齊交，改甲唔准壞乙；
+   二，逐轉打分（FAIL 最重、AI 評審話錯嗰句仲喺度次之、WARN 最輕），記住最好嗰稿——最後交出嚟嘅一定唔差過開頭；
+   三，最多 PLUS_FIX_MAX 轉；有進步就繼續，連續兩轉冇進步先停（唔會無限燒）；
+   四，思考過程漏入稿、短過底線：改都冇用，帶住犯過清單重寫；
+   五，withWarn（撳「🤖 叫 AI 改」）：WARN 每轉都照計，唔係淨係第一轉；
+   六，ex.quotes（AI 評審捉到嘅錯句）：句仲喺稿入面就當未改好，一齊交、一齊計分。 */
+const PLUS_FIX_MAX = 4;
+function plusSq(s){ return String(s || '').replace(/\s+/g, ' ').replace(/^[「"“]|[」"”]$/g, '').replace(/(\.\.\.|。。。|…)$/, '').trim(); }
+function plusQuoteLeft(t, quotes){ const b = plusSq(t); return (quotes || []).filter(function(x){ return x && plusSq(x.quote) && b.indexOf(plusSq(x.quote)) >= 0; }); }
+function plusMemAdd(rec, list){
+  const m = (rec.mem || []).slice();
+  (list || []).forEach(function(s){ s = String(s || '').slice(0, 240); if(s && m.indexOf(s) < 0) m.push(s); });
+  rec.mem = m.slice(-20);
+}
+/* 本書其他版第一稿（同修稿途中）最常犯嘅 FAIL：寫新一版嗰陣預先講，最好一次過就過。 */
+function plusBookMem(kind, p){
+  const store = kind === 'norm' ? PLUS.norm : PLUS.scripts, c = {}, ex = {};
+  Object.keys(store || {}).forEach(function(q){
+    if((q | 0) === (p | 0)) return;
+    const r = store[q] || {}, seen = {};
+    (r.mem || []).concat((r.chk0 || r.chk || []).map(function(x){ return x.lv + '：' + x.why; })).forEach(function(s){
+      s = String(s || '');
+      if(s.indexOf('FAIL：') !== 0 || /內容錯未改/.test(s)) return;
+      s = s.slice(5);
+      const i = s.indexOf('：'), k = i > 0 ? s.slice(0, i) : s;
+      if(seen[k]) return;
+      seen[k] = 1; c[k] = (c[k] | 0) + 1; if(i > 0 && !ex[k]) ex[k] = s.slice(i + 1).slice(0, 40);
+    });
+  });
+  return Object.keys(c).sort(function(a, b){ return c[b] - c[a]; }).slice(0, 6).map(function(k){
+    return k + '（本書已經有 ' + c[k] + ' 版犯過' + (ex[k] ? '，例如' + ex[k] : '') + '）'; });
+}
+async function plusRepair(kind, p, withWarn, ex){
   const store = kind === 'norm' ? PLUS.norm : PLUS.scripts;
   let rec = store[p]; if(!rec || rec.skip) return rec;
-  const lang = PLUS.pf.lang;
+  const lang = PLUS.pf.lang, quotes = (ex && ex.quotes) || [];
   const check = function(){ rec.chk = kind === 'norm' ? plusNormChk(rec) : plusCheckNow(p); };
+  const want = function(){
+    return (rec.chk || []).filter(function(x){ return x.lv === 'FAIL' || withWarn; }).map(function(x){ return x.lv + '：' + x.why; })
+      .concat(plusQuoteLeft(rec.t, quotes).map(function(x){ return '內容錯未改：「' + plusSq(x.quote) + '」' + (x.why || '') + (x.fix ? '；改法：' + x.fix : ''); }));
+  };
+  const score = function(){ return plusFails(rec).length * 1000 + plusQuoteLeft(rec.t, quotes).length * 100 + (withWarn ? (rec.chk || []).length - plusFails(rec).length : 0); };
   /* 29b：第一次寫出嚟嗰份同佢嘅機檢留底（t0／chk0），審查包用——分得出係 AI 一寫就錯，定係修完先錯。 */
   if(rec.t0 === undefined){ rec.t0 = rec.t; rec.chk0 = (rec.chk || []).slice(); }
   const t0 = window.bookAI.plus.tidy(rec.t, lang);
   if(t0 !== rec.t){ rec.t = t0; check(); }
-  for(let round = 1; round <= 2; round++){
-    const bad = plusFails(rec);
-    const want = withWarn && round === 1 ? (rec.chk || []) : bad;
-    if(!want.length) break;
-    if(bad.some(function(x){ return /思考過程|短過/.test(x.why); })){
+  plusMemAdd(rec, want());
+  let best = {t:rec.t, chk:(rec.chk || []).slice(), s:score()}, stale = 0, round = 0;
+  while(round < PLUS_FIX_MAX && best.s > 0 && stale < 2){
+    round++;
+    const now = want();
+    if(!now.length) break;
+    if(plusFails(rec).some(function(x){ return /思考過程|短過/.test(x.why); })){
+      const keep = {t0:rec.t0, chk0:rec.chk0, fixed:rec.fixed, rev:rec.rev};
       if(kind === 'norm') rec = await plusNormOne(p); else rec = await plusScriptOne(p);
-      continue;
+      Object.keys(keep).forEach(function(k){ if(keep[k] !== undefined) rec[k] = keep[k]; });
+    }else{
+      const card = kind === 'norm' ? {} : ((PLUS.cards[p] || {}).c || {});
+      const r = await window.bookAI.plus.fix({text:rec.t, lang:lang, kind:kind, onDelta:PLUS_LIVE.fn, reader:plusReaderNow(),
+        problems:now, mem:rec.mem || [],
+        marker:kind === 'norm' ? '' : window.bookAI.plus.marker(PLUS.plan, p, lang),
+        secret:kind === 'norm' ? [] : (card.secret || [])});
+      rec.t = window.bookAI.plus.tidy(r.t, lang);
+      check();
     }
-    const card = kind === 'norm' ? {} : ((PLUS.cards[p] || {}).c || {});
-    const r = await window.bookAI.plus.fix({text:rec.t, lang:lang, kind:kind, onDelta:PLUS_LIVE.fn, reader:plusReaderNow(),
-      problems:want.map(function(x){ return x.lv + '：' + x.why; }),
-      marker:kind === 'norm' ? '' : window.bookAI.plus.marker(PLUS.plan, p, lang),
-      secret:kind === 'norm' ? [] : (card.secret || [])});
-    rec.t = window.bookAI.plus.tidy(r.t, lang);
     rec.fixed = (rec.fixed | 0) + 1;
-    check();
+    plusMemAdd(rec, want());
+    const s = rec.t.trim() ? score() : Infinity;
+    if(s < best.s){ best = {t:rec.t, chk:(rec.chk || []).slice(), s:s}; stale = 0; } else stale++;
   }
+  /* 最後一稿差過之前最好嗰稿 → 用返最好嗰稿（rec.back 記低，報告講）。 */
+  if(rec.t !== best.t){ rec.t = best.t; rec.chk = best.chk; rec.back = true; } else delete rec.back;
+  store[p] = rec;
   await plusSave((kind === 'norm' ? 'norm/' : 'script/') + p, rec);
   return rec;
 }
@@ -28120,14 +28186,22 @@ async function plusReviewOne(kind, p){
     .map(function(x){ return {quote:sq(x.quote).slice(0, 200), why:String(x.why || '').slice(0, 200), fix:String(x.fix || '').slice(0, 200)}; });
   rec.rev = {at:fmtDate(new Date()), issues:issues, fixed:false};
   if(issues.length){
-    const before = rec.t, chkB = (rec.chk || []).slice(), nB = plusFails(rec).length;
-    const fx = await window.bookAI.plus.fix({text:rec.t, lang:lang, kind:kind, onDelta:PLUS_LIVE.fn, reader:plusReaderNow(),
-      problems:issues.map(function(x){ return '內容：「' + x.quote + '」' + x.why + (x.fix ? '；改法：' + x.fix : ''); }),
-      marker:kind === 'norm' ? '' : window.bookAI.plus.marker(PLUS.plan, p, lang), secret:kind === 'norm' ? [] : (card.secret || [])});
-    rec.t = window.bookAI.plus.tidy(fx.t, lang);
-    rec.chk = kind === 'norm' ? plusNormChk(rec) : plusCheckNow(p);
-    if(!rec.t.trim() || plusFails(rec).length > nB){ rec.t = before; rec.chk = chkB; rec.rev.why = '改完機檢差咗，用返原稿'; }
-    else { rec.rev.fixed = true; rec.rev.before = before; }
+    const before = rec.t, chkB = (rec.chk || []).slice();
+    /* 11-01a：行同一個疊加 loop——錯句仲喺稿入面就當未改好；改錯句整出嘅新 FAIL 一齊記住、一齊改；最多 PLUS_FIX_MAX 轉。 */
+    const f0 = rec.fixed | 0;
+    const r2 = await plusRepair(kind, p, false, {quotes:issues});
+    const left = plusQuoteLeft(r2.t, issues);
+    /* 機檢差過原稿嘅版本唔會贏：plusRepair 計分 FAIL 一個 1000、錯句一個 100（最多六句），所以最好嗰稿嘅 FAIL 一定唔多過原稿。 */
+    if(!r2.t.trim() || left.length === issues.length){
+      r2.t = before; r2.chk = chkB; delete r2.back;
+      r2.rev.why = '改咗 ' + ((r2.fixed | 0) - f0) + ' 轉都冇改好，用返原稿（改完機檢差咗，或者錯句仲喺度）';
+      await plusSave((kind === 'norm' ? 'norm/' : 'script/') + p, r2);
+    }else{
+      r2.rev.fixed = !left.length; r2.rev.before = before;
+      if(left.length){ r2.rev.left = left.map(function(x){ return plusSq(x.quote); }); r2.rev.why = '改好咗一部分；仲有 ' + left.length + ' 句冇改到'; }
+      await plusSave((kind === 'norm' ? 'norm/' : 'script/') + p, r2);
+    }
+    return r2;
   }
   await plusSave((kind === 'norm' ? 'norm/' : 'script/') + p, rec);
   return rec;
@@ -28383,6 +28457,19 @@ function plusConflictMd(){
   });
   return ['', '## 規則衝突（AI 照優先次序自己揀咗；想改，寫入面板「📏 規則優先」）', ''].concat(L.length ? L : ['（冇）']);
 }
+/* 11-01a：改稿途中每轉犯過乜（疊加記住嗰張清單），大審查睇得出邊樣改極都改唔走、係咪改甲壞乙。 */
+function plusMemMd(){
+  const L = [];
+  [['norm', '普通稿'], ['scripts', '學霸稿']].forEach(function(k){
+    Object.keys(PLUS[k[0]]).map(Number).sort(function(a, b){ return a - b; }).forEach(function(p){
+      const r = PLUS[k[0]][p]; if(!r || !(r.fixed | 0) || !(r.mem || []).length) return;
+      const left = plusFails(r).map(function(x){ return x.why; });
+      L.push('- 第 ' + p + ' 版' + k[1] + '（改 ' + (r.fixed | 0) + ' 轉' + (r.back ? '；最後幾轉差咗，用返最好嗰稿' : '') + '）：' +
+             r.mem.map(function(s){ return String(s).replace(/\n+/g, ' ').replace(/\|/g, '｜'); }).join('；') + ' → ' + (left.length ? '仲有 FAIL：' + left.join('；') : '✓ 過晒'));
+    });
+  });
+  return L.length ? ['', '## 改稿犯過乜（每轉疊加記住、一齊交返俾 AI）', ''].concat(L) : [];
+}
 function plusRevCell(p){
   const f = function(r, lab){ if(!r || !r.rev) return ''; const n = (r.rev.issues || []).length; return lab + (n ? (r.rev.fixed ? '改咗 ' : '冇改到 ') + n + ' 處' : '✓'); };
   return [f(PLUS.norm[p], '普通'), f(PLUS.scripts[p], '學霸')].filter(Boolean).join('；') || '—';
@@ -28463,6 +28550,7 @@ function plusReportMd(){
   });
   L.push.apply(L, plusRevMd());
   L.push.apply(L, plusConflictMd());
+  L.push.apply(L, plusMemMd());
   L.push('', '## 機檢：第一次寫出嚟（修之前）', '', '### 普通稿', '', '| 問題 | 版數 |', '|---|---|');
   L.push.apply(L, plusFailCount(PLUS.norm, 'chk0').concat(plusFailCount(PLUS.norm, 'chk0').length ? [] : ['| （冇） | 0 |']));
   L.push('', '### 學霸稿', '', '| 問題 | 版數 |', '|---|---|');
@@ -28607,19 +28695,22 @@ async function plusCardAfter(p){
     row.was = row.type; row.type = c.type; row.by = 'card';
     try{ await plusSave('plan', PLUS.plan); }catch(e){}
   }
-  const miss = plusCardMissing(c);
-  if(miss.length){
+  /* 11-01a：補完仲係空就再補一次（話佢知上次空咗），最多兩轉；已經補返嘅欄唔會俾第二轉洗走。 */
+  let miss = plusCardMissing(c);
+  for(let round = 1; round <= 2 && miss.length; round++){
     const ctx = await plusCtx(p, true);
-    ctx.card = c; ctx.missing = miss;
+    const cur = k.c || c;
+    ctx.card = cur; ctx.missing = miss; ctx.again = round > 1;
     const raw = await window.bookAI.plus.cardFix(ctx);
     const c2 = window.bookAI.plus.norm(raw);
-    const keep = Object.assign({}, c);
+    const keep = Object.assign({}, cur);
     if(!keep.point) keep.point = c2.point;
     if(!keep.answer) keep.answer = c2.answer;
     if(!(keep.traps || []).length) keep.traps = c2.traps;
     if(!keep.type) keep.type = c2.type;
     k.c = keep; k.fixed = (k.fixed | 0) + 1;
     await plusSave('card/' + p, k);
+    miss = plusCardMissing(keep);
   }
 }
 /* 29d：Unit 3 二十一張卡張張都有 note（AI 好鍾意解釋自己），張張紅旗＝冇紅旗。淨係 note 真係要爹哋決定先插旗。 */
@@ -28719,9 +28810,12 @@ async function plusScriptOne(p){
   else{
     ctx = await plusCtx(p, true);
     ctx.card = card;
+    const old = PLUS.scripts[p];
+    ctx.mem = (old && old.mem) || null; ctx.memBook = plusBookMem('script', p);
     r = await window.bookAI.plus.script(ctx);
   }
   const rec = {t:card.skip ? r.t : window.bookAI.plus.tidy(r.t, PLUS.pf.lang), fix:r.fix || '', at:fmtDate(new Date())};
+  if(ctx && ctx.mem) rec.mem = ctx.mem.slice();
   if(ctx) await plusAfterAsk(p, ctx, r, rec);
   if(card.skip) rec.skip = true;
   PLUS.scripts[p] = rec;
@@ -29124,7 +29218,7 @@ function plusNormEd(p){
   show();
   ta.onchange = async function(){
     r.t = ta.value.trim(); r.by = 'dad';
-    r.chk = window.bookAI.plus.normCheck(r.t, {lang:PLUS.pf.lang});
+    r.chk = plusNormChk(r);
     show();
     try{ await plusSave('norm/' + p, r); }catch(e){}
   };
